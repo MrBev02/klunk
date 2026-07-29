@@ -23,7 +23,7 @@
   --paper-raised: #ffffff;
   --ink: #1b1917;
   --ink-soft: #4a4540;
-  --ink-faint: #8a827a;
+  --ink-faint: #6f675e;
   --rule: #ddd6c9;
   --rule-strong: #b9b0a0;
   --grid: rgb(31 78 121 / 5%);
@@ -49,7 +49,7 @@
     --paper-raised: #1e2124;
     --ink: #ece8e1;
     --ink-soft: #b8b2a9;
-    --ink-faint: #7e776e;
+    --ink-faint: #968d81;
     --rule: #32373c;
     --rule-strong: #4c535a;
     --grid: rgb(126 178 224 / 5%);
@@ -85,7 +85,7 @@ body {
   background-size: 24px 24px;
   color: var(--ink);
   font-family: var(--ui);
-  font-size: 15.5px;
+  font-size: 16px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -139,7 +139,7 @@ code,
 
 .masthead__rule {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -156,7 +156,7 @@ code,
 
 .folder-name {
   font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   padding: 0.2rem 0.5rem;
   border: 1px solid var(--rule-strong);
   border-radius: var(--r);
@@ -184,7 +184,7 @@ code,
   cursor: pointer;
   color: var(--ink-faint);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   letter-spacing: 0.02em;
 }
 
@@ -210,7 +210,7 @@ code,
 
 .tab__n {
   font-family: var(--mono);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--ink-faint);
   margin-left: 0.3rem;
 }
@@ -227,7 +227,7 @@ code,
 
 .panel__title {
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -258,7 +258,7 @@ code,
 
 .btn {
   font-family: var(--ui);
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   font-weight: 600;
   padding: 0.42rem 0.85rem;
   border: 1px solid var(--rule-strong);
@@ -309,7 +309,7 @@ code,
   border: 1px solid var(--rule-strong);
   border-radius: var(--r);
   background: var(--paper-raised);
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   width: 100%;
 }
 
@@ -341,7 +341,7 @@ code,
   align-items: center;
   gap: 0.25rem;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   letter-spacing: 0.04em;
   padding: 0.12rem 0.4rem;
   border: 1px solid var(--rule-strong);
@@ -402,7 +402,7 @@ code,
 .rail__label {
   display: block;
   font-family: var(--mono);
-  font-size: 0.66rem;
+  font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -435,7 +435,7 @@ code,
 
 .meter__label {
   font-family: var(--mono);
-  font-size: 0.66rem;
+  font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -520,7 +520,7 @@ code,
   font-family: var(--mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   text-align: right;
   color: var(--ink);
 }
@@ -572,7 +572,7 @@ code,
 
 .det__label {
   font-family: var(--mono);
-  font-size: 0.64rem;
+  font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -616,7 +616,7 @@ code,
 
 .opts__why {
   grid-column: 2;
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   color: var(--ink-faint);
   font-style: italic;
 }
@@ -642,14 +642,14 @@ code,
 
 .parts-list__marks {
   font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink-faint);
 }
 
 .parts-list__sample {
   grid-column: 2 / -1;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   color: var(--ink-soft);
   border-left: 2px solid var(--rule-strong);
   padding-left: 0.5rem;
@@ -659,7 +659,7 @@ code,
 .crit {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.94rem;
 }
 
 .crit td {
@@ -681,12 +681,12 @@ code,
   padding: 0.5rem 0.7rem;
   background: var(--blue-soft);
   border-radius: var(--r);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .minitable {
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   width: 100%;
 }
 
@@ -699,7 +699,7 @@ code,
 
 .minitable th {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -717,7 +717,7 @@ code,
   border: 1px dashed var(--rule-strong);
   border-radius: var(--r);
   padding: 0.5rem 0.7rem;
-  font-size: 0.86rem;
+  font-size: 0.92rem;
   color: var(--ink-soft);
 }
 
@@ -750,7 +750,7 @@ code,
 
 .sec__rule {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--ink-faint);
 }
 
@@ -780,7 +780,7 @@ code,
 
 .picked__n {
   font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -788,7 +788,7 @@ code,
 .picked__marks {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -797,7 +797,7 @@ code,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .picked__btns {
@@ -814,7 +814,7 @@ code,
 .sec__empty {
   padding: 1rem;
   color: var(--ink-faint);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-style: italic;
 }
 
@@ -855,7 +855,7 @@ code,
   align-items: center;
   padding: 0.42rem 0.9rem;
   border-bottom: 1px dotted var(--rule);
-  font-size: 0.86rem;
+  font-size: 0.92rem;
 }
 
 .bank__list li:hover {
@@ -879,7 +879,7 @@ code,
 
 .bank__empty {
   padding: 1rem 0.9rem;
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   color: var(--ink-faint);
   font-style: italic;
 }
@@ -936,7 +936,84 @@ code,
   padding-top: 0.9rem;
   border-top: 1px solid var(--rule);
   color: var(--ink-faint);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-family: var(--mono);
   letter-spacing: 0.02em;
+}
+
+/* -------------------------------------------------------- overflow discipline
+ *
+ * Grid and flex children default to min-width: auto, meaning they refuse to
+ * shrink below their content. A long question stem or a long file path then
+ * pushes its way out of the box instead of wrapping or ellipsing. Every text
+ * cell in a grid row needs this, and it is easier to apply it once than to
+ * remember it per component.
+ */
+
+.qrow__head > *,
+.picked li > *,
+.bank__list li > *,
+.opts li > *,
+.parts-list > li > *,
+.sec__head > * {
+  min-width: 0;
+}
+
+/* Identifiers, paths and tags have no spaces to break at, so they need explicit
+   permission to break mid-token rather than running past the edge. */
+code,
+.mono,
+.q__meta,
+.folder-name {
+  overflow-wrap: anywhere;
+}
+
+/* Chips must not force their row wider than the container. Let the row wrap
+   instead, and let a long chip's own text break. */
+.qrow__tail,
+.tagrow {
+  flex-wrap: wrap;
+}
+
+.chip {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+/* Two lines rather than one, so a stem is actually readable in the picker.
+   Single-line ellipsis hid the part of the question that distinguishes it. */
+.bank__stem {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.picked__text {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Long words inside prose blocks. */
+.det__stem,
+.sample,
+.crit td,
+.minitable td,
+.qrow__stem {
+  overflow-wrap: break-word;
+}
+
+/* Tables are the usual horizontal-overflow culprit on a narrow rail. */
+.minitable,
+.crit {
+  table-layout: fixed;
+}
+
+.det table {
+  max-width: 100%;
 }
