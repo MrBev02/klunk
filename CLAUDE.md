@@ -162,17 +162,22 @@ Regression check for the generator: Design and Technology must stay at
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
 - The Chrome browser tools attach to a **different machine**, so the app cannot be
   verified in a browser from here. Ask the user to check visually.
+  *Already confirmed on the user's machine:* the deployed page renders, and folder
+  access reports **Supported**. Do not ask again unless something changes.
 
 ## Status and what is next
 
 Done: repo and CI (Pages deploys green), capability detection, syllabus generator for
 both NESA layouts, all four schemas validated with positive and negative tests, HSC D&T
-profile, development fixtures covering all five question types.
+profile, development fixtures covering all five question types. The deployed page has
+been opened on the user's machine: it renders, and **the File System Access API is
+supported there**, so the folder-based storage model is confirmed rather than assumed.
 
-Next: the app itself. Folder picker (File System Access API, with manual open/download
-fallback for Safari and Firefox), load and browse a folder's profile/syllabus/banks,
-paper builder writing `klunk_paper` manifests, a checker enforcing profile rules, and
-print-to-PDF via a print stylesheet and `window.print()`.
+Next: the app itself. Folder picker (File System Access API is the primary path;
+manual open/download is the fallback for Safari and Firefox, not the main design),
+load and browse a folder's profile/syllabus/banks, paper builder writing `klunk_paper`
+manifests, a checker enforcing profile rules, and print-to-PDF via a print stylesheet
+and `window.print()`.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
