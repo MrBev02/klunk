@@ -413,3 +413,13 @@
     print-color-adjust: exact;
   }
 }
+
+/* The mark allocation sat almost against the stem on a full-width line. A real
+   paper always keeps clear air before it. */
+.q-print__head {
+  column-gap: 4mm;
+}
+
+.q-print__marks {
+  padding-left: 2mm;
+}

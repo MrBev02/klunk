@@ -31,7 +31,10 @@ export function QuestionRow({
   return (
     <li
       class={`qrow ${open ? 'qrow--open' : ''}`}
-      style={{ animationDelay: `${Math.min(index, 14) * 18}ms` }}
+      /* Capped hard. Fourteen rows at 18ms each plus a 320ms fade meant the
+         list was still blank most of a second after load, which reads as a
+         broken app rather than a composed one. */
+      style={{ animationDelay: `${Math.min(index, 6) * 10}ms` }}
     >
       <button
         class="qrow__head"
@@ -57,7 +60,9 @@ export function QuestionRow({
 
       {open && (
         <div class="qrow__detail">
-          <QuestionDetail question={q} />
+          {/* The collapsed row above already shows the stem, so repeating it
+              here just pushed the answers further down the screen. */}
+          <QuestionDetail question={q} showStem={false} />
           <p class="det__label" style={{ marginTop: '0.9rem' }}>
             <span class="mono">{item.file}</span> · <span class="mono">{q.id}</span>
           </p>
@@ -68,10 +73,16 @@ export function QuestionRow({
   )
 }
 
-export function QuestionDetail({ question: q }: { question: Question }) {
+export function QuestionDetail({
+  question: q,
+  showStem = true,
+}: {
+  question: Question
+  showStem?: boolean
+}) {
   return (
     <>
-      <p class="det__stem">{q.questionText}</p>
+      {showStem && <p class="det__stem">{q.questionText}</p>}
 
       {q.stimulus?.length ? (
         <div class="det">

@@ -445,7 +445,7 @@ function StartPaper({
                 <li
                   class="qrow"
                   key={p.path}
-                  style={{ animationDelay: `${Math.min(i, 14) * 18}ms` }}
+                  style={{ animationDelay: `${Math.min(i, 6) * 10}ms` }}
                 >
                   <button class="qrow__head" onClick={() => onStart(p.data)}>
                     <span class="qrow__marks">{p.data.sections.length}§</span>

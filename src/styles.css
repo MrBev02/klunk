@@ -478,7 +478,7 @@ code,
   border-bottom: 1px solid var(--rule);
   /* Staggered reveal on first paint. Cheap, and it makes a long list feel
      composed rather than dumped. */
-  animation: rise 0.32s ease-out backwards;
+  animation: rise 0.18s ease-out backwards;
 }
 
 @keyframes rise {
@@ -1016,4 +1016,47 @@ code,
 
 .det table {
   max-width: 100%;
+}
+
+/* ------------------------------------------------------------ measure and fit
+ *
+ * Fixes from actually looking at the thing in a browser rather than reasoning
+ * about the stylesheet.
+ */
+
+/* Prose was running the full width of a wide window, which is far past the
+   45-75 characters a line can comfortably be read at. Cap the measure without
+   narrowing the tables and rows that genuinely want the width. */
+.det__stem,
+.sample,
+.opts li > span:nth-child(2),
+.opts__why,
+.parts-list__sample,
+.qrow__stem {
+  max-width: 68ch;
+}
+
+.crit td:first-child,
+.minitable td:first-child {
+  max-width: 60ch;
+}
+
+/* The min-width: 0 that stopped text overflowing also let control clusters
+   squash: at narrow widths the up/down/remove buttons were losing about 9px and
+   crowding into each other. Text cells should shrink; button groups should not. */
+.picked__btns,
+.qrow__tail,
+.picked__marks,
+.picked__n,
+.qrow__marks,
+.bank__marks {
+  min-width: max-content;
+}
+
+/* Give the expanded detail a visible left edge, so where one question's answers
+   end and the next question begins is obvious at a glance. */
+.qrow__detail {
+  border-left: 2px solid var(--rule-strong);
+  margin-left: 1rem;
+  padding-left: 1.4rem;
 }
