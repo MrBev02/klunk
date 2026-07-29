@@ -97,13 +97,15 @@
             "label": "(a)",
             "text": "Identify TWO criteria the designer should apply when selecting the finish.",
             "marks": 2,
-            "answerLines": 4
+            "answerLines": 4,
+            "sampleAnswer": "Any two of: durability against weather and UV, safety and toxicity in an outdoor setting, ease of reapplication and maintenance, cost over the life of the bench, appearance and how it ages. One mark each, and the criterion must be justified rather than only named."
           },
           {
             "label": "(b)",
             "text": "Explain the environmental consequences of the finish you would select.",
             "marks": 3,
-            "answerLines": 6
+            "answerLines": 6,
+            "sampleAnswer": "A water-based finish releases far fewer volatile organic compounds than a solvent-based one, so it is better for the applicator and for local air quality. It needs recoating more often, which uses more material over the bench's life, so the judgement should weigh the lower immediate harm against the higher ongoing use."
           }
         ]
       }
@@ -205,6 +207,23 @@
           90
         ],
         "grid": false
+      },
+      "markingGuide": {
+        "sampleAnswer": "A response worth full marks shows a larger diameter handle with a contoured or flared grip, annotated to say why: a wider grip needs less pinch force, and the flare stops the hand sliding. Marks are for the modification being ergonomically sound and clearly annotated, not for drawing quality.",
+        "criteria": [
+          {
+            "marks": 3,
+            "description": "Sketch shows a modification that plausibly reduces required grip strength."
+          },
+          {
+            "marks": 2,
+            "description": "Annotation explains why the modification helps the identified user."
+          },
+          {
+            "marks": 1,
+            "description": "Sketch is clear enough to read the intent."
+          }
+        ]
       }
     },
     {

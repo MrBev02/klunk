@@ -192,17 +192,20 @@ function QuestionBody({
 }) {
   const q = item.question
 
+  // The marking guide is a different document, not the paper with annotations.
+  // A marker already has the paper in front of them, so repeating every option
+  // and every blank line just buries the answer.
+  if (mode === 'guide') return <GuideAnswer item={item} />
+
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, correctIndex, letters } = shuffledChoices(q)
+      const { choices, letters } = shuffledChoices(q)
       return (
         <ol class="choices">
           {choices.map((c, i) => (
-            <li key={i} class={mode === 'guide' && i === correctIndex ? 'choices__correct' : ''}>
+            <li key={i}>
               <span class="choices__letter">{letters[i]}.</span>
               <span>{c.text}</span>
-              {mode === 'guide' && i === correctIndex && <strong class="tick"> correct</strong>}
-              {mode === 'guide' && c.feedback && <em class="choices__why">{c.feedback}</em>}
             </li>
           ))}
         </ol>
@@ -214,11 +217,6 @@ function QuestionBody({
         <p class="truefalse">
           <span>TRUE</span>
           <span>FALSE</span>
-          {mode === 'guide' && (
-            <strong class="tick">
-              Answer: {q.config?.correctAnswer === true ? 'TRUE' : 'FALSE'}
-            </strong>
-          )}
         </p>
       )
 
@@ -252,17 +250,82 @@ function QuestionBody({
                     ({part.marks} mark{part.marks === 1 ? '' : 's'})
                   </span>
                 </div>
-                {mode === 'paper' ? (
-                  <Lines n={part.answerLines ?? Math.max(2, Math.round(part.marks * 2))} />
-                ) : (
-                  part.sampleAnswer && <p class="guide__sample">{part.sampleAnswer}</p>
-                )}
+                <Lines n={part.answerLines ?? Math.max(2, Math.round(part.marks * 2))} />
               </li>
             ))}
           </ol>
         )
       }
-      return mode === 'paper' ? <Lines n={answerLinesFor(q, item.marks, profile)} /> : null
+      return <Lines n={answerLinesFor(q, item.marks, profile)} />
+    }
+  }
+}
+
+/**
+ * What a marker actually needs: the answer, why it is the answer, and what a
+ * response worth the marks looks like.
+ */
+function GuideAnswer({ item }: { item: ResolvedQuestion }) {
+  const q = item.question
+
+  switch (q.questionType) {
+    case 'multiple_choice': {
+      const { choices, correctIndex, letters } = shuffledChoices(q)
+      const correct = choices[correctIndex]
+      return (
+        <>
+          <p class="answer">
+            <strong>Answer: {letters[correctIndex]}</strong>
+            {correct ? ` — ${correct.text}` : ''}
+          </p>
+          {correct?.feedback && <p class="why">{correct.feedback}</p>}
+        </>
+      )
+    }
+
+    case 'true_false': {
+      const yes = q.config?.correctAnswer === true
+      const why = yes ? q.config?.feedbackTrue : q.config?.feedbackFalse
+      return (
+        <>
+          <p class="answer">
+            <strong>Answer: {yes ? 'TRUE' : 'FALSE'}</strong>
+          </p>
+          {why && <p class="why">{why}</p>}
+        </>
+      )
+    }
+
+    case 'table':
+      return <TableBody question={q} mode="guide" />
+
+    case 'drawing':
+      return q.config?.instructions ? (
+        <>
+          <p class="guide__head">Expected response</p>
+          <p>{q.config.instructions}</p>
+        </>
+      ) : null
+
+    default: {
+      const parts = q.config?.parts
+      if (!parts?.length) return null
+      return (
+        <ol class="parts">
+          {parts.map((part, i) => (
+            <li key={i}>
+              <div class="parts__head">
+                <span class="parts__label">{part.label}</span>
+                <span class="parts__text">{part.text}</span>
+                <span class="parts__marks">
+                  ({part.marks} mark{part.marks === 1 ? '' : 's'})
+                </span>
+              </div>
+              {part.sampleAnswer && <p class="guide__sample">{part.sampleAnswer}</p>}
+            </li>
+          ))}
+        </ol>
+      )
     }
   }
 }
@@ -299,37 +362,55 @@ function TableBody({ question, mode }: { question: Question; mode: PrintMode }) 
 
 function GuideBlock({ question }: { question: Question }) {
   const guide = question.markingGuide
-  if (!guide?.sampleAnswer && !guide?.criteria?.length && !guide?.notes) return null
+  const wantsSample =
+    question.questionType === 'short_answer' ||
+    question.questionType === 'extended_response' ||
+    question.questionType === 'drawing'
+  // A question whose parts each carry a sample answer is already covered, so
+  // saying so again at question level is nagging rather than useful.
+  const partsCovered = question.config?.parts?.some((p) => p.sampleAnswer) ?? false
+  const showMissing = wantsSample && !guide?.sampleAnswer && !partsCovered
+  const hasAnything = guide?.sampleAnswer || guide?.criteria?.length || guide?.notes
+
+  if (!hasAnything && !showMissing) return null
 
   return (
     <div class="guide">
-      {guide.criteria?.length ? (
-        <table class="guide__criteria">
-          <thead>
-            <tr>
-              <th>Criteria</th>
-              <th>Marks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {guide.criteria.map((c, i) => (
-              <tr key={i}>
-                <td>{c.description}</td>
-                <td class="guide__marks">{c.marks}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-
-      {guide.sampleAnswer && (
+      {/*
+        Sample answer before the criteria, deliberately. A table of marks says
+        how to score a response; it does not say what a response worth those
+        marks looks like. A teacher marking the course for the first time, or a
+        student given the guide back, needs the second thing first.
+      */}
+      {guide?.sampleAnswer ? (
         <>
-          <h4>Sample answer</h4>
+          <p class="guide__head">Sample answer</p>
           <p class="guide__sample">{guide.sampleAnswer}</p>
         </>
-      )}
+      ) : showMissing ? (
+        <p class="guide__missing">
+          No sample answer recorded. Marking this consistently, or handing the
+          guide back to a class, is much harder without one.
+        </p>
+      ) : null}
 
-      {guide.notes && <p class="guide__notes">{guide.notes}</p>}
+      {guide?.criteria?.length ? (
+        <>
+          <p class="guide__head">Marking criteria</p>
+          <table class="guide__criteria">
+            <tbody>
+              {guide.criteria.map((c, i) => (
+                <tr key={i}>
+                  <td>{c.description}</td>
+                  <td class="guide__marks">{c.marks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+
+      {guide?.notes && <p class="guide__notes">{guide.notes}</p>}
     </div>
   )
 }

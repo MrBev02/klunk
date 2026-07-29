@@ -423,3 +423,60 @@
 .q-print__marks {
   padding-left: 2mm;
 }
+
+/* ------------------------------------------------------- marking guide, v2
+ *
+ * The guide is its own document rather than the paper with ticks on it. A
+ * marker has the paper in front of them, so repeating every option buried the
+ * answer, and the "correct" label was landing in the 7mm letter column and
+ * printing on top of the option text.
+ */
+
+.answer {
+  margin: 0 0 1mm;
+  font-size: 11pt;
+}
+
+.answer strong {
+  /* The one thing a marker is looking for. */
+  border-bottom: 1.5pt solid #000;
+}
+
+.why {
+  margin: 0 0 2mm;
+  font-size: 10pt;
+  font-style: italic;
+}
+
+.guide__head {
+  margin: 3mm 0 1mm;
+  font-size: 9.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.guide__head:first-child {
+  margin-top: 0;
+}
+
+.guide__sample {
+  margin: 0;
+  padding: 2mm 3mm;
+  background: #f4f4f0;
+  border-left: 2pt solid #000;
+}
+
+.guide__missing {
+  margin: 0 0 2mm;
+  padding: 2mm 3mm;
+  border: 0.6pt dashed #000;
+  font-size: 9.5pt;
+  font-style: italic;
+}
+
+/* No header row: two columns of criteria and marks read fine without one, and
+   the row it saves is a row of vertical space on a long guide. */
+.guide__criteria th {
+  display: none;
+}

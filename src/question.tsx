@@ -251,10 +251,21 @@ function Guide({ question: q }: { question: Question }) {
 
   return (
     <div class="det">
-      <p class="det__label">Marking guide</p>
+      {/* Sample answer before the criteria, matching the printed guide. A table
+          of marks says how to score a response; it does not say what a response
+          worth those marks looks like. */}
+      {g.sampleAnswer && (
+        <>
+          <p class="det__label">Sample answer</p>
+          <p class="sample">{g.sampleAnswer}</p>
+        </>
+      )}
 
       {g.criteria?.length ? (
         <>
+          <p class="det__label" style={{ marginTop: g.sampleAnswer ? '0.7rem' : '0' }}>
+            Marking criteria
+          </p>
           <table class="crit">
             <tbody>
               {g.criteria.map((c, i) => (
@@ -272,15 +283,6 @@ function Guide({ question: q }: { question: Question }) {
           )}
         </>
       ) : null}
-
-      {g.sampleAnswer && (
-        <>
-          <p class="det__label" style={{ marginTop: '0.6rem' }}>
-            Sample answer
-          </p>
-          <p class="sample">{g.sampleAnswer}</p>
-        </>
-      )}
 
       {g.notes && <p class="muted">{g.notes}</p>}
     </div>
