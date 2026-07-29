@@ -23,10 +23,23 @@ commercial use. A complete content inventory republished on the public web is no
 of those. So you generate a model from your own copy of the syllabus, into your own
 folder, using the tools in `tools/`.
 
-That constraint made the tool better than bundling would have. Every NESA Stage 6
-syllabus of that era shares one content-table format, so the same generator handles
-Design and Technology, Industrial Technology, Food Technology, Textiles and Design
-and Agriculture without changes:
+That constraint made the tool better than bundling would have. The generator reads
+both NESA Stage 6 (2013) content layouts, so it covers more than one course:
+
+| Course | Topics | Points | Notes |
+|---|---|---|---|
+| Design and Technology | 40 | 139 | Full outcome mapping |
+| Textiles and Design | 34 | 183 | Full outcome mapping |
+| Food Technology | 26 | 125 | Full outcome mapping |
+| Industrial Technology | 163 | 1128 | 17 focus areas; see limitation below |
+
+**Industrial Technology limitation.** NESA states outcomes once per course section
+rather than per focus-area table, so 149 of its topics carry no outcome codes. The
+generator leaves them empty rather than inventing a mapping the syllabus does not
+make. Filtering by topic and focus area works; filtering by outcome does not.
+
+Agriculture is not supported: it does not publish a Stage 6 syllabus `.docx` at the
+same location.
 
 ```
 python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \

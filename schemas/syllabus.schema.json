@@ -114,6 +114,10 @@
           "type": "string",
           "description": "The heading verbatim from the syllabus, kept because 'name' is edited and the original still has to be checkable."
         },
+        "group": {
+          "type": "string",
+          "description": "The section or focus area this topic sits under, where the syllabus has one. Industrial Technology repeats topic names across eight HSC focus areas, so without this a flat topic list is unreadable."
+        },
         "outcomes": {
           "type": "array",
           "description": "Outcome codes this topic serves. Most syllabuses map outcomes to a block of content rather than to each point, so this sits at topic level.",

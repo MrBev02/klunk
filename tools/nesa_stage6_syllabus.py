@@ -64,6 +64,18 @@ OUTCOME_RE = re.compile(r"^([A-Z]{1,2}\d+\.\d+)\s*(.*)$", re.S)
 # tables and each heading overwrites the last, so the nearest one still wins.
 COURSE_HEADING_RE = re.compile(r"Content:.*?\b(Preliminary|HSC)\b", re.I)
 
+# Industrial Technology never writes "Content: ... HSC". It splits the course
+# into focus areas and marks each one "Focus Area: Automotive Technologies
+# (Preliminary)" or "... (HSC)". Without this, every focus area inherits the
+# last Content: heading and the whole Preliminary half is filed under HSC.
+COURSE_MARKER_RE = re.compile(r"\((Preliminary|HSC)\)", re.I)
+
+# A heading worth recording as the group a topic sits in. Prose is excluded by
+# length and by the full stop it ends on; outcome lines and the "Outcomes" /
+# "A student:" scaffolding are excluded by the caller.
+HEADING_MAX = 100
+BOILERPLATE = {"outcomes", "a student:", "students learn about:", "students learn to:"}
+
 # A topic heading often ends by announcing its own list.
 TRAILING_NOISE_RE = re.compile(r"[,;]?\s*includ(?:ing|es)\s*[:;.]?\s*$", re.I)
 
@@ -85,6 +97,7 @@ class Topic:
     id: str
     name: str
     text: str
+    group: str = ""
     outcomes: list[str] = field(default_factory=list)
     points: list[Point] = field(default_factory=list)
     skills: list[str] = field(default_factory=list)
@@ -164,12 +177,73 @@ def iter_blocks(xml: str) -> Iterator[tuple[str, object]]:
                 yield "table", rows
 
 
-def is_content_table(rows: list[list[list[str]]]) -> bool:
-    """Return whether a table is a "Students learn about / learn to" grid."""
-    if not rows or len(rows[0]) < 3:
-        return False
-    header = [" ".join(c).strip().lower().rstrip(":") for c in rows[0][:3]]
-    return all(h.startswith(want) for h, want in zip(header, CONTENT_HEADERS))
+def table_layout(rows: list[list[list[str]]]) -> str | None:
+    """Identify which content-table layout a table uses, if any.
+
+    NESA Stage 6 (2013) syllabuses use two layouts, and a generator that assumes
+    either one silently handles half the faculty:
+
+    ``wide``
+        One table per course, three columns, ``Outcomes | Students learn about |
+        Students learn to``. The outcome cell is blank on continuation rows.
+        Design and Technology.
+
+    ``narrow``
+        Many small tables, two columns, ``Students learn about | Students learn
+        to``, no outcome column at all. Each row is one topic, and the outcomes
+        appear as ordinary paragraphs above the table. Industrial Technology,
+        Textiles and Design, Food Technology.
+
+    Args:
+        rows: The table, header row first.
+
+    Returns:
+        ``"wide"``, ``"narrow"``, or None if this is not a content table.
+    """
+    if not rows:
+        return None
+    header = [" ".join(c).strip().lower().rstrip(":") for c in rows[0]]
+
+    if len(header) >= 3 and all(
+        h.startswith(want) for h, want in zip(header, CONTENT_HEADERS)
+    ):
+        return "wide"
+
+    if len(header) >= 2 and all(
+        h.startswith(want) for h, want in zip(header, CONTENT_HEADERS[1:])
+    ):
+        return "narrow"
+
+    return None
+
+
+def course_of(codes: list[str], hint: str | None) -> tuple[str, str]:
+    """Decide which course a block of content belongs to.
+
+    In the narrow layout nothing names the course, but the outcome codes do:
+    NESA prefixes Preliminary outcomes with P and HSC outcomes with H. Falling
+    back to the nearest "Content: ... Preliminary/HSC" heading covers the wide
+    layout and anything that breaks the convention.
+
+    Args:
+        codes: Outcome codes in scope, e.g. ``["P1.1", "P4.2"]``.
+        hint: The most recent course heading, if one was seen.
+
+    Returns:
+        A ``(slug, display name)`` pair.
+    """
+    letters = {c[0].upper() for c in codes if c}
+    if letters == {"P"}:
+        return "pre", "Preliminary course"
+    if letters == {"H"}:
+        return "hsc", "HSC course"
+    if hint:
+        low = hint.lower()
+        if low.startswith("prelim"):
+            return "pre", "Preliminary course"
+        if low.startswith("hsc"):
+            return "hsc", "HSC course"
+    return "course", "Course"
 
 
 def tidy_name(heading: str) -> str:
@@ -187,49 +261,88 @@ def tidy_name(heading: str) -> str:
     return TRAILING_NOISE_RE.sub("", heading).strip().rstrip(":;.,").strip()
 
 
-def build_course(course_id: str, name: str, rows: list[list[list[str]]]) -> Course:
-    """Turn one content table into a course.
+def add_topic(
+    course: Course,
+    about: list[str],
+    skills: list[str],
+    outcomes: list[str],
+    group: str = "",
+) -> None:
+    """Append one topic to a course.
+
+    The first paragraph of a "Students learn about" cell is the topic heading
+    and the rest are its content points. Both layouts agree on that, which is
+    why they can share this.
 
     Args:
-        course_id: Slug used in topic ids, e.g. ``pre``.
-        name: Human-readable course name.
-        rows: The table, header row included.
-
-    Returns:
-        The course with outcomes and numbered topics.
+        course: Course to extend. Topic numbering continues from its length, so
+            a course spread over many tables still numbers straight through.
+        about: The "Students learn about" cell, one entry per paragraph.
+        skills: The "Students learn to" cell.
+        outcomes: Outcome codes in scope for this topic.
+        group: The section or focus area the topic sits under. Industrial
+            Technology repeats topic names across eight focus areas, so without
+            this a teacher browsing 146 flat topics cannot tell Automotive from
+            Electronics.
     """
-    prefix = course_id.upper()
-    course = Course(id=course_id, name=name)
+    if not about:
+        return
+
+    heading, *points = about
+    topic = Topic(
+        id=f"{course.id.upper()}-{len(course.topics) + 1:02d}",
+        name=tidy_name(heading),
+        text=heading,
+        group=group,
+        outcomes=list(outcomes),
+        skills=list(skills),
+    )
+    topic.points = [
+        Point(id=f"{topic.id}.{i:02d}", text=p) for i, p in enumerate(points, 1)
+    ]
+    course.topics.append(topic)
+
+
+def add_wide_table(course: Course, rows: list[list[list[str]]], group: str = "") -> None:
+    """Add a three-column table, where each row may carry its own outcome.
+
+    Args:
+        course: Course to extend.
+        rows: The table, header row included.
+    """
     current: list[str] = []
 
     for row in rows[1:]:
         if len(row) < 3:
             continue
 
-        if outcome_cell := " ".join(row[0]).strip():
-            if m := OUTCOME_RE.match(outcome_cell):
+        if cell := " ".join(row[0]).strip():
+            if m := OUTCOME_RE.match(cell):
                 code, text = m.group(1), m.group(2).strip()
                 course.outcomes.setdefault(code, text)
                 current = [code]
 
-        about = row[1]
-        if not about:
+        add_topic(course, row[1], row[2], current, group)
+
+
+def add_narrow_table(
+    course: Course,
+    rows: list[list[list[str]]],
+    outcomes: list[str],
+    group: str = "",
+) -> None:
+    """Add a two-column table, where every row is a topic.
+
+    Args:
+        course: Course to extend.
+        rows: The table, header row included.
+        outcomes: Outcome codes gathered from the paragraphs above the table,
+            which apply to every topic in it.
+    """
+    for row in rows[1:]:
+        if len(row) < 2:
             continue
-
-        heading, *points = about
-        topic = Topic(
-            id=f"{prefix}-{len(course.topics) + 1:02d}",
-            name=tidy_name(heading),
-            text=heading,
-            outcomes=list(current),
-            skills=list(row[2]),
-        )
-        topic.points = [
-            Point(id=f"{topic.id}.{i:02d}", text=p) for i, p in enumerate(points, 1)
-        ]
-        course.topics.append(topic)
-
-    return course
+        add_topic(course, row[0], row[1], outcomes, group)
 
 
 def parse(path: Path) -> list[Course]:
@@ -248,25 +361,51 @@ def parse(path: Path) -> list[Course]:
     with zipfile.ZipFile(path) as z:
         xml = z.read("word/document.xml").decode("utf8")
 
-    courses: list[Course] = []
-    pending: str | None = None
+    courses: dict[str, Course] = {}
+    hint: str | None = None
+    # Outcomes stated as plain paragraphs since the last content table. In the
+    # narrow layout this is the only place they appear.
+    pending: dict[str, str] = {}
+
+    group = ""
 
     for kind, value in iter_blocks(xml):
         if kind == "para":
             assert isinstance(value, str)
             if m := COURSE_HEADING_RE.search(value):
-                pending = m.group(1)
+                hint = m.group(1)
+            elif m := OUTCOME_RE.match(value):
+                pending.setdefault(m.group(1), m.group(2).strip())
+            else:
+                # A focus-area marker names the course as well as the group, and
+                # is the only course signal Industrial Technology gives.
+                if m := COURSE_MARKER_RE.search(value):
+                    hint = m.group(1)
+                if (
+                    len(value) <= HEADING_MAX
+                    and not value.endswith(".")
+                    and value.lower() not in BOILERPLATE
+                ):
+                    group = value
             continue
 
         assert isinstance(value, list)
-        if not is_content_table(value):
+        layout = table_layout(value)
+        if layout is None:
             continue
 
-        label = pending or f"Course {len(courses) + 1}"
-        slug = {"preliminary": "pre", "hsc": "hsc"}.get(label.lower(), f"c{len(courses) + 1}")
-        display = "Preliminary course" if slug == "pre" else "HSC course" if slug == "hsc" else label
-        courses.append(build_course(slug, display, value))
-        pending = None
+        codes = list(pending)
+        slug, display = course_of(codes, hint)
+        course = courses.setdefault(slug, Course(id=slug, name=display))
+
+        if layout == "wide":
+            add_wide_table(course, value, group)
+        else:
+            for code, text in pending.items():
+                course.outcomes.setdefault(code, text)
+            add_narrow_table(course, value, codes, group)
+
+        pending = {}
 
     if not courses:
         raise ValueError(
@@ -274,7 +413,10 @@ def parse(path: Path) -> list[Course]:
             "this does not look like a NESA Stage 6 (2013) syllabus"
         )
 
-    return courses
+    # Preliminary before HSC, then anything unrecognised, so output order is
+    # stable regardless of how the document happened to be laid out.
+    order = {"pre": 0, "hsc": 1}
+    return [c for _, c in sorted(courses.items(), key=lambda kv: order.get(kv[0], 9))]
 
 
 def to_model(courses: list[Course], args: argparse.Namespace) -> dict[str, object]:
@@ -320,6 +462,7 @@ def to_model(courses: list[Course], args: argparse.Namespace) -> dict[str, objec
                         "id": t.id,
                         "name": t.name,
                         "text": t.text,
+                        **({"group": t.group} if t.group else {}),
                         "outcomes": t.outcomes,
                         "points": [{"id": p.id, "text": p.text} for p in t.points],
                         "skills": t.skills,
