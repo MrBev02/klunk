@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionRow } from './question'
@@ -8,6 +8,7 @@ import {
   forgetFolder,
   pickFolder,
   regrant,
+  releaseImages,
   restoreFolder,
   scanFolder,
   type ContentIndex,
@@ -28,17 +29,30 @@ export function App() {
   const [view, setView] = useState<View>('library')
   const [paper, setPaper] = useState<Paper | null>(null)
 
-  const load = useCallback(async (handle: FileSystemDirectoryHandle) => {
-    setPhase('scanning')
-    try {
-      setIndex(await scanFolder(handle))
-      setFolder(handle)
-      setPhase('ready')
-    } catch (err) {
-      setError((err as Error).message)
-      setPhase('error')
-    }
+  // The live index is mirrored in a ref so a rescan can hand the one it replaces
+  // to scanFolder for its image URLs to be released. A ref, not the state value:
+  // load must not change identity every scan, or the Builder's onSaved would
+  // rescan against a stale index.
+  const indexRef = useRef<ContentIndex>(index)
+  const replaceIndex = useCallback((next: ContentIndex) => {
+    indexRef.current = next
+    setIndex(next)
   }, [])
+
+  const load = useCallback(
+    async (handle: FileSystemDirectoryHandle) => {
+      setPhase('scanning')
+      try {
+        replaceIndex(await scanFolder(handle, indexRef.current))
+        setFolder(handle)
+        setPhase('ready')
+      } catch (err) {
+        setError((err as Error).message)
+        setPhase('error')
+      }
+    },
+    [replaceIndex],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -68,10 +82,12 @@ export function App() {
   const close = useCallback(async () => {
     await forgetFolder()
     setFolder(null)
-    setIndex(emptyIndex())
+    // Discarded with no replacement scan, so the release has to happen here.
+    releaseImages(indexRef.current)
+    replaceIndex(emptyIndex())
     setPaper(null)
     setPhase('empty')
-  }, [])
+  }, [replaceIndex])
 
   const questionCount = useMemo(() => allQuestions(index).length, [index])
 

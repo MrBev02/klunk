@@ -74,7 +74,16 @@ export function joinPath(baseFile: string, rel: string): string {
   return parts.join('/')
 }
 
-/** Release the previous scan's object URLs so a reload does not leak them. */
+/**
+ * Release an index's image object URLs.
+ *
+ * The rule is that a `ContentIndex` owns the object URLs in its `images` map, so
+ * whoever discards an index must release it. `scanFolder` does that for the
+ * index it replaces; a caller that throws an index away without scanning a
+ * replacement calls this itself. Object URLs live until the page unloads, and a
+ * rescan happens on every reload and every paper save, so nothing else reclaims
+ * them.
+ */
 export function releaseImages(index: ContentIndex): void {
   for (const url of index.images.values()) URL.revokeObjectURL(url)
   index.images.clear()
@@ -245,8 +254,14 @@ async function* walk(
  * A file that fails to parse, or that carries a Klunk type but the wrong shape,
  * becomes a problem rather than an exception. One bad file must not stop a
  * teacher seeing the other forty.
+ *
+ * Pass the index this one replaces as `previous` and its image object URLs are
+ * released, which is the only thing that reclaims them.
  */
-export async function scanFolder(dir: FileSystemDirectoryHandle): Promise<ContentIndex> {
+export async function scanFolder(
+  dir: FileSystemDirectoryHandle,
+  previous?: ContentIndex,
+): Promise<ContentIndex> {
   const index = emptyIndex()
 
   for await (const { path, handle } of walk(dir)) {
@@ -292,6 +307,10 @@ export async function scanFolder(dir: FileSystemDirectoryHandle): Promise<Conten
   index.papers.sort(byPath)
 
   await loadImages(dir, index)
+
+  // Last, and only on success: a scan that throws leaves the previous index on
+  // screen, still needing the images it points at.
+  if (previous) releaseImages(previous)
 
   return index
 }
