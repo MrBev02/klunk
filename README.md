@@ -81,9 +81,20 @@ machine and when.
 
 ## Browser support
 
-Chrome and Edge are fully supported: the app opens your folder directly and saves in
-place. Safari and Firefox lack the File System Access API, so they fall back to manual
-file open and download.
+**Klunk needs Chrome or Edge.** It works by opening a folder on your computer and
+reading and writing in place, which needs the File System Access API. Safari and
+Firefox do not have it, and there is no way to do the same job without it.
+
+Opened in Safari or Firefox, Klunk says so on the welcome screen rather than failing
+in some confusing way. Nothing is lost by switching: your papers and banks are plain
+files in your own folder, so whichever browser you open next reads the same content.
+
+An earlier version of this file promised that Safari and Firefox would "fall back to
+manual file open and download". They never did, and that fallback has been dropped
+rather than built: a folder picked through a file input cannot be written back to, so
+saving would have become a download the teacher moves into place by hand, and the
+folder would have to be re-picked every visit. Recorded here rather than quietly
+deleted, because someone will otherwise propose it again.
 
 ## Status
 

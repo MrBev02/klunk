@@ -113,13 +113,6 @@ export function App() {
         )}
       </header>
 
-      {insecure && (
-        <section class="panel panel--alert">
-          <p class="panel__title">Folder access unavailable</p>
-          <p>{insecure}</p>
-        </section>
-      )}
-
       {phase === 'starting' && <p class="muted">Looking for the folder you used last time…</p>}
       {phase === 'scanning' && <p class="muted">Reading your folder…</p>}
 
@@ -135,7 +128,9 @@ export function App() {
         </section>
       )}
 
-      {phase === 'empty' && <Welcome caps={caps} onChoose={() => void choose()} />}
+      {phase === 'empty' && (
+        <Welcome caps={caps} insecure={insecure} onChoose={() => void choose()} />
+      )}
 
       {phase === 'ready' && (
         <>
@@ -177,19 +172,27 @@ export function App() {
 
 function Welcome({
   caps,
+  insecure,
   onChoose,
 }: {
   caps: ReturnType<typeof detectCapabilities>
+  insecure: string | null
   onChoose: () => void
 }) {
   if (caps.storageMode !== 'folder') {
     return (
       <section class="panel panel--alert">
-        <p class="panel__title">This browser cannot open a folder</p>
+        <p class="panel__title">Klunk needs Chrome or Edge</p>
         <p>
-          Klunk works by reading and writing a folder on your computer, which Chrome and
-          Edge allow and this browser does not. Open Klunk in Chrome or Edge instead.
+          Klunk works by opening a folder on your computer and reading and writing in
+          place. Only Chrome and Edge can do that, so this browser cannot run it. Open
+          the same link in Chrome or Edge and carry on.
         </p>
+        <p class="muted">
+          Nothing is lost by switching. Your banks and papers are ordinary files in your
+          own folder, so the other browser reads exactly the same content.
+        </p>
+        {insecure && <p class="muted">{insecure}</p>}
       </section>
     )
   }
