@@ -15,6 +15,19 @@ import { PrintablePaper, type PrintMode } from './render'
 import { allQuestions, writeJson, type ContentIndex } from './storage'
 import { QUESTION_TYPE_LABELS, refKey, type Paper, type Profile } from './types'
 
+/**
+ * The three states a paper can be in, worded for a teacher rather than for the
+ * schema. Typed against `Paper` so the options cannot drift from the enum the
+ * schema validates, and so a value added there shows up here as a type error.
+ */
+type PaperStatus = NonNullable<Paper['status']>
+
+const PAPER_STATUS: { value: PaperStatus; label: string }[] = [
+  { value: 'draft', label: 'Draft, still being built' },
+  { value: 'final', label: 'Final, not yet sat' },
+  { value: 'used', label: 'Already sat by students' },
+]
+
 export function Builder({
   index,
   folder,
@@ -111,6 +124,36 @@ export function Builder({
             {profile ? profile.name : 'No profile: structure cannot be checked'} ·{' '}
             <span class="mono">papers/{paper.id}.json</span>
           </p>
+
+          <div class="paperstatus">
+            <label class="rail__label" for="paper-status">
+              Status
+            </label>
+            <select
+              id="paper-status"
+              class="input"
+              value={paper.status ?? 'draft'}
+              onChange={(e) =>
+                setPaper({
+                  ...paper,
+                  status: (e.target as HTMLSelectElement).value as PaperStatus,
+                })
+              }
+            >
+              {PAPER_STATUS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <span class="muted paperstatus__note">
+              {paper.status === 'used'
+                ? 'Its questions now raise a warning on any other paper that uses them.'
+                : 'Mark a paper as sat and Klunk warns when another paper reuses its questions.'}
+              {' Save to record the change.'}
+            </span>
+          </div>
+
           <div class="rowbtns" style={{ marginTop: '0.8rem' }}>
             <button class="btn btn--primary" disabled={saving} onClick={() => void save()}>
               {saving ? 'Saving…' : 'Save'}

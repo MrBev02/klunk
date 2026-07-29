@@ -723,6 +723,34 @@ code,
 
 /* ------------------------------------------------------------------- builder */
 
+/* Status lives in the paper panel next to Save, not in a settings screen. It is
+   the control that arms the already-sat warning, so it has to be where a teacher
+   finishing a paper will actually see it. One row: label, control, consequence. */
+.paperstatus {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+.paperstatus .rail__label {
+  margin-bottom: 0;
+}
+
+/* .input is width:100% for the filter rail, which would push the hint onto its
+   own line here. */
+.paperstatus .input {
+  width: auto;
+}
+
+.paperstatus__note {
+  flex: 1 1 18rem;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 .sec {
   border: 1px solid var(--rule);
   border-radius: var(--r);

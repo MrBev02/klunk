@@ -29,6 +29,8 @@ export interface ResolvedQuestion {
   number: number
   marks: number
   note?: string | undefined
+  /** Titles of other papers marked as already sat that also use this question. */
+  usedIn?: string[] | undefined
 }
 
 export interface ResolvedSection {
@@ -65,6 +67,42 @@ export interface Check {
 
 /* ----------------------------------------------------------------- resolving */
 
+/**
+ * Which questions are on a paper students have already sat, and on which paper.
+ *
+ * Matched on question id alone, not on `file#id`. What the warning is really
+ * saying is "this cohort has seen this question", and that stays true whichever
+ * bank file the sat paper happened to reference it through, including one since
+ * renamed or moved. Matching on the path would go quiet exactly when the folder
+ * has been reorganised, which is not when a safeguard should go quiet.
+ *
+ * The cost is a false positive if two banks reuse one id for different
+ * questions. That is a warning a teacher reads and dismisses, not an error that
+ * blocks a paper, so the trade runs the right way.
+ */
+function satQuestionIds(index: ContentIndex, exceptPaperId: string): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+
+  for (const { data } of index.papers) {
+    if (data.status !== 'used') continue
+    // The paper being edited is in the folder too, once saved. Its own status is
+    // reported separately; it must not warn about reusing its own questions.
+    if (data.id === exceptPaperId) continue
+
+    for (const section of data.sections) {
+      for (const ref of section.refs) {
+        const parsed = parseRef(ref)
+        if (!parsed) continue
+        const papers = out.get(parsed.questionId) ?? []
+        if (!papers.includes(data.title)) papers.push(data.title)
+        out.set(parsed.questionId, papers)
+      }
+    }
+  }
+
+  return out
+}
+
 export function resolvePaper(
   index: ContentIndex,
   paper: Paper,
@@ -72,6 +110,7 @@ export function resolvePaper(
 ): ResolvedPaper {
   const missing: string[] = []
   const relocated: { from: string; to: string }[] = []
+  const sat = satQuestionIds(index, paper.id)
   let number = 0
 
   const sections = paper.sections.map((section): ResolvedSection => {
@@ -102,6 +141,7 @@ export function resolvePaper(
         number,
         marks: override ?? found.question.marks,
         note: typeof ref === 'object' ? ref.note : undefined,
+        usedIn: sat.get(found.question.id),
       })
     }
 
@@ -267,6 +307,16 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
           message: `Question ${q.number} is taken from the ${src.year} ${src.paper ?? 'paper'}; students may have seen it`,
         })
       }
+      // The same risk as the line above, but from this faculty's own papers
+      // rather than a public one, which is the version that actually happens.
+      if (q.usedIn?.length) {
+        const list = q.usedIn.map((title) => `"${title}"`).join(', ')
+        checks.push({
+          severity: 'warning',
+          where: section.title,
+          message: `Question ${q.number} is also on ${list}, which students have already sat`,
+        })
+      }
       if (!q.question.syllabus?.topicIds?.length && !q.question.syllabus?.pointIds?.length) {
         checks.push({
           severity: 'warning',
@@ -280,7 +330,9 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   if (paper.status === 'used') {
     checks.push({
       severity: 'warning',
-      message: 'This paper is marked as already sat',
+      message:
+        'This paper is marked as already sat, so Klunk will warn any other paper ' +
+        'that reuses its questions',
     })
   }
 

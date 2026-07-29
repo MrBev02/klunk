@@ -230,6 +230,86 @@ describe('checkPaper', () => {
   })
 })
 
+/**
+ * Reusing a question from a paper a cohort has already sat is the mistake this
+ * whole safeguard exists for, and it is silent: the paper checks out perfectly
+ * against the profile while being unfit to sit.
+ */
+describe('checkPaper against papers already sat', () => {
+  /** A paper marked as sat, holding the given question ids from `bankPath`. */
+  function satPaper(id: string, title: string, ids: string[], bankPath = 'bank/test.json') {
+    let sat = newPaper(profile, id, title)
+    sat.status = 'used'
+    for (const q of ids) sat = addRef(sat, 0, `${bankPath}#${q}`)
+    return { path: `papers/${id}.json`, data: sat }
+  }
+
+  it('warns when a question is on another paper students have sat', () => {
+    const { index, paper } = goodPaper()
+    index.papers = [satPaper('trial-2025', '2025 Trial HSC', ['b', 'c'])]
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    const warnings = checks.filter((c) => c.message.includes('already sat'))
+
+    expect(warnings).toHaveLength(2)
+    expect(warnings[0]?.severity).toBe('warning')
+    expect(warnings[0]?.message).toContain('"2025 Trial HSC"')
+    // A perfectly valid paper, which is exactly why the warning has to exist.
+    expect(checks.filter((c) => c.severity === 'error')).toEqual([])
+  })
+
+  it('names every sat paper a question appears on, once each', () => {
+    const { index, paper } = goodPaper()
+    index.papers = [
+      satPaper('trial-2024', '2024 Trial', ['b']),
+      satPaper('trial-2025', '2025 Trial', ['b']),
+    ]
+
+    const warning = checkPaper(resolvePaper(index, paper, profile)).find((c) =>
+      c.message.includes('already sat'),
+    )
+    expect(warning?.message).toContain('"2024 Trial", "2025 Trial"')
+  })
+
+  it('stays quiet about papers that are draft or final', () => {
+    const { index, paper } = goodPaper()
+    const draft = satPaper('d', 'Draft paper', ['b'])
+    draft.data.status = 'draft'
+    const final = satPaper('f', 'Final paper', ['c'])
+    final.data.status = 'final'
+    index.papers = [draft, final]
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    expect(checks.some((c) => c.message.includes('already sat'))).toBe(false)
+  })
+
+  it('does not warn a sat paper about reusing its own questions', () => {
+    const { index, paper } = goodPaper()
+    // The paper being edited, saved to the folder and marked sat: every question
+    // on it appears on a sat paper, itself. Only its own status should be raised.
+    const self = satPaper(paper.id, paper.title, ['a', 'b', 'c', 'd', 'e'])
+    index.papers = [self]
+    const sat = { ...paper, status: 'used' as const }
+
+    const checks = checkPaper(resolvePaper(index, sat, profile))
+    const own = checks.filter((c) => c.message.includes('marked as already sat'))
+    const reuse = checks.filter((c) => c.message.includes('which students have already sat'))
+
+    expect(own).toHaveLength(1)
+    expect(reuse).toEqual([])
+  })
+
+  it('still warns when the sat paper referenced a bank since renamed', () => {
+    const { index, paper } = goodPaper()
+    // Matching on `file#id` would go silent here, which is the wrong moment for
+    // a safeguard to go silent: the folder was reorganised, not the question.
+    index.papers = [satPaper('trial-2025', '2025 Trial', ['b'], 'bank/old-name.json')]
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    expect(checks.some((c) => c.message.includes('"2025 Trial"'))).toBe(true)
+  })
+})
+
 describe('shuffledChoices', () => {
   it('is stable across calls, so the guide matches the paper', () => {
     const q = mc('stable')
