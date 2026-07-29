@@ -174,14 +174,28 @@ profile, development fixtures covering all five question types. The deployed pag
 been opened on the user's machine: it renders, and **the File System Access API is
 supported there**, so the folder-based storage model is confirmed rather than assumed.
 
-The app now opens a folder, reads it, browses questions, builds a paper against a
-profile, checks it, and prints it to PDF. `npm run build` gates on the tests, so a
-broken checker fails the Pages deploy rather than shipping.
+The app opens a folder, reads it, browses questions with full detail, builds a paper
+against a profile, checks it, prints the student paper and marking guide to PDF, and
+saves papers back to the folder. `npm run build` gates on the tests, so a broken
+checker fails the Pages deploy rather than shipping.
 
-Next: images in printed papers are placeholders naming the missing file (deliberate,
-so a missing image is obvious on the proof rather than in the exam room) and need
-loading from the content folder. Then the past-paper extractor, and an IB syllabus
-model from the mapping spreadsheet in `../klunk-content/source/ib-dt/`.
+Verified end to end in a browser, not just reasoned about: a complete 40-mark paper
+assembles, the checker goes green, it saves to `papers/`, survives a hard reload and
+reopens with every reference resolving. Stimulus images load from the content folder
+and print. A missing image still prints a placeholder naming the file, deliberately,
+so it is caught on the proof rather than in the exam room.
+
+Paper references survive a moved or renamed bank: exact path, then same filename,
+then a globally unique question id, with ambiguity reported rather than guessed.
+
+Note on history: the commit "Papers survive a moved or renamed bank" also contains
+the stimulus-image loading, which its message does not mention.
+
+Next, in rough order of value: no way exists yet for a teacher to create a question
+in the app, so the bank stays empty for any new user. That means a question editor
+and the prompt factory. Then the past-paper extractor against the NESA corpus in
+`../klunk-content/source/nsw-hsc-dt/papers/`, and an IB syllabus model from the
+mapping spreadsheet in `../klunk-content/source/ib-dt/`.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
