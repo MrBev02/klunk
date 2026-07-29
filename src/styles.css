@@ -1126,9 +1126,16 @@ code,
   position: relative;
 }
 
-.split > main,
-.split > aside {
-  /* Nothing here paints its own background, so leave the grid visible in the
-     gutters between the two panes: that is the one place it reads as intended. */
-  background: transparent;
+/* No blanket transparency on .split > aside: the bank rail IS one, and that
+   rule stripped its surface, putting every stem in the picker back onto the
+   grid. The gutters show the grid anyway, because nothing paints them. */
+
+.bank,
+.bank__head,
+.bank__list {
+  background: var(--paper-raised);
+}
+
+.bank__list li:hover {
+  background: var(--blue-soft);
 }
