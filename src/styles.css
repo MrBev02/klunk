@@ -1,0 +1,151 @@
+/*
+ * Screen styles only. The printed paper has its own stylesheet, because what
+ * looks right on screen and what a school expects on A4 are different problems
+ * and sharing tokens between them is how you end up with neither.
+ *
+ * Colour and type here are provisional. They will be replaced by the school's
+ * house style once that file is in hand.
+ */
+
+:root {
+  --ink: #14142b;
+  --ink-2: #2a2a47;
+  --muted: #6e6e85;
+  --paper: #ffffff;
+  --page: #f7f7fa;
+  --line: #e2e2ea;
+  --soft: #f1f1f5;
+  --warn: #8a6415;
+  --warn-bg: #fdf4e3;
+  --warn-line: #e0a93b;
+
+  --body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --display: Cambria, Georgia, serif;
+
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.shell__head {
+  margin-bottom: 2rem;
+}
+
+.shell__title {
+  font-family: var(--display);
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.shell__tagline {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.card h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0 0 0.5rem;
+}
+
+.card p:last-child {
+  margin-bottom: 0;
+}
+
+.card--warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
+  color: var(--warn);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem 1.5rem;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--ink-2);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.note {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.925rem;
+}
+
+.shell__foot {
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.shell__foot p {
+  margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ecebf2;
+    --ink-2: #c8c6d6;
+    --muted: #9a97ab;
+    --paper: #1b1b25;
+    --page: #131319;
+    --line: #2f2f3d;
+    --soft: #23232f;
+    --warn: #f0c977;
+    --warn-bg: #2e2617;
+    --warn-line: #6d5522;
+  }
+}

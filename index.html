@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Klunk</title>
+    <meta
+      name="description"
+      content="Build exam papers from a question bank. Runs entirely in your browser."
+    />
+    <!--
+      Klunk makes no network requests after load. This policy enforces that
+      rather than leaving it as a promise in the README: no external scripts,
+      no fonts, no images, no fetch or WebSocket to anywhere. If a future
+      change needs the network, this has to be loosened deliberately and the
+      privacy claim revisited at the same time.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'"
+    />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
