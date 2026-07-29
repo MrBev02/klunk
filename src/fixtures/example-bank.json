@@ -13,18 +13,41 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": ["HSC-01"],
-        "pointIds": ["HSC-01.07"]
+        "topicIds": [
+          "HSC-01"
+        ],
+        "pointIds": [
+          "HSC-01.07"
+        ]
       },
-      "outcomes": ["H1.1"],
-      "tags": ["factors affecting design", "safety"],
-      "source": { "origin": "authored" },
+      "outcomes": [
+        "H1.1"
+      ],
+      "tags": [
+        "factors affecting design",
+        "safety"
+      ],
+      "source": {
+        "origin": "authored"
+      },
       "config": {
         "choices": [
-          { "text": "Work health and safety", "feedback": "Correct. Materials in contact with food and the risk of small detachable parts govern this design." },
-          { "text": "Obsolescence", "feedback": "Obsolescence matters over a product's life, but it does not outrank safety for a child's product." },
-          { "text": "Aesthetics", "feedback": "Appearance influences uptake, but it is subordinate to safety here." },
-          { "text": "Finance", "feedback": "Cost constrains the solution rather than determining the priority factor." }
+          {
+            "text": "Work health and safety",
+            "feedback": "Correct. Materials in contact with food and the risk of small detachable parts govern this design."
+          },
+          {
+            "text": "Obsolescence",
+            "feedback": "Obsolescence matters over a product's life, but it does not outrank safety for a child's product."
+          },
+          {
+            "text": "Aesthetics",
+            "feedback": "Appearance influences uptake, but it is subordinate to safety here."
+          },
+          {
+            "text": "Finance",
+            "feedback": "Cost constrains the solution rather than determining the priority factor."
+          }
         ],
         "correctAnswer": 0,
         "shuffle": true
@@ -39,22 +62,49 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": ["HSC-13"],
-        "pointIds": ["HSC-13.01"]
+        "topicIds": [
+          "HSC-13"
+        ],
+        "pointIds": [
+          "HSC-13.01"
+        ]
       },
-      "outcomes": ["H4.2"],
-      "tags": ["resources", "selection"],
-      "source": { "origin": "authored" },
+      "outcomes": [
+        "H4.2"
+      ],
+      "tags": [
+        "resources",
+        "selection"
+      ],
+      "source": {
+        "origin": "authored"
+      },
       "markingGuide": {
         "criteria": [
-          { "marks": 2, "description": "Identifies two relevant selection criteria with justification." },
-          { "marks": 3, "description": "Explains the environmental consequences of the chosen finish." }
+          {
+            "marks": 2,
+            "description": "Identifies two relevant selection criteria with justification."
+          },
+          {
+            "marks": 3,
+            "description": "Explains the environmental consequences of the chosen finish."
+          }
         ]
       },
       "config": {
         "parts": [
-          { "label": "(a)", "text": "Identify TWO criteria the designer should apply when selecting the finish.", "marks": 2, "answerLines": 4 },
-          { "label": "(b)", "text": "Explain the environmental consequences of the finish you would select.", "marks": 3, "answerLines": 6 }
+          {
+            "label": "(a)",
+            "text": "Identify TWO criteria the designer should apply when selecting the finish.",
+            "marks": 2,
+            "answerLines": 4
+          },
+          {
+            "label": "(b)",
+            "text": "Explain the environmental consequences of the finish you would select.",
+            "marks": 3,
+            "answerLines": 6
+          }
         ]
       }
     },
@@ -62,16 +112,57 @@
       "id": "ex-tbl-01",
       "questionType": "table",
       "questionText": "Complete the table by naming an appropriate research method for each purpose.",
-      "marks": 3,
-      "syllabus": { "syllabusId": "nsw-hsc-design-technology", "courseId": "hsc", "topicIds": ["HSC-17"] },
-      "outcomes": ["H5.2"],
-      "source": { "origin": "authored" },
+      "marks": 4,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-17"
+        ]
+      },
+      "outcomes": [
+        "H5.2"
+      ],
+      "source": {
+        "origin": "authored"
+      },
       "config": {
-        "columns": ["Purpose", "Research method"],
+        "columns": [
+          "Purpose",
+          "Research method"
+        ],
         "rows": [
-          { "label": "Measuring how long a task takes a user", "answers": ["Observation"], "marks": 1 },
-          { "label": "Gathering opinions from 200 potential buyers", "answers": ["Survey", "Questionnaire"], "marks": 1 },
-          { "label": "Comparing the strength of two materials", "answers": ["Testing", "Experiment"], "marks": 1 }
+          {
+            "label": "Measuring how long a task takes a user",
+            "answers": [
+              "Observation"
+            ],
+            "marks": 1
+          },
+          {
+            "label": "Gathering opinions from 200 potential buyers",
+            "answers": [
+              "Survey",
+              "Questionnaire"
+            ],
+            "marks": 1
+          },
+          {
+            "label": "Comparing the strength of two materials",
+            "answers": [
+              "Testing",
+              "Experiment"
+            ],
+            "marks": 1
+          },
+          {
+            "label": "Checking a handle is comfortable to hold",
+            "answers": [
+              "User trial",
+              "Testing"
+            ],
+            "marks": 1
+          }
         ],
         "blankCells": true
       }
@@ -80,9 +171,20 @@
       "id": "ex-drw-01",
       "questionType": "drawing",
       "questionText": "Sketch a modification to the handle shown that would improve its ergonomics for a user with limited grip strength.",
-      "marks": 4,
-      "syllabus": { "syllabusId": "nsw-hsc-design-technology", "courseId": "hsc", "topicIds": ["HSC-01"], "pointIds": ["HSC-01.06"] },
-      "outcomes": ["H1.1"],
+      "marks": 6,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-01"
+        ],
+        "pointIds": [
+          "HSC-01.06"
+        ]
+      },
+      "outcomes": [
+        "H1.1"
+      ],
       "stimulus": [
         {
           "kind": "image",
@@ -92,11 +194,16 @@
           "maxHeightMm": 60
         }
       ],
-      "source": { "origin": "authored" },
+      "source": {
+        "origin": "authored"
+      },
       "config": {
         "subtype": "sketch",
         "instructions": "Annotate your sketch to identify the ergonomic improvement.",
-        "spaceMm": [160, 90],
+        "spaceMm": [
+          160,
+          90
+        ],
         "grid": false
       }
     },
@@ -106,20 +213,435 @@
       "questionText": "Evaluate the impact of emerging technologies on the work of designers, with reference to specific examples.",
       "marks": 15,
       "difficulty": 4,
-      "syllabus": { "syllabusId": "nsw-hsc-design-technology", "courseId": "hsc", "topicIds": ["HSC-20"] },
-      "outcomes": ["H6.2", "H2.2"],
-      "tags": ["emerging technologies", "extended response"],
-      "source": { "origin": "authored" },
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-20"
+        ]
+      },
+      "outcomes": [
+        "H6.2",
+        "H2.2"
+      ],
+      "tags": [
+        "emerging technologies",
+        "extended response"
+      ],
+      "source": {
+        "origin": "authored"
+      },
       "markingGuide": {
         "sampleAnswer": "A complete response identifies emerging technologies, makes a judgement about their impact, and supports it with specific examples.",
         "criteria": [
-          { "marks": 15, "description": "Makes a sustained, well-supported judgement using specific examples." },
-          { "marks": 11, "description": "Makes a judgement with some supporting examples." },
-          { "marks": 7, "description": "Describes impacts with limited judgement." },
-          { "marks": 3, "description": "Lists relevant technologies with little development." }
+          {
+            "marks": 15,
+            "description": "Makes a sustained, well-supported judgement using specific examples."
+          },
+          {
+            "marks": 11,
+            "description": "Makes a judgement with some supporting examples."
+          },
+          {
+            "marks": 7,
+            "description": "Describes impacts with limited judgement."
+          },
+          {
+            "marks": 3,
+            "description": "Lists relevant technologies with little development."
+          }
         ]
       },
-      "config": { "answerLines": 40 }
+      "config": {
+        "answerLines": 40
+      }
+    },
+    {
+      "id": "ex-mc-02",
+      "questionType": "multiple_choice",
+      "questionText": "Which factor is most affected by a designer choosing a recycled material over a virgin one?",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-01"
+        ],
+        "pointIds": [
+          "HSC-01.09"
+        ]
+      },
+      "outcomes": [
+        "H1.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "Short-term and long-term environmental consequences",
+            "feedback": "Correct. Material choice is where life cycle consequences are largely decided."
+          },
+          {
+            "text": "Ergonomics",
+            "feedback": "Ergonomics concerns fit to the user, which recycled content does not determine."
+          },
+          {
+            "text": "Aesthetics",
+            "feedback": "Recycled stock can affect appearance, but that is a consequence rather than the factor at issue."
+          },
+          {
+            "text": "Function",
+            "feedback": "Function is governed by performance requirements, not by the material's origin."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-03",
+      "questionType": "multiple_choice",
+      "questionText": "A designer produces a scale model before manufacturing. What is its main purpose?",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-12"
+        ]
+      },
+      "outcomes": [
+        "H4.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "To test and communicate the design before committing resources",
+            "feedback": "Correct. Modelling surfaces problems while changes are still cheap."
+          },
+          {
+            "text": "To reduce the cost of materials",
+            "feedback": "A model adds cost; the saving comes from avoiding a failed production run."
+          },
+          {
+            "text": "To satisfy work health and safety law",
+            "feedback": "Modelling is good practice, not a legal requirement."
+          },
+          {
+            "text": "To replace the need for a design folio",
+            "feedback": "A model supports the folio rather than replacing it."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-04",
+      "questionType": "multiple_choice",
+      "questionText": "Which is the clearest example of planned obsolescence?",
+      "marks": 1,
+      "difficulty": 3,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-01"
+        ],
+        "pointIds": [
+          "HSC-01.10"
+        ]
+      },
+      "outcomes": [
+        "H1.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "A device designed so its battery cannot be replaced",
+            "feedback": "Correct. Design that shortens usable life without a functional reason is the classic case."
+          },
+          {
+            "text": "A product offered in several colours",
+            "feedback": "Colour choice is a marketing decision, not a life-shortening one."
+          },
+          {
+            "text": "A product sold with a longer warranty",
+            "feedback": "A longer warranty signals the opposite intention."
+          },
+          {
+            "text": "A product made from a single material for recycling",
+            "feedback": "Single-material construction is a design-for-recycling strategy."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-05",
+      "questionType": "multiple_choice",
+      "questionText": "A designer surveys 300 people about a proposed product. This is best described as",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-17"
+        ]
+      },
+      "outcomes": [
+        "H5.2"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "quantitative research",
+            "feedback": "Correct. A large sample producing countable responses is quantitative."
+          },
+          {
+            "text": "qualitative research",
+            "feedback": "Qualitative work explores depth with far fewer participants."
+          },
+          {
+            "text": "a case study",
+            "feedback": "A case study examines one instance in detail."
+          },
+          {
+            "text": "a life cycle analysis",
+            "feedback": "Life cycle analysis assesses environmental impact, not opinion."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-06",
+      "questionType": "multiple_choice",
+      "questionText": "Which is the strongest evidence that an innovation has succeeded commercially?",
+      "marks": 1,
+      "difficulty": 3,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-07"
+        ]
+      },
+      "outcomes": [
+        "H3.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "Sustained sales and market adoption over time",
+            "feedback": "Correct. Commercial success is measured by adoption that lasts."
+          },
+          {
+            "text": "Winning a design award",
+            "feedback": "Awards recognise merit, which does not always translate to sales."
+          },
+          {
+            "text": "Coverage in the design press",
+            "feedback": "Coverage raises awareness but is not itself adoption."
+          },
+          {
+            "text": "A large research and development budget",
+            "feedback": "Spending is an input, not evidence of a result."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-07",
+      "questionType": "multiple_choice",
+      "questionText": "Anthropometric data is used by designers mainly to",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-01"
+        ],
+        "pointIds": [
+          "HSC-01.06"
+        ]
+      },
+      "outcomes": [
+        "H1.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "match a product's dimensions to the range of intended users",
+            "feedback": "Correct. Anthropometric data describes human body measurements across a population."
+          },
+          {
+            "text": "calculate the cost of production",
+            "feedback": "Costing draws on materials and process data, not body measurements."
+          },
+          {
+            "text": "select a colour scheme",
+            "feedback": "Colour decisions are aesthetic and cultural."
+          },
+          {
+            "text": "test a material's tensile strength",
+            "feedback": "Tensile testing is a materials process."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-08",
+      "questionType": "multiple_choice",
+      "questionText": "A designer registers a design and applies for a patent. This protects",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-06"
+        ]
+      },
+      "outcomes": [
+        "H2.2"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "intellectual property",
+            "feedback": "Correct. Registration and patents are intellectual property protections."
+          },
+          {
+            "text": "work health and safety",
+            "feedback": "Safety is governed by regulation and safe work practice."
+          },
+          {
+            "text": "product quality",
+            "feedback": "Quality is managed through specification and control."
+          },
+          {
+            "text": "supply chain security",
+            "feedback": "Supply chain security is a logistics concern."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-09",
+      "questionType": "multiple_choice",
+      "questionText": "Which best describes rapid prototyping?",
+      "marks": 1,
+      "difficulty": 3,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-20"
+        ]
+      },
+      "outcomes": [
+        "H6.2"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "Quickly producing a physical model directly from digital data",
+            "feedback": "Correct. It converts digital models straight into physical parts."
+          },
+          {
+            "text": "Sketching many concepts in a short time",
+            "feedback": "That is ideation, which is quick but not prototyping."
+          },
+          {
+            "text": "Manufacturing a first production run",
+            "feedback": "A production run comes after prototyping is finished."
+          },
+          {
+            "text": "Surveying users about an early concept",
+            "feedback": "That is user research, not prototyping."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
+    },
+    {
+      "id": "ex-mc-10",
+      "questionType": "multiple_choice",
+      "questionText": "A management plan for a major design project should primarily record",
+      "marks": 1,
+      "difficulty": 2,
+      "syllabus": {
+        "syllabusId": "nsw-hsc-design-technology",
+        "courseId": "hsc",
+        "topicIds": [
+          "HSC-16"
+        ]
+      },
+      "outcomes": [
+        "H5.1"
+      ],
+      "source": {
+        "origin": "authored"
+      },
+      "config": {
+        "choices": [
+          {
+            "text": "actions, time and finance",
+            "feedback": "Correct. Managing action, time and finance is what a management plan is for."
+          },
+          {
+            "text": "only the final cost",
+            "feedback": "Cost alone omits sequencing and duration."
+          },
+          {
+            "text": "the marking criteria",
+            "feedback": "Marking criteria belong to assessment, not project management."
+          },
+          {
+            "text": "the designer's inspiration",
+            "feedback": "Inspiration belongs in the folio's research, not the plan."
+          }
+        ],
+        "correctAnswer": 0,
+        "shuffle": true
+      }
     }
   ]
 }
