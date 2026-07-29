@@ -166,6 +166,38 @@ Regression check for the generator: Design and Technology must stay at
   *Already confirmed on the user's machine:* the deployed page renders, and folder
   access reports **Supported**. Do not ask again unless something changes.
 
+## Work is tracked in GitHub issues
+
+**All work lands in an issue and is worked from there, unless the user says
+otherwise.** `gh` is authenticated as MrBev02 and this repo is `MrBev02/klunk`.
+
+Before starting anything:
+
+```
+gh issue list                 # what is open
+gh issue view <n>             # the full context, which is usually already written
+```
+
+The rules:
+
+- **Find or file the issue first.** If the user asks for something with no issue,
+  create one before writing code, so the reasoning survives the session. A one-line
+  issue is fine; the point is that it exists.
+- **Put the reasoning in the issue, not just the title.** What is broken or missing,
+  what it depends on, what "done" means. Several existing issues carry findings that
+  cost real effort to establish, such as how NESA paper formats vary by year. Read
+  them rather than re-deriving.
+- **Reference the issue in the commit** (`Closes #5`, or `Refs #3` for partial work),
+  so history explains itself.
+- **Do not close an issue you have not verified.** This project has a habit of
+  checking in a browser rather than reasoning from the source, and that habit has
+  caught several faults that reading the code did not.
+- **File what you find.** Noticing a defect while doing something else is normal;
+  filing it and carrying on is better than either fixing it silently or forgetting.
+
+Labels: `feature`, `bug`, `gap` (promised but not built), `content` (syllabus or
+bank authoring), `deferred` (waiting on evidence or input).
+
 ## Status and what is next
 
 Done: repo and CI (Pages deploys green), capability detection, syllabus generator for
@@ -191,11 +223,17 @@ then a globally unique question id, with ambiguity reported rather than guessed.
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
 
-Next, in rough order of value: no way exists yet for a teacher to create a question
-in the app, so the bank stays empty for any new user. That means a question editor
-and the prompt factory. Then the past-paper extractor against the NESA corpus in
-`../klunk-content/source/nsw-hsc-dt/papers/`, and an IB syllabus model from the
-mapping spreadsheet in `../klunk-content/source/ib-dt/`.
+Next is in the issue tracker. `gh issue list` is the authoritative backlog; this
+section only says where to start.
+
+The gap that blocks everything else: **a teacher cannot create a question in the
+app**, so a new user's bank stays empty however good the paper builder is. That is
+issue #1, with the prompt factory (#2) directly after it, since the two together
+are what make Klunk self-sufficient rather than dependent on someone hand-writing
+JSON.
+
+Issue #5 is a small defect worth clearing whenever convenient: stimulus image object
+URLs are never revoked.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
