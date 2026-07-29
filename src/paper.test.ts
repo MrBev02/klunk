@@ -83,6 +83,7 @@ function indexWith(questions: Question[]): ContentIndex {
     papers: [],
     problems: [],
     scanned: 2,
+    images: new Map(),
   }
 }
 
@@ -298,5 +299,61 @@ describe('editing', () => {
     removeRef(paper, 0, 0)
     moveRef(paper, 0, 0, 1)
     expect(JSON.stringify(paper)).toBe(snapshot)
+  })
+})
+
+describe('surviving a moved or renamed bank', () => {
+  it('recovers a question when the bank moved to another folder', () => {
+    const { index, paper } = goodPaper()
+    // The teacher reorganised: bank/test.json is now archive/2026/test.json.
+    const moved: ContentIndex = {
+      ...index,
+      banks: [{ path: 'archive/2026/test.json', data: index.banks[0]!.data }],
+    }
+    const resolved = resolvePaper(moved, paper, profile)
+    expect(resolved.missing).toEqual([])
+    expect(resolved.totalMarks).toBe(20)
+    expect(resolved.relocated.length).toBeGreaterThan(0)
+    // Recovered, and said so, rather than silently or not at all.
+    const checks = checkPaper(resolved)
+    expect(checks.some((c) => c.severity === 'warning' && c.message.includes('archive/2026/test.json'))).toBe(true)
+    expect(checks.filter((c) => c.severity === 'error')).toEqual([])
+  })
+
+  it('recovers by unique question id when the file was renamed too', () => {
+    const { index, paper } = goodPaper()
+    const renamed: ContentIndex = {
+      ...index,
+      banks: [{ path: 'banks/design-and-technology.json', data: index.banks[0]!.data }],
+    }
+    const resolved = resolvePaper(renamed, paper, profile)
+    expect(resolved.missing).toEqual([])
+    expect(resolved.relocated.length).toBe(6)
+  })
+
+  it('refuses to guess when the same id exists in two banks', () => {
+    const { index, paper } = goodPaper()
+    const ambiguous: ContentIndex = {
+      ...index,
+      banks: [
+        { path: 'one/renamed.json', data: index.banks[0]!.data },
+        { path: 'two/renamed.json', data: index.banks[0]!.data },
+      ],
+    }
+    const resolved = resolvePaper(ambiguous, paper, profile)
+    // Two banks share the basename and the ids, so there is no single right
+    // answer. Reporting it broken beats printing the wrong question.
+    expect(resolved.missing.length).toBeGreaterThan(0)
+  })
+
+  it('prefers the exact path when it still resolves', () => {
+    const { index, paper } = goodPaper()
+    const withDecoy: ContentIndex = {
+      ...index,
+      banks: [...index.banks, { path: 'elsewhere/test.json', data: index.banks[0]!.data }],
+    }
+    const resolved = resolvePaper(withDecoy, paper, profile)
+    expect(resolved.relocated).toEqual([])
+    expect(resolved.sections[0]?.questions[0]?.file).toBe('bank/test.json')
   })
 })

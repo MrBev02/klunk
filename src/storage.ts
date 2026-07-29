@@ -33,10 +33,97 @@ export interface ContentIndex {
   problems: Problem[]
   /** Total .json files inspected, so "found nothing" can be distinguished from "found nothing of ours". */
   scanned: number
+  /**
+   * Stimulus images, keyed by folder-relative path, as object URLs.
+   *
+   * Loaded eagerly for the images questions actually reference, rather than
+   * every image in the folder: a faculty folder may hold a lot of unrelated
+   * pictures, and the ones nothing points at are nobody's business.
+   */
+  images: Map<string, string>
 }
 
 export function emptyIndex(): ContentIndex {
-  return { profiles: [], syllabuses: [], banks: [], papers: [], problems: [], scanned: 0 }
+  return {
+    profiles: [],
+    syllabuses: [],
+    banks: [],
+    papers: [],
+    problems: [],
+    scanned: 0,
+    images: new Map(),
+  }
+}
+
+/**
+ * Resolve a stimulus path against the bank file that referenced it.
+ *
+ * Stimulus paths are relative to their bank, so a bank at `bank/design.json`
+ * referencing `stimulus/handle.png` means `bank/stimulus/handle.png`. Keeping
+ * them relative means a teacher can move or copy a bank folder and its images
+ * travel with it.
+ */
+export function joinPath(baseFile: string, rel: string): string {
+  if (rel.startsWith('/')) return rel.replace(/^\/+/, '')
+  const parts = baseFile.split('/').slice(0, -1)
+  for (const seg of rel.split('/')) {
+    if (!seg || seg === '.') continue
+    if (seg === '..') parts.pop()
+    else parts.push(seg)
+  }
+  return parts.join('/')
+}
+
+/** Release the previous scan's object URLs so a reload does not leak them. */
+export function releaseImages(index: ContentIndex): void {
+  for (const url of index.images.values()) URL.revokeObjectURL(url)
+  index.images.clear()
+}
+
+async function fileAt(
+  dir: FileSystemDirectoryHandle,
+  path: string,
+): Promise<File | null> {
+  const parts = path.split('/').filter(Boolean)
+  const name = parts.pop()
+  if (!name) return null
+
+  let here: FileSystemDirectoryHandle = dir
+  for (const part of parts) {
+    const next = await here.getDirectoryHandle(part).catch(() => null)
+    if (!next) return null
+    here = next
+  }
+  const handle = await here.getFileHandle(name).catch(() => null)
+  return handle ? await handle.getFile() : null
+}
+
+/**
+ * Load every image a question points at.
+ *
+ * A missing image is left out of the map rather than treated as an error, so
+ * the renderer can print a placeholder naming the file. That is deliberate: a
+ * missing picture should be obvious on the proof rather than discovered in the
+ * exam room.
+ */
+async function loadImages(
+  dir: FileSystemDirectoryHandle,
+  index: ContentIndex,
+): Promise<void> {
+  const wanted = new Set<string>()
+  for (const bank of index.banks) {
+    for (const question of bank.data.questions) {
+      for (const s of question.stimulus ?? []) {
+        if (s.kind === 'image' && s.file) wanted.add(joinPath(bank.path, s.file))
+      }
+    }
+  }
+
+  for (const path of wanted) {
+    const file = await fileAt(dir, path).catch(() => null)
+    if (file) index.images.set(path, URL.createObjectURL(file))
+    else index.problems.push({ path, message: 'image referenced by a question is missing' })
+  }
 }
 
 /* ------------------------------------------------------------ handle storage */
@@ -204,6 +291,8 @@ export async function scanFolder(dir: FileSystemDirectoryHandle): Promise<Conten
   index.banks.sort(byPath)
   index.papers.sort(byPath)
 
+  await loadImages(dir, index)
+
   return index
 }
 
@@ -264,13 +353,53 @@ export function allQuestions(index: ContentIndex): QuestionRef[] {
   return out
 }
 
+export interface FoundQuestion {
+  question: Question
+  /** Where it was actually found, which may differ from where the paper looked. */
+  file: string
+  /** True when the exact path missed and the question was recovered elsewhere. */
+  relocated: boolean
+}
+
+/**
+ * Find a question a paper refers to, surviving a moved or renamed bank.
+ *
+ * A paper stores paths relative to the folder the teacher picked. Point Klunk
+ * at a different root, or move a bank into a subfolder, and every exact path
+ * misses. That should not destroy a paper, so resolution falls back: same
+ * filename elsewhere in the folder, then a question id that is unique across
+ * every bank. Both fallbacks are reported rather than applied silently, because
+ * quietly using a different question than the one recorded is worse than saying
+ * the reference is broken.
+ */
 export function findQuestion(
   index: ContentIndex,
   file: string,
   questionId: string,
-): Question | null {
-  const bank = index.banks.find((b) => b.path === file)
-  return bank?.data.questions.find((q) => q.id === questionId) ?? null
+): FoundQuestion | null {
+  const exact = index.banks.find((b) => b.path === file)
+  const hit = exact?.data.questions.find((q) => q.id === questionId)
+  if (hit && exact) return { question: hit, file: exact.path, relocated: false }
+
+  const base = file.split('/').pop()
+  if (base) {
+    for (const bank of index.banks) {
+      if (bank.path.split('/').pop() !== base) continue
+      const found = bank.data.questions.find((q) => q.id === questionId)
+      if (found) return { question: found, file: bank.path, relocated: true }
+    }
+  }
+
+  // Last resort: the id is unique across the whole folder, so there is only one
+  // question it could mean. More than one match is genuinely ambiguous and is
+  // reported as missing instead of guessed at.
+  const matches: FoundQuestion[] = []
+  for (const bank of index.banks) {
+    for (const q of bank.data.questions) {
+      if (q.id === questionId) matches.push({ question: q, file: bank.path, relocated: true })
+    }
+  }
+  return matches.length === 1 ? (matches[0] ?? null) : null
 }
 
 /** Topic and point ids a question is tagged against, flattened for filtering. */

@@ -48,6 +48,10 @@ export interface ResolvedPaper {
   totalMarks: number
   /** References that pointed at nothing. Shown, never silently dropped. */
   missing: string[]
+  /** References recovered from a moved or renamed bank, reported not hidden. */
+  relocated: { from: string; to: string }[]
+  /** Stimulus images by folder-relative path, so the renderer can print them. */
+  images: Map<string, string>
 }
 
 export type Severity = 'error' | 'warning'
@@ -67,6 +71,7 @@ export function resolvePaper(
   profile?: Profile,
 ): ResolvedPaper {
   const missing: string[] = []
+  const relocated: { from: string; to: string }[] = []
   let number = 0
 
   const sections = paper.sections.map((section): ResolvedSection => {
@@ -81,18 +86,21 @@ export function resolvePaper(
         missing.push(String(ref))
         continue
       }
-      const question = findQuestion(index, parsed.file, parsed.questionId)
-      if (!question) {
+      const found = findQuestion(index, parsed.file, parsed.questionId)
+      if (!found) {
         missing.push(`${parsed.file}#${parsed.questionId}`)
         continue
+      }
+      if (found.relocated) {
+        relocated.push({ from: `${parsed.file}#${parsed.questionId}`, to: found.file })
       }
       number += 1
       const override = typeof ref === 'object' ? ref.marksOverride : undefined
       questions.push({
-        question,
-        file: parsed.file,
+        question: found.question,
+        file: found.file,
         number,
-        marks: override ?? question.marks,
+        marks: override ?? found.question.marks,
         note: typeof ref === 'object' ? ref.note : undefined,
       })
     }
@@ -113,6 +121,8 @@ export function resolvePaper(
     sections,
     totalMarks: sections.reduce((sum, s) => sum + s.marks, 0),
     missing,
+    relocated,
+    images: index.images,
   }
 }
 
@@ -131,7 +141,21 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   const { profile, paper } = resolved
 
   for (const ref of resolved.missing) {
-    checks.push({ severity: 'error', message: `Question not found: ${ref}` })
+    checks.push({
+      severity: 'error',
+      message:
+        `Question not found: ${ref}. The bank may have been renamed, moved out ` +
+        `of this folder, or the question deleted.`,
+    })
+  }
+
+  // Recovered, so the paper still works, but the teacher should know the paper
+  // and the folder no longer agree. Saving the paper writes the new path back.
+  for (const move of resolved.relocated) {
+    checks.push({
+      severity: 'warning',
+      message: `${move.from} was found at ${move.to} instead. Save the paper to record the new location.`,
+    })
   }
 
   // The same question twice is always a mistake, profile or no profile.

@@ -12,6 +12,7 @@
  */
 
 import { answerLinesFor, shuffledChoices, type ResolvedPaper, type ResolvedQuestion } from './paper'
+import { joinPath } from './storage'
 import type { Profile, Question, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
@@ -51,6 +52,7 @@ export function PrintablePaper({
               item={q}
               mode={mode}
               profile={profile}
+              images={resolved.images}
             />
           ))}
         </section>
@@ -127,10 +129,12 @@ function QuestionBlock({
   item,
   mode,
   profile,
+  images,
 }: {
   item: ResolvedQuestion
   mode: PrintMode
   profile?: Profile | undefined
+  images: Map<string, string>
 }) {
   const q = item.question
 
@@ -141,7 +145,7 @@ function QuestionBlock({
         <div class="q-print__body">
           <p class="q-print__text">{q.questionText}</p>
           {q.stimulus?.map((s, i) => (
-            <StimulusBlock key={i} stimulus={s} />
+            <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
           ))}
         </div>
         <span class="q-print__marks">
@@ -158,7 +162,15 @@ function QuestionBlock({
   )
 }
 
-function StimulusBlock({ stimulus }: { stimulus: Stimulus }) {
+function StimulusBlock({
+  stimulus,
+  bankFile,
+  images,
+}: {
+  stimulus: Stimulus
+  bankFile: string
+  images: Map<string, string>
+}) {
   if (stimulus.kind === 'text') {
     return (
       <blockquote class="stimulus">
@@ -168,14 +180,29 @@ function StimulusBlock({ stimulus }: { stimulus: Stimulus }) {
     )
   }
 
-  // Images are referenced by path. Until the folder-relative loader is wired in,
-  // print a placeholder that names the file rather than a silent blank space, so
-  // a missing image is obvious on the proof rather than in the exam room.
+  const src = stimulus.file ? images.get(joinPath(bankFile, stimulus.file)) : undefined
+
+  // A missing image prints as a placeholder naming the file, not blank space.
+  // Better to see it on the proof than in the exam room.
+  if (!src) {
+    return (
+      <figure class="stimulus stimulus--image">
+        <div class="stimulus__missing" style={{ minHeight: `${stimulus.maxHeightMm ?? 60}mm` }}>
+          Missing image: {stimulus.file ?? 'unnamed'}
+        </div>
+        {stimulus.caption && <figcaption>{stimulus.caption}</figcaption>}
+      </figure>
+    )
+  }
+
   return (
     <figure class="stimulus stimulus--image">
-      <div class="stimulus__missing" style={{ minHeight: `${stimulus.maxHeightMm ?? 60}mm` }}>
-        {stimulus.alt ?? stimulus.file ?? 'image'}
-      </div>
+      <img
+        class="stimulus__img"
+        src={src}
+        alt={stimulus.alt ?? ''}
+        style={{ maxHeight: `${stimulus.maxHeightMm ?? 60}mm` }}
+      />
       {stimulus.caption && <figcaption>{stimulus.caption}</figcaption>}
     </figure>
   )

@@ -480,3 +480,11 @@
 .guide__criteria th {
   display: none;
 }
+
+.stimulus__img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  /* Height is capped rather than width, because a tall image shrinks to an
+     unreadable width on A4. Draw stimulus landscape. */
+}
