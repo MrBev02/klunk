@@ -18,11 +18,21 @@ templates/
 content/
 sample_exams/
 
-# Anything derived from IB material. IB subject-guide content points are
-# licensed and cannot be published, so the IB syllabus model is loaded from the
-# teacher's folder at runtime rather than shipped here.
-syllabus/ib-*.json
-profiles/ib-*.json
+# Syllabus models, all of them, not just the IB ones.
+#
+# A syllabus is copyright. The NESA Stage 6 (2013) notice permits a NSW teacher
+# to copy reasonable portions for bona fide study and forbids reproducing a major
+# extract, modifying the material, or commercial use; IB subject-guide content is
+# licensed through the Programme Resource Centre. A generated model is a complete
+# content inventory, restructured, published worldwide. That is not a reasonable
+# portion under anyone's reading.
+#
+# So Klunk ships the generator, never the output. Each teacher generates a model
+# from their own copy into their own folder. If a syllabus ever arrives under a
+# licence that clearly permits republication, this is the line to revisit, and
+# the model's source.redistributable flag is the thing to check first.
+syllabus/*.json
+profiles/*.json
 
 # Source and generated documents. A school exam template, a past paper or a
 # built paper are all one of these.

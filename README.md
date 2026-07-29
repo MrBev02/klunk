@@ -12,9 +12,27 @@ key. **It makes no network requests after the page loads.**
 
 ## Where your content lives
 
-**Not here.** This repository holds the application and the publicly available NSW
-syllabus models. It holds no question banks, no papers and no exam content of any
-kind, and the `.gitignore` is written to keep it that way.
+**Not here.** This repository holds the application and the tools, and nothing else.
+No question banks, no papers, no syllabus models, no exam content of any kind. The
+`.gitignore` is written to keep it that way.
+
+Klunk deliberately ships **no syllabus models**. A syllabus is copyright: the NESA
+Stage 6 (2013) notice lets a NSW teacher copy reasonable portions for bona fide
+study, while forbidding reproduction of a major extract, modification, and
+commercial use. A complete content inventory republished on the public web is none
+of those. So you generate a model from your own copy of the syllabus, into your own
+folder, using the tools in `tools/`.
+
+That constraint made the tool better than bundling would have. Every NESA Stage 6
+syllabus of that era shares one content-table format, so the same generator handles
+Design and Technology, Industrial Technology, Food Technology, Textiles and Design
+and Agriculture without changes:
+
+```
+python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \
+    --id nsw-hsc-design-technology --name "Design and Technology" \
+    --out <your-folder>/syllabus/nsw-hsc-design-technology.json
+```
 
 Your content lives in a folder you choose the first time you open the app, normally
 your faculty's OneDrive or Teams folder. The app reads and writes that folder

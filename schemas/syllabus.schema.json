@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/syllabus.schema.json",
+  "title": "Klunk syllabus model",
+  "description": "A course's outcomes and content points, in a shape questions can reference. Klunk ships no syllabus models: a syllabus document is usually licensed, so each teacher generates a model from their own copy into their own folder. See tools/ for generators.",
+  "type": "object",
+  "required": ["formatVersion", "type", "id", "name", "framework", "courses"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_syllabus" },
+
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable slug, e.g. 'nsw-hsc-design-technology'. Papers and banks record this, so renaming it orphans them."
+    },
+
+    "name": { "type": "string", "minLength": 1 },
+
+    "framework": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Curriculum authority's framework, e.g. 'NESA' or 'IB'. Deliberately a free string, not an enum: a faculty should be able to add a framework without waiting for a release of Klunk."
+    },
+
+    "authority": {
+      "type": "string",
+      "description": "Who publishes the syllabus, spelled out for attribution on generated papers."
+    },
+
+    "syllabusVersion": {
+      "type": "string",
+      "description": "Which edition this models, e.g. 'Stage 6 (2013)'. Syllabuses are reissued, and a bank tagged against one edition may not map to the next."
+    },
+
+    "source": {
+      "type": "object",
+      "description": "Provenance for the document this was generated from. Recorded so a teacher can tell whether their model is current, and so attribution can be printed.",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "retrieved": { "type": "string", "description": "ISO date." },
+        "licence": {
+          "type": "string",
+          "description": "Copy the source's own terms here. Klunk reads this and refuses to bundle a model whose licence forbids redistribution."
+        },
+        "redistributable": {
+          "type": "boolean",
+          "description": "False unless the source licence clearly permits republication. Defaults to false when absent, which is the safe reading."
+        }
+      }
+    },
+
+    "courses": {
+      "type": "array",
+      "minItems": 1,
+      "description": "A syllabus may cover more than one course, e.g. Preliminary and HSC, or SL and HL.",
+      "items": { "$ref": "#/$defs/course" }
+    }
+  },
+
+  "$defs": {
+    "course": {
+      "type": "object",
+      "required": ["id", "name", "topics"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "indicativeHours": { "type": "number", "minimum": 0 },
+
+        "outcomes": {
+          "type": "array",
+          "description": "Every outcome for the course. Topics name the subset that applies; the text lives here once and is never restated.",
+          "items": {
+            "type": "object",
+            "required": ["code", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "type": "string", "minLength": 1 },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+
+        "topics": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The course content in published order, IN FULL. Topics no exam covers must still appear, or a coverage report can never surface the gap.",
+          "items": { "$ref": "#/$defs/topic" }
+        }
+      }
+    },
+
+    "topic": {
+      "type": "object",
+      "required": ["id", "name", "points"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*$",
+          "description": "Locally assigned and stable, e.g. 'PRE-04'. Not an official code, because most syllabuses do not number their content. Never renumber once questions reference it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tidied for display and filtering, e.g. trailing 'including:' removed."
+        },
+        "text": {
+          "type": "string",
+          "description": "The heading verbatim from the syllabus, kept because 'name' is edited and the original still has to be checkable."
+        },
+        "outcomes": {
+          "type": "array",
+          "description": "Outcome codes this topic serves. Most syllabuses map outcomes to a block of content rather than to each point, so this sits at topic level.",
+          "items": { "type": "string" }
+        },
+        "points": {
+          "type": "array",
+          "description": "The content points. May be empty when the topic heading is itself the only content point, in which case questions reference the topic id.",
+          "items": { "$ref": "#/$defs/point" }
+        },
+        "skills": {
+          "type": "array",
+          "description": "The 'students learn to' side, where the syllabus separates knowledge from skill. Not referenced by questions; carried so the model is complete.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "point": {
+      "type": "object",
+      "required": ["id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*\\.[0-9]+$",
+          "description": "Topic id plus an ordinal, e.g. 'PRE-04.03'. This is what a question tags itself with."
+        },
+        "text": { "type": "string", "minLength": 1 },
+        "ownedBy": {
+          "type": "string",
+          "description": "Set when this point is deliberately assessed elsewhere. Suppresses the uncovered flag and records the decision instead of leaving it in someone's head."
+        }
+      }
+    }
+  }
+}
