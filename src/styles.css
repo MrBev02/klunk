@@ -1060,3 +1060,75 @@ code,
   margin-left: 1rem;
   padding-left: 1.4rem;
 }
+
+/* --------------------------------------------------------- reading surfaces
+ *
+ * The question list was transparent all the way up to body, so every stem,
+ * option and marking criterion was being read off the drafting grid. A grid is
+ * an underlay: on a real drafting sheet the drawing sits on solid paper and the
+ * grid shows around it. Anything carrying text to be read now gets an opaque
+ * surface, and the grid is left to the margins where it belongs.
+ */
+
+.qlist {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.qrow {
+  background: var(--paper-raised);
+}
+
+.qrow:last-child {
+  border-bottom: none;
+}
+
+/* The expanded answer area is its own zone, so it reads as belonging to the
+   question above rather than floating between two of them. */
+.qrow--open {
+  background: var(--soft);
+}
+
+.qrow--open .qrow__head {
+  background: var(--blue-soft);
+}
+
+.qrow__detail {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--r);
+  margin: 0 0.75rem 0.85rem 2.9rem;
+  padding: 0.9rem 1.1rem;
+}
+
+/* Full ink for anything that is actually read, rather than the muted grey that
+   is right for labels and metadata. */
+.det__stem,
+.crit td,
+.minitable td,
+.opts li,
+.parts-list > li {
+  color: var(--ink);
+}
+
+.sample {
+  background: var(--blue-soft);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+}
+
+/* The rail's own text also sat on the grid. */
+.rail__group,
+.rail__label {
+  position: relative;
+}
+
+.split > main,
+.split > aside {
+  /* Nothing here paints its own background, so leave the grid visible in the
+     gutters between the two panes: that is the one place it reads as intended. */
+  background: transparent;
+}
