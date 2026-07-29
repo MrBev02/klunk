@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/paper.schema.json",
+  "title": "Klunk paper",
+  "description": "An exam paper as a selection of bank questions, never as a copy of them. Editing a question in the bank updates every paper that uses it, and the same question can never silently diverge between two papers.",
+  "type": "object",
+  "required": ["formatVersion", "type", "id", "title", "sections"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_paper" },
+
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "title": { "type": "string", "minLength": 1 },
+    "subtitle": { "type": "string" },
+
+    "profileId": {
+      "type": "string",
+      "description": "The profile whose rules this paper is checked against. Without it Klunk can still print the paper but cannot tell you the marks are wrong."
+    },
+
+    "school": {
+      "type": "object",
+      "description": "What goes on the cover. Held per paper rather than per profile so one faculty can run the same profile for different year groups or campuses.",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "course": { "type": "string" },
+        "yearGroup": { "type": "string" },
+        "assessmentName": { "type": "string" },
+        "date": { "type": "string" },
+        "logoFile": { "type": "string", "description": "Path relative to the paper file." }
+      }
+    },
+
+    "readingMinutes": { "type": "number", "minimum": 0 },
+    "workingMinutes": { "type": "number", "minimum": 0 },
+    "instructions": { "type": "array", "items": { "type": "string" } },
+
+    "status": {
+      "type": "string",
+      "enum": ["draft", "final", "used"],
+      "default": "draft",
+      "description": "'used' means it has been sat. Klunk warns before reusing questions from a used paper, which is the mistake that actually happens in a faculty."
+    },
+
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/section" }
+    },
+
+    "notes": { "type": "string", "description": "Teacher-facing. Never printed." }
+  },
+
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["refs"],
+      "additionalProperties": false,
+      "properties": {
+        "profileSectionId": {
+          "type": "string",
+          "description": "Which profile section this fills, so per-section mark and count rules can be checked."
+        },
+        "title": { "type": "string", "description": "Overrides the profile's section name." },
+        "subtitle": { "type": "string" },
+        "instructions": { "type": "string" },
+        "refs": {
+          "type": "array",
+          "description": "Questions in the order they appear on the paper.",
+          "items": { "$ref": "#/$defs/ref" }
+        }
+      }
+    },
+
+    "ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[^#]+#.+$",
+          "description": "Shorthand: 'bank/design-processes.json#q14', meaning question id q14 in that file, relative to the content folder."
+        },
+        {
+          "type": "object",
+          "required": ["file", "questionId"],
+          "additionalProperties": false,
+          "properties": {
+            "file": { "type": "string" },
+            "questionId": { "type": "string" },
+            "marksOverride": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Use the question but score it differently here. Recorded on the paper, never written back to the bank."
+            },
+            "note": { "type": "string", "description": "Teacher-facing. Never printed." }
+          }
+        }
+      ]
+    }
+  }
+}

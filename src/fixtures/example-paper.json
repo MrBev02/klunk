@@ -1,0 +1,48 @@
+{
+  "formatVersion": "1",
+  "type": "klunk_paper",
+  "id": "example-trial-2026",
+  "title": "Design and Technology",
+  "subtitle": "Trial Higher School Certificate Examination",
+  "profileId": "nsw-hsc-design-technology",
+
+  "school": {
+    "name": "Example High School",
+    "course": "Design and Technology",
+    "yearGroup": "Year 12",
+    "assessmentName": "Trial HSC Examination",
+    "date": "2026-08-10"
+  },
+
+  "readingMinutes": 5,
+  "workingMinutes": 90,
+  "instructions": [
+    "Reading time - 5 minutes",
+    "Working time - 1 hour and 30 minutes",
+    "Write using black pen"
+  ],
+
+  "status": "draft",
+
+  "sections": [
+    {
+      "profileSectionId": "I",
+      "instructions": "Use the multiple-choice answer sheet for Questions 1-10.",
+      "refs": ["src/fixtures/example-bank.json#ex-mc-01"]
+    },
+    {
+      "profileSectionId": "II",
+      "refs": [
+        "src/fixtures/example-bank.json#ex-sa-01",
+        "src/fixtures/example-bank.json#ex-tbl-01",
+        { "file": "src/fixtures/example-bank.json", "questionId": "ex-drw-01", "note": "Swap the stimulus image before use." }
+      ]
+    },
+    {
+      "profileSectionId": "III",
+      "refs": ["src/fixtures/example-bank.json#ex-er-01"]
+    }
+  ],
+
+  "notes": "Fictional fixture for development. Section I is deliberately short: the profile requires 10 questions, so this paper is expected to fail the mark check and is used to prove the checker reports it."
+}

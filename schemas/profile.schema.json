@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/profile.schema.json",
+  "title": "Klunk paper profile",
+  "description": "The rules for one kind of paper: how many sections, what each is worth, which question types belong in it. Everything a previous generation of this toolchain hardcoded lives here as data, so a new course is a file rather than a code change.",
+  "type": "object",
+  "required": ["formatVersion", "type", "id", "name", "paper"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_profile" },
+
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+
+    "syllabusId": {
+      "type": "string",
+      "description": "The syllabus model this profile assesses. Klunk uses it to offer the right topics when building a paper, and to report coverage."
+    },
+
+    "paper": {
+      "type": "object",
+      "required": ["totalMarks", "sections"],
+      "additionalProperties": false,
+      "properties": {
+        "totalMarks": { "type": "number", "exclusiveMinimum": 0 },
+        "readingMinutes": { "type": "number", "minimum": 0 },
+        "workingMinutes": { "type": "number", "minimum": 0 },
+        "instructions": {
+          "type": "array",
+          "description": "General instructions for the cover page, one per line.",
+          "items": { "type": "string" }
+        },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/section" }
+        }
+      }
+    },
+
+    "questionTypes": {
+      "type": "array",
+      "description": "Types this course uses at all. Klunk hides every other type from the editor, which is how a Design and Technology teacher never sees an SQL question type.",
+      "items": { "$ref": "#/$defs/questionType" }
+    },
+
+    "marks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wholeNumberTotals": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether each question's total must be a whole number. Part marks within a question are still allowed."
+        },
+        "partMarkGranularity": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Smallest allowed component mark, e.g. 0.5."
+        }
+      }
+    },
+
+    "print": {
+      "type": "object",
+      "description": "How the paper is laid out when printed. Klunk renders HTML and prints to PDF via the browser, so these map onto CSS.",
+      "additionalProperties": false,
+      "properties": {
+        "paperSize": { "type": "string", "default": "A4" },
+        "marginsMm": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number", "minimum": 0 },
+          "description": "Top, right, bottom, left."
+        },
+        "answerLineSpacingMm": {
+          "type": "number",
+          "description": "Spacing of ruled answer lines. Marks per line is the usual way schools size answer space."
+        },
+        "linesPerMark": {
+          "type": "number",
+          "description": "How much ruled space a mark earns, when the question does not say."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "questionType": {
+      "type": "string",
+      "enum": [
+        "multiple_choice",
+        "true_false",
+        "short_answer",
+        "extended_response",
+        "table",
+        "drawing"
+      ]
+    },
+
+    "section": {
+      "type": "object",
+      "required": ["id", "name", "marks"],
+      "additionalProperties": false,
+      "description": "Constraints are drawn from 11 years of real papers (2015-2025), so they distinguish what is genuinely fixed from what varies year to year.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "marks": { "type": "number", "exclusiveMinimum": 0 },
+        "suggestedMinutes": { "type": "number", "minimum": 0 },
+        "instructions": { "type": "string" },
+
+        "questionTypes": {
+          "type": "array",
+          "description": "Types permitted in this section.",
+          "items": { "$ref": "#/$defs/questionType" }
+        },
+
+        "questionCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact number of questions, where the section always has the same count. HSC Design and Technology Section I is always 10; Section III is always 1."
+        },
+        "minQuestions": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Use instead of questionCount where the count varies. Section II ran 2, 3 and 4 questions across 2015-2025, so pinning it to one number would reject valid papers."
+        },
+        "maxQuestions": { "type": "integer", "minimum": 1 },
+
+        "marksPerQuestion": {
+          "type": "number",
+          "description": "Set where every question in the section is worth the same, e.g. 1 mark per objective-response question."
+        }
+      }
+    }
+  }
+}

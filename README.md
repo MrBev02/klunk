@@ -23,23 +23,16 @@ commercial use. A complete content inventory republished on the public web is no
 of those. So you generate a model from your own copy of the syllabus, into your own
 folder, using the tools in `tools/`.
 
-That constraint made the tool better than bundling would have. The generator reads
-both NESA Stage 6 (2013) content layouts, so it covers more than one course:
+That constraint made the tool better than bundling would have. NESA Stage 6 (2013)
+syllabuses use two different content layouts and the generator reads both:
 
-| Course | Topics | Points | Notes |
+| Course | Topics | Points | Layout |
 |---|---|---|---|
-| Design and Technology | 40 | 139 | Full outcome mapping |
-| Textiles and Design | 34 | 183 | Full outcome mapping |
-| Food Technology | 26 | 125 | Full outcome mapping |
-| Industrial Technology | 163 | 1128 | 17 focus areas; see limitation below |
+| Design and Technology | 40 | 139 | One 3-column table per course |
+| Textiles and Design | 34 | 183 | Many 2-column tables |
 
-**Industrial Technology limitation.** NESA states outcomes once per course section
-rather than per focus-area table, so 149 of its topics carry no outcome codes. The
-generator leaves them empty rather than inventing a mapping the syllabus does not
-make. Filtering by topic and focus area works; filtering by outcome does not.
-
-Agriculture is not supported: it does not publish a Stage 6 syllabus `.docx` at the
-same location.
+Both layouts are supported because the two courses need different ones, not for
+the sake of generality.
 
 ```
 python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \
@@ -67,8 +60,13 @@ your-shared-folder/
 3. **Build papers** by topic or syllabus structure, with live mark totals and coverage.
 4. **Build question banks**, either by typing them in or by generating a prompt to paste
    into whatever AI your school licenses and pasting the structured result back.
-5. **Produce the paper** as a PDF, or as a Word document that keeps your school's
-   template intact.
+5. **Produce the paper** as a PDF, printed straight from the browser.
+
+**Word export is deliberately not built yet.** It only earns its complexity if
+teachers actually want to hand-edit the paper afterwards, and that is worth finding
+out before committing to it rather than assuming. The plan if it is wanted: merge
+into the school's own `.docx` template so the cover page, headers and styles survive
+intact, rather than generating a document from scratch.
 
 ## About the AI parts
 

@@ -1,0 +1,66 @@
+{
+  "formatVersion": "1",
+  "type": "klunk_profile",
+  "id": "nsw-hsc-design-technology",
+  "name": "NSW HSC Design and Technology written examination",
+  "syllabusId": "nsw-hsc-design-technology",
+
+  "paper": {
+    "totalMarks": 40,
+    "readingMinutes": 5,
+    "workingMinutes": 90,
+    "instructions": [
+      "Reading time - 5 minutes",
+      "Working time - 1 hour and 30 minutes",
+      "Write using black pen"
+    ],
+    "sections": [
+      {
+        "id": "I",
+        "name": "Section I",
+        "marks": 10,
+        "suggestedMinutes": 15,
+        "questionTypes": ["multiple_choice"],
+        "questionCount": 10,
+        "marksPerQuestion": 1,
+        "instructions": "Use the multiple-choice answer sheet for Questions 1-10."
+      },
+      {
+        "id": "II",
+        "name": "Section II",
+        "marks": 15,
+        "suggestedMinutes": 35,
+        "questionTypes": ["short_answer", "table", "drawing"],
+        "minQuestions": 2,
+        "maxQuestions": 4
+      },
+      {
+        "id": "III",
+        "name": "Section III",
+        "marks": 15,
+        "suggestedMinutes": 40,
+        "questionTypes": ["extended_response"],
+        "questionCount": 1
+      }
+    ]
+  },
+
+  "questionTypes": [
+    "multiple_choice",
+    "short_answer",
+    "extended_response",
+    "table",
+    "drawing"
+  ],
+
+  "marks": {
+    "wholeNumberTotals": true,
+    "partMarkGranularity": 0.5
+  },
+
+  "print": {
+    "paperSize": "A4",
+    "marginsMm": [16, 15, 18, 15],
+    "linesPerMark": 2
+  }
+}

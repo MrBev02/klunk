@@ -32,7 +32,11 @@ sample_exams/
 # licence that clearly permits republication, this is the line to revisit, and
 # the model's source.redistributable flag is the thing to check first.
 syllabus/*.json
-profiles/*.json
+
+# Profiles are NOT excluded. A profile records the shape of a paper - 40 marks,
+# three sections at 10/15/15, five minutes reading time - which is fact about a
+# public examination, not NESA's expression of its syllabus. Shipping them is
+# what makes Klunk useful on first run.
 
 # Source and generated documents. A school exam template, a past paper or a
 # built paper are all one of these.

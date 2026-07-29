@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/bank.schema.json",
+  "title": "Klunk question bank",
+  "description": "A set of questions, normally one file per topic. Banks live in the teacher's own folder and are never committed to this repository.",
+  "type": "object",
+  "required": ["formatVersion", "type", "questions"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_bank" },
+    "name": { "type": "string" },
+    "syllabusId": {
+      "type": "string",
+      "description": "Default syllabus for questions in this file. A question may override it."
+    },
+    "questions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/question" }
+    }
+  },
+
+  "$defs": {
+    "question": {
+      "type": "object",
+      "required": ["id", "questionType", "questionText", "marks"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable within the folder. Papers reference questions by it, so changing it orphans every paper that used the question."
+        },
+        "questionType": { "$ref": "profile.schema.json#/$defs/questionType" },
+        "questionText": { "type": "string", "minLength": 1 },
+        "marks": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Total for the question. The profile decides whether this must be a whole number."
+        },
+        "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+
+        "syllabus": {
+          "type": "object",
+          "description": "What this question assesses. Stable ids, not a 'Subject > Unit > Topic' path string: paths break the moment a topic is renamed, whereas an id survives it.",
+          "additionalProperties": false,
+          "properties": {
+            "syllabusId": { "type": "string" },
+            "courseId": { "type": "string" },
+            "topicIds": { "type": "array", "items": { "type": "string" } },
+            "pointIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "The most precise link, e.g. 'HSC-01.07'. Coverage reporting counts these."
+            }
+          }
+        },
+
+        "outcomes": {
+          "type": "array",
+          "description": "Outcome codes, e.g. 'H1.1'. Held on the question because not every syllabus maps outcomes to content points.",
+          "items": { "type": "string" }
+        },
+
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 50 },
+          "maxItems": 20
+        },
+
+        "stimulus": {
+          "type": "array",
+          "description": "Images, diagrams or source material shown with the question. Design and Technology leans on product photographs and sketches far more than a text subject does, so this is first-class rather than an afterthought.",
+          "items": { "$ref": "#/$defs/stimulus" }
+        },
+
+        "markingGuide": {
+          "type": "object",
+          "description": "Everything that appears in the marking guide and never on the student paper.",
+          "additionalProperties": false,
+          "properties": {
+            "sampleAnswer": { "type": "string" },
+            "criteria": {
+              "type": "array",
+              "description": "Mark-by-mark or band criteria.",
+              "items": {
+                "type": "object",
+                "required": ["marks", "description"],
+                "additionalProperties": false,
+                "properties": {
+                  "marks": { "type": "number" },
+                  "description": { "type": "string" }
+                }
+              }
+            },
+            "notes": { "type": "string" }
+          }
+        },
+
+        "source": {
+          "type": "object",
+          "description": "Where the question came from. Extracted past-paper questions must carry this: reusing a recent HSC question in a school trial is a real hazard, and Klunk can only warn about it if the provenance is recorded.",
+          "additionalProperties": false,
+          "properties": {
+            "origin": {
+              "type": "string",
+              "enum": ["authored", "extracted", "adapted"],
+              "description": "'adapted' means derived from a past paper but reworded."
+            },
+            "paper": { "type": "string", "description": "e.g. 'NSW HSC Design and Technology'" },
+            "year": { "type": "integer" },
+            "questionNumber": { "type": "string" },
+            "copyright": {
+              "type": "string",
+              "description": "Who owns it. An extracted NESA question is NESA's, which constrains where the paper containing it may go."
+            }
+          }
+        },
+
+        "config": {
+          "type": "object",
+          "description": "Type-specific settings. See the per-type definitions below.",
+          "additionalProperties": true
+        }
+      },
+
+      "allOf": [
+        {
+          "if": { "properties": { "questionType": { "const": "multiple_choice" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/multipleChoiceConfig" } }, "required": ["config"] }
+        },
+        {
+          "if": { "properties": { "questionType": { "const": "true_false" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/trueFalseConfig" } }, "required": ["config"] }
+        },
+        {
+          "if": { "properties": { "questionType": { "const": "drawing" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/drawingConfig" } } }
+        },
+        {
+          "if": { "properties": { "questionType": { "const": "table" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/tableConfig" } }, "required": ["config"] }
+        },
+        {
+          "if": {
+            "properties": { "questionType": { "enum": ["short_answer", "extended_response"] } },
+            "required": ["questionType"]
+          },
+          "then": { "properties": { "config": { "$ref": "#/$defs/writtenConfig" } } }
+        }
+      ]
+    },
+
+    "stimulus": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["image", "text"] },
+        "file": {
+          "type": "string",
+          "description": "Path relative to the bank file. Kept as a path rather than embedded base64 so the folder stays diffable and an image can be replaced without editing JSON."
+        },
+        "text": { "type": "string" },
+        "caption": { "type": "string" },
+        "alt": { "type": "string", "description": "Required for images if the paper is ever read by a screen reader." },
+        "maxHeightMm": {
+          "type": "number",
+          "description": "Printed height cap. A tall diagram shrinks to an unreadable width on A4, so landscape is usually right."
+        }
+      }
+    },
+
+    "multipleChoiceConfig": {
+      "type": "object",
+      "required": ["choices", "correctAnswer"],
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "feedback": {
+                "type": "string",
+                "description": "Why this distractor is tempting. Should name the specific misconception, not say 'incorrect'."
+              }
+            }
+          }
+        },
+        "correctAnswer": { "type": "integer", "minimum": 0, "description": "Zero-based index into choices." },
+        "shuffle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shuffled deterministically per question, so option letters stay identical between the student paper and the marking guide across rebuilds."
+        }
+      }
+    },
+
+    "trueFalseConfig": {
+      "type": "object",
+      "required": ["correctAnswer"],
+      "additionalProperties": false,
+      "properties": {
+        "correctAnswer": { "type": "boolean" },
+        "feedbackTrue": { "type": "string" },
+        "feedbackFalse": { "type": "string" }
+      }
+    },
+
+    "writtenConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "answerLines": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ruled lines on the student paper. Omit to let the profile derive it from the marks."
+        },
+        "parts": {
+          "type": "array",
+          "description": "Sub-parts (a), (b), (c). Their marks must sum to the question's total.",
+          "items": {
+            "type": "object",
+            "required": ["label", "text", "marks"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "text": { "type": "string" },
+              "marks": { "type": "number", "exclusiveMinimum": 0 },
+              "answerLines": { "type": "integer", "minimum": 0 },
+              "sampleAnswer": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "drawingConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "subtype": { "type": "string", "enum": ["sketch", "diagram", "flowchart", "orthographic", "freehand"] },
+        "instructions": { "type": "string" },
+        "spaceMm": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Width and height of the blank drawing area on the printed page."
+        },
+        "grid": { "type": "boolean", "description": "Print a faint grid in the drawing area." }
+      }
+    },
+
+    "tableConfig": {
+      "type": "object",
+      "required": ["columns", "rows"],
+      "additionalProperties": false,
+      "properties": {
+        "columns": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["label"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "answers": { "type": "array", "items": { "type": "string" } },
+              "marks": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "blankCells": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether cells print empty for the student to complete."
+        }
+      }
+    }
+  }
+}
