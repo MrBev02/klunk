@@ -1,0 +1,415 @@
+/*
+ * The printed paper.
+ *
+ * Deliberately not sharing tokens with the screen styles. A paper is black ink
+ * on white A4 regardless of the teacher's dark mode, and every colour here is
+ * chosen to survive a mono laser printer.
+ *
+ * The preview on screen uses the same rules, so what a teacher sees is what the
+ * PDF contains.
+ */
+
+@page {
+  size: A4;
+  margin: 16mm 15mm 18mm 15mm;
+}
+
+.sheet {
+  /* Fixed A4 content width so the on-screen preview wraps exactly as the print
+     will. Without this, a wide window flows text differently from the page and
+     the preview stops being a preview. */
+  width: 180mm;
+  margin: 0 auto;
+  padding: 12mm 10mm;
+  background: #fff;
+  color: #000;
+  font-family: Cambria, Georgia, 'Times New Roman', serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  box-shadow: 0 2px 14px rgb(0 0 0 / 18%);
+}
+
+.sheet * {
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------- cover */
+
+.cover {
+  border-bottom: 2px solid #000;
+  padding-bottom: 6mm;
+  margin-bottom: 8mm;
+}
+
+.cover__school {
+  margin: 0;
+  font-size: 10pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cover__title {
+  margin: 2mm 0 0;
+  font-size: 20pt;
+  line-height: 1.15;
+}
+
+.cover__subtitle {
+  margin: 1mm 0 0;
+  font-size: 12pt;
+}
+
+.cover__guide {
+  margin: 2mm 0 0;
+  display: inline-block;
+  border: 1.5pt solid #000;
+  padding: 0.5mm 2mm;
+  font-weight: 700;
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cover__grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 8mm;
+  margin-top: 6mm;
+}
+
+.cover__block h3 {
+  margin: 0 0 2mm;
+  font-size: 11pt;
+}
+
+.cover__block ul {
+  margin: 0;
+  padding-left: 5mm;
+}
+
+.cover__sections {
+  list-style: none;
+  padding-left: 0;
+}
+
+.cover__sections li {
+  margin-bottom: 1.5mm;
+}
+
+.cover__meta {
+  margin: 5mm 0 0;
+  font-size: 10pt;
+}
+
+/* ------------------------------------------------------------------ sections */
+
+.sheet__section {
+  /* A section heading stranded at the foot of a page is the classic exam-paper
+     layout fault, so start each one on a fresh page. */
+  break-before: page;
+}
+
+.sheet__section:first-of-type {
+  break-before: auto;
+}
+
+.sheet__sectionhead {
+  border-bottom: 1pt solid #000;
+  padding-bottom: 2mm;
+  margin-bottom: 5mm;
+}
+
+.sheet__sectionhead h2 {
+  margin: 0;
+  font-size: 15pt;
+}
+
+.sheet__sectionmarks {
+  margin: 1mm 0 0;
+  font-weight: 700;
+}
+
+.sheet__hint {
+  margin: 1mm 0 0;
+  font-size: 10pt;
+  font-style: italic;
+}
+
+.sheet__end {
+  margin-top: 8mm;
+  text-align: center;
+  font-size: 10pt;
+  font-style: italic;
+  border-top: 1pt solid #000;
+  padding-top: 3mm;
+}
+
+.sheet__notes {
+  margin-top: 8mm;
+  border-top: 1pt dashed #000;
+  padding-top: 3mm;
+  font-size: 10pt;
+}
+
+/* ----------------------------------------------------------------- questions */
+
+.q-print {
+  /* Never split a question across a page boundary. */
+  break-inside: avoid;
+  margin-bottom: 7mm;
+}
+
+.q-print__head {
+  display: grid;
+  grid-template-columns: 9mm 1fr auto;
+  gap: 2mm;
+  align-items: start;
+}
+
+.q-print__n {
+  font-weight: 700;
+}
+
+.q-print__text {
+  margin: 0;
+}
+
+.q-print__marks {
+  white-space: nowrap;
+  font-size: 10pt;
+}
+
+.q-print__answer {
+  margin-left: 11mm;
+  margin-top: 2mm;
+}
+
+.q-print__hint {
+  margin: 0 0 2mm;
+  font-size: 10pt;
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------- choices */
+
+.choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.choices li {
+  display: grid;
+  grid-template-columns: 7mm 1fr;
+  margin-bottom: 1.5mm;
+}
+
+.choices__letter {
+  font-weight: 700;
+}
+
+.choices__correct {
+  font-weight: 700;
+}
+
+.choices__why {
+  grid-column: 2;
+  font-size: 9.5pt;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.tick {
+  font-size: 9.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.truefalse {
+  display: flex;
+  gap: 12mm;
+  margin: 0;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------- parts */
+
+.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: part;
+}
+
+.parts > li {
+  margin-bottom: 4mm;
+  break-inside: avoid;
+}
+
+.parts__head {
+  display: grid;
+  grid-template-columns: 8mm 1fr auto;
+  gap: 2mm;
+}
+
+.parts__label {
+  font-weight: 700;
+}
+
+.parts__marks {
+  white-space: nowrap;
+  font-size: 10pt;
+}
+
+/* --------------------------------------------------------- answer space etc. */
+
+.lines {
+  margin-top: 2mm;
+}
+
+.lines__line {
+  display: block;
+  border-bottom: 0.4pt solid #000;
+  height: 8mm;
+}
+
+.drawbox {
+  border: 0.8pt solid #000;
+  max-width: 100%;
+  margin-top: 2mm;
+}
+
+.drawbox--grid {
+  background-image:
+    linear-gradient(to right, rgb(0 0 0 / 12%) 0.3pt, transparent 0.3pt),
+    linear-gradient(to bottom, rgb(0 0 0 / 12%) 0.3pt, transparent 0.3pt);
+  background-size: 5mm 5mm;
+}
+
+.answertable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 2mm;
+}
+
+.answertable th,
+.answertable td {
+  border: 0.5pt solid #000;
+  padding: 2mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+.answertable th {
+  font-size: 10pt;
+}
+
+.answertable__blank {
+  min-width: 40mm;
+  height: 10mm;
+}
+
+.stimulus {
+  margin: 3mm 0;
+  padding-left: 4mm;
+  border-left: 1.5pt solid #000;
+  font-size: 10.5pt;
+}
+
+.stimulus cite {
+  display: block;
+  margin-top: 1mm;
+  font-size: 9.5pt;
+}
+
+.stimulus--image {
+  border-left: none;
+  padding-left: 0;
+}
+
+.stimulus__missing {
+  border: 0.8pt dashed #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5pt;
+  font-style: italic;
+  padding: 4mm;
+}
+
+.stimulus figcaption {
+  font-size: 9.5pt;
+  margin-top: 1mm;
+}
+
+/* ------------------------------------------------------------ marking guide */
+
+.guide {
+  margin: 3mm 0 0 11mm;
+  border-left: 2pt solid #000;
+  padding-left: 4mm;
+  font-size: 10pt;
+}
+
+.guide h4 {
+  margin: 2mm 0 1mm;
+  font-size: 10pt;
+}
+
+.guide__criteria {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.guide__criteria th,
+.guide__criteria td {
+  border: 0.4pt solid #000;
+  padding: 1.5mm;
+  text-align: left;
+}
+
+.guide__marks {
+  width: 16mm;
+  text-align: center;
+  font-weight: 700;
+}
+
+.guide__sample {
+  margin: 0 0 2mm;
+}
+
+.guide__notes {
+  margin: 2mm 0 0;
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ printing */
+
+@media print {
+  /* Everything that is not the paper disappears. The app chrome, the checker,
+     the buttons: none of it belongs in a PDF handed to a class. */
+  body > #app > .shell > *:not(.preview),
+  .preview__bar {
+    display: none !important;
+  }
+
+  body,
+  .preview {
+    background: #fff;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sheet {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  /* Force backgrounds and rules to print rather than being helpfully removed. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

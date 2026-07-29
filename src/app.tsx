@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks'
+import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import {
   allQuestions,
@@ -10,9 +11,10 @@ import {
   scanFolder,
   type ContentIndex,
 } from './storage'
-import { QUESTION_TYPE_LABELS, type QuestionRef, type Syllabus } from './types'
+import { QUESTION_TYPE_LABELS, type Paper, type QuestionRef, type Syllabus } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
+type View = 'library' | 'build'
 
 export function App() {
   const caps = useMemo(detectCapabilities, [])
@@ -22,6 +24,8 @@ export function App() {
   const [folder, setFolder] = useState<FileSystemDirectoryHandle | null>(null)
   const [index, setIndex] = useState<ContentIndex>(emptyIndex)
   const [error, setError] = useState<string>('')
+  const [view, setView] = useState<View>('library')
+  const [paper, setPaper] = useState<Paper | null>(null)
 
   const load = useCallback(async (handle: FileSystemDirectoryHandle) => {
     setPhase('scanning')
@@ -113,7 +117,34 @@ export function App() {
 
       {phase === 'empty' && <Welcome caps={caps} onChoose={() => void choose()} />}
 
-      {phase === 'ready' && <Library index={index} />}
+      {phase === 'ready' && (
+        <nav class="tabs">
+          <button
+            class={`tab ${view === 'library' ? 'tab--on' : ''}`}
+            onClick={() => setView('library')}
+          >
+            Questions
+          </button>
+          <button
+            class={`tab ${view === 'build' ? 'tab--on' : ''}`}
+            onClick={() => setView('build')}
+          >
+            Build a paper
+          </button>
+        </nav>
+      )}
+
+      {phase === 'ready' && view === 'library' && <Library index={index} />}
+
+      {phase === 'ready' && view === 'build' && folder && (
+        <Builder
+          index={index}
+          folder={folder}
+          paper={paper}
+          setPaper={setPaper}
+          onSaved={() => void load(folder)}
+        />
+      )}
 
       <footer class="foot">
         Runs entirely in your browser. Nothing is uploaded, and no network request is made

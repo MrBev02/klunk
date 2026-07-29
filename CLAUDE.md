@@ -135,7 +135,8 @@ are kept in `../klunk-content/fixtures/` purely as parser regression tests.
 ```
 npm install
 npm run dev            # dev server
-npm run build          # dist/ for GitHub Pages (typecheck runs first)
+npm test               # vitest, the paper checker and shuffle logic
+npm run build          # typecheck, then tests, then dist/ for GitHub Pages
 npm run build:single   # dist-single/ one self-contained HTML for a shared drive
 npm run typecheck
 
@@ -173,11 +174,14 @@ profile, development fixtures covering all five question types. The deployed pag
 been opened on the user's machine: it renders, and **the File System Access API is
 supported there**, so the folder-based storage model is confirmed rather than assumed.
 
-Next: the app itself. Folder picker (File System Access API is the primary path;
-manual open/download is the fallback for Safari and Firefox, not the main design),
-load and browse a folder's profile/syllabus/banks, paper builder writing `klunk_paper`
-manifests, a checker enforcing profile rules, and print-to-PDF via a print stylesheet
-and `window.print()`.
+The app now opens a folder, reads it, browses questions, builds a paper against a
+profile, checks it, and prints it to PDF. `npm run build` gates on the tests, so a
+broken checker fails the Pages deploy rather than shipping.
+
+Next: images in printed papers are placeholders naming the missing file (deliberate,
+so a missing image is obvious on the proof rather than in the exam room) and need
+loading from the content folder. Then the past-paper extractor, and an IB syllabus
+model from the mapping spreadsheet in `../klunk-content/source/ib-dt/`.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
