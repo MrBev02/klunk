@@ -1417,10 +1417,18 @@ code,
   margin-bottom: 0;
 }
 
+/* A message and the button it is about, kept together. Both uses are places
+   where naming a button that sits elsewhere on the page sent the teacher
+   hunting for it. */
 .panel__act {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
+}
+
+.panel__act .btn {
+  flex: none;
 }
 
 .panel__act .hint {

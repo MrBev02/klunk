@@ -109,6 +109,12 @@ export function Factory({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chosen, topicIds, pointIds, questionType, marks, count, profile, extra, existing])
 
+  const clearPaste = () => {
+    setRead(null)
+    setPasted('')
+    setDiscarded([])
+  }
+
   const ingest = () => {
     if (!chosen) return
     const context: IngestContext = {
@@ -385,14 +391,7 @@ export function Factory({
             Read it
           </button>
           {read && (
-            <button
-              class="btn"
-              onClick={() => {
-                setRead(null)
-                setPasted('')
-                setDiscarded([])
-              }}
-            >
+            <button class="btn" onClick={clearPaste}>
               Clear
             </button>
           )}
@@ -484,10 +483,17 @@ export function Factory({
             )}
 
             {unsaved.length === 0 ? (
-              <p class="hint">
-                All {live.length} written into <span class="mono">{bankPath}</span>. They
-                are in the Questions tab now, and Clear empties this panel.
-              </p>
+              // The button goes with the sentence. Naming the one at the top of
+              // the panel meant hunting back past every draft card to find it.
+              <div class="panel__act">
+                <p class="hint">
+                  All {live.length} written into <span class="mono">{bankPath}</span>.
+                  They are in the Questions tab now.
+                </p>
+                <button class="btn" onClick={clearPaste}>
+                  Clear this panel
+                </button>
+              </div>
             ) : (
               <>
                 <div class="rowbtns">
