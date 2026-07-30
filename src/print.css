@@ -387,9 +387,18 @@
 
 @media print {
   /* Everything that is not the paper disappears. The app chrome, the checker,
-     the buttons: none of it belongs in a PDF handed to a class. */
-  body > #app > .shell > *:not(.preview),
-  .preview__bar {
+     the buttons: none of it belongs in a PDF handed to a class.
+
+     Written as "does not contain the sheet" rather than as a path down from
+     .shell, because the path version broke silently: keeping the tabs mounted
+     behind `hidden` wrapped the builder in one more div, the wrapper matched
+     `.shell > *:not(.preview)`, and the whole paper went with it. Every printed
+     page came out blank while the on-screen preview looked perfect. This rule
+     does not care how deeply the paper is nested.
+
+     Ancestors of the sheet survive on :has(), the sheet and its contents on the
+     two :not()s, and everything else on either side is hidden. */
+  body *:not(:has(.sheet)):not(.sheet):not(.sheet *) {
     display: none !important;
   }
 
