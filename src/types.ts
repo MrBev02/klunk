@@ -151,6 +151,12 @@ export interface QuestionPart {
   sampleAnswer?: string
 }
 
+export interface TableRow {
+  label: string
+  answers?: string[]
+  marks?: number
+}
+
 export interface QuestionConfig {
   /** multiple_choice */
   choices?: { text: string; feedback?: string }[]
@@ -169,7 +175,7 @@ export interface QuestionConfig {
   grid?: boolean
   /** table */
   columns?: string[]
-  rows?: { label: string; answers?: string[]; marks?: number }[]
+  rows?: TableRow[]
   blankCells?: boolean
 }
 

@@ -13,6 +13,7 @@
 import { useState } from 'preact/hooks'
 import { shuffledChoices } from './paper'
 import { QUESTION_TYPE_LABELS, type Question, type QuestionRef } from './types'
+import { looksBanded, needsGuide } from './validate'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -233,7 +234,7 @@ function Body({ question: q }: { question: Question }) {
 function Guide({ question: q }: { question: Question }) {
   const g = q.markingGuide
   if (!g?.criteria?.length && !g?.sampleAnswer && !g?.notes) {
-    if (needsGuide(q)) {
+    if (needsGuide(q.questionType)) {
       return (
         <div class="det">
           <p class="det__label">Marking guide</p>
@@ -329,24 +330,6 @@ function Tags({ question: q }: { question: Question }) {
 }
 
 /* --------------------------------------------------------------------- utils */
-
-function needsGuide(q: Question): boolean {
-  return (
-    q.questionType === 'short_answer' ||
-    q.questionType === 'extended_response' ||
-    q.questionType === 'drawing'
-  )
-}
-
-/**
- * Band descriptors are alternatives, not components: a 15-mark extended
- * response might list 15/11/7/3. Summing those and complaining they exceed the
- * total would be wrong, so treat strictly descending marks as bands.
- */
-function looksBanded(criteria: { marks: number }[]): boolean {
-  if (criteria.length < 2) return false
-  return criteria.every((c, i) => i === 0 || c.marks < (criteria[i - 1]?.marks ?? 0))
-}
 
 export function shortType(q: Question): string {
   const map: Record<string, string> = {

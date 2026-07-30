@@ -344,6 +344,15 @@ export async function writeJson(
   path: string,
   value: unknown,
 ): Promise<void> {
+  await writeFile(dir, path, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+/** Write a file, creating any directories on the way. */
+export async function writeFile(
+  dir: FileSystemDirectoryHandle,
+  path: string,
+  data: FileSystemWriteChunkType,
+): Promise<void> {
   const parts = path.split('/').filter(Boolean)
   const filename = parts.pop()
   if (!filename) throw new Error(`not a file path: ${path}`)
@@ -355,8 +364,106 @@ export async function writeJson(
 
   const file = await target.getFileHandle(filename, { create: true })
   const writable = await file.createWritable()
-  await writable.write(`${JSON.stringify(value, null, 2)}\n`)
+  await writable.write(data)
   await writable.close()
+}
+
+/**
+ * Copy a file the teacher chose into the folder, without overwriting anything.
+ *
+ * Two different photographs called `handle.png` is not a rare event, and the
+ * second one silently replacing the first would change a question nobody was
+ * editing. So a name already in use gets a numbered sibling, and the name
+ * actually used is returned for the stimulus path to be written against.
+ */
+export async function copyFileInto(
+  dir: FileSystemDirectoryHandle,
+  directory: string,
+  name: string,
+  data: Blob,
+): Promise<string> {
+  const safe = safeFilename(name)
+  const dot = safe.lastIndexOf('.')
+  const stem = dot > 0 ? safe.slice(0, dot) : safe
+  const ext = dot > 0 ? safe.slice(dot) : ''
+
+  let chosen = safe
+  for (let n = 1; await exists(dir, joinDir(directory, chosen)); n += 1) {
+    chosen = `${stem}-${n}${ext}`
+    if (n > 200) throw new Error(`too many files called ${safe} already`)
+  }
+
+  await writeFile(dir, joinDir(directory, chosen), data)
+  return chosen
+}
+
+function joinDir(directory: string, name: string): string {
+  return directory ? `${directory}/${name}` : name
+}
+
+/** Strip anything that would turn a filename into a path or an argument. */
+export function safeFilename(name: string): string {
+  const cleaned = name
+    .split(/[\\/]/)
+    .pop()
+    ?.replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return cleaned || 'file'
+}
+
+export async function exists(dir: FileSystemDirectoryHandle, path: string): Promise<boolean> {
+  return (await fileAt(dir, path).catch(() => null)) !== null
+}
+
+/**
+ * Add or replace one question in a bank file, leaving the rest of it alone.
+ *
+ * The bank is re-read from disk rather than taken from the index, because the
+ * index is a snapshot from the last scan. A teacher with the folder open in two
+ * tabs, or a bank edited by hand since the scan, would otherwise have that work
+ * overwritten by a save of one unrelated question.
+ */
+export async function saveQuestion(
+  dir: FileSystemDirectoryHandle,
+  bankPath: string,
+  question: Question,
+  seed?: { name?: string | undefined; syllabusId?: string | undefined },
+): Promise<{ created: boolean }> {
+  const existing = await readJson(dir, bankPath)
+
+  let bank: Bank
+  let created = false
+  if (existing === null) {
+    bank = { formatVersion: '1', type: 'klunk_bank', questions: [] }
+    if (seed?.name) bank.name = seed.name
+    if (seed?.syllabusId) bank.syllabusId = seed.syllabusId
+    created = true
+  } else if (isBank(existing)) {
+    bank = existing
+  } else {
+    // Refusing rather than replacing: a teacher typing an existing paper's name
+    // into the "new bank" box would otherwise destroy the paper.
+    throw new Error(`${bankPath} is already there and is not a question bank`)
+  }
+
+  const at = bank.questions.findIndex((q) => q.id === question.id)
+  if (at >= 0) bank.questions[at] = question
+  else bank.questions.push(question)
+
+  await writeJson(dir, bankPath, bank)
+  return { created }
+}
+
+async function readJson(dir: FileSystemDirectoryHandle, path: string): Promise<unknown | null> {
+  const file = await fileAt(dir, path).catch(() => null)
+  if (!file) return null
+  return JSON.parse(await file.text()) as unknown
+}
+
+function isBank(value: unknown): value is Bank {
+  if (typeof value !== 'object' || value === null) return false
+  const bank = value as Bank
+  return bank.type === 'klunk_bank' && Array.isArray(bank.questions)
 }
 
 /* ------------------------------------------------------------------ querying */
@@ -368,6 +475,15 @@ export function allQuestions(index: ContentIndex): QuestionRef[] {
     for (const question of bank.data.questions) {
       out.push({ question, file: bank.path, bankName: bank.data.name })
     }
+  }
+  return out
+}
+
+/** Every question id in the folder, which is what a new id must not collide with. */
+export function questionIds(index: ContentIndex): Set<string> {
+  const out = new Set<string>()
+  for (const bank of index.banks) {
+    for (const question of bank.data.questions) out.add(question.id)
   }
   return out
 }

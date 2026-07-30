@@ -957,6 +957,210 @@ code,
   gap: 0.45rem;
 }
 
+/* ---------------------------------------------------------------- the editor
+ *
+ * The form is a column of panels rather than a dense grid. A teacher writing a
+ * question is reading and thinking between fields, not filling in a tax return,
+ * and the preview beside it is what they are really working against.
+ */
+
+.rail__cta {
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.field {
+  margin-bottom: 0.85rem;
+  min-width: 0;
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+/* A field with no id on its control wraps the control in the label instead, and
+   an inline label around a full-width textarea lays out badly. */
+.field > label {
+  display: block;
+}
+
+/* Small fields side by side, wrapping rather than shrinking to nothing. */
+.fieldrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.fieldrow > .field {
+  flex: 1 1 9rem;
+  margin-bottom: 0;
+}
+
+.hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.panel__title + .hint {
+  margin-bottom: 0.7rem;
+}
+
+textarea.input {
+  font-family: inherit;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.input--sub {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.input--narrow {
+  flex: 0 0 4.5rem;
+  width: 4.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.input--label {
+  flex: 0 0 3.2rem;
+  width: 3.2rem;
+  font-family: var(--mono);
+  text-align: center;
+}
+
+.withbtn {
+  display: flex;
+  gap: 0.35rem;
+  align-items: start;
+}
+
+.withbtn > .input:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Repeatable rows: options, parts, criteria, table rows, stimulus. */
+.editrows {
+  list-style: none;
+  margin: 0.6rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.editrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.editrow__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.editrow__body.withbtn {
+  flex-direction: row;
+}
+
+.editrow__letter {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  padding-top: 0.5rem;
+  min-width: 1.1rem;
+  text-align: center;
+}
+
+.editrow__pick {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-top: 0.45rem;
+  cursor: pointer;
+}
+
+.editrow__pick input:checked + .editrow__letter {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.checkline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.checklist .checkline {
+  margin-top: 0;
+}
+
+/* A chip that removes what it names, so it has to look pressable. */
+.chip--drop {
+  cursor: pointer;
+  background: var(--paper-raised);
+  font-family: var(--ui);
+  white-space: normal;
+  text-align: left;
+}
+
+.chip--drop:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+button.chip {
+  cursor: pointer;
+  background: var(--paper-raised);
+}
+
+.editor__sub {
+  margin-top: 1rem;
+}
+
+.editor__where {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.editor__file {
+  margin: 0.35rem 0;
+  font-size: 0.84rem;
+  word-break: break-all;
+}
+
+/* Tall enough to be worth reading, capped so the save button stays in view. */
+.editor__preview {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 /* ------------------------------------------------------------------- footer */
 
 .colophon {

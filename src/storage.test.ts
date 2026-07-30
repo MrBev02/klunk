@@ -9,16 +9,31 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { emptyIndex, joinPath, releaseImages, scanFolder } from './storage'
-import type { Bank } from './types'
+import {
+  copyFileInto,
+  emptyIndex,
+  joinPath,
+  releaseImages,
+  safeFilename,
+  saveQuestion,
+  scanFolder,
+} from './storage'
+import type { Bank, Paper, Question } from './types'
 
 /* -------------------------------------------------- a folder made of strings */
 
-type Node = string | Map<string, Node>
+/**
+ * A directory tree in memory, writable, standing in for the File System Access
+ * API. Writable because the interesting failures are writes: a save that
+ * flattens the rest of a bank, or an image copy that replaces a picture some
+ * other question was using.
+ */
+type Node = string | Blob | Directory
+type Directory = Map<string, Node>
 
 /** Build a directory tree from a flat map of folder-relative path to contents. */
-function tree(files: Record<string, string>): Map<string, Node> {
-  const root = new Map<string, Node>()
+function tree(files: Record<string, string>): Directory {
+  const root: Directory = new Map()
   for (const [path, content] of Object.entries(files)) {
     const parts = path.split('/')
     const name = parts.pop() as string
@@ -28,7 +43,7 @@ function tree(files: Record<string, string>): Map<string, Node> {
       if (next instanceof Map) {
         here = next
       } else {
-        const made = new Map<string, Node>()
+        const made: Directory = new Map()
         here.set(part, made)
         here = made
       }
@@ -38,32 +53,66 @@ function tree(files: Record<string, string>): Map<string, Node> {
   return root
 }
 
-function fileHandle(name: string, content: string): FileSystemFileHandle {
+/** Read a path out of a tree, for asserting on what a write actually did. */
+function read(node: Directory, path: string): Node | undefined {
+  let here: Node | undefined = node
+  for (const part of path.split('/')) {
+    if (!(here instanceof Map)) return undefined
+    here = here.get(part)
+  }
+  return here
+}
+
+function readJson(node: Directory, path: string): unknown {
+  const value = read(node, path)
+  if (typeof value !== 'string') throw new Error(`not a text file: ${path}`)
+  return JSON.parse(value)
+}
+
+function fileHandle(parent: Directory, name: string): FileSystemFileHandle {
   return {
     kind: 'file',
     name,
-    getFile: async () => ({ name, text: async () => content }),
+    getFile: async () => {
+      const value = parent.get(name)
+      const text = value instanceof Blob ? await value.text() : String(value ?? '')
+      return { name, text: async () => text, size: text.length }
+    },
+    createWritable: async () => ({
+      write: async (data: unknown) => {
+        parent.set(name, data instanceof Blob ? data : String(data))
+      },
+      close: async () => undefined,
+    }),
   } as unknown as FileSystemFileHandle
 }
 
-function dirHandle(node: Map<string, Node>, name = 'content'): FileSystemDirectoryHandle {
+function dirHandle(node: Directory, name = 'content'): FileSystemDirectoryHandle {
   const handle = {
     kind: 'directory',
     name,
     async *entries(): AsyncGenerator<[string, unknown]> {
       for (const [child, value] of node) {
-        yield [child, value instanceof Map ? dirHandle(value, child) : fileHandle(child, value)]
+        yield [child, value instanceof Map ? dirHandle(value, child) : fileHandle(node, child)]
       }
     },
-    async getDirectoryHandle(child: string) {
+    async getDirectoryHandle(child: string, options?: { create?: boolean }) {
       const value = node.get(child)
-      if (!(value instanceof Map)) throw new Error(`no such directory: ${child}`)
-      return dirHandle(value, child)
+      if (value instanceof Map) return dirHandle(value, child)
+      if (!options?.create) throw new Error(`no such directory: ${child}`)
+      const made: Directory = new Map()
+      node.set(child, made)
+      return dirHandle(made, child)
     },
-    async getFileHandle(child: string) {
+    async getFileHandle(child: string, options?: { create?: boolean }) {
       const value = node.get(child)
-      if (typeof value !== 'string') throw new Error(`no such file: ${child}`)
-      return fileHandle(child, value)
+      if (value === undefined) {
+        if (!options?.create) throw new Error(`no such file: ${child}`)
+        node.set(child, '')
+      } else if (value instanceof Map) {
+        throw new Error(`${child} is a directory`)
+      }
+      return fileHandle(node, child)
     },
   }
   return handle as unknown as FileSystemDirectoryHandle
@@ -218,6 +267,142 @@ describe('releaseImages', () => {
     releaseImages(index)
 
     expect(revoked).toHaveLength(1)
+  })
+})
+
+/* ------------------------------------------------------------ writing a question */
+
+function newQuestion(id: string, text = 'Explain the brief.'): Question {
+  return { id, questionType: 'short_answer', questionText: text, marks: 4 }
+}
+
+describe('saveQuestion', () => {
+  it('creates the bank when there is not one yet', async () => {
+    const files = tree({})
+    const { created } = await saveQuestion(
+      dirHandle(files),
+      'bank/design.json',
+      newQuestion('design-sa-01'),
+      { name: 'Design questions', syllabusId: 'nsw-hsc-design-technology' },
+    )
+
+    expect(created).toBe(true)
+    expect(readJson(files, 'bank/design.json')).toEqual({
+      formatVersion: '1',
+      type: 'klunk_bank',
+      name: 'Design questions',
+      syllabusId: 'nsw-hsc-design-technology',
+      questions: [newQuestion('design-sa-01')],
+    })
+  })
+
+  it('adds to a bank without disturbing what is already in it', async () => {
+    const existing: Bank = {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      name: 'Design questions',
+      syllabusId: 'nsw-hsc-design-technology',
+      questions: [newQuestion('design-sa-01'), newQuestion('design-sa-02')],
+    }
+    const files = tree({ 'bank/design.json': JSON.stringify(existing) })
+
+    const { created } = await saveQuestion(
+      dirHandle(files),
+      'bank/design.json',
+      newQuestion('design-sa-03'),
+    )
+
+    expect(created).toBe(false)
+    const written = readJson(files, 'bank/design.json') as Bank
+    expect(written.questions.map((q) => q.id)).toEqual([
+      'design-sa-01',
+      'design-sa-02',
+      'design-sa-03',
+    ])
+    expect(written.name).toBe('Design questions')
+    expect(written.syllabusId).toBe('nsw-hsc-design-technology')
+  })
+
+  it('replaces a question in place, keeping its position in the bank', async () => {
+    const existing: Bank = {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      questions: [newQuestion('a'), newQuestion('b', 'Old wording.'), newQuestion('c')],
+    }
+    const files = tree({ 'bank/design.json': JSON.stringify(existing) })
+
+    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('b', 'New wording.'))
+
+    const written = readJson(files, 'bank/design.json') as Bank
+    expect(written.questions.map((q) => q.id)).toEqual(['a', 'b', 'c'])
+    expect(written.questions[1]?.questionText).toBe('New wording.')
+  })
+
+  it('reads the bank from disk rather than trusting a stale copy', async () => {
+    // Two saves in a row through separate handles: the second must see the
+    // first, which it only does by re-reading.
+    const files = tree({})
+    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('a'))
+    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('b'))
+
+    const written = readJson(files, 'bank/design.json') as Bank
+    expect(written.questions.map((q) => q.id)).toEqual(['a', 'b'])
+  })
+
+  it('refuses to write over a file that is not a bank', async () => {
+    // Typing an existing paper's name into the "new bank" box would otherwise
+    // destroy the paper.
+    const paper: Paper = {
+      formatVersion: '1',
+      type: 'klunk_paper',
+      id: 'trial',
+      title: 'Trial HSC Examination',
+      sections: [],
+    }
+    const files = tree({ 'papers/trial.json': JSON.stringify(paper) })
+
+    await expect(
+      saveQuestion(dirHandle(files), 'papers/trial.json', newQuestion('a')),
+    ).rejects.toThrow('not a question bank')
+    expect(readJson(files, 'papers/trial.json')).toEqual(paper)
+  })
+})
+
+describe('copyFileInto', () => {
+  it('writes the image and reports the name it used', async () => {
+    const files = tree({})
+    const name = await copyFileInto(
+      dirHandle(files),
+      'bank/stimulus',
+      'handle.png',
+      new Blob(['first']),
+    )
+
+    expect(name).toBe('handle.png')
+    expect(read(files, 'bank/stimulus/handle.png')).toBeInstanceOf(Blob)
+  })
+
+  it('never replaces an image already there', async () => {
+    // Two teachers, two photographs, both called handle.png. Overwriting would
+    // change a question nobody was editing.
+    const dir = tree({ 'bank/stimulus/handle.png': 'the first one' })
+    const handle = dirHandle(dir)
+
+    expect(await copyFileInto(handle, 'bank/stimulus', 'handle.png', new Blob(['second']))).toBe(
+      'handle-1.png',
+    )
+    expect(await copyFileInto(handle, 'bank/stimulus', 'handle.png', new Blob(['third']))).toBe(
+      'handle-2.png',
+    )
+    expect(read(dir, 'bank/stimulus/handle.png')).toBe('the first one')
+  })
+})
+
+describe('safeFilename', () => {
+  it('reduces anything a chooser hands over to a plain filename', () => {
+    expect(safeFilename('C:\\Users\\Aaron\\bench photo.JPG')).toBe('bench-photo.JPG')
+    expect(safeFilename('../../etc/passwd')).toBe('passwd')
+    expect(safeFilename('!!!')).toBe('file')
   })
 })
 

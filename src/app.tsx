@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
+import { QuestionEditor, type Editing } from './editor'
 import { QuestionRow } from './question'
 import {
   allQuestions,
@@ -13,7 +14,7 @@ import {
   scanFolder,
   type ContentIndex,
 } from './storage'
-import { QUESTION_TYPE_LABELS, type Paper, type Syllabus } from './types'
+import { QUESTION_TYPE_LABELS, type Paper, type QuestionRef, type Syllabus } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
 type View = 'library' | 'build'
@@ -28,6 +29,9 @@ export function App() {
   const [error, setError] = useState<string>('')
   const [view, setView] = useState<View>('library')
   const [paper, setPaper] = useState<Paper | null>(null)
+  /** 'new' to write one, an Editing to change one, null when the editor is shut. */
+  const [editor, setEditor] = useState<'new' | Editing | null>(null)
+  const [notice, setNotice] = useState('')
 
   // The live index is mirrored in a ref so a rescan can hand the one it replaces
   // to scanFolder for its image URLs to be released. A ref, not the state value:
@@ -86,8 +90,25 @@ export function App() {
     releaseImages(indexRef.current)
     replaceIndex(emptyIndex())
     setPaper(null)
+    setEditor(null)
     setPhase('empty')
   }, [replaceIndex])
+
+  // Opening and closing the editor swaps the whole page for a taller or
+  // shorter one. Without this a teacher who saves from the bottom of a long
+  // form lands below the end of the library and sees a blank screen.
+  const showEditor = useCallback((next: 'new' | Editing | null) => {
+    setEditor(next)
+    window.scrollTo({ top: 0 })
+  }, [])
+
+  const openEditor = useCallback(
+    (next: 'new' | Editing) => {
+      setNotice('')
+      showEditor(next)
+    },
+    [showEditor],
+  )
 
   const questionCount = useMemo(() => allQuestions(index).length, [index])
 
@@ -132,8 +153,31 @@ export function App() {
         <Welcome caps={caps} insecure={insecure} onChoose={() => void choose()} />
       )}
 
-      {phase === 'ready' && (
+      {/* The editor takes the whole screen, tabs included. A half-written
+          question is easy to lose to a stray click on another tab, and there is
+          nothing to come back to once it is gone. */}
+      {phase === 'ready' && folder && editor !== null && (
+        <QuestionEditor
+          index={index}
+          folder={folder}
+          editing={editor === 'new' ? null : editor}
+          onCancel={() => showEditor(null)}
+          onSaved={(message) => {
+            showEditor(null)
+            setNotice(message)
+            void load(folder)
+          }}
+        />
+      )}
+
+      {phase === 'ready' && editor === null && (
         <>
+          {notice && (
+            <section class="panel panel--ok">
+              <p>{notice}</p>
+            </section>
+          )}
+
           <nav class="tabs">
             <button
               class={`tab ${view === 'library' ? 'tab--on' : ''}`}
@@ -149,7 +193,13 @@ export function App() {
             </button>
           </nav>
 
-          {view === 'library' && <Library index={index} />}
+          {view === 'library' && (
+            <Library
+              index={index}
+              onNew={() => openEditor('new')}
+              onEdit={(item) => openEditor({ question: item.question, file: item.file })}
+            />
+          )}
 
           {view === 'build' && folder && (
             <Builder
@@ -217,7 +267,15 @@ function Welcome({
   )
 }
 
-function Library({ index }: { index: ContentIndex }) {
+function Library({
+  index,
+  onNew,
+  onEdit,
+}: {
+  index: ContentIndex
+  onNew: () => void
+  onEdit: (item: QuestionRef) => void
+}) {
   const questions = useMemo(() => allQuestions(index), [index])
   const syllabus = index.syllabuses[0]?.data
 
@@ -249,8 +307,13 @@ function Library({ index }: { index: ContentIndex }) {
         <p class="panel__title">Nothing here yet</p>
         <p>
           That folder holds no JSON files. Point Klunk at the folder with your question
-          banks, or make one and come back.
+          banks, or write your first question here and Klunk will make the bank.
         </p>
+        <div class="rowbtns">
+          <button class="btn btn--primary" onClick={onNew}>
+            Write a question
+          </button>
+        </div>
       </section>
     )
   }
@@ -258,6 +321,10 @@ function Library({ index }: { index: ContentIndex }) {
   return (
     <div class="split">
       <aside class="rail">
+        <button class="btn btn--primary rail__cta" onClick={onNew}>
+          Write a question
+        </button>
+
         <div class="meter">
           <span class="meter__n">{shown.length}</span>
           <span class="meter__of"> / {questions.length}</span>
@@ -381,6 +448,11 @@ function Library({ index }: { index: ContentIndex }) {
               were question banks. A bank needs <code>"type": "klunk_bank"</code> at the top
               level.
             </p>
+            <div class="rowbtns">
+              <button class="btn btn--primary" onClick={onNew}>
+                Write the first question
+              </button>
+            </div>
           </section>
         ) : shown.length === 0 ? (
           <section class="panel">
@@ -390,7 +462,16 @@ function Library({ index }: { index: ContentIndex }) {
         ) : (
           <ul class="qlist">
             {shown.map((ref, i) => (
-              <QuestionRow key={`${ref.file}#${ref.question.id}`} item={ref} index={i} />
+              <QuestionRow
+                key={`${ref.file}#${ref.question.id}`}
+                item={ref}
+                index={i}
+                action={
+                  <button class="btn btn--small" onClick={() => onEdit(ref)}>
+                    Edit this question
+                  </button>
+                }
+              />
             ))}
           </ul>
         )}
