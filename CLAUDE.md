@@ -8,12 +8,11 @@ A point-and-click exam paper builder for teachers who should not have to touch a
 terminal. It runs entirely in the browser: no server, no account, no database, no
 API key, and **no network requests after the page loads**.
 
-Built for the Design faculty at the user's school. Target courses are **NSW HSC
+Built for the all faculties at the user's school. PoC courses are **NSW HSC
 Design and Technology** and **IB DP Design Technology**. Textiles and Design is also
 supported by the syllabus generator.
 
-The user is a teacher with 20+ years of software and management experience. No
-sycophancy, no flattery, challenge weak reasoning, plan before producing.
+No sycophancy, no flattery, challenge weak reasoning, plan before producing.
 
 ## Non-negotiable constraints
 
@@ -161,10 +160,16 @@ Regression check for the generator: Design and Technology must stay at
 - **Git identity is set locally** to MrBev02, because the machine's global identity is
   a different account.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
-- The Chrome browser tools attach to a **different machine**, so the app cannot be
-  verified in a browser from here. Ask the user to check visually.
-  *Already confirmed on the user's machine:* the deployed page renders, and folder
-  access reports **Supported**. Do not ask again unless something changes.
+- **The Chrome browser tools work on this machine. Use them.** They drive the real
+  browser here, so `npm run dev` and check the change rather than reasoning about it
+  from the source. Driving the question editor this way found four faults that
+  reading the code did not, including one that silently dropped the syllabus a
+  question was tagged against.
+  Two things need the user, because a native OS dialog is outside the page: granting
+  the content folder the first time on a given origin, and choosing a stimulus image.
+  Ask for that one click and carry on.
+  *Already confirmed:* folder access reports **Supported**, and the deployed page
+  renders. Do not ask again unless something changes.
 
 ## Work is tracked in GitHub issues
 
@@ -190,7 +195,7 @@ The rules:
 - **Reference the issue in the commit** (`Closes #5`, or `Refs #3` for partial work),
   so history explains itself.
 - **Do not close an issue you have not verified.** This project has a habit of
-  checking in a browser rather than reasoning from the source, and that habit has
+  reasoning from the source rather than checking in a browser, and the later has
   caught several faults that reading the code did not.
 - **File what you find.** Noticing a defect while doing something else is normal;
   filing it and carrying on is better than either fixing it silently or forgetting.
@@ -220,20 +225,36 @@ so it is caught on the proof rather than in the exam room.
 Paper references survive a moved or renamed bank: exact path, then same filename,
 then a globally unique question id, with ambiguity reported rather than guessed.
 
+**A teacher can write a question in the app** (#1). The form is field-for-field with
+`bank.schema.json`, previews the whole question beside itself as it is typed, and
+validates against the schema's rules restated in `src/validate.ts`, because a JSON
+Schema validator would be a second dependency. Saving re-reads the bank from disk
+rather than trusting the index, refuses to write over a file that is not a bank, and
+never copies an image over one already there.
+
+Verified in the browser: a short answer and a multiple choice question written in the
+app, saved into an existing bank without disturbing the fourteen already in it, the
+multiple choice one printed as question 11 of the trial paper with the marking guide
+naming the same option letter the editor previewed.
+
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
 
 Next is in the issue tracker. `gh issue list` is the authoritative backlog; this
 section only says where to start.
 
-The gap that blocks everything else: **a teacher cannot create a question in the
-app**, so a new user's bank stays empty however good the paper builder is. That is
-issue #1, with the prompt factory (#2) directly after it, since the two together
-are what make Klunk self-sufficient rather than dependent on someone hand-writing
-JSON.
+With #1 done, the next thing that makes Klunk self-sufficient is the **prompt factory
+(#2)**: writing every question by hand is possible now, but slow, and the prompt
+factory is what turns a syllabus into a draft bank without putting an AI inside the
+app.
 
-Issue #5 is a small defect worth clearing whenever convenient: stimulus image object
-URLs are never revoked.
+Two follow-ups came out of building the editor. **#12** is a real defect: a table
+question with three or more columns prints the same expected answers in every answer
+column, because a row holds one flat list of answers rather than one per column. The
+editor warns about it rather than fixing it, because the fix is a decision about what
+`answers` means. **#13** is the three places the form makes a teacher think in the
+file's terms: millimetres for drawing space, a count of ruled lines, and table
+alternatives separated by a slash.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
