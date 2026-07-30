@@ -66,6 +66,13 @@ klunk/                     this repo - app and tools only, public
 `../klunk-content` is a sibling of this repo and is where all real content lives
 during development. It is deliberately outside the repo so it cannot be committed.
 
+**It is a test setup, and it is meant to get messy.** Save into it freely while
+verifying: do not back it up, do not tidy up afterwards, and do not stop to ask
+before writing a test question into a bank. The user works in it at the same time,
+in their own browser, on purpose — two people saving to one folder is exactly what
+a bank on a shared OneDrive looks like, and treating that as a hazard to avoid
+throws away the scenario. It found #16 within minutes.
+
 ## The four formats
 
 All defined in `schemas/`, all validated with real data.
