@@ -1371,3 +1371,186 @@ code,
 .bank__list li:hover {
   background: var(--blue-soft);
 }
+
+/* -------------------------------------------------------------- prompt factory
+ *
+ * Two long panels stacked, because the teacher works down them in order and
+ * leaves the app in the middle. The prompt gets a monospace slab: it is going
+ * into somebody else's chat box, and a teacher checking what they are about to
+ * send needs to see it as text, not as prose the page has restyled.
+ */
+
+.factory {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--blue);
+  color: var(--paper-raised);
+  font-family: var(--ui);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  vertical-align: 0.05em;
+}
+
+/* The copy button lives in the panel heading, so it is on screen without
+   scrolling the prompt first. That is the whole point of the step. */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+
+.panel__head .panel__title {
+  margin-bottom: 0;
+}
+
+.panel__act {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.panel__act .hint {
+  margin: 0;
+}
+
+.promptbox {
+  max-height: 26rem;
+  margin: 0.5rem 0 0;
+  overflow: auto;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+/* The waiting state keeps the box, so the shape of the screen does not change
+   when the prompt arrives and the teacher knows where it will be. */
+.promptbox--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 5.5rem;
+  padding: 1rem 1.5rem;
+  color: var(--ink-faint);
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.pastebox {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* ------------------------------------------------------------- read-back list */
+
+.drafts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.draft {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--rule);
+  /* The state of a draft is the first thing to read, and a left edge carries it
+     without a badge shouting from the middle of the row. */
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+}
+
+.draft--ready {
+  border-left-color: var(--green);
+}
+
+.draft--bad {
+  border-left-color: var(--red);
+}
+
+.draft--saved {
+  border-left-color: var(--blue);
+  opacity: 0.7;
+}
+
+.draft__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.draft__n {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.draft__stem {
+  flex: 1;
+  font-family: var(--display);
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.draft__state {
+  flex: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.draft--ready .draft__state {
+  color: var(--green);
+}
+
+.draft--bad .draft__state {
+  color: var(--red);
+}
+
+.draft__note {
+  margin-top: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 2px solid var(--rule-strong);
+  background: var(--blue-soft);
+  font-size: 0.86rem;
+}
+
+.draft__note--bad {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+
+.draft__note .det__label {
+  margin-top: 0;
+}
+
+.draft .rowbtns {
+  margin-top: 0.8rem;
+}

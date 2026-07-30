@@ -13,8 +13,8 @@
  * visible from a form full of empty boxes.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import type { Check } from './paper'
+import { useEffect, useMemo, useState } from 'preact/hooks'
+import { bankPathFault, Faults, Field, normaliseBankPath, NumField } from './fields'
 import { QuestionDetail } from './question'
 import {
   copyFileInto,
@@ -57,6 +57,12 @@ interface StimulusDraft {
 export interface Editing {
   question: Question
   file: string
+  /**
+   * True when the question came from the prompt factory and is not in the bank
+   * yet, which changes only what the form says: saving adds it rather than
+   * replacing anything.
+   */
+  fresh?: boolean
 }
 
 export function QuestionEditor({
@@ -197,7 +203,9 @@ export function QuestionEditor({
     <div class="split split--build">
       <main class="form">
         <section class="panel">
-          <p class="panel__title">{editing ? 'Edit question' : 'New question'}</p>
+          <p class="panel__title">
+            {editing?.fresh ? 'Check this question' : editing ? 'Edit question' : 'New question'}
+          </p>
 
           <div class="fieldrow">
             <Field label="Type" for="q-type">
@@ -304,7 +312,13 @@ export function QuestionEditor({
               disabled={blocked || saving}
               onClick={() => void save(false)}
             >
-              {saving ? 'Saving…' : editing ? 'Save changes' : 'Save and close'}
+              {saving
+                ? 'Saving…'
+                : editing?.fresh
+                  ? 'Save into the bank'
+                  : editing
+                    ? 'Save changes'
+                    : 'Save and close'}
             </button>
             {!editing && (
               <button
@@ -1355,7 +1369,13 @@ function DestinationFields({
     <section class="panel">
       <p class="panel__title">Where it is kept</p>
 
-      {editing ? (
+      {editing?.fresh ? (
+        <p class="hint">
+          Saving writes this question into <span class="mono">{editing.file}</span>. The id
+          was assigned when the answer was read in, against everything already in your
+          folder, so it is fixed here.
+        </p>
+      ) : editing ? (
         <p class="hint">
           Saving replaces this question in <span class="mono">{editing.file}</span>. Papers
           refer to a question by its id, so the id cannot be changed here: changing it
@@ -1422,139 +1442,6 @@ function DestinationFields({
         />
       </Field>
     </section>
-  )
-}
-
-/* ---------------------------------------------------------------------- faults */
-
-function Faults({ faults, pathFault }: { faults: Check[]; pathFault: string | null }) {
-  const errors = faults.filter((f) => f.severity === 'error')
-  if (faults.length === 0 && !pathFault) {
-    return (
-      <section class="panel panel--ok">
-        <p class="panel__title">Ready to save</p>
-      </section>
-    )
-  }
-
-  const blocking = errors.length + (pathFault ? 1 : 0)
-  return (
-    <section class={`panel ${blocking > 0 ? 'panel--alert' : 'panel--note'}`}>
-      <p class="panel__title">
-        {blocking > 0
-          ? `${blocking} thing${blocking === 1 ? '' : 's'} to fix`
-          : 'Worth knowing'}
-      </p>
-      <ul class="plain">
-        {pathFault && (
-          <li>
-            <span class="mono" style={{ opacity: 0.7 }}>
-              ✕
-            </span>{' '}
-            {pathFault}
-          </li>
-        )}
-        {faults.map((f, i) => (
-          <li key={i} style={{ marginBottom: '0.2rem' }}>
-            <span class="mono" style={{ opacity: 0.7 }}>
-              {f.severity === 'error' ? '✕' : '!'}
-            </span>{' '}
-            {f.where && <span class="muted">{f.where}: </span>}
-            {f.message}
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-/* ------------------------------------------------------------------ small bits */
-
-function Field({
-  label,
-  hint,
-  for: htmlFor,
-  children,
-}: {
-  label: string
-  hint?: string
-  /** Id of the control, when there is a single one worth pointing a label at. */
-  for?: string
-  children: preact.ComponentChildren
-}) {
-  return (
-    <div class="field">
-      {htmlFor ? (
-        <>
-          <label class="rail__label" for={htmlFor}>
-            {label}
-          </label>
-          {children}
-        </>
-      ) : (
-        // No id to point at, so the control is wrapped instead. An implicit
-        // association is a real one; a `for` aimed at nothing only looks like it.
-        <label>
-          <span class="rail__label">{label}</span>
-          {children}
-        </label>
-      )}
-      {hint && <p class="hint">{hint}</p>}
-    </div>
-  )
-}
-
-/**
- * A number box that reports numbers and keeps its own text.
- *
- * Binding a number straight to the input makes clearing it impossible: the
- * moment the box is empty the value becomes 0 and 0 is written back into it.
- * The text is deliberately not synchronised from the value afterwards, because
- * nothing outside changes these fields while the editor is open.
- */
-function NumField({
-  value,
-  onChange,
-  ...rest
-}: {
-  value: number | undefined
-  onChange: (n: number | undefined) => void
-  id?: string
-  class?: string
-  min?: number
-  step?: number
-  placeholder?: string
-  title?: string
-}) {
-  const [text, setText] = useState(value === undefined ? '' : String(value))
-
-  // What this box last reported. Repeatable rows are keyed by position, so
-  // deleting the middle of a list leaves this component in place with the next
-  // row's value handed to it: without noticing that, it would go on showing the
-  // number belonging to the row that was deleted. Comparing against what was
-  // reported rather than against the text distinguishes that from the teacher
-  // halfway through typing "1" on the way to "12".
-  const reported = useRef(value)
-  useEffect(() => {
-    if (value === reported.current) return
-    reported.current = value
-    setText(value === undefined ? '' : String(value))
-  }, [value])
-
-  return (
-    <input
-      type="number"
-      class="input"
-      {...rest}
-      value={text}
-      onInput={(e) => {
-        const next = (e.target as HTMLInputElement).value
-        setText(next)
-        const parsed = next.trim() === '' ? undefined : Number(next)
-        reported.current = parsed
-        onChange(parsed)
-      }}
-    />
   )
 }
 
@@ -1658,20 +1545,7 @@ function imageDirectoryFor(bankPath: string): string {
   return [...parts, IMAGE_SUBDIR].join('/')
 }
 
-function normaliseBankPath(input: string): string {
-  const trimmed = input.trim().replace(/^\/+/, '')
-  if (!trimmed) return 'bank/questions.json'
-  return /\.json$/i.test(trimmed) ? trimmed : `${trimmed}.json`
-}
 
-function bankPathFault(input: string): string | null {
-  const trimmed = input.trim()
-  if (!trimmed) return 'Give the new bank a filename.'
-  if (trimmed.split('/').includes('..')) {
-    return 'A bank has to live inside your folder, so its path cannot contain "..".'
-  }
-  return null
-}
 
 function splitList(value: string): string[] {
   return value

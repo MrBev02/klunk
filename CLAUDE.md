@@ -170,6 +170,21 @@ Regression check for the generator: Design and Technology must stay at
   Ask for that one click and carry on.
   *Already confirmed:* folder access reports **Supported**, and the deployed page
   renders. Do not ask again unless something changes.
+  **Loopback works again as of 2026-07-31.** Chrome could not reach any loopback
+  server on 2026-07-30 (a plain page on two ports and both loopback addresses never
+  received Chrome's request, while `curl` got 200 from the same URLs), but
+  `http://localhost:5173/klunk/` drove fine the next day against the dev server the
+  user already had running. So try it before assuming it is broken; if it fails again
+  it is Chrome or macOS blocking localhost rather than Vite, so check System Settings →
+  Privacy & Security → Local Network and `chrome://policy` instead of re-diagnosing
+  Vite.
+  Never use a broad `pkill -f vite`: it took out the user's open browsers.
+  **Clicking by coordinate is unreliable here**: the screenshot is scaled relative to
+  CSS pixels, and a click computed from `getBoundingClientRect` silently missed a
+  button twice. Use `find` to get a ref and click the ref.
+  **Never call `navigator.clipboard.readText()`** to check a copy button. It raises a
+  permission prompt that froze the renderer and timed out CDP. Assert on what the app
+  says it did instead.
 
 ## Work is tracked in GitHub issues
 
@@ -237,18 +252,61 @@ app, saved into an existing bank without disturbing the fourteen already in it, 
 multiple choice one printed as question 11 of the trial paper with the marking guide
 naming the same option letter the editor previewed.
 
+**The prompt factory is built** (#2), on the "Draft with AI" tab. `src/prompt.ts`
+composes a prompt from the chosen course, topics and content points, with their exact
+ids, what a mark is worth in this subject, where the type sits on the real paper, and
+the JSON to answer with. `src/ingest.ts` reads back whatever comes out, fenced or
+prefaced or wrapped, and either repairs something unambiguous and says so, drops
+something it cannot trust and says so, or refuses.
+
+The decisions worth not reversing: Klunk assigns question ids and stamps
+`syllabusId`/`courseId` itself, so the model can only *choose among* the ids the
+prompt listed; every ingested question is tagged `ai-drafted`; a question with an
+error cannot be saved from the paste panel and goes to the question editor instead
+(`Editing.fresh` only changes what that form says); the whole prompt is on screen
+before it is copied, which is what makes "you decide what leaves your machine" true;
+and sending the stems already written on those topics is opt-in.
+
+The tabs are now kept mounted behind `hidden` while the editor is open rather than
+unmounted, so sending one draft of five to the editor does not throw away the other
+four. They stay mounted through a rescan for the same reason: saving reloads the
+folder, which runs phase through ready → scanning → ready, and unmounting on the way
+past discarded the whole batch the moment the first questions in it were saved. That
+was found by driving it, not by reading it.
+
+Verified in the browser: a prompt built from HSC-01 with two content points, then a
+deliberately messy reply pasted back — prose either side, fenced, wrapped in
+`{"questions": […]}`, a string for marks, an invented point id and outcome, a claimed
+provenance, an image stimulus, an unknown field, one entry with no question text and
+one that was a bare string. Both non-questions were rejected by number, every repair
+was listed against the question it belonged to, one draft went to the editor and back
+without losing the other, and the two clean ones were written into an existing bank
+without disturbing the sixteen already in it.
+
+**The prompt was built but unreachable, and that is worth remembering.** It rendered
+at the foot of the first panel, below the free-text box and the checkbox, and only
+once a content point was ticked; until then the sole trace of it was a grey hint that
+read as the caption of the checkbox above. The screen therefore looked like it only
+did the paste-back half, which is exactly how it was reported. Two fixes, both to
+keep: **adding a topic ticks all of its content points**, so a prompt exists the
+moment a topic is chosen and narrowing is unticking rather than a gate; and **the
+prompt is its own numbered step** with the copy button in its heading, so the tab
+reads 1 choose, 2 copy, 3 paste back and step 2 is on screen before any scrolling.
+The waiting state keeps the box and says what it is waiting for, so the shape of the
+screen does not change when the prompt arrives. The general lesson: a feature that
+works and cannot be found has not been delivered, and only driving the page catches
+that — the code read as complete.
+
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
 
 Next is in the issue tracker. `gh issue list` is the authoritative backlog; this
 section only says where to start.
 
-With #1 done, the next thing that makes Klunk self-sufficient is the **prompt factory
-(#2)**: writing every question by hand is possible now, but slow, and the prompt
-factory is what turns a syllabus into a draft bank without putting an AI inside the
-app.
-
-Two follow-ups came out of building the editor. **#12** is a real defect: a table
+Three follow-ups came out of building the editor and the factory. **#14** is a
+generator defect found while building the prompt: every topic in the D&T model is
+grouped under `7.2Key Competencies`, which is document furniture rather than a focus
+area, and it shows in every topic dropdown. **#12** is a real defect: a table
 question with three or more columns prints the same expected answers in every answer
 column, because a row holds one flat list of answers rather than one per column. The
 editor warns about it rather than fixing it, because the fix is a decision about what

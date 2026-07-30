@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionEditor, type Editing } from './editor'
+import { Factory } from './factory'
 import { QuestionRow } from './question'
 import {
   allQuestions,
@@ -17,7 +18,7 @@ import {
 import { QUESTION_TYPE_LABELS, type Paper, type QuestionRef, type Syllabus } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
-type View = 'library' | 'build'
+type View = 'library' | 'build' | 'draft'
 
 export function App() {
   const caps = useMemo(detectCapabilities, [])
@@ -170,8 +171,19 @@ export function App() {
         />
       )}
 
-      {phase === 'ready' && editor === null && (
-        <>
+      {/* Kept mounted, not unmounted, while the editor is open. A batch of
+          questions read back from an AI is expensive to get and lives in this
+          subtree; sending one of them to the editor to be fixed must not throw
+          away the other four.
+
+          A rescan has to keep it mounted for the same reason. Saving anything
+          reloads the folder, which runs phase through ready → scanning →
+          ready, and unmounting on the way past discarded the whole batch the
+          moment the first questions in it were saved. `folder` is what
+          separates a reload from the very first scan, which has nothing worth
+          keeping and should show the message on its own. */}
+      {(phase === 'ready' || (phase === 'scanning' && folder)) && (
+        <div hidden={editor !== null}>
           {notice && (
             <section class="panel panel--ok">
               <p>{notice}</p>
@@ -190,6 +202,13 @@ export function App() {
               onClick={() => setView('build')}
             >
               Papers<span class="tab__n">{index.papers.length}</span>
+            </button>
+            <button
+              class={`tab ${view === 'draft' ? 'tab--on' : ''}`}
+              onClick={() => setView('draft')}
+              title="Klunk writes the prompt, your school's AI answers it, Klunk checks the answer"
+            >
+              Draft with AI
             </button>
           </nav>
 
@@ -210,7 +229,16 @@ export function App() {
               onSaved={() => void load(folder)}
             />
           )}
-        </>
+
+          {view === 'draft' && folder && (
+            <Factory
+              index={index}
+              folder={folder}
+              onEdit={(editing) => openEditor(editing)}
+              onSaved={() => void load(folder)}
+            />
+          )}
+        </div>
       )}
 
       <footer class="colophon">
