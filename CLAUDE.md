@@ -66,12 +66,22 @@ klunk/                     this repo - app and tools only, public
 `../klunk-content` is a sibling of this repo and is where all real content lives
 during development. It is deliberately outside the repo so it cannot be committed.
 
-**It is a test setup, and it is meant to get messy.** Save into it freely while
-verifying: do not back it up, do not tidy up afterwards, and do not stop to ask
-before writing a test question into a bank. The user works in it at the same time,
-in their own browser, on purpose — two people saving to one folder is exactly what
-a bank on a shared OneDrive looks like, and treating that as a hazard to avoid
-throws away the scenario. It found #16 within minutes.
+**It is a test setup, and two kinds of mess are not the same thing.**
+
+*Mess from competing workflows is the point, so let it happen.* Save into it freely
+through the app, the way a teacher would, while the user is working in it in their
+own browser. Do not back it up first, do not tidy up afterwards, and do not stop to
+ask before writing a test question into a bank. Two people saving to one folder is
+exactly what a bank on a shared OneDrive looks like, and treating that as a hazard
+to avoid throws the scenario away. It found #16 within minutes.
+
+*Mess from development breaking it is a different thing, and is not acceptable,
+because it cannot be undone.* Nothing in that folder is in git. A half-finished
+write path, a script that rewrites a bank, or a migration can destroy questions
+that no history holds. So before running anything that writes by a route the app
+does not already use, or that rewrites a file wholesale, copy what it will touch.
+The question is never "is this folder precious" — it is "if this code is wrong, is
+the content still recoverable".
 
 ## The four formats
 
