@@ -167,6 +167,15 @@ uv run --with jsonschema python <validation script>
 
 Regression check for the generator: Design and Technology must stay at
 **20 topics / 78 points / 12 outcomes** (Preliminary) and **20 / 61 / 13** (HSC).
+Textiles and Design at **18 / 104 / 11** and **16 / 79 / 13**.
+
+Groups are part of that check, because they were wrong for a long time without
+changing any count. Design and Technology must have **no group on any topic**: it
+is one content table per course, so there is nothing to divide. Textiles must have
+exactly three, *Design*, *Properties and Performance of Textiles* and *Australian
+Textile, Clothing, Footwear and Allied Industries*, with no label prefix and no
+non-breaking spaces. A group is only ever taken from a heading that says it is one
+(`Area of Study:`, `Focus Area:`); anything else is document furniture.
 
 ## Environment gotchas
 

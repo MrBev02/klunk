@@ -70,11 +70,27 @@ COURSE_HEADING_RE = re.compile(r"Content:.*?\b(Preliminary|HSC)\b", re.I)
 # last Content: heading and the whole Preliminary half is filed under HSC.
 COURSE_MARKER_RE = re.compile(r"\((Preliminary|HSC)\)", re.I)
 
-# A heading worth recording as the group a topic sits in. Prose is excluded by
-# length and by the full stop it ends on; outcome lines and the "Outcomes" /
-# "A student:" scaffolding are excluded by the caller.
-HEADING_MAX = 100
-BOILERPLATE = {"outcomes", "a student:", "students learn about:", "students learn to:"}
+# The group a topic sits in, taken only from a heading that says it is one.
+#
+# This used to accept any short paragraph that did not end in a full stop, on the
+# theory that a heading looks different from prose. It does not look different
+# enough. Design and Technology filed all forty of its topics under
+# "7.2Key Competencies", a numbered section heading from the document furniture,
+# and Textiles picked up a stray line listing footwear trades for three of its
+# topics. Both syllabuses label their real groups, so the label is the signal:
+# Textiles writes "Area of Study: Design", Industrial Technology writes
+# "Focus Area: Automotive Technologies (Preliminary)".
+#
+# Design and Technology has neither, and should not: it is one content table per
+# course, so there is nothing for a group to divide. No label means no group.
+FOCUS_AREA_RE = re.compile(
+    r"^\s*(?:\d+(?:\.\d+)*\s*)?(?:area\s+of\s+study|focus\s+area)\s*[:–—-]\s*(.+)$",
+    re.I,
+)
+
+# "Focus Area: Automotive Technologies (Preliminary)" names the course too, and
+# that belongs to the course, not to the name of the area.
+COURSE_SUFFIX_RE = re.compile(r"\s*\((?:Preliminary|HSC)\)\s*$", re.I)
 
 # A topic heading often ends by announcing its own list.
 TRAILING_NOISE_RE = re.compile(r"[,;]?\s*includ(?:ing|es)\s*[:;.]?\s*$", re.I)
@@ -261,6 +277,25 @@ def tidy_name(heading: str) -> str:
     return TRAILING_NOISE_RE.sub("", heading).strip().rstrip(":;.,").strip()
 
 
+def focus_area_name(captured: str) -> str:
+    """Tidy the name captured from a focus-area heading.
+
+    The label itself ("Area of Study:") is dropped by the pattern, since it names
+    the kind of thing rather than this one. What is left can still carry the
+    course in brackets and the non-breaking spaces the .docx is full of, which
+    are invisible on screen and make two spellings of the same area look like
+    two areas.
+
+    Args:
+        captured: The text following the focus-area label.
+
+    Returns:
+        The name of the area, whitespace flattened and course marker removed.
+    """
+    name = COURSE_SUFFIX_RE.sub("", captured)
+    return " ".join(name.split()).strip().rstrip(":;.,").strip()
+
+
 def add_topic(
     course: Course,
     about: list[str],
@@ -381,12 +416,8 @@ def parse(path: Path) -> list[Course]:
                 # is the only course signal Industrial Technology gives.
                 if m := COURSE_MARKER_RE.search(value):
                     hint = m.group(1)
-                if (
-                    len(value) <= HEADING_MAX
-                    and not value.endswith(".")
-                    and value.lower() not in BOILERPLATE
-                ):
-                    group = value
+                if m := FOCUS_AREA_RE.match(value):
+                    group = focus_area_name(m.group(1))
             continue
 
         assert isinstance(value, list)
