@@ -202,13 +202,42 @@ describe('tables', () => {
     ).toContain('Column 2 has no heading')
   })
 
-  it('says so when a third column will print the same answers as the second', () => {
+  it('accepts a third column with its own answers', () => {
     const q = table({
       columns: ['Material', 'Property', 'Use'],
-      rows: [{ label: 'Steel', answers: ['Hard'], marks: 2 }],
+      rows: [
+        {
+          label: 'Steel',
+          cells: [{ answers: ['Hard'] }, { answers: ['Structural framing'] }],
+          marks: 2,
+        },
+      ],
     })
     expect(errors(q)).toEqual([])
-    expect(warnings(q).join(' ')).toContain('more than two columns')
+    expect(warnings(q)).toEqual([])
+  })
+
+  it('rejects a row carrying answers for a column that does not exist', () => {
+    const q = table({
+      columns: ['Purpose', 'Method'],
+      rows: [
+        {
+          label: 'A',
+          cells: [{ answers: ['Survey'] }, { answers: ['Never printed'] }],
+          marks: 2,
+        },
+      ],
+    })
+    expect(errors(q).join(' ')).toContain('would not print')
+  })
+
+  it('says so when no row has an expected answer at all', () => {
+    const q = table({
+      columns: ['Purpose', 'Method'],
+      rows: [{ label: 'A', marks: 2 }],
+    })
+    expect(errors(q)).toEqual([])
+    expect(warnings(q).join(' ')).toContain('marking guide prints an empty table')
   })
 
   it('notices rows whose marks do not reach the question total', () => {

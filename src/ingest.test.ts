@@ -371,12 +371,26 @@ describe('the other types', () => {
     expect(draft.repairs.join(' ')).toContain('Labelled 2 parts')
   })
 
-  it('says a table came back with more columns than Klunk can print answers for', () => {
+  it('reads a cell per column, keeping each column its own accepted answers', () => {
+    const table = `[{"questionType":"table","questionText":"Complete the table.","marks":3,
+      "config":{"columns":["Purpose","Method","Why"],"rows":[{"label":"Timing a task",
+      "cells":[{"answers":["Observation","Time study"]},{"answers":["It records what people do rather than what they say"]}],"marks":1}]}}]`
+    const { draft } = first(table, ctx({ expected: { questionType: 'table', marks: 3 } }))
+    expect(draft.question.config?.rows?.[0]?.cells).toEqual([
+      { answers: ['Observation', 'Time study'] },
+      { answers: ['It records what people do rather than what they say'] },
+    ])
+    expect(draft.repairs.join(' ')).not.toContain('flat list')
+  })
+
+  it('reads a flat list of answers into the first answer column and says so', () => {
     const table = `[{"questionType":"table","questionText":"Complete the table.","marks":3,
       "config":{"columns":["Purpose","Method","Why"],"rows":[{"label":"Timing a task","answers":["Observation"],"marks":1}]}}]`
     const { draft } = first(table, ctx({ expected: { questionType: 'table', marks: 3 } }))
-    expect(draft.repairs.join(' ')).toContain('3 columns')
-    expect(draft.faults.some((f) => f.message.includes('more than two columns'))).toBe(true)
+    // Read into one column, not spread across all of them: spreading it is the
+    // bug this shape replaced.
+    expect(draft.question.config?.rows?.[0]?.cells).toEqual([{ answers: ['Observation'] }])
+    expect(draft.repairs.join(' ')).toContain('one flat list of answers')
   })
 
   it('reads a drawing space given as width and height', () => {

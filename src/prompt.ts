@@ -346,12 +346,14 @@ function configFields(type: QuestionType, marks: number): string[] {
       ]
     case 'table':
       return [
-        '    columns        the column headings. Use exactly two: the first is what',
-        '                   the student is given, the second is what they complete.',
-        '    rows           [ { "label": "...", "answers": ["...", "..."],',
-        '                       "marks": 1 } ]',
-        '                   "label" prints in the first column. "answers" is every',
-        '                   wording a marker should accept, listed separately.',
+        '    columns        the column headings. The first is what the student is',
+        '                   given; the rest are what they complete.',
+        '    rows           [ { "label": "...", "marks": 1,',
+        '                       "cells": [ { "answers": ["...", "..."] } ] } ]',
+        '                   "label" prints in the first column. "cells" holds one',
+        '                   entry per column after the first, in order, and its',
+        '                   "answers" is every wording a marker should accept in',
+        '                   that one cell, listed separately.',
       ]
     case 'drawing':
       return [
@@ -381,8 +383,9 @@ function guideNotes(type: QuestionType, marks: number): string[] {
     case 'table':
       return [
         'Row marks should total the marks for the question.',
-        'Two columns only. Klunk prints the same expected answers in every answer',
-        'column when a table has more than two, which is a known fault in the app.',
+        'Every row needs one cell for every column after the first, in the same',
+        'order as the headings. A cell with nothing to accept is still an entry,',
+        'written as {}, because the cells are matched to columns by position.',
       ]
     case 'drawing':
       return [
@@ -513,11 +516,11 @@ const EXAMPLES: Record<QuestionType, string> = {
   "syllabus": { "pointIds": ["HSC-17.02"] },
   "outcomes": ["H5.2"],
   "config": {
-    "columns": ["Production run", "Process"],
+    "columns": ["Production run", "Process", "Reason it suits the run"],
     "rows": [
-      { "label": "One prototype enclosure made overnight in a studio", "answers": ["3D printing", "Additive manufacturing"], "marks": 1 },
-      { "label": "Two hundred identical polymer bottle caps", "answers": ["Injection moulding"], "marks": 1 },
-      { "label": "Fifty steel brackets cut from one sheet", "answers": ["Laser cutting", "Plasma cutting"], "marks": 1 }
+      { "label": "One prototype enclosure made overnight in a studio", "cells": [ { "answers": ["3D printing", "Additive manufacturing"] }, { "answers": ["No tooling is needed, so a single part is quick and cheap"] } ], "marks": 1 },
+      { "label": "Two hundred identical polymer bottle caps", "cells": [ { "answers": ["Injection moulding"] }, { "answers": ["The tooling cost is spread across a long run"] } ], "marks": 1 },
+      { "label": "Fifty steel brackets cut from one sheet", "cells": [ { "answers": ["Laser cutting", "Plasma cutting"] }, { "answers": ["Sheet is cut to shape with no mould to make"] } ], "marks": 1 }
     ]
   }
 }`,

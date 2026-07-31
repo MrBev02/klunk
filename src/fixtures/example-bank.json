@@ -136,32 +136,48 @@
         "rows": [
           {
             "label": "Measuring how long a task takes a user",
-            "answers": [
-              "Observation"
+            "cells": [
+              {
+                "answers": [
+                  "Observation"
+                ]
+              }
             ],
             "marks": 1
           },
           {
             "label": "Gathering opinions from 200 potential buyers",
-            "answers": [
-              "Survey",
-              "Questionnaire"
+            "cells": [
+              {
+                "answers": [
+                  "Survey",
+                  "Questionnaire"
+                ]
+              }
             ],
             "marks": 1
           },
           {
             "label": "Comparing the strength of two materials",
-            "answers": [
-              "Testing",
-              "Experiment"
+            "cells": [
+              {
+                "answers": [
+                  "Testing",
+                  "Experiment"
+                ]
+              }
             ],
             "marks": 1
           },
           {
             "label": "Checking a handle is comfortable to hold",
-            "answers": [
-              "User trial",
-              "Testing"
+            "cells": [
+              {
+                "answers": [
+                  "User trial",
+                  "Testing"
+                ]
+              }
             ],
             "marks": 1
           }

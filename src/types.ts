@@ -151,9 +151,22 @@ export interface QuestionPart {
   sampleAnswer?: string
 }
 
+/** Every wording a marker should accept in one cell of a table. */
+export interface TableCell {
+  answers?: string[]
+}
+
 export interface TableRow {
   label: string
-  answers?: string[]
+  /**
+   * One entry per answer column, in order.
+   *
+   * The first column holds the label, so a three-column table carries two
+   * cells. A row used to hold one flat list of answers for the whole row, which
+   * printed the same thing in every answer column once there were more than
+   * two; the marking guide was wrong and nothing said so.
+   */
+  cells?: TableCell[]
   marks?: number
 }
 

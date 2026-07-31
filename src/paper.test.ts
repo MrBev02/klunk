@@ -16,6 +16,7 @@ import {
   newPaper,
   removeRef,
   resolvePaper,
+  rowAnswers,
   shuffledChoices,
 } from './paper'
 import type { ContentIndex } from './storage'
@@ -307,6 +308,36 @@ describe('checkPaper against papers already sat', () => {
 
     const checks = checkPaper(resolvePaper(index, paper, profile))
     expect(checks.some((c) => c.message.includes('"2025 Trial"'))).toBe(true)
+  })
+})
+
+describe('rowAnswers', () => {
+  const row = {
+    label: 'Chopping board',
+    cells: [
+      { answers: ['High density polyethylene', 'HDPE'] },
+      { answers: ['Non-porous'] },
+    ],
+    marks: 2,
+  }
+
+  it('gives each answer column its own answers', () => {
+    // The whole point of the shape: these two must not be the same string.
+    expect(rowAnswers(row, 0)).toEqual(['High density polyethylene', 'HDPE'])
+    expect(rowAnswers(row, 1)).toEqual(['Non-porous'])
+  })
+
+  it('is empty for a column the row has no cell for', () => {
+    expect(rowAnswers(row, 2)).toEqual([])
+    expect(rowAnswers({ label: 'A' }, 0)).toEqual([])
+  })
+
+  it('keeps an empty middle cell in its place', () => {
+    // A gap is positional. Collapsing it would slide the third column's
+    // answers into the second, which is a wrong marking guide, silently.
+    const gapped = { label: 'A', cells: [{}, { answers: ['Third column'] }] }
+    expect(rowAnswers(gapped, 0)).toEqual([])
+    expect(rowAnswers(gapped, 1)).toEqual(['Third column'])
   })
 })
 

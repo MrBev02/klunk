@@ -11,7 +11,13 @@
  * letters.
  */
 
-import { answerLinesFor, shuffledChoices, type ResolvedPaper, type ResolvedQuestion } from './paper'
+import {
+  answerLinesFor,
+  rowAnswers,
+  shuffledChoices,
+  type ResolvedPaper,
+  type ResolvedQuestion,
+} from './paper'
 import { joinPath } from './storage'
 import type { Profile, Question, Stimulus } from './types'
 
@@ -377,7 +383,7 @@ function TableBody({ question, mode }: { question: Question; mode: PrintMode }) 
             <td>{row.label}</td>
             {columns.slice(1).map((_, j) => (
               <td key={j} class="answertable__blank">
-                {mode === 'guide' ? (row.answers?.join(' / ') ?? '') : ''}
+                {mode === 'guide' ? rowAnswers(row, j).join(' / ') : ''}
               </td>
             ))}
           </tr>

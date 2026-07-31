@@ -210,18 +210,30 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
   })
 
   if (rows.length < 1) err('A table needs at least one row.', 'Table')
+
+  // The first column holds the label, so the rest are answer columns.
+  const answerColumns = Math.max(columns.length - 1, 0)
+
   rows.forEach((r, i) => {
     const where = `Row ${i + 1}`
     if (!r.label.trim()) err('This row has no label, so the student sees a blank line.', where)
     if (r.marks !== undefined && r.marks < 0) err('A row cannot be worth less than nothing.', where)
+
+    // A row carrying more cells than there are columns means answers that will
+    // never print, which is silent on the page and wrong in the marking guide.
+    if ((r.cells?.length ?? 0) > answerColumns) {
+      err(
+        `This row has answers for ${r.cells?.length} columns, but the table has ` +
+          `${answerColumns} to answer in. The extra ones would not print.`,
+        where,
+      )
+    }
   })
 
-  // Known limitation, worth saying before the paper is printed rather than after.
-  if (columns.length > 2) {
+  const blank = rows.filter((r) => !(r.cells ?? []).some((c) => (c.answers ?? []).length > 0))
+  if (answerColumns > 0 && blank.length === rows.length && rows.length > 0) {
     warn(
-      'A table with more than two columns prints the same expected answers in ' +
-        'every answer column, because a row holds one list of answers rather than ' +
-        'one per column.',
+      'No row has an expected answer, so the marking guide prints an empty table.',
       'Table',
     )
   }
@@ -485,8 +497,14 @@ function cleanStimulus(s: Stimulus): Stimulus {
 
 function cleanRow(r: TableRow): TableRow {
   const out: TableRow = { label: r.label.trim() }
-  const answers = list(r.answers)
-  if (answers) out.answers = answers
+  // Kept positionally: cell 2 of 3 being empty is meaningful, so an empty cell
+  // is dropped only when every cell after it is empty too.
+  const cells = (r.cells ?? []).map((c) => {
+    const answers = list(c.answers)
+    return answers ? { answers } : {}
+  })
+  while (cells.length > 0 && (cells[cells.length - 1]?.answers ?? []).length === 0) cells.pop()
+  if (cells.length > 0) out.cells = cells
   if (r.marks !== undefined) out.marks = r.marks
   return out
 }

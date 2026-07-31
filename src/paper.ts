@@ -19,6 +19,7 @@ import type {
   ProfileSection,
   Question,
   QuestionType,
+  TableRow,
 } from './types'
 import { parseRef } from './types'
 
@@ -469,6 +470,18 @@ export function moveRef(
     ...paper,
     sections: paper.sections.map((s, i) => (i === sectionIndex ? { ...s, refs } : s)),
   }
+}
+
+/**
+ * What a marker should accept in one answer cell of a table row.
+ *
+ * `at` counts answer columns, not table columns: the first table column holds
+ * the row label, so column 2 is `at` 0. Keeping that offset in one place is the
+ * point of this function — every caller that worked it out for itself printed
+ * the row's whole answer list into every column instead.
+ */
+export function rowAnswers(row: TableRow, at: number): string[] {
+  return row.cells?.[at]?.answers ?? []
 }
 
 /** How many ruled lines a question gets when it does not say. */

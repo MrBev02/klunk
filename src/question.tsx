@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'preact/hooks'
-import { shuffledChoices } from './paper'
+import { rowAnswers, shuffledChoices } from './paper'
 import { QUESTION_TYPE_LABELS, type Question, type QuestionRef } from './types'
 import { looksBanded, needsGuide } from './validate'
 
@@ -181,7 +181,7 @@ function Body({ question: q }: { question: Question }) {
                 <tr key={i}>
                   <td>{r.label}</td>
                   {cols.slice(1).map((_, j) => (
-                    <td key={j}>{r.answers?.join(' / ') ?? ''}</td>
+                    <td key={j}>{rowAnswers(r, j).join(' / ')}</td>
                   ))}
                   <td class="mono">{r.marks ?? ''}</td>
                 </tr>

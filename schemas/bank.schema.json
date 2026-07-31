@@ -272,7 +272,21 @@
             "additionalProperties": false,
             "properties": {
               "label": { "type": "string" },
-              "answers": { "type": "array", "items": { "type": "string" } },
+              "cells": {
+                "type": "array",
+                "description": "One entry per answer column, in order, so a row with columns [Material, Property, Use] carries two: the Property cell and the Use cell. The first column holds the row label and is not a cell.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "answers": {
+                      "type": "array",
+                      "description": "Every wording a marker should accept in this one cell, listed separately.",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              },
               "marks": { "type": "number", "minimum": 0 }
             }
           }

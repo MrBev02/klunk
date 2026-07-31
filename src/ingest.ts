@@ -28,6 +28,7 @@ import {
   type QuestionPart,
   type QuestionType,
   type Stimulus,
+  type TableCell,
   type TableRow,
 } from './types'
 import { suggestQuestionId, validateQuestion } from './validate'
@@ -718,6 +719,8 @@ function readWritten(cfg: Record<string, unknown>, repairs: string[]): QuestionC
 function readTable(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
   const columns = strings(cfg.columns ?? cfg.headings ?? cfg.headers)
 
+  // Counted across the whole table so the repair is reported once, not per row.
+  const flat = { count: 0 }
   const rows: TableRow[] = []
   for (const entry of asArray(cfg.rows)) {
     if (typeof entry === 'string') {
@@ -732,21 +735,50 @@ function readTable(cfg: Record<string, unknown>, repairs: string[]): QuestionCon
     if (label === undefined) continue
 
     const row: TableRow = { label }
-    const answers = strings(r.answers ?? r.answer)
-    if (answers.length > 0) row.answers = answers
+    const cells = readCells(r, flat)
+    if (cells.length > 0) row.cells = cells
     const marks = asNumber(r.marks)
     if (marks !== undefined) row.marks = marks
     rows.push(row)
   }
 
-  if (columns.length > 2) {
+  if (flat.count > 0) {
     repairs.push(
-      `It returned ${columns.length} columns. Klunk prints the same expected answers ` +
-        'in every answer column beyond the second, so check the marking guide.',
+      `${flat.count} row${flat.count === 1 ? '' : 's'} gave one flat list of answers ` +
+        'for the whole row rather than one list per column, so it was read as the ' +
+        'answers for the second column. Check the later columns before printing.',
     )
   }
 
   return { columns, rows }
+}
+
+/**
+ * A row's answers, one list per answer column.
+ *
+ * A model asked for `cells` will sometimes still send the flat `answers` the
+ * shape used to have. That is unambiguous for a two-column table and a guess
+ * beyond it, so it is read into the first answer column and reported rather
+ * than spread across all of them, which is the bug this shape replaced.
+ */
+function readCells(r: Record<string, unknown>, flat: { count: number }): TableCell[] {
+  const given = asArray(r.cells)
+  if (given.length > 0) {
+    return given.map((c) => {
+      if (typeof c === 'string') {
+        const one = asString(c)
+        return one ? { answers: [one] } : {}
+      }
+      if (typeof c !== 'object' || c === null) return {}
+      const answers = strings((c as Record<string, unknown>).answers ?? (c as Record<string, unknown>).answer)
+      return answers.length > 0 ? { answers } : {}
+    })
+  }
+
+  const answers = strings(r.answers ?? r.answer)
+  if (answers.length === 0) return []
+  flat.count += 1
+  return [{ answers }]
 }
 
 function readDrawing(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {

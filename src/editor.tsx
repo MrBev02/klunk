@@ -33,6 +33,7 @@ import {
   type QuestionType,
   type Stimulus,
   type SyllabusCourse,
+  type TableCell,
   type TableRow,
 } from './types'
 import { cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
@@ -589,6 +590,19 @@ function TableFields({
   const changeRow = (i: number, patch: Patch<TableRow>) =>
     setConfig({ rows: rows.map((r, j) => (i === j ? patched(r, patch) : r)) })
 
+  /**
+   * The row's cells with one column's answers replaced.
+   *
+   * Padded to the column count first, because a teacher who fills in the third
+   * column before the second must not have the third silently become the
+   * second: cells are positional and the gap has to be a real empty cell.
+   */
+  const cellsWith = (r: TableRow, at: number, answers: string[], count: number): TableCell[] => {
+    const next = Array.from({ length: count }, (_, k) => r.cells?.[k] ?? {})
+    next[at] = answers.length > 0 ? { answers } : {}
+    return next
+  }
+
   return (
     <section class="panel">
       <p class="panel__title">Table</p>
@@ -646,15 +660,31 @@ function TableFields({
                 placeholder="What the student is given"
                 onInput={(e) => changeRow(i, { label: (e.target as HTMLInputElement).value })}
               />
+              {/* One box per answer column, because a row used to carry one
+                  list for the whole row and printed it into every column. */}
               <div class="withbtn">
-                <input
-                  class="input input--sub"
-                  value={(r.answers ?? []).join(' / ')}
-                  placeholder="Accepted answers, alternatives separated by /"
-                  onInput={(e) =>
-                    changeRow(i, { answers: splitAlternatives((e.target as HTMLInputElement).value) })
-                  }
-                />
+                {columns.slice(1).map((col, j) => (
+                  <input
+                    key={j}
+                    class="input input--sub"
+                    value={(r.cells?.[j]?.answers ?? []).join(' / ')}
+                    placeholder={
+                      columns.length > 2
+                        ? `${col.trim() || `Column ${j + 2}`}, alternatives separated by /`
+                        : 'Accepted answers, alternatives separated by /'
+                    }
+                    onInput={(e) =>
+                      changeRow(i, {
+                        cells: cellsWith(
+                          r,
+                          j,
+                          splitAlternatives((e.target as HTMLInputElement).value),
+                          columns.length - 1,
+                        ),
+                      })
+                    }
+                  />
+                ))}
                 <NumField
                   class="input input--narrow"
                   value={r.marks}
@@ -677,7 +707,7 @@ function TableFields({
       </ol>
       <button
         class="btn btn--small"
-        onClick={() => setConfig({ rows: [...rows, { label: '', answers: [], marks: 1 }] })}
+        onClick={() => setConfig({ rows: [...rows, { label: '', cells: [], marks: 1 }] })}
       >
         Add a row
       </button>
@@ -1503,7 +1533,7 @@ function defaultConfig(type: QuestionType): QuestionConfig {
     case 'true_false':
       return { correctAnswer: true }
     case 'table':
-      return { columns: ['', ''], rows: [{ label: '', answers: [], marks: 1 }] }
+      return { columns: ['', ''], rows: [{ label: '', cells: [], marks: 1 }] }
     case 'drawing':
       return { subtype: 'sketch', spaceMm: [160, 90] }
     default:

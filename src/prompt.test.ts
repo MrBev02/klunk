@@ -164,10 +164,13 @@ describe('buildPrompt, by question type', () => {
     expect(text).toContain('they do not add up')
   })
 
-  it('asks a table for two columns, because more than two prints wrong', () => {
+  it('asks a table for one cell per column rather than one list per row', () => {
     const text = buildPrompt(spec({ questionType: 'table', marks: 3 }))
-    expect(text).toContain('Two columns only')
-    expect(text).toContain('known fault in the app')
+    expect(text).toContain('"cells"')
+    expect(text).toContain('entry per column after the first')
+    // The old shape printed the row's answers into every column, so nothing
+    // should invite a model back towards it.
+    expect(text).not.toContain('Two columns only')
   })
 
   it('gives a drawing the printable size of an A4 page', () => {
