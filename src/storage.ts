@@ -11,6 +11,9 @@
  */
 
 import type { Bank, Loaded, Paper, Profile, Question, QuestionRef, Syllabus } from './types'
+// validate.ts has no runtime imports of its own, so this cannot close a cycle
+// back through paper.ts.
+import { suggestQuestionId } from './validate'
 
 const DB_NAME = 'klunk'
 const DB_STORE = 'handles'
@@ -423,20 +426,61 @@ export async function exists(dir: FileSystemDirectoryHandle, path: string): Prom
  * tabs, or a bank edited by hand since the scan, would otherwise have that work
  * overwritten by a save of one unrelated question.
  */
+export interface SaveQuestionOptions {
+  name?: string | undefined
+  syllabusId?: string | undefined
+  /**
+   * The question this save replaces, when it is an edit of one already there.
+   *
+   * Absent means the question is new, and that distinction is the whole point:
+   * without it a save cannot tell "put my changes back" from "add this", and an
+   * id that turned out to be taken was treated as the former.
+   *
+   * `asLoaded` is the question as it was when the teacher opened it, which is
+   * the only way to tell an edit landing on untouched text from one landing on
+   * somebody else's changes. Comparing against the incoming question would say
+   * "changed" every time, since that is what editing is.
+   */
+  replacing?: { id: string; asLoaded?: Question } | undefined
+}
+
+export interface SaveQuestionResult {
+  created: boolean
+  /** The id actually written, which is not always the one that was asked for. */
+  id: string
+  /** Set when the id asked for was taken on disk and a free one was used. */
+  reassignedFrom?: string
+  /** Set when an edit landed on a question somebody else had changed. */
+  overwroteChanges?: boolean
+}
+
+/**
+ * Write one question into a bank, without treading on anybody else's.
+ *
+ * The bank is re-read here rather than taken from the in-memory index, because
+ * the folder is normally a shared OneDrive and the index is as old as the last
+ * scan. That much was always true. What it did not do was notice that the id it
+ * had been handed was minted against that same stale index: two teachers who
+ * both had the bank open at sixteen questions were both given
+ * `example-bank-sa-02`, and the second save replaced the first teacher's
+ * question, because a collision is indistinguishable from an edit unless
+ * somebody says which one it is. Neither of them was told, and the file still
+ * held seventeen questions, so nothing looked wrong.
+ */
 export async function saveQuestion(
   dir: FileSystemDirectoryHandle,
   bankPath: string,
   question: Question,
-  seed?: { name?: string | undefined; syllabusId?: string | undefined },
-): Promise<{ created: boolean }> {
+  options?: SaveQuestionOptions,
+): Promise<SaveQuestionResult> {
   const existing = await readJson(dir, bankPath)
 
   let bank: Bank
   let created = false
   if (existing === null) {
     bank = { formatVersion: '1', type: 'klunk_bank', questions: [] }
-    if (seed?.name) bank.name = seed.name
-    if (seed?.syllabusId) bank.syllabusId = seed.syllabusId
+    if (options?.name) bank.name = options.name
+    if (options?.syllabusId) bank.syllabusId = options.syllabusId
     created = true
   } else if (isBank(existing)) {
     bank = existing
@@ -446,12 +490,43 @@ export async function saveQuestion(
     throw new Error(`${bankPath} is already there and is not a question bank`)
   }
 
-  const at = bank.questions.findIndex((q) => q.id === question.id)
-  if (at >= 0) bank.questions[at] = question
-  else bank.questions.push(question)
+  const replacing = options?.replacing
+  const target =
+    replacing === undefined ? -1 : bank.questions.findIndex((q) => q.id === replacing.id)
+
+  // Anything else holding this id belongs to somebody else, whoever they are.
+  const clash = bank.questions.findIndex((q, i) => q.id === question.id && i !== target)
+
+  let written = question
+  let reassignedFrom: string | undefined
+  if (clash >= 0) {
+    const taken = new Set(bank.questions.map((q) => q.id))
+    const free = suggestQuestionId(bankPath, question.questionType, taken)
+    written = { ...question, id: free }
+    reassignedFrom = question.id
+  }
+
+  let overwroteChanges: boolean | undefined
+  if (target >= 0) {
+    // An edit: the question keeps its place in the file, so a bank does not
+    // reshuffle itself every time somebody fixes a typo.
+    const onDisk = bank.questions[target]
+    const asLoaded = replacing?.asLoaded
+    if (asLoaded && onDisk && JSON.stringify(onDisk) !== JSON.stringify(asLoaded)) {
+      overwroteChanges = true
+    }
+    bank.questions[target] = written
+  } else {
+    bank.questions.push(written)
+  }
 
   await writeJson(dir, bankPath, bank)
-  return { created }
+  return {
+    created,
+    id: written.id,
+    ...(reassignedFrom !== undefined ? { reassignedFrom } : {}),
+    ...(overwroteChanges ? { overwroteChanges } : {}),
+  }
 }
 
 async function readJson(dir: FileSystemDirectoryHandle, path: string): Promise<unknown | null> {

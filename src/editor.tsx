@@ -21,6 +21,7 @@ import {
   questionIds,
   safeFilename,
   saveQuestion,
+  type SaveQuestionResult,
   type ContentIndex,
 } from './storage'
 import {
@@ -169,18 +170,25 @@ export function QuestionEditor({
       const finished = cleanQuestion(
         copied.length > 0 ? { ...draft, stimulus: copied } : omitStimulus(draft),
       )
-      const seed =
-        bank === null
+      // A question sent here from the prompt factory is `fresh`: it is not in
+      // the bank yet, so saving adds it rather than replacing anything, and it
+      // must not claim the id of whatever happens to hold it now.
+      const isEdit = editing !== null && !editing.fresh
+      const written = await saveQuestion(folder, bankPath, finished, {
+        ...(bank === null
           ? { name: newBankName.trim() || undefined, syllabusId: draft.syllabus?.syllabusId }
-          : undefined
-      await saveQuestion(folder, bankPath, finished, seed)
+          : {}),
+        ...(isEdit && editing
+          ? { replacing: { id: editing.question.id, asLoaded: editing.question } }
+          : {}),
+      })
 
       if (!andAnother) {
-        onSaved(`Saved ${finished.id} to ${bankPath}`)
+        onSaved(savedMessage(written, bankPath))
         return
       }
 
-      setAlsoSaved((list) => [...list, { id: finished.id, bank: bankPath }])
+      setAlsoSaved((list) => [...list, { id: written.id, bank: bankPath }])
       setStimuli([])
       setIdTouched(false)
       // What carries over is what a teacher writing ten questions for one topic
@@ -1495,6 +1503,29 @@ function patched<T extends object>(base: T, patch: Patch<T>): T {
     else out[key] = value
   }
   return out as T
+}
+
+/**
+ * What to tell the teacher a save actually did.
+ *
+ * Both of the unusual outcomes mean somebody else was in the same bank, and
+ * both used to be silent: one of them by destroying their question.
+ */
+function savedMessage(written: SaveQuestionResult, bankPath: string): string {
+  if (written.reassignedFrom !== undefined) {
+    return (
+      `Saved to ${bankPath} as ${written.id}. ${written.reassignedFrom} had been taken ` +
+      'by somebody else since you opened this folder, so this one was given the next ' +
+      'free id rather than replacing theirs.'
+    )
+  }
+  if (written.overwroteChanges) {
+    return (
+      `Saved ${written.id} to ${bankPath}. Somebody else had changed this question ` +
+      'since you opened it, and your version is the one now in the bank.'
+    )
+  }
+  return `Saved ${written.id} to ${bankPath}`
 }
 
 function blankQuestion(type: QuestionType): Question {

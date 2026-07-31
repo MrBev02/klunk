@@ -73,6 +73,8 @@ export function Factory({
   const [read, setRead] = useState<Ingest | null>(null)
   /** Drafts thrown away by hand, by the id Klunk gave them. */
   const [discarded, setDiscarded] = useState<string[]>([])
+  /** Drafts that went in under a different id, because somebody took theirs. */
+  const [renamed, setRenamed] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState('')
 
@@ -113,6 +115,7 @@ export function Factory({
     setRead(null)
     setPasted('')
     setDiscarded([])
+    setRenamed({})
   }
 
   const ingest = () => {
@@ -131,6 +134,7 @@ export function Factory({
       expected: { questionType, marks },
     }
     setDiscarded([])
+    setRenamed({})
     setFailed('')
     setRead(ingestQuestions(pasted, context))
   }
@@ -138,8 +142,11 @@ export function Factory({
   // What has been written is worked out from the folder rather than remembered,
   // so a draft sent to the editor and saved there comes back marked saved too.
   const alreadySaved = useMemo(() => questionIds(index), [index])
+  // A draft whose id was taken by another teacher went in under a different one,
+  // so it has to be looked for under that or it never shows as saved.
+  const savedAs = (d: Draft) => renamed[d.question.id] ?? d.question.id
   const live = (read?.drafts ?? []).filter((d) => !discarded.includes(d.question.id))
-  const unsaved = live.filter((d) => !alreadySaved.has(d.question.id))
+  const unsaved = live.filter((d) => !alreadySaved.has(savedAs(d)))
   const ready = unsaved.filter((d) => !d.faults.some((f) => f.severity === 'error'))
   const stuck = unsaved.length - ready.length
 
@@ -147,11 +154,16 @@ export function Factory({
     setSaving(true)
     setFailed('')
     try {
+      // No `replacing`: every draft here is new, so an id that turns out to be
+      // taken belongs to somebody else and the draft gets a free one instead.
+      const moved: Record<string, string> = {}
       for (const draft of ready) {
-        await saveQuestion(folder, bankPath, cleanQuestion(draft.question), {
+        const written = await saveQuestion(folder, bankPath, cleanQuestion(draft.question), {
           syllabusId: chosen?.syllabus.id,
         })
+        if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
       }
+      setRenamed((r) => ({ ...r, ...moved }))
       onSaved()
     } catch (err) {
       setFailed((err as Error).message)
@@ -465,7 +477,8 @@ export function Factory({
                   key={draft.question.id}
                   draft={draft}
                   at={i}
-                  saved={alreadySaved.has(draft.question.id)}
+                  saved={alreadySaved.has(savedAs(draft))}
+                  savedAs={renamed[draft.question.id]}
                   bankPath={bankPath}
                   onEdit={() =>
                     onEdit({ question: draft.question, file: bankPath, fresh: true })
@@ -616,6 +629,7 @@ function DraftCard({
   draft,
   at,
   saved,
+  savedAs,
   bankPath,
   onEdit,
   onDiscard,
@@ -623,6 +637,8 @@ function DraftCard({
   draft: Draft
   at: number
   saved: boolean
+  /** The id it actually went in under, when somebody else had taken this one. */
+  savedAs?: string | undefined
   bankPath: string
   onEdit: () => void
   onDiscard: () => void
@@ -643,9 +659,20 @@ function DraftCard({
       </div>
 
       <p class="det__label">
-        <span class="mono">{bankPath}</span> · <span class="mono">{q.id}</span> ·{' '}
+        <span class="mono">{bankPath}</span> ·{' '}
+        <span class="mono">{savedAs ?? q.id}</span> ·{' '}
         {QUESTION_TYPE_LABELS[q.questionType]} · {q.marks} mark{q.marks === 1 ? '' : 's'}
       </p>
+
+      {savedAs && (
+        <div class="draft__note">
+          <p>
+            <span class="mono">{q.id}</span> had been taken by somebody else since you
+            opened this folder, so this went in as{' '}
+            <span class="mono">{savedAs}</span> rather than replacing theirs.
+          </p>
+        </div>
+      )}
 
       {draft.repairs.length > 0 && (
         <div class="draft__note">

@@ -186,6 +186,25 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
 - **Git identity is set locally** to MrBev02, because the machine's global identity is
   a different account.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
+- **Two Chrome browsers are connected to this account, and the wrong one is the
+  default.** `list_connected_browsers` returns a macOS one (`isLocal: true`) and a
+  Windows one on another machine. Only the macOS one can reach `localhost:5173` or
+  the `klunk-content` folder handle. Landing on the Windows one has wasted a session
+  more than once: tabs report `visibilityState: hidden`, saves hang with no error,
+  and the tab group disappears from under you.
+  **Check `list_connected_browsers` before driving anything, and select by
+  `deviceId`.** The macOS one is `5789f377-f76f-453b-84a8-c43b896b8880`.
+  The display names are worthless: "Browser 1" and "Browser 2" swapped between two
+  consecutive calls in one session, and `select_browser` confirmed the macOS
+  deviceId with the words "Connected to browser Browser 2". Trust `osPlatform` and
+  `isLocal`, never the name. Confirm with `navigator.userAgentData.platform` in the
+  page before believing you are in the right place.
+- **A save that hangs with no error is the browser, not the code.** No notice, no
+  console error, the button still enabled: check the connected browser first. A
+  hidden tab was blamed for this once and then a save went through from a hidden tab
+  perfectly well, so `visibilityState` is not the reliable explanation — the wrong
+  machine is. Bringing the tab to the front is still worth trying second, since a
+  handle being re-permissioned may need it.
 - **The Chrome browser tools work on this machine. Use them.** They drive the real
   browser here, so `npm run dev` and check the change rather than reasoning about it
   from the source. Driving the question editor this way found four faults that

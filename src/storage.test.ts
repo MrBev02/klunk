@@ -324,18 +324,117 @@ describe('saveQuestion', () => {
   })
 
   it('replaces a question in place, keeping its position in the bank', async () => {
+    const was = newQuestion('b', 'Old wording.')
     const existing: Bank = {
       formatVersion: '1',
       type: 'klunk_bank',
-      questions: [newQuestion('a'), newQuestion('b', 'Old wording.'), newQuestion('c')],
+      questions: [newQuestion('a'), was, newQuestion('c')],
     }
     const files = tree({ 'bank/design.json': JSON.stringify(existing) })
 
-    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('b', 'New wording.'))
+    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('b', 'New wording.'), {
+      replacing: { id: 'b', asLoaded: was },
+    })
 
     const written = readJson(files, 'bank/design.json') as Bank
     expect(written.questions.map((q) => q.id)).toEqual(['a', 'b', 'c'])
     expect(written.questions[1]?.questionText).toBe('New wording.')
+  })
+
+  // Two teachers, one bank on a shared drive. Both had it open at two
+  // questions, so both were handed the same next free id.
+  it('gives a new question a free id rather than overwriting the one that took it', async () => {
+    const theirs = newQuestion('design-sa-03', 'Written by somebody else.')
+    const existing: Bank = {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      questions: [newQuestion('design-sa-01'), newQuestion('design-sa-02'), theirs],
+    }
+    const files = tree({ 'bank/design.json': JSON.stringify(existing) })
+
+    const written = await saveQuestion(
+      dirHandle(files),
+      'bank/design.json',
+      newQuestion('design-sa-03', 'Written by me.'),
+      // No `replacing`: this question is new.
+    )
+
+    expect(written.id).toBe('design-sa-04')
+    expect(written.reassignedFrom).toBe('design-sa-03')
+
+    const bank = readJson(files, 'bank/design.json') as Bank
+    // Nobody lost anything: four questions, and theirs still reads as theirs.
+    expect(bank.questions.map((q) => q.id)).toEqual([
+      'design-sa-01',
+      'design-sa-02',
+      'design-sa-03',
+      'design-sa-04',
+    ])
+    expect(bank.questions[2]).toEqual(theirs)
+    expect(bank.questions[3]?.questionText).toBe('Written by me.')
+  })
+
+  it('says when an edit landed on a question somebody else had changed', async () => {
+    const asLoaded = newQuestion('b', 'What I opened.')
+    const existing: Bank = {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      questions: [newQuestion('b', 'What somebody else saved while I was typing.')],
+    }
+    const files = tree({ 'bank/design.json': JSON.stringify(existing) })
+
+    const written = await saveQuestion(
+      dirHandle(files),
+      'bank/design.json',
+      newQuestion('b', 'What I saved.'),
+      { replacing: { id: 'b', asLoaded } },
+    )
+
+    expect(written.overwroteChanges).toBe(true)
+    // Still last-write-wins, but no longer silently.
+    expect((readJson(files, 'bank/design.json') as Bank).questions[0]?.questionText).toBe(
+      'What I saved.',
+    )
+  })
+
+  it('says nothing unusual when an edit lands on the question it was opened from', async () => {
+    const asLoaded = newQuestion('b', 'Untouched.')
+    const files = tree({
+      'bank/design.json': JSON.stringify({
+        formatVersion: '1',
+        type: 'klunk_bank',
+        questions: [asLoaded],
+      }),
+    })
+
+    const written = await saveQuestion(
+      dirHandle(files),
+      'bank/design.json',
+      newQuestion('b', 'Edited.'),
+      { replacing: { id: 'b', asLoaded } },
+    )
+
+    expect(written.overwroteChanges).toBeUndefined()
+    expect(written.reassignedFrom).toBeUndefined()
+    expect(written.id).toBe('b')
+  })
+
+  it('adds an edited question back when it has gone from the bank', async () => {
+    // Somebody deleted it while it was open. The teacher meant to keep it.
+    const files = tree({
+      'bank/design.json': JSON.stringify({
+        formatVersion: '1',
+        type: 'klunk_bank',
+        questions: [newQuestion('a')],
+      }),
+    })
+
+    await saveQuestion(dirHandle(files), 'bank/design.json', newQuestion('b', 'Still wanted.'), {
+      replacing: { id: 'b', asLoaded: newQuestion('b') },
+    })
+
+    const bank = readJson(files, 'bank/design.json') as Bank
+    expect(bank.questions.map((q) => q.id)).toEqual(['a', 'b'])
   })
 
   it('reads the bank from disk rather than trusting a stale copy', async () => {
