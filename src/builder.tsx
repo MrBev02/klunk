@@ -12,6 +12,7 @@ import {
 } from './paper'
 import { QuestionDetail, shortType } from './question'
 import { PrintablePaper, type PrintMode } from './render'
+import { ProfileInstaller } from './setup'
 import { allQuestions, writeJson, type ContentIndex } from './storage'
 import { QUESTION_TYPE_LABELS, refKey, type Paper, type Profile } from './types'
 
@@ -48,7 +49,16 @@ export function Builder({
   const [target, setTarget] = useState(0)
 
   if (!paper) {
-    return <StartPaper profiles={profiles} papers={index.papers} onStart={setPaper} />
+    return (
+      <StartPaper
+        index={index}
+        folder={folder}
+        profiles={profiles}
+        papers={index.papers}
+        onStart={setPaper}
+        onInstalled={onSaved}
+      />
+    )
   }
 
   const profile = profiles.find((p) => p.id === paper.profileId)
@@ -103,7 +113,8 @@ export function Builder({
     (s) => s.id === paper.sections[target]?.profileSectionId,
   )
   const alreadyUsed = new Set(paper.sections.flatMap((s) => s.refs.map(refKey)))
-  const pickable = allQuestions(index).filter(
+  const inFolder = allQuestions(index)
+  const pickable = inFolder.filter(
     (a) =>
       isTypeAllowed(a.question.questionType, targetSpec) &&
       !alreadyUsed.has(`${a.file}#${a.question.id}`),
@@ -264,6 +275,7 @@ export function Builder({
 
       <BankRail
         options={pickable}
+        bankEmpty={inFolder.length === 0}
         targetName={resolved.sections[target]?.title ?? `Section ${target + 1}`}
         spec={targetSpec ? describeSpec(targetSpec) : ''}
         onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
@@ -274,11 +286,14 @@ export function Builder({
 
 function BankRail({
   options,
+  bankEmpty,
   targetName,
   spec,
   onAdd,
 }: {
   options: ReturnType<typeof allQuestions>
+  /** No questions in the folder at all, as against none left for this section. */
+  bankEmpty: boolean
   targetName: string
   spec: string
   onAdd: (file: string, id: string) => void
@@ -313,9 +328,14 @@ function BankRail({
 
       {shown.length === 0 ? (
         <p class="bank__empty">
-          {options.length === 0
-            ? 'Every question of the right type is already on this paper.'
-            : 'Nothing matches that search.'}
+          {/* An empty folder used to be told its questions were all already on the
+              paper, which is a confusing thing to read when you have written none.
+              Reachable in earnest now that a new folder can be set up in the app. */}
+          {bankEmpty
+            ? 'No questions in this folder yet. Write one on the Questions tab and it will appear here.'
+            : options.length === 0
+              ? 'Every question of the right type is already on this paper.'
+              : 'Nothing matches that search.'}
         </p>
       ) : (
         <ul class="bank__list">
@@ -393,13 +413,19 @@ function Checks({ checks }: { checks: Check[] }) {
 }
 
 function StartPaper({
+  index,
+  folder,
   profiles,
   papers,
   onStart,
+  onInstalled,
 }: {
+  index: ContentIndex
+  folder: FileSystemDirectoryHandle
   profiles: Profile[]
   papers: ContentIndex['papers']
   onStart: (p: Paper) => void
+  onInstalled: () => void
 }) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
   const [title, setTitle] = useState('Trial HSC Examination')
@@ -414,12 +440,18 @@ function StartPaper({
 
   if (profiles.length === 0) {
     return (
-      <section class="panel panel--alert">
-        <p class="panel__title">No profile in this folder</p>
+      <section class="panel setup">
+        <p class="panel__title">No profile in this folder yet</p>
         <p>
           A profile says how a paper is built: how many sections, what each is worth, which
-          question types belong where. Copy one into <code>profiles/</code> in your folder,
-          then reload.
+          question types belong where. Klunk ships the ones it knows, so pick the paper you
+          are building towards and it goes into <code>profiles/</code> here.
+        </p>
+        <ProfileInstaller index={index} folder={folder} onInstalled={onInstalled} />
+        <p class="muted" style={{ marginTop: '1rem' }}>
+          Building towards a paper that is not listed? A profile is a small JSON file
+          described by <code>schemas/profile.schema.json</code>. Copy one of these and
+          change the sections to match.
         </p>
       </section>
     )

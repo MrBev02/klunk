@@ -4,16 +4,20 @@ import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionEditor, type Editing } from './editor'
 import { Factory } from './factory'
 import { QuestionRow } from './question'
+import { ProfileInstaller, SyllabusNote } from './setup'
 import {
   allQuestions,
   emptyIndex,
   forgetFolder,
+  listFolders,
+  openFolder,
   pickFolder,
-  regrant,
   releaseImages,
+  rememberFolder,
   restoreFolder,
   scanFolder,
   type ContentIndex,
+  type RememberedFolder,
 } from './storage'
 import { QUESTION_TYPE_LABELS, type Paper, type QuestionRef, type Syllabus } from './types'
 
@@ -33,6 +37,12 @@ export function App() {
   /** 'new' to write one, an Editing to change one, null when the editor is shut. */
   const [editor, setEditor] = useState<'new' | Editing | null>(null)
   const [notice, setNotice] = useState('')
+  /** Every subject folder this browser remembers, most recently used first. */
+  const [folders, setFolders] = useState<RememberedFolder[]>([])
+  /** Which of them is open, by position, since a handle is not the same object twice. */
+  const [current, setCurrent] = useState(-1)
+  /** A folder waiting on a second click, because switching would close an open paper. */
+  const [pendingSwitch, setPendingSwitch] = useState<RememberedFolder | null>(null)
 
   // The live index is mirrored in a ref so a rescan can hand the one it replaces
   // to scanFolder for its image URLs to be released. A ref, not the state value:
@@ -44,6 +54,31 @@ export function App() {
     setIndex(next)
   }, [])
 
+  /**
+   * Re-read the remembered folders and work out which one is open.
+   *
+   * By position rather than by reference: IndexedDB structured-clones a handle,
+   * so the entry standing for the open folder is a different object every time
+   * the list is read. `isSameEntry` is the only identity that holds, and it is
+   * asynchronous, which is why this is not a `useMemo`.
+   */
+  const refreshFolders = useCallback(async (open: FileSystemDirectoryHandle | null) => {
+    const list = await listFolders().catch(() => [])
+    setFolders(list)
+
+    let found = -1
+    if (open) {
+      for (let i = 0; i < list.length; i += 1) {
+        const entry = list[i]
+        if (entry && (await entry.handle.isSameEntry(open).catch(() => false))) {
+          found = i
+          break
+        }
+      }
+    }
+    setCurrent(found)
+  }, [])
+
   const load = useCallback(
     async (handle: FileSystemDirectoryHandle) => {
       setPhase('scanning')
@@ -51,12 +86,18 @@ export function App() {
         replaceIndex(await scanFolder(handle, indexRef.current))
         setFolder(handle)
         setPhase('ready')
+        // Opening is what makes a folder the most recent one, not adding it.
+        // Without this the list only ever reordered when a folder was picked
+        // from the dialog, so a teacher who added Textiles once and then taught
+        // D&T for a month was returned to Textiles every morning.
+        await rememberFolder(handle).catch(() => undefined)
+        await refreshFolders(handle)
       } catch (err) {
         setError((err as Error).message)
         setPhase('error')
       }
     },
-    [replaceIndex],
+    [replaceIndex, refreshFolders],
   )
 
   useEffect(() => {
@@ -64,36 +105,102 @@ export function App() {
     void (async () => {
       const handle = await restoreFolder().catch(() => null)
       if (cancelled) return
-      if (handle) await load(handle)
-      else setPhase('empty')
+      if (handle) {
+        await load(handle)
+      } else {
+        // Nothing can be opened without a gesture, but folders whose grant has
+        // lapsed are still remembered, and the welcome screen offers them as a
+        // click rather than a trip through the file dialog.
+        await refreshFolders(null)
+        setPhase('empty')
+      }
     })()
     return () => {
       cancelled = true
     }
-  }, [load])
+  }, [load, refreshFolders])
 
+  /** Add a folder. The only path that opens the file picker. */
   const choose = useCallback(async () => {
     try {
       const handle = await pickFolder()
-      if (handle) await load(handle)
+      if (handle) {
+        setPaper(null)
+        setEditor(null)
+        setNotice('')
+        await load(handle)
+      }
     } catch (err) {
-      const stored = await restoreFolder().catch(() => null)
-      if (stored && (await regrant(stored))) return load(stored)
       setError((err as Error).message)
       setPhase('error')
     }
   }, [load])
 
+  /**
+   * Move to another remembered folder.
+   *
+   * Never opens the file picker: these handles are already granted, and a
+   * subject switch that costs a dialog is a subject switch teachers stop making.
+   * A grant that lapsed between sessions is renewed on this same click, because
+   * the click is the gesture the browser needs.
+   */
+  const switchTo = useCallback(
+    async (entry: RememberedFolder) => {
+      setPendingSwitch(null)
+      try {
+        if (!(await openFolder(entry.handle))) {
+          setError(
+            `Klunk no longer has permission for ${entry.handle.name}. Add it again to carry on.`,
+          )
+          setPhase('error')
+          return
+        }
+      } catch (err) {
+        setError((err as Error).message)
+        setPhase('error')
+        return
+      }
+      // A paper is a selection of questions from the folder it was built in, so
+      // it means nothing against another subject's.
+      setPaper(null)
+      setEditor(null)
+      setNotice('')
+      await load(entry.handle)
+    },
+    [load],
+  )
+
+  /** Ask first when a switch would close an open paper, since nothing else says so. */
+  const requestSwitch = useCallback(
+    (entry: RememberedFolder) => {
+      if (paper) setPendingSwitch(entry)
+      else void switchTo(entry)
+    },
+    [paper, switchTo],
+  )
+
+  /** Stop remembering the open folder. Its contents are untouched. */
   const close = useCallback(async () => {
-    await forgetFolder()
+    if (folder) await forgetFolder(folder)
+    setPendingSwitch(null)
+    setPaper(null)
+    setEditor(null)
+    setNotice('')
+
+    // Straight on to the next subject if there is one, rather than back to the
+    // welcome screen: a teacher across three subjects who drops one still has two.
+    const remaining = await listFolders().catch(() => [])
+    const next = remaining.find((f) => f.permission === 'granted')
+    if (next) return load(next.handle)
+
     setFolder(null)
     // Discarded with no replacement scan, so the release has to happen here.
     releaseImages(indexRef.current)
     replaceIndex(emptyIndex())
-    setPaper(null)
-    setEditor(null)
+    setFolders(remaining)
+    setCurrent(-1)
     setPhase('empty')
-  }, [replaceIndex])
+  }, [folder, load, replaceIndex])
 
   // Opening and closing the editor swaps the whole page for a taller or
   // shorter one. Without this a teacher who saves from the bottom of a long
@@ -122,18 +229,45 @@ export function App() {
         </div>
         {folder && (
           <div class="masthead__folder">
-            <span class="folder-name" title="Everything is read and written here">
-              {folder.name}
-            </span>
+            <Switcher
+              folders={folders}
+              current={current}
+              openName={folder.name}
+              onSwitch={requestSwitch}
+              onAdd={() => void choose()}
+            />
             <button class="btn btn--small" onClick={() => void load(folder)}>
               Reload
             </button>
-            <button class="btn btn--small" onClick={() => void close()}>
-              Change
+            <button
+              class="btn btn--small"
+              title="Klunk stops remembering this folder. Nothing in it is changed."
+              onClick={() => void close()}
+            >
+              Forget
             </button>
           </div>
         )}
       </header>
+
+      {pendingSwitch && (
+        <section class="panel panel--alert">
+          <p class="panel__title">You are in the middle of a paper</p>
+          <p>
+            Moving to <strong>{pendingSwitch.handle.name}</strong> closes it. Anything you
+            have already saved is safe in this folder's <code>papers/</code> and will be
+            there when you come back; anything you have changed since is not.
+          </p>
+          <div class="rowbtns">
+            <button class="btn" onClick={() => setPendingSwitch(null)}>
+              Stay here
+            </button>
+            <button class="btn btn--primary" onClick={() => void switchTo(pendingSwitch)}>
+              Switch to {pendingSwitch.handle.name}
+            </button>
+          </div>
+        </section>
+      )}
 
       {phase === 'starting' && <p class="muted">Looking for the folder you used last time…</p>}
       {phase === 'scanning' && <p class="muted">Reading your folder…</p>}
@@ -151,7 +285,13 @@ export function App() {
       )}
 
       {phase === 'empty' && (
-        <Welcome caps={caps} insecure={insecure} onChoose={() => void choose()} />
+        <Welcome
+          caps={caps}
+          insecure={insecure}
+          folders={folders}
+          onChoose={() => void choose()}
+          onOpen={(entry) => void switchTo(entry)}
+        />
       )}
 
       {/* The editor takes the whole screen, tabs included. A half-written
@@ -212,11 +352,13 @@ export function App() {
             </button>
           </nav>
 
-          {view === 'library' && (
+          {view === 'library' && folder && (
             <Library
               index={index}
+              folder={folder}
               onNew={() => openEditor('new')}
               onEdit={(item) => openEditor({ question: item.question, file: item.file })}
+              onReload={() => void load(folder)}
             />
           )}
 
@@ -248,14 +390,76 @@ export function App() {
   )
 }
 
+/**
+ * The subject switcher.
+ *
+ * Every folder on screen at once rather than behind a menu. Content is laid out
+ * one folder per syllabus model, and a teacher is typically across two or three
+ * of them, so a row costs almost nothing and makes switching a single click
+ * with nothing to discover first. It wraps if somebody really does keep eight.
+ *
+ * The open folder is shown from the live handle rather than from the list,
+ * because the list is read asynchronously and would otherwise flicker to
+ * nothing on the way past.
+ */
+function Switcher({
+  folders,
+  current,
+  openName,
+  onSwitch,
+  onAdd,
+}: {
+  folders: RememberedFolder[]
+  current: number
+  openName: string
+  onSwitch: (entry: RememberedFolder) => void
+  onAdd: () => void
+}) {
+  // Only once the list has caught up and knows which entry is open. Until then
+  // the open folder would be drawn twice, once as itself and once as an "other",
+  // and two folders can share a name so there is no cheaper way to tell.
+  const others =
+    current < 0 ? [] : folders.map((entry, i) => ({ entry, i })).filter(({ i }) => i !== current)
+
+  return (
+    <div class="switcher">
+      <span class="folder-name folder-name--on" title="Everything is read and written here">
+        {openName}
+      </span>
+      {others.map(({ entry, i }) => (
+        <button
+          key={i}
+          class="folder-name folder-name--other"
+          onClick={() => onSwitch(entry)}
+          title={
+            entry.permission === 'granted'
+              ? `Switch to ${entry.handle.name}`
+              : `Switch to ${entry.handle.name}. Your browser will ask to confirm access.`
+          }
+        >
+          {entry.handle.name}
+          {entry.permission !== 'granted' && <span class="folder-name__lock">·</span>}
+        </button>
+      ))}
+      <button class="btn btn--small" onClick={onAdd} title="Point Klunk at another subject's folder">
+        Add folder
+      </button>
+    </div>
+  )
+}
+
 function Welcome({
   caps,
   insecure,
+  folders,
   onChoose,
+  onOpen,
 }: {
   caps: ReturnType<typeof detectCapabilities>
   insecure: string | null
+  folders: RememberedFolder[]
   onChoose: () => void
+  onOpen: (entry: RememberedFolder) => void
 }) {
   if (caps.storageMode !== 'folder') {
     return (
@@ -275,16 +479,50 @@ function Welcome({
     )
   }
 
+  // Folders are still remembered here; what has lapsed is only the permission,
+  // and a browser will renew that on a click. Offering them beats sending a
+  // teacher back through the file dialog to find a folder Klunk already knows.
+  if (folders.length > 0) {
+    return (
+      <section class="hero">
+        <h2>Welcome back</h2>
+        <p>
+          Your browser needs you to confirm access again before Klunk can read{' '}
+          {folders.length === 1 ? 'your folder' : 'these folders'}. One click each, and
+          only once this session.
+        </p>
+        <div class="hero__folders">
+          {folders.map((entry) => (
+            <button
+              key={entry.handle.name}
+              class="btn btn--primary"
+              onClick={() => onOpen(entry)}
+            >
+              Open {entry.handle.name}
+            </button>
+          ))}
+        </div>
+        <div class="rowbtns" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
+          <button class="btn" onClick={onChoose}>
+            Add a different folder
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section class="hero">
       <h2>Choose your folder</h2>
       <p>
-        Point Klunk at the folder holding your question banks and papers, normally your
-        faculty's OneDrive or Teams folder.
+        Point Klunk at the folder holding one subject's question banks and papers,
+        normally a OneDrive or Teams folder. One folder per subject: that way the
+        permission you give covers only the subject you are working on, and switching
+        between subjects later is a click.
       </p>
       <p class="muted">
         Nothing is copied anywhere else and nothing leaves your computer. Your browser
-        remembers the folder, so you do this once.
+        remembers the folder, so you do this once per subject.
       </p>
       <div class="rowbtns" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
         <button class="btn btn--primary" onClick={onChoose}>
@@ -297,12 +535,16 @@ function Welcome({
 
 function Library({
   index,
+  folder,
   onNew,
   onEdit,
+  onReload,
 }: {
   index: ContentIndex
+  folder: FileSystemDirectoryHandle
   onNew: () => void
   onEdit: (item: QuestionRef) => void
+  onReload: () => void
 }) {
   const questions = useMemo(() => allQuestions(index), [index])
   const syllabus = index.syllabuses[0]?.data
@@ -329,17 +571,53 @@ function Library({
 
   const shownMarks = shown.reduce((sum, r) => sum + r.question.marks, 0)
 
-  if (index.scanned === 0) {
+  // Setup is decided by what the folder still lacks, not by whether it is empty.
+  // Gating it on an empty folder meant that installing the profile — which is
+  // done from this very panel — took the syllabus half off the screen, at the
+  // one moment it still applied and nothing else on the page explained the gap.
+  const needsProfile = index.profiles.length === 0
+  const needsSyllabus = index.syllabuses.length === 0
+
+  if (questions.length === 0 && (needsProfile || needsSyllabus)) {
+    const both = needsProfile && needsSyllabus
     return (
-      <section class="panel">
-        <p class="panel__title">Nothing here yet</p>
-        <p>
-          That folder holds no JSON files. Point Klunk at the folder with your question
-          banks, or write your first question here and Klunk will make the bank.
+      <section class="panel setup">
+        <p class="panel__title">
+          {both ? 'A new subject, then. Two things to set up.' : 'One thing still to set up.'}
         </p>
-        <div class="rowbtns">
+        <p class="muted">
+          {both
+            ? 'This folder holds nothing yet. Klunk can supply one of the two things it needs and deliberately cannot supply the other.'
+            : needsProfile
+              ? 'The syllabus model is in place. This folder has no paper profile yet, and that one Klunk can supply.'
+              : 'The profile is in place. The syllabus model is the part Klunk deliberately cannot supply.'}
+        </p>
+
+        {needsProfile && (
+          <>
+            <h3 class="setup__head">{both && '1 · '}A paper profile</h3>
+            <p>
+              A profile is the shape of the real examination: how many sections, what each
+              is worth, which question types belong where. It is what the paper checker
+              checks against.
+            </p>
+            <ProfileInstaller index={index} folder={folder} onInstalled={onReload} />
+          </>
+        )}
+
+        {needsSyllabus && (
+          <>
+            <h3 class="setup__head">{both && '2 · '}A syllabus model</h3>
+            <SyllabusNote />
+          </>
+        )}
+
+        <div class="rowbtns" style={{ marginTop: '1.4rem' }}>
           <button class="btn btn--primary" onClick={onNew}>
             Write a question
+          </button>
+          <button class="btn" onClick={onReload}>
+            Reload the folder
           </button>
         </div>
       </section>

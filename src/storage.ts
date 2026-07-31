@@ -17,7 +17,18 @@ import { suggestQuestionId } from './validate'
 
 const DB_NAME = 'klunk'
 const DB_STORE = 'handles'
-const HANDLE_KEY = 'contentFolder'
+/** The one handle Klunk remembered before it could hold more than one. */
+const LEGACY_KEY = 'contentFolder'
+const FOLDERS_KEY = 'contentFolders'
+
+/**
+ * How many folders are worth remembering.
+ *
+ * A teacher is across two or three subjects, not thirty. The cap exists so a
+ * teacher who tries a folder once does not carry it forever, not because there
+ * is any cost to the eighth.
+ */
+const MAX_REMEMBERED = 8
 
 /** Directories never worth walking into. */
 const SKIP_DIRS = new Set(['node_modules', '.git', '.vscode', '.idea', 'dist', 'dist-single'])
@@ -185,11 +196,103 @@ async function idbDelete(key: string): Promise<void> {
 
 /* ------------------------------------------------------------------- picking */
 
+/**
+ * Remembering more than one folder, because a subject is a folder.
+ *
+ * Content is laid out one folder per syllabus model: the permission grant is
+ * the unit, and a faculty-wide folder would hand every teacher write access to
+ * every other subject's banks and rescan all of them on every save. Plenty of
+ * teachers are across two or three subjects though, so the layout only works if
+ * moving between them is trivial. It is a click: a remembered folder already
+ * holds its grant, so switching never opens the file picker. Only adding one
+ * does.
+ */
+
+/** Identity is `isSameEntry`, never the name: two subjects' folders can share one. */
+async function isSame(
+  a: FileSystemDirectoryHandle,
+  b: FileSystemDirectoryHandle,
+): Promise<boolean> {
+  return a.isSameEntry(b).catch(() => false)
+}
+
+/**
+ * Fold a folder into the remembered list, most recently used first.
+ *
+ * Kept separate from the storage so the ordering and the deduplication can be
+ * tested without an IndexedDB. The freshly picked handle replaces the stored
+ * one rather than the other way round, because it is the one that was just
+ * granted.
+ */
+export async function mergeFolder(
+  existing: FileSystemDirectoryHandle[],
+  handle: FileSystemDirectoryHandle,
+  limit = MAX_REMEMBERED,
+): Promise<FileSystemDirectoryHandle[]> {
+  const rest: FileSystemDirectoryHandle[] = []
+  for (const other of existing) {
+    if (!(await isSame(other, handle))) rest.push(other)
+  }
+  return [handle, ...rest].slice(0, limit)
+}
+
+function isDirectoryHandle(value: unknown): value is FileSystemDirectoryHandle {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as FileSystemDirectoryHandle).kind === 'directory'
+  )
+}
+
+/** The remembered handles, newest first, whether or not they still have permission. */
+async function storedFolders(): Promise<FileSystemDirectoryHandle[]> {
+  const stored = await idbGet<unknown[]>(FOLDERS_KEY).catch(() => undefined)
+  if (Array.isArray(stored)) return stored.filter(isDirectoryHandle)
+
+  // Before Klunk could hold more than one folder there was a single key. That
+  // grant is live and working, so it is migrated rather than dropped: a teacher
+  // reopening after an update must not be sent back through the file dialog.
+  const legacy = await idbGet<unknown>(LEGACY_KEY).catch(() => undefined)
+  return isDirectoryHandle(legacy) ? [legacy] : []
+}
+
+export interface RememberedFolder {
+  handle: FileSystemDirectoryHandle
+  /** 'granted' means it opens with no further ceremony. Anything else costs a click. */
+  permission: PermissionState
+}
+
+/** Every remembered folder, newest first, each with whether it can be opened silently. */
+export async function listFolders(): Promise<RememberedFolder[]> {
+  const handles = await storedFolders()
+  const out: RememberedFolder[] = []
+  for (const handle of handles) {
+    const permission = await handle
+      .queryPermission({ mode: 'readwrite' })
+      .catch((): PermissionState => 'prompt')
+    out.push({ handle, permission })
+  }
+  return out
+}
+
+async function saveFolders(list: FileSystemDirectoryHandle[]): Promise<void> {
+  await idbPut(FOLDERS_KEY, list)
+  // Once the list exists the old single key is never read again, so dropping it
+  // is only tidying. It is worth doing: "forget this folder" should not leave a
+  // handle to it sitting in the database.
+  await idbDelete(LEGACY_KEY).catch(() => undefined)
+}
+
+export async function rememberFolder(handle: FileSystemDirectoryHandle): Promise<void> {
+  await saveFolders(await mergeFolder(await storedFolders(), handle))
+}
+
+/** Add a folder. Opens the file picker, so it must be called from a click. */
 export async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
   if (typeof window.showDirectoryPicker !== 'function') return null
   try {
     const handle = await window.showDirectoryPicker({ id: 'klunk-content', mode: 'readwrite' })
-    await idbPut(HANDLE_KEY, handle)
+    await rememberFolder(handle)
     return handle
   } catch (err) {
     // AbortError just means the teacher closed the dialog, which is not a fault.
@@ -199,32 +302,41 @@ export async function pickFolder(): Promise<FileSystemDirectoryHandle | null> {
 }
 
 /**
- * Reopen the previously chosen folder, if the browser still has the grant.
+ * Reopen the folder last used, if the browser still has the grant.
  *
- * Returns null when there is no stored handle, or when the grant has lapsed and
+ * Returns null when nothing is remembered, or when every grant has lapsed and
  * would need a fresh gesture. Permission cannot be requested here: browsers
- * require a user gesture, and this runs at startup.
+ * require a gesture, and this runs at startup. The lapsed ones are not lost —
+ * `listFolders` still reports them, so the welcome screen can offer them as a
+ * click rather than sending the teacher back through the file dialog.
  */
 export async function restoreFolder(): Promise<FileSystemDirectoryHandle | null> {
-  const handle = await idbGet<FileSystemDirectoryHandle>(HANDLE_KEY).catch(() => undefined)
-  if (!handle) return null
+  for (const { handle, permission } of await listFolders()) {
+    if (permission === 'granted') return handle
+  }
+  return null
+}
+
+/**
+ * Make a remembered folder usable now.
+ *
+ * Must be called from a click: a lapsed grant needs a gesture to renew, and
+ * that gesture has to be the same click that chose the folder, or switching
+ * subjects costs two.
+ */
+export async function openFolder(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const state = await handle.queryPermission({ mode: 'readwrite' })
-  return state === 'granted' ? handle : null
+  if (state === 'granted') return true
+  return (await handle.requestPermission({ mode: 'readwrite' })) === 'granted'
 }
 
-/** Ask for permission again. Must be called from a click or similar. */
-export async function regrant(handle: FileSystemDirectoryHandle): Promise<boolean> {
-  const state = await handle.requestPermission({ mode: 'readwrite' })
-  return state === 'granted'
-}
-
-export async function forgetFolder(): Promise<void> {
-  await idbDelete(HANDLE_KEY).catch(() => undefined)
-}
-
-export async function storedFolderName(): Promise<string | null> {
-  const handle = await idbGet<FileSystemDirectoryHandle>(HANDLE_KEY).catch(() => undefined)
-  return handle?.name ?? null
+/** Stop remembering one folder. The folder itself is untouched. */
+export async function forgetFolder(handle: FileSystemDirectoryHandle): Promise<void> {
+  const kept: FileSystemDirectoryHandle[] = []
+  for (const other of await storedFolders()) {
+    if (!(await isSame(other, handle))) kept.push(other)
+  }
+  await saveFolders(kept)
 }
 
 /* ------------------------------------------------------------------ scanning */

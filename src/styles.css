@@ -167,6 +167,100 @@ code,
   white-space: nowrap;
 }
 
+/* The subject switcher: every remembered folder visible, the open one marked.
+   A tab-like fill rather than a mere border, because which subject you are in
+   decides what every other control on the page means. */
+.switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.folder-name--on {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.folder-name--other {
+  max-width: 12rem;
+  color: var(--ink-faint);
+  cursor: pointer;
+  font-family: var(--mono);
+}
+
+.folder-name--other:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+/* A folder whose grant lapsed still switches in one click; the dot only warns
+   that the browser will put a confirmation in the way first. */
+.folder-name__lock {
+  color: var(--red);
+  margin-left: 0.3rem;
+  font-weight: 700;
+}
+
+.hero__folders {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.2rem;
+}
+
+/* ---------------------------------------------------------------- new folder */
+
+.setup__head {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  margin: 1.6rem 0 0.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.setup__list {
+  margin: 0.8rem 0 0;
+}
+
+.setup__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+  margin-bottom: 0.4rem;
+}
+
+.setup__meta {
+  font-size: 0.78rem;
+}
+
+.setup__problem {
+  color: var(--red);
+  margin-top: 0.6rem;
+}
+
+.setup__cmd {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.6;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--r);
+  padding: 0.7rem 0.85rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 /* ----------------------------------------------------------------------- tabs */
 
 .tabs {

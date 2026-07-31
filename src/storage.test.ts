@@ -13,6 +13,7 @@ import {
   copyFileInto,
   emptyIndex,
   joinPath,
+  mergeFolder,
   releaseImages,
   safeFilename,
   saveQuestion,
@@ -516,5 +517,79 @@ describe('joinPath', () => {
 
   it('treats a leading slash as folder-relative, not filesystem-absolute', () => {
     expect(joinPath('bank/design.json', '/stimulus/handle.png')).toBe('stimulus/handle.png')
+  })
+})
+
+/* ------------------------------------------------- remembering subject folders */
+
+/**
+ * A folder handle that knows only its own identity.
+ *
+ * `isSameEntry` is the only thing that identifies a directory handle: it
+ * carries no path, and two subjects' folders can perfectly well both be called
+ * `bank` or `HSC`. Naming them the same here is the point of the test.
+ */
+function folderHandle(id: string, name = id): FileSystemDirectoryHandle {
+  const handle = {
+    kind: 'directory',
+    name,
+    id,
+    isSameEntry: async (other: FileSystemHandle) =>
+      (other as unknown as { id?: string }).id === id,
+  }
+  return handle as unknown as FileSystemDirectoryHandle
+}
+
+const names = (list: FileSystemDirectoryHandle[]) =>
+  list.map((h) => (h as unknown as { id: string }).id)
+
+describe('mergeFolder', () => {
+  it('puts the folder just used at the front, so the switcher reads by recency', async () => {
+    const dt = folderHandle('dt')
+    const textiles = folderHandle('textiles')
+    expect(names(await mergeFolder([dt], textiles))).toEqual(['textiles', 'dt'])
+  })
+
+  it('does not remember the same folder twice when it is picked again', async () => {
+    const dt = folderHandle('dt')
+    const textiles = folderHandle('textiles')
+    const merged = await mergeFolder([dt, textiles], folderHandle('dt'))
+    expect(names(merged)).toEqual(['dt', 'textiles'])
+  })
+
+  it('tells two folders apart when they have the same name', async () => {
+    // Realistic: a teacher keeps `HSC` inside each subject's Teams folder. Going
+    // by name would silently drop one subject the first time the other opened.
+    const a = folderHandle('dt-hsc', 'HSC')
+    const b = folderHandle('textiles-hsc', 'HSC')
+    expect(names(await mergeFolder([a], b))).toEqual(['textiles-hsc', 'dt-hsc'])
+  })
+
+  it('keeps the freshly granted handle rather than the stored one', async () => {
+    // The stored handle is a structured clone from IndexedDB and its permission
+    // may have lapsed; the one just returned by the picker is known good.
+    const stored = folderHandle('dt')
+    const fresh = folderHandle('dt')
+    const merged = await mergeFolder([stored], fresh)
+    expect(merged[0]).toBe(fresh)
+  })
+
+  it('stops remembering the oldest once the list is full', async () => {
+    const existing = ['a', 'b', 'c'].map((id) => folderHandle(id))
+    expect(names(await mergeFolder(existing, folderHandle('d'), 3))).toEqual(['d', 'a', 'b'])
+  })
+
+  it('survives a handle that cannot answer whether it is the same entry', async () => {
+    // A handle for a folder on a drive that has been unplugged. It must not take
+    // the whole switcher down with it.
+    const broken = {
+      kind: 'directory',
+      name: 'gone',
+      id: 'gone',
+      isSameEntry: async () => {
+        throw new DOMException('no such entry', 'NotFoundError')
+      },
+    } as unknown as FileSystemDirectoryHandle
+    expect(names(await mergeFolder([broken], folderHandle('dt')))).toEqual(['dt', 'gone'])
   })
 })
