@@ -137,16 +137,11 @@ export function SyllabusNote() {
         one from your own copy of the syllabus, into your own folder.
       </p>
       <p class="muted">
-        For a NSW Stage 6 syllabus, that is one command against the <code>.docx</code>{' '}
-        you downloaded from NESA:
+        For a NSW Stage 6 syllabus, save the <code>.docx</code> you downloaded from NESA
+        into this folder and Klunk reads it on the <strong>From a syllabus</strong> tab.
+        It shows you the courses, topics and content points it found before anything is
+        written.
       </p>
-      <pre class="setup__cmd">
-        <code>
-          python3 tools/nesa_stage6_syllabus.py your-syllabus.docx \{'\n'}
-          {'    '}--id nsw-hsc-design-technology --name "Design and Technology" \{'\n'}
-          {'    '}--out syllabus/nsw-hsc-design-technology.json
-        </code>
-      </pre>
       <p class="muted">
         Without one you can still write questions and build papers. You just cannot tag
         a question to a topic, and the coverage a paper has is not something Klunk can

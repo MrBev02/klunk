@@ -6,6 +6,7 @@ import { Extractor } from './extractor'
 import { Factory } from './factory'
 import { paperIsDirty, paperIsSaved } from './paper'
 import { ProfileEditor, type EditingProfile } from './profile'
+import { SyllabusReader } from './syllabusreader'
 import { QuestionRow } from './question'
 import { ProfileInstaller, SyllabusNote } from './setup'
 import {
@@ -31,7 +32,7 @@ import {
 } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
-type View = 'library' | 'build' | 'draft' | 'paper'
+type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
 
 /** Something that would discard unsaved work, held until a teacher confirms it. */
 interface Guarded {
@@ -298,6 +299,18 @@ export function App() {
   )
 
   const questionCount = useMemo(() => allQuestions(index).length, [index])
+  // Read once here rather than inside the reader, so the generator stays a pure
+  // function of its input and a model made twice from one document is identical.
+  //
+  // Local date, not `toISOString`, which is UTC: a NSW teacher is ten or eleven
+  // hours ahead, so half their working day would be stamped with yesterday. It
+  // is a provenance field a teacher reads and checks against when they
+  // downloaded the document, so being a day out is being wrong.
+  const today = useMemo(() => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  }, [])
 
   return (
     <div class="shell">
@@ -474,6 +487,14 @@ export function App() {
               From a past paper
               {index.pdfs.length > 0 && <span class="tab__n">{index.pdfs.length}</span>}
             </button>
+            <button
+              class={`tab ${view === 'syllabus' ? 'tab--on' : ''}`}
+              onClick={() => setView('syllabus')}
+              title="Build a syllabus model from the NESA document in this folder"
+            >
+              From a syllabus
+              {index.docx.length > 0 && <span class="tab__n">{index.docx.length}</span>}
+            </button>
           </nav>
 
           {view === 'library' && folder && (
@@ -516,6 +537,18 @@ export function App() {
               folder={folder}
               onEdit={(editing) => openEditor(editing)}
               onSaved={() => void load(folder)}
+            />
+          )}
+
+          {view === 'syllabus' && folder && (
+            <SyllabusReader
+              index={index}
+              folder={folder}
+              today={today}
+              onSaved={(message) => {
+                setNotice(message)
+                void load(folder)
+              }}
             />
           )}
         </div>

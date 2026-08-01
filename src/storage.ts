@@ -57,6 +57,15 @@ export interface ContentIndex {
    */
   pdfs: string[]
   /**
+   * Every Word document in the folder, by path, unread.
+   *
+   * A teacher downloads the syllabus into the same folder as everything else,
+   * so the syllabus reader offers what is already there rather than sending
+   * them to a file dialog for a file they have already got. Same reasoning as
+   * `pdfs`, and the same cost: paths only.
+   */
+  docx: string[]
+  /**
    * Stimulus images, keyed by folder-relative path, as object URLs.
    *
    * Loaded eagerly for the images questions actually reference, rather than
@@ -75,6 +84,7 @@ export function emptyIndex(): ContentIndex {
     problems: [],
     scanned: 0,
     pdfs: [],
+    docx: [],
     images: new Map(),
   }
 }
@@ -398,6 +408,12 @@ export async function scanFolder(
       index.pdfs.push(path)
       continue
     }
+    // Word's lock files are real .docx-adjacent entries in the folder and are
+    // not documents. Offering `~$syllabus.docx` would only ever waste a click.
+    if (path.toLowerCase().endsWith('.docx') && !(path.split('/').pop() ?? '').startsWith('~$')) {
+      index.docx.push(path)
+      continue
+    }
     if (!path.toLowerCase().endsWith('.json')) continue
 
     index.scanned += 1
@@ -441,6 +457,7 @@ export async function scanFolder(
   index.banks.sort(byPath)
   index.papers.sort(byPath)
   index.pdfs.sort((a, b) => a.localeCompare(b))
+  index.docx.sort((a, b) => a.localeCompare(b))
 
   await loadImages(dir, index)
 

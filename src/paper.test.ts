@@ -87,6 +87,7 @@ function indexWith(questions: Question[]): ContentIndex {
     problems: [],
     scanned: 2,
     pdfs: [],
+    docx: [],
     images: new Map(),
   }
 }

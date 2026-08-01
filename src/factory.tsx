@@ -189,9 +189,9 @@ export function Factory({
         <p class="panel__title">No syllabus model in this folder</p>
         <p>
           The whole point of this is a prompt with your syllabus already in it, so there
-          is nothing to write until Klunk has one to read. Generate one from your own
-          copy of the syllabus with <span class="mono">tools/nesa_stage6_syllabus.py</span>
-          , save it into this folder, and it appears here.
+          is nothing to write until Klunk has one to read. Put your own copy of the
+          syllabus <span class="mono">.docx</span> in this folder and build one on the
+          <strong> From a syllabus</strong> tab.
         </p>
       </section>
     )

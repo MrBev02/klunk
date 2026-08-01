@@ -1141,9 +1141,9 @@ function TaggingFields({
 
       {courses.length === 0 ? (
         <p class="hint">
-          No syllabus model in this folder, so there is nothing to tag against. Generate
-          one with <span class="mono">tools/nesa_stage6_syllabus.py</span> and it appears
-          here.
+          No syllabus model in this folder, so there is nothing to tag against. Put the
+          syllabus <span class="mono">.docx</span> in this folder and build one on the
+          <strong> From a syllabus</strong> tab, and it appears here.
         </p>
       ) : (
         <>
