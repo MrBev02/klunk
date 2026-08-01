@@ -56,8 +56,40 @@ describe('validateQuestion', () => {
 
   it('refuses a question with nothing in it', () => {
     expect(errors(question({ questionText: '   ' }))).toContain(
-      'Question: A question needs something to ask.',
+      'Question: A question needs something to ask, either its own text or parts that ask it.',
     )
+  })
+
+  it('allows a question with no stem when its parts do the asking', () => {
+    // 2016, 2018 and 2019 each print a Section II question this way: the heading
+    // is followed straight by (a). Demanding a stem there means inventing words
+    // the examination never printed.
+    expect(
+      errors(
+        question({
+          questionText: '',
+          marks: 5,
+          config: {
+            parts: [
+              { label: 'a', text: 'Outline one benefit.', marks: 2 },
+              { label: 'b', text: 'Explain how it is tested.', marks: 3 },
+            ],
+          },
+        }),
+      ),
+    ).toEqual([])
+  })
+
+  it('still refuses a question with no stem and parts that ask nothing', () => {
+    expect(
+      errors(
+        question({
+          questionText: '',
+          marks: 2,
+          config: { parts: [{ label: 'a', text: '  ', marks: 2 }] },
+        }),
+      ).join(' '),
+    ).toMatch(/needs something to ask/)
   })
 
   it('refuses marks that are not a number above zero', () => {
@@ -271,6 +303,94 @@ describe('stimulus', () => {
     expect(
       warnings(question({ stimulus: [{ kind: 'image', file: 'stimulus/a.png' }] })).join(' '),
     ).toContain('screen reader')
+  })
+})
+
+describe('bands', () => {
+  it('takes a recorded band as a band without having to infer it from the shape', () => {
+    // Two bands in ascending order would fail the descending-marks guess, which
+    // is exactly why a band is now recorded rather than inferred.
+    const q = question({
+      questionType: 'extended_response',
+      marks: 15,
+      markingGuide: {
+        criteria: [
+          { marks: 1, marksTo: 7, description: 'Some understanding.' },
+          { marks: 8, marksTo: 15, description: 'Thorough understanding.' },
+        ],
+      },
+    })
+    expect(errors(q)).toEqual([])
+    expect(warnings(q).join(' ')).not.toContain('criteria total')
+  })
+
+  it('refuses a band that runs backwards', () => {
+    expect(
+      errors(
+        question({ markingGuide: { criteria: [{ marks: 15, marksTo: 13, description: 'Top.' }] } }),
+      ).join(' '),
+    ).toMatch(/15–13 is backwards/)
+  })
+
+  it('keeps the band when cleaning, and drops it when it is not one', () => {
+    const cleaned = cleanQuestion(
+      question({
+        markingGuide: {
+          criteria: [
+            { marks: 13, marksTo: 15, description: '  Comprehensive.  ' },
+            { marks: 2, marksTo: 2, description: 'Sound.' },
+          ],
+        },
+      }),
+    )
+    expect(cleaned.markingGuide?.criteria).toEqual([
+      { marks: 13, marksTo: 15, description: 'Comprehensive.' },
+      { marks: 2, description: 'Sound.' },
+    ])
+  })
+})
+
+describe('criteria on a part', () => {
+  it('validates and keeps criteria recorded against a part', () => {
+    const q = question({
+      marks: 5,
+      config: {
+        parts: [
+          {
+            label: 'a',
+            text: 'Outline one benefit.',
+            marks: 2,
+            criteria: [{ marks: 2, description: 'Outlines a benefit.' }],
+          },
+          {
+            label: 'b',
+            text: 'Explain how it is tested.',
+            marks: 3,
+            criteria: [{ marks: 3, description: 'Explains a test.' }],
+          },
+        ],
+      },
+    })
+    expect(errors(q)).toEqual([])
+    // A question marked part by part has a guide, so it must not be nagged for
+    // one it does not need.
+    expect(warnings(q).join(' ')).not.toContain('Two markers will not agree')
+    expect(cleanQuestion(q).config?.parts?.[0]?.criteria).toEqual([
+      { marks: 2, description: 'Outlines a benefit.' },
+    ])
+  })
+
+  it('refuses a criterion on a part that says nothing', () => {
+    expect(
+      errors(
+        question({
+          marks: 2,
+          config: {
+            parts: [{ label: 'a', text: 'Outline one.', marks: 2, criteria: [{ marks: 2, description: ' ' }] }],
+          },
+        }),
+      ).join(' '),
+    ).toMatch(/Part a, criterion 1: A criterion needs a description/)
   })
 })
 

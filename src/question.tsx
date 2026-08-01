@@ -12,7 +12,8 @@
 
 import { useState } from 'preact/hooks'
 import { rowAnswers, shuffledChoices } from './paper'
-import { QUESTION_TYPE_LABELS, type Question, type QuestionRef } from './types'
+import { markRange } from './render'
+import { QUESTION_TYPE_LABELS, questionLabel, type Question, type QuestionRef } from './types'
 import { looksBanded, needsGuide } from './validate'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -47,7 +48,7 @@ export function QuestionRow({
           {q.marks}
           <span class="muted">m</span>
         </span>
-        <span class="qrow__stem">{q.questionText}</span>
+        <span class="qrow__stem">{questionLabel(q)}</span>
         <span class="qrow__tail">
           <span class="chip chip--type">{shortType(q)}</span>
           {q.source?.origin && q.source.origin !== 'authored' && (
@@ -83,7 +84,7 @@ export function QuestionDetail({
 }) {
   return (
     <>
-      {showStem && <p class="det__stem">{q.questionText}</p>}
+      {showStem && <p class="det__stem">{questionLabel(q)}</p>}
 
       {q.stimulus?.length ? (
         <div class="det">
@@ -222,6 +223,18 @@ function Body({ question: q }: { question: Question }) {
                 <span>{p.text}</span>
                 <span class="parts-list__marks">{p.marks}m</span>
                 {p.sampleAnswer && <p class="parts-list__sample">{p.sampleAnswer}</p>}
+                {p.criteria?.length ? (
+                  <table class="crit">
+                    <tbody>
+                      {p.criteria.map((c, j) => (
+                        <tr key={j}>
+                          <td>{c.description}</td>
+                          <td>{markRange(c)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -272,7 +285,7 @@ function Guide({ question: q }: { question: Question }) {
               {g.criteria.map((c, i) => (
                 <tr key={i}>
                   <td>{c.description}</td>
-                  <td>{c.marks}</td>
+                  <td>{markRange(c)}</td>
                 </tr>
               ))}
             </tbody>

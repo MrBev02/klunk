@@ -25,6 +25,18 @@
     "question": {
       "type": "object",
       "required": ["id", "questionType", "questionText", "marks"],
+      "anyOf": [
+        { "properties": { "questionText": { "minLength": 1 } } },
+        {
+          "required": ["config"],
+          "properties": {
+            "config": {
+              "required": ["parts"],
+              "properties": { "parts": { "minItems": 1 } }
+            }
+          }
+        }
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -32,7 +44,10 @@
           "description": "Stable within the folder. Papers reference questions by it, so changing it orphans every paper that used the question."
         },
         "questionType": { "$ref": "profile.schema.json#/$defs/questionType" },
-        "questionText": { "type": "string", "minLength": 1 },
+        "questionText": {
+          "type": "string",
+          "description": "Empty only when the question is entirely its parts, which is how the 2016, 2018 and 2019 HSC papers print one: the heading is followed straight by (a). Requiring a stem there would mean inventing words the examination never printed, so the rule is text or parts, enforced by the anyOf above."
+        },
         "marks": {
           "type": "number",
           "exclusiveMinimum": 0,
@@ -82,16 +97,8 @@
             "sampleAnswer": { "type": "string" },
             "criteria": {
               "type": "array",
-              "description": "Mark-by-mark or band criteria.",
-              "items": {
-                "type": "object",
-                "required": ["marks", "description"],
-                "additionalProperties": false,
-                "properties": {
-                  "marks": { "type": "number" },
-                  "description": { "type": "string" }
-                }
-              }
+              "description": "Mark-by-mark or band criteria for the question as a whole. A question split into parts carries its criteria on the parts instead.",
+              "items": { "$ref": "#/$defs/criterion" }
             },
             "notes": { "type": "string" }
           }
@@ -149,6 +156,24 @@
           "then": { "properties": { "config": { "$ref": "#/$defs/writtenConfig" } } }
         }
       ]
+    },
+
+    "criterion": {
+      "type": "object",
+      "description": "One row of a marking guide's criteria table.",
+      "required": ["marks", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "marks": {
+          "type": "number",
+          "description": "The mark, or the bottom of the band where 'marksTo' is present."
+        },
+        "marksTo": {
+          "type": "number",
+          "description": "The top of a band, so '13-15' is marks 13 and marksTo 15. Every HSC extended response is banded, and from 2018 a six-mark short answer carries a band too, so this is the normal case rather than an exotic one. Without it a marking guide prints a single number where the examination printed a range, which is wrong on the page a marker reads."
+        },
+        "description": { "type": "string" }
+      }
     },
 
     "stimulus": {
@@ -233,7 +258,12 @@
               "text": { "type": "string" },
               "marks": { "type": "number", "exclusiveMinimum": 0 },
               "answerLines": { "type": "integer", "minimum": 0 },
-              "sampleAnswer": { "type": "string" }
+              "sampleAnswer": { "type": "string" },
+              "criteria": {
+                "type": "array",
+                "description": "A NESA marking guide marks part by part, under its own 'Question 11 (a)' heading. Flattening those into the question's own criteria loses which part each one belongs to, and then the printed guide puts them in the wrong place.",
+                "items": { "$ref": "#/$defs/criterion" }
+              }
             }
           }
         }

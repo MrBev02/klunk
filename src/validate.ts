@@ -85,8 +85,13 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 
   /* --------------------------------------------------------------- the stem */
 
-  if (!question.questionText.trim()) {
-    err('A question needs something to ask.', 'Question')
+  // A question may have no stem of its own, but only when its parts do the
+  // asking. 2016, 2018 and 2019 each print one that way — the heading is
+  // followed straight by (a) — and requiring a stem there would mean inventing
+  // words the examination never printed.
+  const partsAsk = (question.config?.parts ?? []).some((p) => p.text.trim())
+  if (!question.questionText.trim() && !partsAsk) {
+    err('A question needs something to ask, either its own text or parts that ask it.', 'Question')
   }
 
   if (!Number.isFinite(question.marks) || question.marks <= 0) {
@@ -130,11 +135,7 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   /* ---------------------------------------------------------- marking guide */
 
   const guide = question.markingGuide
-  guide?.criteria?.forEach((c, i) => {
-    const where = `Criterion ${i + 1}`
-    if (!c.description.trim()) err('A criterion needs a description.', where)
-    if (!Number.isFinite(c.marks)) err('A criterion needs a mark value.', where)
-  })
+  guide?.criteria?.forEach((c, i) => validateCriterion(c, `Criterion ${i + 1}`, err))
 
   const criteria = guide?.criteria ?? []
   if (criteria.length > 0 && !looksBanded(criteria)) {
@@ -180,6 +181,20 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 }
 
 type Report = (message: string, where?: string) => void
+
+function validateCriterion(c: MarkCriterion, where: string, err: Report): void {
+  if (!c.description.trim()) err('A criterion needs a description.', where)
+  if (!Number.isFinite(c.marks)) err('A criterion needs a mark value.', where)
+  if (c.marksTo !== undefined) {
+    if (!Number.isFinite(c.marksTo)) {
+      err('The top of a band must be a number.', where)
+    } else if (c.marksTo <= c.marks) {
+      // Beyond the schema, which can only say both are numbers. A band that runs
+      // backwards prints as "15–13" and reads as a typing mistake, because it is.
+      err(`A band runs from the lower mark to the higher one, so ${c.marks}–${c.marksTo} is backwards.`, where)
+    }
+  }
+}
 
 function validateMultipleChoice(cfg: QuestionConfig, err: Report): void {
   const choices = cfg.choices ?? []
@@ -280,6 +295,7 @@ function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void 
     if (p.answerLines !== undefined && (!Number.isInteger(p.answerLines) || p.answerLines < 0)) {
       err('Answer lines must be a whole number.', where)
     }
+    p.criteria?.forEach((c, j) => validateCriterion(c, `${where}, criterion ${j + 1}`, err))
   })
 
   // Beyond the schema, which can only describe it: the parts print their own
@@ -297,9 +313,14 @@ function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void 
 /**
  * Band descriptors are alternatives, not components: a 15-mark extended
  * response might list 15/11/7/3. Summing those and complaining they exceed the
- * total would be wrong, so treat strictly descending marks as bands.
+ * total would be wrong.
+ *
+ * A recorded band says so outright. The descending-marks test stays for the
+ * criteria that predate `marksTo` and for the ones a teacher types by hand,
+ * where a band is still only implied by its shape.
  */
 export function looksBanded(criteria: MarkCriterion[]): boolean {
+  if (criteria.some((c) => c.marksTo !== undefined)) return true
   if (criteria.length < 2) return false
   return criteria.every((c, i) => i === 0 || c.marks < (criteria[i - 1]?.marks ?? 0))
 }
@@ -312,9 +333,9 @@ export function needsGuide(type: QuestionType): boolean {
 export function hasGuide(question: Question): boolean {
   const g = question.markingGuide
   if (g?.sampleAnswer?.trim() || g?.notes?.trim() || g?.criteria?.length) return true
-  // A question split into parts carries its sample answers on the parts, and
-  // then has no `markingGuide` of its own at all.
-  return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim())
+  // A question split into parts carries its sample answers and criteria on the
+  // parts, and then has no `markingGuide` of its own at all.
+  return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim() || p.criteria?.length)
 }
 
 /* ------------------------------------------------------------------------ ids */
@@ -401,11 +422,7 @@ export function cleanQuestion(draft: Question): Question {
 
   const guide = compact({
     sampleAnswer: text(draft.markingGuide?.sampleAnswer),
-    criteria: nonEmpty(
-      (draft.markingGuide?.criteria ?? [])
-        .filter((c) => c.description.trim())
-        .map((c) => ({ marks: c.marks, description: c.description.trim() })),
-    ),
+    criteria: cleanCriteria(draft.markingGuide?.criteria),
     notes: text(draft.markingGuide?.notes),
   })
   if (guide) out.markingGuide = guide
@@ -514,7 +531,22 @@ function cleanPart(p: QuestionPart): QuestionPart {
   if (p.answerLines !== undefined) out.answerLines = p.answerLines
   const sample = text(p.sampleAnswer)
   if (sample) out.sampleAnswer = sample
+  const criteria = cleanCriteria(p.criteria)
+  if (criteria) out.criteria = criteria
   return out
+}
+
+/** `marksTo` is written only when it is a band, so an ordinary criterion stays two fields. */
+function cleanCriteria(criteria: MarkCriterion[] | undefined): MarkCriterion[] | undefined {
+  return nonEmpty(
+    (criteria ?? [])
+      .filter((c) => c.description.trim())
+      .map((c) => ({
+        marks: c.marks,
+        ...(c.marksTo !== undefined && c.marksTo > c.marks ? { marksTo: c.marksTo } : {}),
+        description: c.description.trim(),
+      })),
+  )
 }
 
 /* ----------------------------------------------------------------- small tools */

@@ -14,7 +14,14 @@ import { QuestionDetail, shortType } from './question'
 import { PrintablePaper, type PrintMode } from './render'
 import { ProfileInstaller } from './setup'
 import { allQuestions, writeJson, type ContentIndex } from './storage'
-import { QUESTION_TYPE_LABELS, refKey, type Paper, type Profile } from './types'
+import {
+  QUESTION_TYPE_LABELS,
+  questionHaystack,
+  questionLabel,
+  refKey,
+  type Paper,
+  type Profile,
+} from './types'
 
 /**
  * The three states a paper can be in, worded for a teacher rather than for the
@@ -228,7 +235,7 @@ export function Builder({
                         <span class="picked__n">{rq?.number ?? '—'}</span>
                         <span class="picked__marks">{rq ? `${rq.marks}m` : '?'}</span>
                         <span class="picked__text">
-                          {rq?.question.questionText ?? (
+                          {rq ? questionLabel(rq.question) : (
                             <em class="missing">missing: {refKey(ref)}</em>
                           )}
                         </span>
@@ -304,7 +311,7 @@ function BankRail({
   const shown = useMemo(() => {
     const needle = text.trim().toLowerCase()
     if (!needle) return options
-    return options.filter((o) => o.question.questionText.toLowerCase().includes(needle))
+    return options.filter((o) => questionHaystack(o.question).includes(needle))
   }, [options, text])
 
   return (
@@ -353,7 +360,7 @@ function BankRail({
                   <span class="chip chip--type" style={{ marginRight: '0.3rem' }}>
                     {shortType(o.question)}
                   </span>
-                  {o.question.questionText}
+                  {questionLabel(o.question)}
                 </span>
                 <button
                   class="btn btn--icon"

@@ -19,7 +19,7 @@ import {
   type ResolvedQuestion,
 } from './paper'
 import { joinPath } from './storage'
-import type { Profile, Question, Stimulus } from './types'
+import type { MarkCriterion, Profile, Question, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
 
@@ -355,6 +355,7 @@ function GuideAnswer({ item }: { item: ResolvedQuestion }) {
                 </span>
               </div>
               {part.sampleAnswer && <p class="guide__sample">{part.sampleAnswer}</p>}
+              {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>
           ))}
         </ol>
@@ -430,22 +431,40 @@ function GuideBlock({ question }: { question: Question }) {
       {guide?.criteria?.length ? (
         <>
           <p class="guide__head">Marking criteria</p>
-          <table class="guide__criteria">
-            <tbody>
-              {guide.criteria.map((c, i) => (
-                <tr key={i}>
-                  <td>{c.description}</td>
-                  <td class="guide__marks">{c.marks}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Criteria criteria={guide.criteria} />
         </>
       ) : null}
 
       {guide?.notes && <p class="guide__notes">{guide.notes}</p>}
     </div>
   )
+}
+
+/**
+ * A criteria table, on a question or on one of its parts.
+ *
+ * A band prints as the range the examination printed. Putting `15` where NESA
+ * printed `13–15` is wrong on the one page a marker reads while marking, and it
+ * quietly tells them a response either earns fifteen or earns nothing.
+ */
+function Criteria({ criteria }: { criteria: MarkCriterion[] }) {
+  return (
+    <table class="guide__criteria">
+      <tbody>
+        {criteria.map((c, i) => (
+          <tr key={i}>
+            <td>{c.description}</td>
+            <td class="guide__marks">{markRange(c)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/** An en dash, as the printed guides use, not a hyphen. */
+export function markRange(c: MarkCriterion): string {
+  return c.marksTo === undefined ? String(c.marks) : `${c.marks}–${c.marksTo}`
 }
 
 /** Ruled answer space. Real lines, because students write on them. */

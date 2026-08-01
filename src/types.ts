@@ -139,7 +139,17 @@ export interface Stimulus {
 }
 
 export interface MarkCriterion {
+  /** The mark, or the bottom of the band where `marksTo` is present. */
   marks: number
+  /**
+   * The top of a band, so `13–15` is 13 and 15.
+   *
+   * Every HSC extended response is banded and from 2018 a six-mark short answer
+   * is too, so this is ordinary rather than exotic. Collapsing a band to one
+   * number prints a marking guide that disagrees with the examination on the
+   * page a marker actually reads.
+   */
+  marksTo?: number
   description: string
 }
 
@@ -149,6 +159,8 @@ export interface QuestionPart {
   marks: number
   answerLines?: number
   sampleAnswer?: string
+  /** A marking guide marks part by part, under its own `Question 11 (a)` heading. */
+  criteria?: MarkCriterion[]
 }
 
 /** Every wording a marker should accept in one cell of a table. */
@@ -291,6 +303,27 @@ export interface QuestionRef {
    * undefined" are different things.
    */
   bankName?: string | undefined
+}
+
+/**
+ * What to call a question in a list.
+ *
+ * Normally its own text. A question that is entirely its parts has none — the
+ * 2016, 2018 and 2019 HSC papers each print one that way — and every list in the
+ * app would otherwise show a blank row for it. Falling back to the parts is what
+ * the paper itself does: the reader's first sight of the question is `(a)`.
+ */
+export function questionLabel(q: Question): string {
+  const own = q.questionText.trim()
+  if (own) return own
+  const parts = (q.config?.parts ?? []).filter((p) => p.text.trim())
+  if (parts.length === 0) return '(no question text)'
+  return parts.map((p) => `(${p.label}) ${p.text.trim()}`).join('  ')
+}
+
+/** Everything a search over question text should look at, parts included. */
+export function questionHaystack(q: Question): string {
+  return [q.questionText, ...(q.config?.parts ?? []).map((p) => p.text)].join(' ').toLowerCase()
 }
 
 export function refKey(ref: PaperRef): string {
