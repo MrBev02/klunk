@@ -116,6 +116,27 @@ Do not re-derive these, and do not contradict them without new evidence.
   different front-matter layouts.
 - **Every paper has a text layer**, so deterministic parsing works and no OCR or
   vision is needed.
+- **From 2019 the answer booklet is bound into the same PDF**, its cover falling
+  straight after Question 10. The course title printed on it is not furniture by
+  any general rule, so dropping lines one at a time is not enough: `Centre
+  Number`, `Student Number`, `Answer Booklet` and the examination line have to
+  *close* the open question.
+- **"Do NOT write in this area." runs up the margin of 59 pages, rotated**, one
+  word per baseline, and those baselines are the ruled answer lines' baselines.
+  Rotated runs are dropped at the pdf.js boundary. The whole corpus holds three
+  distinct rotated strings: that notice and two axis labels inside figures.
+- **A mark is centred against what it governs, never attached to a line.** A
+  Section III band covers three or four bullets with its mark at the centre of
+  the group, so it lands inside whichever bullet is in the middle. Each bullet
+  belongs to the mark nearest its own vertical centre.
+- **Marking guides carry a mapping grid** giving marks, a plain-English topic and
+  the **syllabus outcome codes** for every question, the ten objective ones
+  included — the only place a multiple-choice question's outcomes are written.
+  2016 leaves the marks cell of its Section III row blank.
+- **Banding is not peculiar to Section III**: from 2018 a six-mark Section II
+  question carries a `2–3` band.
+- **2016, 2018 and 2019 each print a Section II question with no stem**, the
+  heading followed straight by `(a)`.
 
 **NESA Stage 6 (2013) syllabuses use two content layouts:**
 - *Wide*: one 3-column table per course, `Outcomes | Students learn about | Students
@@ -342,22 +363,47 @@ screen does not change when the prompt arrives. The general lesson: a feature th
 works and cannot be found has not been delivered, and only driving the page catches
 that — the code read as complete.
 
+**A past paper fills a bank** (#3), on the "From a past paper" tab. `src/extract.ts`
+and `src/guide.ts` take positioned text and no PDF, so every rule in them is
+testable without one; `src/pdftext.ts` is the only place pdf.js is named;
+`src/adopt.ts` is the one place the readers meet `bank.schema.json`. The papers
+are offered from the teacher's own folder, because that is where they are
+downloaded, so no file dialog is needed. Nothing is written until every question
+has been seen, and one with an error goes to the editor rather than into a bank.
+
+Verified in the browser: the 2019 paper and guide read into fourteen questions and
+forty marks, provenance on each, outcomes from the mapping grid, the extended
+response showing all five bands, and all fourteen saved into a bank that still
+validates. `src/extract.corpus.test.ts` runs all eleven years and skips itself
+when the content folder is absent, so CI never sees a NESA paper.
+
+The cost is real: pdf.js takes `dist-single` from 166 kB to **1.8 MB**. It
+lazy-loads in the hosted build, which only went 140 kB to 163 kB.
+
+**#23 settled three things `bank.schema.json` could not say**: a criterion may
+carry `marksTo` so a band stays a band, a part may carry its own criteria, and a
+question may have no text when its parts do the asking. All three are what the
+examinations actually print.
+
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
 
 Next is in the issue tracker. `gh issue list` is the authoritative backlog; this
 section only says where to start.
 
-Three follow-ups came out of building the editor and the factory. **#14** is a
-generator defect found while building the prompt: every topic in the D&T model is
-grouped under `7.2Key Competencies`, which is document furniture rather than a focus
-area, and it shows in every topic dropdown. **#12** is a real defect: a table
-question with three or more columns prints the same expected answers in every answer
-column, because a row holds one flat list of answers rather than one per column. The
-editor warns about it rather than fixing it, because the fix is a decision about what
-`answers` means. **#13** is the three places the form makes a teacher think in the
-file's terms: millimetres for drawing space, a count of ruled lines, and table
+Three follow-ups came out of building the editor and the factory. Two are fixed:
+**#14**, where every topic in the D&T model was grouped under `7.2Key Competencies`
+because a heading that does not say it is a focus area was taken as one, and
+**#12**, where a table question with three or more columns printed the same expected
+answers in every column because a row held one flat list rather than one per column.
+**#13** is still open: the three places the form makes a teacher think in the file's
+terms, being millimetres for drawing space, a count of ruled lines, and table
 alternatives separated by a slash.
+
+Much of the open backlog is what driving the app turned up rather than what building
+it did. **#18** and **#19** are both cases where a folder holding two syllabus models
+is handled as though it held one, which `../klunk-content` does hold; **#21** and
+**#22** are paths that shipped without ever being driven.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
