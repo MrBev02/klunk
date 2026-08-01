@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { extractPaper, stampSource } from './extract'
 import { applyGuide, extractGuide } from './guide'
 import { markOnly, marked, page } from './fixtures/page'
+import { findPictures, picturesFor } from './pdfimage'
 
 /**
  * Fictional guides in the shape of the real ones.
@@ -353,5 +354,74 @@ describe('provenance', () => {
       questionNumber: '1',
       copyright: 'NSW Education Standards Authority',
     })
+  })
+})
+
+describe('finding where the pictures are', () => {
+  it('takes a band of the page that no text touches', () => {
+    const paper = extractPaper([
+      page(
+        5,
+        'Section II',
+        'Question 11 (5 marks)',
+        'The images show two chairs developed for different uses.',
+        '',
+        '',
+        '',
+        '',
+        '',
+        marked('Compare the two chairs shown.', 5),
+      ),
+    ])
+    const regions = picturesFor(paper.questions[0]!, [
+      page(
+        5,
+        'Section II',
+        'Question 11 (5 marks)',
+        'The images show two chairs developed for different uses.',
+        '',
+        '',
+        '',
+        '',
+        '',
+        marked('Compare the two chairs shown.', 5),
+      ),
+    ])
+    expect(regions).toHaveLength(1)
+    expect(regions[0]!.page).toBe(5)
+    // Between the two lines of text, and not touching either of them.
+    expect(regions[0]!.height).toBeGreaterThan(20)
+  })
+
+  it('does not take the space between two lines of ordinary text', () => {
+    const p = page(5, 'Section II', 'Question 11 (5 marks)', 'One line.', 'The next line.')
+    expect(findPictures(p)).toEqual([])
+  })
+
+  it('gives a band to the question whose text surrounds it, not merely to the page', () => {
+    // A page carrying the end of one question and the start of the next: the gap
+    // belongs to whichever one's text is above and below it.
+    const pages = [
+      page(
+        6,
+        'Section II',
+        'Question 11 (4 marks)',
+        'Explain one thing.',
+        marked('Explain another.', 4),
+        'Question 12 (6 marks)',
+        'A picture follows.',
+        '',
+        '',
+        '',
+        '',
+        '',
+        marked('Discuss what is shown.', 6),
+      ),
+    ]
+    const paper = extractPaper(pages)
+    const eleven = paper.questions.find((q) => q.number === 11)!
+    const twelve = paper.questions.find((q) => q.number === 12)!
+    expect(picturesFor(eleven, pages)).toEqual([])
+    expect(picturesFor(twelve, pages)).toHaveLength(1)
   })
 })

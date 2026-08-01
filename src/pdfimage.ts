@@ -110,12 +110,41 @@ export async function cutOut(doc: PdfDocumentLike, regions: Region[]): Promise<C
       const top = (viewport.height / SCALE - (region.y + region.height)) * SCALE
       into.drawImage(sheet, region.x * SCALE, top, cut.width, cut.height, 0, 0, cut.width, cut.height)
 
+      // A gap in the text is not always a picture. The foot of a page below the
+      // last ruled line is a gap, and so is the space above a section heading,
+      // and cropping those produces a blank rectangle. Offering one is worse
+      // than useless: the crops are kept by default, so a teacher skimming
+      // fifteen questions saves whitespace into the bank unless they notice.
+      // Cheaper to ask the pixels than to ask the teacher.
+      if (isBlank(into, cut.width, cut.height)) continue
+
       const blob = await toBlob(cut)
       if (blob) out.push({ region, blob, url: URL.createObjectURL(blob) })
     }
   }
 
   return out
+}
+
+/**
+ * Is there anything on this crop?
+ *
+ * Measured rather than guessed: across the corpus a real picture covers a few
+ * per cent of its rectangle at the very least, and an empty strip of page covers
+ * none of it. A tenth of a per cent sits far below anything drawn and far above
+ * the stray speck a rendering artefact leaves.
+ *
+ * Every fourth pixel, because this runs on the main thread and a full A4 crop at
+ * 216 dpi is four million of them; a picture that only shows up in one pixel in
+ * four is not a picture.
+ */
+function isBlank(context: CanvasRenderingContext2D, width: number, height: number): boolean {
+  const { data } = context.getImageData(0, 0, width, height)
+  let ink = 0
+  for (let i = 0; i < data.length; i += 16) {
+    if ((data[i] ?? 255) < 250 || (data[i + 1] ?? 255) < 250 || (data[i + 2] ?? 255) < 250) ink += 1
+  }
+  return ink / (data.length / 16) < 0.001
 }
 
 function toBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
