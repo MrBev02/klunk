@@ -10,6 +10,7 @@ import {
   allQuestions,
   emptyIndex,
   forgetFolder,
+  inSyllabus,
   listFolders,
   openFolder,
   pickFolder,
@@ -25,7 +26,6 @@ import {
   questionHaystack,
   type Paper,
   type QuestionRef,
-  type Syllabus,
 } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
@@ -571,27 +571,34 @@ function Library({
   onReload: () => void
 }) {
   const questions = useMemo(() => allQuestions(index), [index])
-  const syllabus = index.syllabuses[0]?.data
 
   const [type, setType] = useState('')
   const [topic, setTopic] = useState('')
   const [text, setText] = useState('')
   const [untaggedOnly, setUntaggedOnly] = useState(false)
 
-  const topics = useMemo(() => topicOptions(syllabus), [syllabus])
+  const groups = useMemo(() => topicOptions(index), [index])
+  const chosenTopic = useMemo(
+    () => groups.flatMap((g) => g.topics).find((t) => t.key === topic),
+    [groups, topic],
+  )
 
   const shown = useMemo(() => {
     const needle = text.trim().toLowerCase()
-    return questions.filter(({ question: q }) => {
+    return questions.filter((ref) => {
+      const q = ref.question
       if (type && q.questionType !== type) return false
-      if (topic && !(q.syllabus?.topicIds ?? []).includes(topic)) return false
+      if (chosenTopic) {
+        if (!(q.syllabus?.topicIds ?? []).includes(chosenTopic.topicId)) return false
+        if (!inSyllabus(ref, chosenTopic.syllabusId)) return false
+      }
       if (untaggedOnly && (q.syllabus?.topicIds?.length || q.syllabus?.pointIds?.length)) {
         return false
       }
       if (needle && !questionHaystack(q).includes(needle)) return false
       return true
     })
-  }, [questions, type, topic, text, untaggedOnly])
+  }, [questions, type, chosenTopic, text, untaggedOnly])
 
   const shownMarks = shown.reduce((sum, r) => sum + r.question.marks, 0)
 
@@ -705,10 +712,14 @@ function Library({
             onChange={(e) => setTopic((e.target as HTMLSelectElement).value)}
           >
             <option value="">Any topic</option>
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
+            {groups.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.topics.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -811,14 +822,52 @@ function Library({
   )
 }
 
-function topicOptions(syllabus: Syllabus | undefined): { id: string; label: string }[] {
-  if (!syllabus) return []
-  const out: { id: string; label: string }[] = []
-  for (const course of syllabus.courses) {
-    for (const topic of course.topics) {
-      const group = topic.group ? `${topic.group} · ` : ''
-      out.push({ id: topic.id, label: `${course.name}: ${group}${topic.name}` })
+interface TopicChoice {
+  /**
+   * `syllabusId::topicId`, not the bare topic id. Both NSW models number their
+   * topics `PRE-01`/`HSC-01` upwards, so the bare id names two different topics
+   * in a folder holding both and cannot be what the filter is keyed on.
+   */
+  key: string
+  syllabusId: string
+  topicId: string
+  label: string
+}
+
+interface TopicGroup {
+  label: string
+  topics: TopicChoice[]
+}
+
+/**
+ * Every topic of every course of every syllabus in the folder.
+ *
+ * It read `index.syllabuses[0]` and banks sort by path, so the second model's
+ * topics could not be filtered on at all.
+ *
+ * One syllabus per optgroup, and the course still named on the option itself
+ * rather than only on the group. Grouping by course reads better with the list
+ * open, but a closed select shows the option and nothing else, and Design and
+ * Technology has four topic names — *project management* among them — that its
+ * Preliminary and HSC courses both use. Dropping the course prefix made those
+ * indistinguishable the whole time the list was shut, which is most of the time.
+ */
+function topicOptions(index: ContentIndex): TopicGroup[] {
+  const out: TopicGroup[] = []
+  for (const { data: syllabus } of index.syllabuses) {
+    const topics: TopicChoice[] = []
+    for (const course of syllabus.courses) {
+      for (const topic of course.topics) {
+        const group = topic.group ? `${topic.group} · ` : ''
+        topics.push({
+          key: `${syllabus.id}::${topic.id}`,
+          syllabusId: syllabus.id,
+          topicId: topic.id,
+          label: `${course.name}: ${group}${topic.name}`,
+        })
+      }
     }
+    if (topics.length > 0) out.push({ label: syllabus.name, topics })
   }
   return out
 }

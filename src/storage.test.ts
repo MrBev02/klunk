@@ -10,16 +10,19 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  allQuestions,
   copyFileInto,
   emptyIndex,
+  inSyllabus,
   joinPath,
   mergeFolder,
   releaseImages,
   safeFilename,
   saveQuestion,
   scanFolder,
+  type ContentIndex,
 } from './storage'
-import type { Bank, Paper, Question } from './types'
+import type { Bank, Loaded, Paper, Question } from './types'
 
 /* -------------------------------------------------- a folder made of strings */
 
@@ -495,6 +498,81 @@ describe('copyFileInto', () => {
       'handle-2.png',
     )
     expect(read(dir, 'bank/stimulus/handle.png')).toBe('the first one')
+  })
+})
+
+/* ------------------------------------------ which subject a question belongs to */
+
+/**
+ * Two banks that both use `HSC-01`, because both NSW models do.
+ *
+ * The generator numbers topics from one within each course, so Design and
+ * Technology's first HSC topic and Textiles' first HSC topic have the same id
+ * and always will. A folder holding both models — which `../klunk-content` does
+ * — therefore cannot tell the two apart from a topic id alone.
+ */
+function twoSubjects(): ContentIndex {
+  const bank = (name: string, syllabusId: string | undefined, ids: string[]): Loaded<Bank> => ({
+    path: `bank/${name}.json`,
+    data: {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      ...(syllabusId === undefined ? {} : { syllabusId }),
+      questions: ids.map((id) => ({
+        id,
+        questionType: 'short_answer' as const,
+        questionText: `Question ${id}`,
+        marks: 4,
+        syllabus: { topicIds: ['HSC-01'] },
+      })),
+    },
+  })
+
+  return {
+    ...emptyIndex(),
+    banks: [
+      bank('design', 'nsw-hsc-design-technology', ['dt-1']),
+      bank('textiles', 'nsw-hsc-textiles-and-design', ['tex-1']),
+      bank('loose', undefined, ['loose-1']),
+    ],
+  }
+}
+
+describe('allQuestions', () => {
+  it('resolves each question to a syllabus from its bank', () => {
+    const found = allQuestions(twoSubjects())
+    expect(found.map((r) => [r.question.id, r.syllabusId])).toEqual([
+      ['dt-1', 'nsw-hsc-design-technology'],
+      ['tex-1', 'nsw-hsc-textiles-and-design'],
+      ['loose-1', undefined],
+    ])
+  })
+
+  it('lets a question override its bank', () => {
+    const index = twoSubjects()
+    const first = index.banks[0]!.data.questions[0]!
+    first.syllabus = { syllabusId: 'nsw-hsc-textiles-and-design', topicIds: ['HSC-01'] }
+    expect(allQuestions(index)[0]!.syllabusId).toBe('nsw-hsc-textiles-and-design')
+  })
+})
+
+describe('inSyllabus', () => {
+  it('separates two subjects that share a topic id', () => {
+    const found = allQuestions(twoSubjects())
+    const tagged = (id: string) =>
+      found
+        .filter((r) => (r.question.syllabus?.topicIds ?? []).includes('HSC-01'))
+        .filter((r) => inSyllabus(r, id))
+        .map((r) => r.question.id)
+
+    expect(tagged('nsw-hsc-design-technology')).toEqual(['dt-1', 'loose-1'])
+    expect(tagged('nsw-hsc-textiles-and-design')).toEqual(['tex-1', 'loose-1'])
+  })
+
+  it('keeps a question that names no syllabus, since nothing rules it out', () => {
+    const loose = allQuestions(twoSubjects())[2]!
+    expect(inSyllabus(loose, 'nsw-hsc-design-technology')).toBe(true)
+    expect(inSyllabus(loose, 'anything-at-all')).toBe(true)
   })
 })
 

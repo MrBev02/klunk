@@ -303,6 +303,16 @@ export interface QuestionRef {
    * undefined" are different things.
    */
   bankName?: string | undefined
+  /**
+   * Which syllabus this question belongs to: its own if it says, otherwise its
+   * bank's default. Undefined when neither says, which is a real state — the
+   * two untagged questions in the development bank are in it.
+   *
+   * Needed because a topic id is only unique inside its own model. Design and
+   * Technology and Textiles both number their HSC topics `HSC-01` upwards, so
+   * `topicIds.includes('HSC-01')` alone matches questions from either subject.
+   */
+  syllabusId?: string | undefined
 }
 
 /**

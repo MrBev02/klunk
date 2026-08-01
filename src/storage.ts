@@ -697,10 +697,30 @@ export function allQuestions(index: ContentIndex): QuestionRef[] {
   const out: QuestionRef[] = []
   for (const bank of index.banks) {
     for (const question of bank.data.questions) {
-      out.push({ question, file: bank.path, bankName: bank.data.name })
+      out.push({
+        question,
+        file: bank.path,
+        bankName: bank.data.name,
+        // The bank's default, overridden by the question's own. `bank.schema.json`
+        // calls the bank field a default and says a question may override it,
+        // so resolving it here means nothing downstream has to remember that.
+        syllabusId: question.syllabus?.syllabusId ?? bank.data.syllabusId,
+      })
     }
   }
   return out
+}
+
+/**
+ * Whether this question could be part of that syllabus.
+ *
+ * A question that names a different syllabus is not, and a question that names
+ * none cannot be ruled out — all that is known about it is the bare topic id it
+ * was tagged with, and hiding one a teacher tagged is worse than showing one
+ * they did not mean. So this narrows only where the file actually disagrees.
+ */
+export function inSyllabus(ref: QuestionRef, syllabusId: string): boolean {
+  return ref.syllabusId === undefined || ref.syllabusId === syllabusId
 }
 
 /** Every question id in the folder, which is what a new id must not collide with. */
