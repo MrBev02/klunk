@@ -34,7 +34,7 @@ import { cleanQuestion } from './validate'
 /** How many questions one prompt asks for, before quality starts to slide. */
 const MAX_COUNT = 10
 
-interface CourseChoice {
+export interface CourseChoice {
   key: string
   syllabus: Syllabus
   course: SyllabusCourse
@@ -721,7 +721,7 @@ function DraftCard({
 
 /* --------------------------------------------------------------------- lookups */
 
-function courseChoices(index: ContentIndex): CourseChoice[] {
+export function courseChoices(index: ContentIndex): CourseChoice[] {
   const out: CourseChoice[] = []
   for (const { data } of index.syllabuses) {
     for (const course of data.courses) {

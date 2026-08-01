@@ -120,6 +120,31 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
       }
     })
 
+    it(`${year}: no question carries the paper's furniture in its text`, async () => {
+      // The structural checks above all passed while Question 11 read as
+      // "…in this…area. Of…". Marks added up, parts were present, nothing looked
+      // wrong — because none of it looks at what the words are. The paper prints
+      // "Do NOT write in this area." sideways up the margin, one word per ruled
+      // line, so those words landed on the same rows as the rules beside them.
+      const paper = await read(year)
+      const texts = paper.questions.flatMap((q) => [
+        q.text,
+        ...(q.parts ?? []).map((p) => p.text),
+        ...(q.options ?? []).map((o) => o.text),
+      ])
+      for (const text of texts) {
+        expect(text, 'a ruled answer line was read as question text').not.toMatch(/[.…_]{4,}/)
+        expect(text, 'the sideways margin notice was read as question text').not.toMatch(
+          /Do NOT write|Office Use Only/i,
+        )
+        expect(text, 'a copyright notice was read as question text').not.toMatch(/©/)
+        expect(text, 'the answer booklet front matter was read as question text').not.toMatch(
+          /Answer Booklet|Centre Number|Student Number/i,
+        )
+        expect(text, 'a page number was read as question text').not.toMatch(/–\s*\d+\s*–/)
+      }
+    })
+
     it(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
       const guide = await readGuide(year)
 

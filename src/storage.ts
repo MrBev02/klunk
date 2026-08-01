@@ -48,6 +48,15 @@ export interface ContentIndex {
   /** Total .json files inspected, so "found nothing" can be distinguished from "found nothing of ours". */
   scanned: number
   /**
+   * Every PDF in the folder, by path, unread.
+   *
+   * Past papers and marking guides live alongside the banks they will fill, so
+   * the extractor offers what is already there. Only the paths: a folder may
+   * hold a lot of PDFs and reading them all on every scan would be slow and
+   * pointless.
+   */
+  pdfs: string[]
+  /**
    * Stimulus images, keyed by folder-relative path, as object URLs.
    *
    * Loaded eagerly for the images questions actually reference, rather than
@@ -65,6 +74,7 @@ export function emptyIndex(): ContentIndex {
     papers: [],
     problems: [],
     scanned: 0,
+    pdfs: [],
     images: new Map(),
   }
 }
@@ -357,7 +367,7 @@ async function* walk(
     if (entry.kind === 'directory') {
       if (SKIP_DIRS.has(name)) continue
       yield* walk(entry, path, depth + 1)
-    } else if (name.toLowerCase().endsWith('.json')) {
+    } else {
       yield { path, handle: entry }
     }
   }
@@ -380,6 +390,16 @@ export async function scanFolder(
   const index = emptyIndex()
 
   for await (const { path, handle } of walk(dir)) {
+    // A past paper is not content Klunk owns, so it is only noted, never read
+    // here: the bytes are fetched when a teacher picks one. Noting it at all is
+    // what lets the extractor offer the papers already in the folder instead of
+    // sending a teacher to a file dialog for something they have downloaded.
+    if (path.toLowerCase().endsWith('.pdf')) {
+      index.pdfs.push(path)
+      continue
+    }
+    if (!path.toLowerCase().endsWith('.json')) continue
+
     index.scanned += 1
 
     let data: unknown
@@ -420,6 +440,7 @@ export async function scanFolder(
   index.syllabuses.sort(byPath)
   index.banks.sort(byPath)
   index.papers.sort(byPath)
+  index.pdfs.sort((a, b) => a.localeCompare(b))
 
   await loadImages(dir, index)
 
@@ -528,6 +549,22 @@ export function safeFilename(name: string): string {
 
 export async function exists(dir: FileSystemDirectoryHandle, path: string): Promise<boolean> {
   return (await fileAt(dir, path).catch(() => null)) !== null
+}
+
+/**
+ * Read a file from the folder as bytes.
+ *
+ * For the PDFs the scan noted but did not open. Read on demand rather than
+ * held, because a past paper is a megabyte and a folder may hold twenty-two of
+ * them; keeping them all in memory to open one would be a poor trade.
+ */
+export async function readBytes(
+  dir: FileSystemDirectoryHandle,
+  path: string,
+): Promise<Uint8Array> {
+  const file = await fileAt(dir, path)
+  if (!file) throw new Error(`There is no file at ${path} any more.`)
+  return new Uint8Array(await file.arrayBuffer())
 }
 
 /**

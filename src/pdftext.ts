@@ -44,6 +44,26 @@ interface PdfPageLike {
 }
 
 /**
+ * Is this run set sideways?
+ *
+ * A text matrix is `[a, b, c, d, e, f]`, and horizontal text has b and c at
+ * zero. Anything else has been turned, and on a NESA paper what gets turned is
+ * furniture: "Do NOT write in this area." runs up the margin of 59 pages of the
+ * corpus, one word per baseline. Those baselines collide with the ruled answer
+ * lines beside them, so the words were being read into the middle of the
+ * question — which is how a question came out as "…in this…area. Of…".
+ *
+ * The whole corpus holds exactly three distinct rotated strings: that notice,
+ * and two axis labels inside figures. The labels are a real loss, but they
+ * belong to a picture that cannot be lifted out of the PDF either, and every
+ * question that refers to a figure already says so. A stray axis label dropped
+ * into the middle of a stem would be the worse outcome.
+ */
+function isRotated(transform: number[]): boolean {
+  return Math.abs(transform[1] ?? 0) > 0.01 || Math.abs(transform[2] ?? 0) > 0.01
+}
+
+/**
  * Convert an open pdf.js document to positioned text.
  *
  * Kept separate from loading so it can be driven from Node against the real
@@ -63,6 +83,7 @@ export async function pagesFromDocument(doc: PdfDocumentLike): Promise<PageText[
       const item = raw as { str?: string; width?: number; transform?: number[] }
       // Marked content and other non-text items have no `str` at all.
       if (typeof item.str !== 'string' || item.str === '' || !item.transform) continue
+      if (isRotated(item.transform)) continue
       pieces.push({
         x: item.transform[4] ?? 0,
         y: item.transform[5] ?? 0,

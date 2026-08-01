@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionEditor, type Editing } from './editor'
+import { Extractor } from './extractor'
 import { Factory } from './factory'
 import { QuestionRow } from './question'
 import { ProfileInstaller, SyllabusNote } from './setup'
@@ -19,10 +20,16 @@ import {
   type ContentIndex,
   type RememberedFolder,
 } from './storage'
-import { QUESTION_TYPE_LABELS, type Paper, type QuestionRef, type Syllabus } from './types'
+import {
+  QUESTION_TYPE_LABELS,
+  questionHaystack,
+  type Paper,
+  type QuestionRef,
+  type Syllabus,
+} from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
-type View = 'library' | 'build' | 'draft'
+type View = 'library' | 'build' | 'draft' | 'paper'
 
 export function App() {
   const caps = useMemo(detectCapabilities, [])
@@ -350,6 +357,14 @@ export function App() {
             >
               Draft with AI
             </button>
+            <button
+              class={`tab ${view === 'paper' ? 'tab--on' : ''}`}
+              onClick={() => setView('paper')}
+              title="Read a past paper and its marking guide out of this folder"
+            >
+              From a past paper
+              {index.pdfs.length > 0 && <span class="tab__n">{index.pdfs.length}</span>}
+            </button>
           </nav>
 
           {view === 'library' && folder && (
@@ -374,6 +389,15 @@ export function App() {
 
           {view === 'draft' && folder && (
             <Factory
+              index={index}
+              folder={folder}
+              onEdit={(editing) => openEditor(editing)}
+              onSaved={() => void load(folder)}
+            />
+          )}
+
+          {view === 'paper' && folder && (
+            <Extractor
               index={index}
               folder={folder}
               onEdit={(editing) => openEditor(editing)}
@@ -564,7 +588,7 @@ function Library({
       if (untaggedOnly && (q.syllabus?.topicIds?.length || q.syllabus?.pointIds?.length)) {
         return false
       }
-      if (needle && !q.questionText.toLowerCase().includes(needle)) return false
+      if (needle && !questionHaystack(q).includes(needle)) return false
       return true
     })
   }, [questions, type, topic, text, untaggedOnly])

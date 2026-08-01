@@ -181,6 +181,22 @@ const MARGIN_FROM = 0.75
 /** Two pieces further apart than this have a space between them. */
 const SPACE_GAP = 1
 
+/**
+ * A ruled line for the student to write on, printed as a run of dots.
+ *
+ * Dropped per piece rather than per line. A whole row of them is easy to spot,
+ * but a row also holding something else is not, and the papers produce exactly
+ * that: the sideways margin notice puts one word on each ruled line's baseline,
+ * so the row read as `............... Do`. Taking the rule out of the row leaves
+ * whatever genuinely shares it.
+ *
+ * Four is well past an ellipsis and well short of any real line.
+ */
+function isRule(str: string): boolean {
+  const text = str.trim()
+  return /^[.…_\s]+$/.test(text) && (text.match(/[.…_]/g) ?? []).length >= 4
+}
+
 /** The geometry half of the rule, shared by the papers and the marking guides. */
 export function isInMargin(x: number, pageWidth: number): boolean {
   return x >= pageWidth * MARGIN_FROM
@@ -220,7 +236,7 @@ export function toLines(page: PageText, options: LineOptions = {}): Line[] {
   const { tolerance = 2, bands = false } = options
   const rows: { y: number; pieces: TextPiece[] }[] = []
   for (const piece of page.pieces) {
-    if (!piece.str.trim()) continue
+    if (!piece.str.trim() || isRule(piece.str)) continue
     const row = rows.find((r) => Math.abs(r.y - piece.y) <= tolerance)
     if (row) row.pieces.push(piece)
     else rows.push({ y: piece.y, pieces: [piece] })
@@ -264,9 +280,9 @@ const FURNITURE: RegExp[] = [
   /^Please turn over$/i,
   /^End of paper$/i,
   /^End of Question \d+$/i,
-  /^Centre Number$/i,
-  /^Student Number$/i,
-  /^\d{4} HIGHER SCHOOL CERTIFICATE EXAMINATION$/i,
+  // The strip along the foot of every answer-space page from 2019. It is
+  // horizontal, unlike the notice up the margin, so nothing else removes it.
+  /^Office Use Only/i,
   /^Section [IV]+ – \d+ marks/i, // the front-matter contents list
   /^Section [IV]+\s+Pages? \d/i, // the other front-matter layout
   /^Sections? [IV]+ and [IV]+$/i, // a divider page between sections
@@ -279,9 +295,40 @@ const FURNITURE: RegExp[] = [
   /^In your answer you will be assessed on/i,
   /^Please turn over$/i,
   /^[.…_\s]{10,}$/, // ruled answer lines
-  /^©/, // figure copyright, which belongs to the image and not the question
+  // Copyright, which belongs to the figure or the paper and never to the
+  // question. Anywhere in the line rather than at the start of it: on the last
+  // page the notice shares a baseline with the page number, so the row arrives
+  // as `– 12 – © 2019 NSW Education Standards Authority` and starts with
+  // neither. That is the same trap as the `2221 – 5 –` footer, sprung twice.
+  /©/,
   /Used by permission\.?$/i,
 ]
+
+/**
+ * Furniture that also ends whatever question was being read.
+ *
+ * These only ever appear on a cover page, so meeting one means a new part of the
+ * document has begun and anything still open finished on the page before.
+ *
+ * It matters from 2019, when the answer booklet started being bound into the
+ * same PDF. Its cover falls immediately after Question 10, and reads: the
+ * examination line, `Centre Number`, `Design and Technology`, `Student Number`,
+ * `Sections II and III`, `Answer Booklet`. Dropping those lines one by one was
+ * not enough — the course title is not furniture by any general rule, so it was
+ * appended to Question 10's last option, and the booklet's instructions followed
+ * it. Closing at the boundary drops all of it, because nothing is open to
+ * absorb it.
+ */
+const BOUNDARY: RegExp[] = [
+  /^Centre Number$/i,
+  /^Student Number$/i,
+  /^Answer Booklet$/i,
+  /^\d{4} HIGHER SCHOOL CERTIFICATE EXAMINATION$/i,
+]
+
+function isBoundary(text: string): boolean {
+  return BOUNDARY.some((re) => re.test(text))
+}
 
 /**
  * A footer row, which is where the paper's own code and the page number live.
@@ -301,6 +348,11 @@ function isFooter(text: string): boolean {
 
 function isFurniture(text: string): boolean {
   return text === '' || isFooter(text) || FURNITURE.some((re) => re.test(text))
+}
+
+/** Kept out of the furniture filter so the walk can see it and close on it. */
+function isDroppable(text: string): boolean {
+  return isFurniture(text) && !isBoundary(text)
 }
 
 /* ------------------------------------------------------------------ the shapes */
@@ -358,7 +410,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
       const stamped = YEAR.exec(line.text)
       if (stamped && year === undefined) year = Number(stamped[1])
 
-      if (!isFurniture(line.text)) {
+      if (!isDroppable(line.text)) {
         lines.push(line)
       } else if (line.marginMark !== undefined) {
         // The text is furniture but the marks are not. A mark centred against
@@ -392,6 +444,12 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
   }
 
   for (const line of lines) {
+    // A cover page has begun, so whatever was open ended on the page before.
+    if (isBoundary(line.text)) {
+      close()
+      continue
+    }
+
     const sectionAt = SECTION.exec(line.text)
     if (sectionAt) {
       close()
