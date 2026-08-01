@@ -5,6 +5,7 @@ import { QuestionEditor, type Editing } from './editor'
 import { Extractor } from './extractor'
 import { Factory } from './factory'
 import { paperIsDirty, paperIsSaved } from './paper'
+import { ProfileEditor, type EditingProfile } from './profile'
 import { QuestionRow } from './question'
 import { ProfileInstaller, SyllabusNote } from './setup'
 import {
@@ -57,6 +58,8 @@ export function App() {
   const dirty = paper !== null && paperIsDirty(index, paper)
   /** 'new' to write one, an Editing to change one, null when the editor is shut. */
   const [editor, setEditor] = useState<'new' | Editing | null>(null)
+  /** 'new' to describe a paper structure, an EditingProfile to change one, null when shut. */
+  const [profileEditor, setProfileEditor] = useState<'new' | EditingProfile | null>(null)
   const [notice, setNotice] = useState('')
   /** Every subject folder this browser remembers, most recently used first. */
   const [folders, setFolders] = useState<RememberedFolder[]>([])
@@ -280,6 +283,12 @@ export function App() {
     window.scrollTo({ top: 0 })
   }, [])
 
+  const showProfileEditor = useCallback((next: 'new' | EditingProfile | null) => {
+    setProfileEditor(next)
+    setNotice('')
+    window.scrollTo({ top: 0 })
+  }, [])
+
   const openEditor = useCallback(
     (next: 'new' | Editing) => {
       setNotice('')
@@ -401,6 +410,23 @@ export function App() {
         />
       )}
 
+      {/* Same treatment as the question editor: the whole screen, because a
+          half-described examination is as easy to lose to a stray tab click and
+          as annoying to type again. */}
+      {phase === 'ready' && folder && profileEditor !== null && (
+        <ProfileEditor
+          index={index}
+          folder={folder}
+          editing={profileEditor === 'new' ? null : profileEditor}
+          onCancel={() => showProfileEditor(null)}
+          onSaved={(message) => {
+            showProfileEditor(null)
+            setNotice(message)
+            void load(folder)
+          }}
+        />
+      )}
+
       {/* Kept mounted, not unmounted, while the editor is open. A batch of
           questions read back from an AI is expensive to get and lives in this
           subtree; sending one of them to the editor to be fixed must not throw
@@ -413,7 +439,7 @@ export function App() {
           separates a reload from the very first scan, which has nothing worth
           keeping and should show the message on its own. */}
       {(phase === 'ready' || (phase === 'scanning' && folder)) && (
-        <div hidden={editor !== null}>
+        <div hidden={editor !== null || profileEditor !== null}>
           {notice && (
             <section class="panel panel--ok">
               <p>{notice}</p>
@@ -456,6 +482,7 @@ export function App() {
               folder={folder}
               onNew={() => openEditor('new')}
               onEdit={(item) => openEditor({ question: item.question, file: item.file })}
+              onBuildProfile={() => showProfileEditor('new')}
               onReload={() => void load(folder)}
             />
           )}
@@ -466,6 +493,8 @@ export function App() {
               folder={folder}
               paper={paper}
               setPaper={setPaper}
+              onBuildProfile={() => showProfileEditor('new')}
+              onEditProfile={(profile, path) => showProfileEditor({ profile, path })}
               dirty={dirty}
               onClose={requestClosePaper}
               onSaved={() => void load(folder)}
@@ -647,12 +676,15 @@ function Library({
   folder,
   onNew,
   onEdit,
+  onBuildProfile,
   onReload,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
   onNew: () => void
   onEdit: (item: QuestionRef) => void
+  /** The landing screen for a new folder is here, so the offer has to be here too. */
+  onBuildProfile: () => void
   onReload: () => void
 }) {
   const questions = useMemo(() => allQuestions(index), [index])
@@ -717,7 +749,12 @@ function Library({
               is worth, which question types belong where. It is what the paper checker
               checks against.
             </p>
-            <ProfileInstaller index={index} folder={folder} onInstalled={onReload} />
+            <ProfileInstaller
+              index={index}
+              folder={folder}
+              onBuild={onBuildProfile}
+              onInstalled={onReload}
+            />
           </>
         )}
 

@@ -10,11 +10,13 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { Question, QuestionConfig, QuestionType } from './types'
+import type { Profile, Question, QuestionConfig, QuestionType } from './types'
 import {
+  cleanProfile,
   cleanQuestion,
   emptyIdContext,
   suggestQuestionId,
+  validateProfile,
   validateQuestion,
   type IdContext,
 } from './validate'
@@ -532,6 +534,236 @@ describe('cleanQuestion', () => {
     for (const questionType of required) {
       const cleaned = cleanQuestion(question({ questionType, config: {} }))
       expect(cleaned.config, questionType).toBeDefined()
+    }
+  })
+})
+
+/**
+ * Profile validation, which stands in for `schemas/profile.schema.json` the same
+ * way the tests above stand in for the bank schema.
+ *
+ * The cases worth having are the ones that produce a profile which looks fine
+ * and rejects every paper built against it, because that fault is discovered
+ * from the wrong end: the paper checker complains about the paper.
+ */
+function profile(over: Partial<Profile> = {}): Profile {
+  return {
+    formatVersion: '1',
+    type: 'klunk_profile',
+    id: 'nsw-hsc-english-advanced-1',
+    name: 'NSW HSC English Advanced Paper 1',
+    paper: {
+      totalMarks: 20,
+      sections: [
+        { id: 'I', name: 'Section I', marks: 20, questionTypes: ['short_answer'] },
+      ],
+    },
+    ...over,
+  }
+}
+
+const messages = (p: Profile, taken = new Set<string>()) =>
+  validateProfile(p, taken).map((c) => c.message)
+const errorsOf = (p: Profile, taken = new Set<string>()) =>
+  validateProfile(p, taken).filter((c) => c.severity === 'error')
+
+describe('validateProfile', () => {
+  it('passes a profile that describes a real paper', () => {
+    expect(errorsOf(profile())).toEqual([])
+  })
+
+  it('rejects an id that could not be a filename', () => {
+    for (const id of ['', 'Has Capitals', 'trailing-', 'under_score']) {
+      expect(errorsOf(profile({ id })), id).not.toEqual([])
+    }
+  })
+
+  it('rejects an id another profile in the folder already uses', () => {
+    const taken = new Set(['nsw-hsc-design-technology'])
+    expect(errorsOf(profile({ id: 'nsw-hsc-design-technology' }), taken)).not.toEqual([])
+    expect(errorsOf(profile(), taken)).toEqual([])
+  })
+
+  it('catches sections that do not add up to the paper', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 40,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 10 },
+          { id: 'II', name: 'Section II', marks: 15 },
+        ],
+      },
+    })
+    // 25 against 40. The paper checker would otherwise report this as a fault
+    // of every paper built against the profile, which is the wrong end.
+    expect(messages(p).some((m) => m.includes('25') && m.includes('40'))).toBe(true)
+  })
+
+  it('catches two sections sharing an id', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 20,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 10 },
+          { id: 'I', name: 'Section II', marks: 10 },
+        ],
+      },
+    })
+    // A saved paper records `profileSectionId`, so it could not say which it filled.
+    expect(messages(p).some((m) => m.includes('share the id'))).toBe(true)
+  })
+
+  it('catches a count and a range set at once', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 20,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 20, questionCount: 4, minQuestions: 2 },
+        ],
+      },
+    })
+    // The schema permits both. checkPaper reads questionCount first, so the
+    // range would be ignored without a word.
+    expect(messages(p).some((m) => m.includes('one or the other'))).toBe(true)
+  })
+
+  it('catches a count and marks-each that contradict the section total', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 20,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 20, questionCount: 10, marksPerQuestion: 1 },
+        ],
+      },
+    })
+    // Ten at one mark is ten, not twenty: the section could never be filled.
+    expect(messages(p).some((m) => m.includes('is 10, but this section is worth 20'))).toBe(
+      true,
+    )
+  })
+
+  it('accepts the shape of the real HSC Design and Technology paper', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 40,
+        sections: [
+          {
+            id: 'I',
+            name: 'Section I',
+            marks: 10,
+            questionCount: 10,
+            marksPerQuestion: 1,
+            questionTypes: ['multiple_choice'],
+          },
+          { id: 'II', name: 'Section II', marks: 15, minQuestions: 2, maxQuestions: 4 },
+          { id: 'III', name: 'Section III', marks: 15, questionCount: 1 },
+        ],
+      },
+    })
+    expect(errorsOf(p)).toEqual([])
+  })
+
+  it('catches a range the wrong way round', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 20,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 20, minQuestions: 4, maxQuestions: 2 },
+        ],
+      },
+    })
+    expect(errorsOf(p)).not.toEqual([])
+  })
+
+  it('warns rather than blocks when no question type is ticked', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 20,
+        sections: [{ id: 'I', name: 'Section I', marks: 20, questionTypes: [] }],
+      },
+    })
+    const checks = validateProfile(p, new Set())
+    expect(checks.filter((c) => c.severity === 'error')).toEqual([])
+    // An empty list and an absent one both mean "anything goes" to isTypeAllowed,
+    // which is the opposite of what unticking everything looks like.
+    expect(checks.some((c) => c.severity === 'warning')).toBe(true)
+  })
+})
+
+describe('cleanProfile', () => {
+  it('drops the empty strings and empty lists a half-filled form leaves', () => {
+    const cleaned = cleanProfile(
+      profile({
+        syllabusId: '',
+        questionTypes: [],
+        paper: {
+          totalMarks: 20,
+          instructions: ['', '  '],
+          sections: [{ id: ' I ', name: ' Section I ', marks: 20, questionTypes: [] }],
+        },
+      }),
+    )
+    expect('syllabusId' in cleaned).toBe(false)
+    expect('questionTypes' in cleaned).toBe(false)
+    expect('instructions' in cleaned.paper).toBe(false)
+    expect(cleaned.paper.sections[0]).toEqual({ id: 'I', name: 'Section I', marks: 20 })
+  })
+
+  it('keeps every optional field a teacher actually filled in', () => {
+    const cleaned = cleanProfile(
+      profile({
+        syllabusId: 'nsw-hsc-english',
+        paper: {
+          totalMarks: 20,
+          readingMinutes: 5,
+          workingMinutes: 90,
+          instructions: ['Write using black pen'],
+          sections: [
+            {
+              id: 'I',
+              name: 'Section I',
+              marks: 20,
+              suggestedMinutes: 45,
+              instructions: 'Attempt Question 1',
+              questionTypes: ['extended_response'],
+              questionCount: 1,
+              marksPerQuestion: 20,
+            },
+          ],
+        },
+        print: { linesPerMark: 3 },
+      }),
+    )
+    expect(cleaned.syllabusId).toBe('nsw-hsc-english')
+    expect(cleaned.paper.readingMinutes).toBe(5)
+    expect(cleaned.paper.instructions).toEqual(['Write using black pen'])
+    expect(cleaned.print?.linesPerMark).toBe(3)
+    expect(cleaned.paper.sections[0]?.suggestedMinutes).toBe(45)
+    expect(cleaned.paper.sections[0]?.questionTypes).toEqual(['extended_response'])
+  })
+})
+
+describe('the profiles Klunk ships', () => {
+  it('pass their own validator', async () => {
+    // The one piece of real data available to this test. A validator that
+    // rejects the profile the app installs is wrong about the schema, and that
+    // would otherwise only show up as a teacher unable to save an edit to it.
+    const bundled = import.meta.glob('../profiles/*.json', { eager: true, import: 'default' })
+    const profiles = Object.values(bundled) as Profile[]
+    expect(profiles.length).toBeGreaterThan(0)
+    for (const p of profiles) {
+      expect(validateProfile(p, new Set()).filter((c) => c.severity === 'error'), p.id).toEqual(
+        [],
+      )
+    }
+  })
+
+  it('survive a round trip through the editor untouched', () => {
+    const bundled = import.meta.glob('../profiles/*.json', { eager: true, import: 'default' })
+    for (const p of Object.values(bundled) as Profile[]) {
+      // Opening a shipped profile and saving it without changing anything must
+      // not rewrite it, or every teacher who looks at one silently edits it.
+      expect(cleanProfile(p), p.id).toEqual(p)
     }
   })
 })

@@ -17,6 +17,8 @@
 import type { Check } from './paper'
 import type {
   MarkCriterion,
+  Profile,
+  ProfileSection,
   Question,
   QuestionConfig,
   QuestionPart,
@@ -336,6 +338,242 @@ export function hasGuide(question: Question): boolean {
   // A question split into parts carries its sample answers and criteria on the
   // parts, and then has no `markingGuide` of its own at all.
   return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim() || p.criteria?.length)
+}
+
+/* -------------------------------------------------------------------- profiles */
+
+/** `^[a-z0-9]+(-[a-z0-9]+)*$` from the schema, and also what the filename becomes. */
+const PROFILE_ID_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+/**
+ * Checking a profile before it is written, on the same terms as a question.
+ *
+ * `schemas/profile.schema.json` is the contract and nothing in the browser reads
+ * it, so the rules are restated here in the order the schema states them.
+ *
+ * The rules that go beyond the schema are the ones that matter most, because a
+ * profile is only useful if it describes a paper that can actually be built.
+ * JSON Schema cannot say that sections add up to the total, and a profile whose
+ * sections do not is one the paper checker will reject every paper against —
+ * with the profile, not the paper, being what is wrong. That is a miserable
+ * thing to debug from the far end, so it is caught here.
+ */
+export function validateProfile(profile: Profile, takenIds: Set<string>): Check[] {
+  const out: Check[] = []
+  const err = (message: string, where?: string) =>
+    out.push({ severity: 'error', message, where })
+  const warn = (message: string, where?: string) =>
+    out.push({ severity: 'warning', message, where })
+
+  if (!profile.name?.trim()) err('The profile needs a name')
+
+  if (!profile.id?.trim()) {
+    err('The profile needs an id')
+  } else if (!PROFILE_ID_SHAPE.test(profile.id)) {
+    err(
+      `"${profile.id}" cannot be an id. Lower-case letters, digits and single ` +
+        'hyphens only, because it is also the filename.',
+    )
+  } else if (takenIds.has(profile.id)) {
+    err(`This folder already has a profile with the id "${profile.id}"`)
+  }
+
+  const paper = profile.paper
+  if (!(paper.totalMarks > 0)) err('The paper has to be worth more than nothing')
+
+  for (const [field, value] of [
+    ['Reading time', paper.readingMinutes],
+    ['Working time', paper.workingMinutes],
+  ] as const) {
+    if (value !== undefined && value < 0) err(`${field} cannot be negative`)
+  }
+
+  const sections = paper.sections ?? []
+  if (sections.length === 0) err('A paper needs at least one section')
+
+  const seenIds = new Set<string>()
+  let total = 0
+
+  sections.forEach((section, i) => {
+    const where = section.name?.trim() || `Section ${i + 1}`
+
+    if (!section.name?.trim()) err('This section needs a name', where)
+
+    if (!section.id?.trim()) {
+      err('This section needs an id', where)
+    } else if (seenIds.has(section.id)) {
+      // Beyond the schema. A paper stores `profileSectionId`, so two sections
+      // sharing an id means a saved paper cannot say which one it filled.
+      err(`Two sections share the id "${section.id}"`, where)
+    } else {
+      seenIds.add(section.id)
+    }
+
+    if (!(section.marks > 0)) {
+      err('A section has to be worth more than nothing', where)
+    } else {
+      total += section.marks
+    }
+
+    const { questionCount, minQuestions, maxQuestions, marksPerQuestion } = section
+
+    if (questionCount !== undefined && !isWholeAtLeastOne(questionCount)) {
+      err('A number of questions has to be a whole number, one or more', where)
+    }
+    for (const [field, value] of [
+      ['fewest', minQuestions],
+      ['most', maxQuestions],
+    ] as const) {
+      if (value !== undefined && !isWholeAtLeastOne(value)) {
+        err(`The ${field} questions has to be a whole number, one or more`, where)
+      }
+    }
+
+    if (questionCount !== undefined && (minQuestions !== undefined || maxQuestions !== undefined)) {
+      // Beyond the schema, which permits both. They contradict each other, and
+      // `checkPaper` reads questionCount first, so the range would be ignored
+      // in silence.
+      err(
+        'This section fixes a number of questions and also gives a range. Use one or the other.',
+        where,
+      )
+    }
+
+    if (
+      minQuestions !== undefined &&
+      maxQuestions !== undefined &&
+      minQuestions > maxQuestions
+    ) {
+      err(`The fewest questions (${minQuestions}) is more than the most (${maxQuestions})`, where)
+    }
+
+    if (marksPerQuestion !== undefined) {
+      if (!(marksPerQuestion > 0)) {
+        err('Marks per question has to be more than nothing', where)
+      } else if (questionCount !== undefined && section.marks > 0) {
+        // Beyond the schema. Both are facts about the same section, so if they
+        // disagree the section can never be filled: HSC Section I is 10
+        // questions at 1 mark and is worth 10.
+        const implied = questionCount * marksPerQuestion
+        if (implied !== section.marks) {
+          err(
+            `${questionCount} questions at ${marksPerQuestion} mark${marksPerQuestion === 1 ? '' : 's'} ` +
+              `is ${implied}, but this section is worth ${section.marks}`,
+            where,
+          )
+        }
+      }
+    }
+
+    if (section.questionTypes?.length === 0) {
+      // Beyond the schema. An empty array is not the same as an absent one:
+      // `isTypeAllowed` treats both as "anything goes", so a teacher who
+      // deliberately unticked every type would get the opposite of what they meant.
+      warn('No question type is ticked, so this section will accept any of them', where)
+    }
+
+    if (section.suggestedMinutes !== undefined && section.suggestedMinutes < 0) {
+      err('Suggested time cannot be negative', where)
+    }
+  })
+
+  if (sections.length > 0 && paper.totalMarks > 0 && total !== paper.totalMarks) {
+    err(
+      `The sections add up to ${total} marks, but the paper is set to ${paper.totalMarks}`,
+    )
+  }
+
+  const margins = profile.print?.marginsMm
+  if (margins !== undefined) {
+    if (margins.length !== 4) {
+      err('Margins are four numbers: top, right, bottom, left')
+    } else if (margins.some((m) => !(m >= 0))) {
+      err('A margin cannot be negative')
+    }
+  }
+
+  for (const [field, value] of [
+    ['Lines per mark', profile.print?.linesPerMark],
+    ['Answer line spacing', profile.print?.answerLineSpacingMm],
+    ['Part-mark granularity', profile.marks?.partMarkGranularity],
+  ] as const) {
+    if (value !== undefined && !(value > 0)) err(`${field} has to be more than nothing`)
+  }
+
+  return out
+}
+
+function isWholeAtLeastOne(value: number): boolean {
+  return Number.isInteger(value) && value >= 1
+}
+
+/** Drop the empty strings and empty lists a half-filled form leaves behind. */
+export function cleanProfile(draft: Profile): Profile {
+  const out: Profile = {
+    formatVersion: '1',
+    type: 'klunk_profile',
+    id: draft.id.trim(),
+    name: draft.name.trim(),
+    paper: {
+      totalMarks: draft.paper.totalMarks,
+      sections: (draft.paper.sections ?? []).map(cleanSection),
+    },
+  }
+
+  const syllabusId = text(draft.syllabusId)
+  if (syllabusId !== undefined) out.syllabusId = syllabusId
+
+  if (draft.paper.readingMinutes !== undefined) {
+    out.paper.readingMinutes = draft.paper.readingMinutes
+  }
+  if (draft.paper.workingMinutes !== undefined) {
+    out.paper.workingMinutes = draft.paper.workingMinutes
+  }
+  const instructions = list(draft.paper.instructions)
+  if (instructions) out.paper.instructions = instructions
+
+  const questionTypes = nonEmpty(draft.questionTypes)
+  if (questionTypes) out.questionTypes = questionTypes
+
+  const marks = compact(draft.marks ?? {})
+  if (marks) out.marks = marks
+
+  const print = compact({
+    paperSize: text(draft.print?.paperSize),
+    marginsMm: draft.print?.marginsMm,
+    answerLineSpacingMm: draft.print?.answerLineSpacingMm,
+    linesPerMark: draft.print?.linesPerMark,
+  })
+  if (print) out.print = print
+
+  return out
+}
+
+function cleanSection(draft: ProfileSection): ProfileSection {
+  const out: ProfileSection = {
+    id: draft.id.trim(),
+    name: draft.name.trim(),
+    marks: draft.marks,
+  }
+
+  const instructions = text(draft.instructions)
+  if (instructions !== undefined) out.instructions = instructions
+
+  const types = nonEmpty(draft.questionTypes)
+  if (types) out.questionTypes = types
+
+  for (const key of [
+    'suggestedMinutes',
+    'questionCount',
+    'minQuestions',
+    'maxQuestions',
+    'marksPerQuestion',
+  ] as const) {
+    const value = draft[key]
+    if (value !== undefined) out[key] = value
+  }
+
+  return out
 }
 
 /* ------------------------------------------------------------------------ ids */

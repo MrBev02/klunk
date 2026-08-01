@@ -41,6 +41,8 @@ export function Builder({
   folder,
   paper,
   setPaper,
+  onBuildProfile,
+  onEditProfile,
   dirty,
   onClose,
   onSaved,
@@ -49,6 +51,9 @@ export function Builder({
   folder: FileSystemDirectoryHandle
   paper: Paper | null
   setPaper: (p: Paper | null) => void
+  /** Open the profile editor on a new profile, or on one already in the folder. */
+  onBuildProfile: () => void
+  onEditProfile: (profile: Profile, path: string) => void
   /** Whether the paper on screen differs from the one in the folder. */
   dirty: boolean
   /** Routed through the app's guard, because Close discards as much as Forget does. */
@@ -70,6 +75,8 @@ export function Builder({
         profiles={profiles}
         papers={index.papers}
         onStart={setPaper}
+        onBuildProfile={onBuildProfile}
+        onEditProfile={onEditProfile}
         onInstalled={onSaved}
       />
     )
@@ -454,6 +461,8 @@ function StartPaper({
   profiles,
   papers,
   onStart,
+  onBuildProfile,
+  onEditProfile,
   onInstalled,
 }: {
   index: ContentIndex
@@ -461,6 +470,8 @@ function StartPaper({
   profiles: Profile[]
   papers: ContentIndex['papers']
   onStart: (p: Paper) => void
+  onBuildProfile: () => void
+  onEditProfile: (profile: Profile, path: string) => void
   onInstalled: () => void
 }) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
@@ -483,12 +494,15 @@ function StartPaper({
           question types belong where. Klunk ships the ones it knows, so pick the paper you
           are building towards and it goes into <code>profiles/</code> here.
         </p>
-        <ProfileInstaller index={index} folder={folder} onInstalled={onInstalled} />
-        <p class="muted" style={{ marginTop: '1rem' }}>
-          Building towards a paper that is not listed? A profile is a small JSON file
-          described by <code>schemas/profile.schema.json</code>. Copy one of these and
-          change the sections to match.
-        </p>
+        {/* This used to end by telling a teacher to copy `schemas/profile.schema.json`
+            and change the sections to match, which is the app giving up on its own
+            premise for every subject it does not ship a profile for. */}
+        <ProfileInstaller
+          index={index}
+          folder={folder}
+          onBuild={onBuildProfile}
+          onInstalled={onInstalled}
+        />
       </section>
     )
   }
@@ -536,6 +550,36 @@ function StartPaper({
           <p class="muted mono" style={{ fontSize: '0.75rem', marginTop: '0.6rem' }}>
             papers/{slug}.json
           </p>
+        </section>
+
+        {/* A profile is not something a teacher sets up once and never looks at
+            again: a school's trial has different working time from the real
+            paper, and until now changing that meant editing the file by hand. */}
+        <section class="panel">
+          <p class="panel__title">Paper structures</p>
+          <ul class="plain setup__list">
+            {index.profiles.map(({ data, path }) => (
+              <li key={path} class="setup__row">
+                <div>
+                  <strong>{data.name}</strong>
+                  <br />
+                  <span class="muted mono setup__meta">
+                    {data.paper.totalMarks} marks · {data.paper.sections.length} section
+                    {data.paper.sections.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <button class="btn btn--small" onClick={() => onEditProfile(data, path)}>
+                  Edit
+                </button>
+              </li>
+            ))}
+          </ul>
+          <ProfileInstaller
+            index={index}
+            folder={folder}
+            onBuild={onBuildProfile}
+            onInstalled={onInstalled}
+          />
         </section>
       </aside>
 

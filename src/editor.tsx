@@ -14,7 +14,15 @@
  */
 
 import { useEffect, useMemo, useState } from 'preact/hooks'
-import { bankPathFault, Faults, Field, normaliseBankPath, NumField } from './fields'
+import {
+  bankPathFault,
+  Faults,
+  Field,
+  normaliseBankPath,
+  NumField,
+  patched,
+  type Patch,
+} from './fields'
 import { QuestionDetail } from './question'
 import {
   copyFileInto,
@@ -1484,26 +1492,6 @@ function DestinationFields({
 }
 
 /* ----------------------------------------------------------------------- utils */
-
-/**
- * A set of changes to an object, where undefined means "clear this".
- *
- * `Partial<T>` cannot say that: under `exactOptionalPropertyTypes` an absent
- * key and a key holding undefined are different things, and only the first is
- * allowed. Every field in this form is optional and clearable, so patches go
- * through `patched`, which deletes rather than assigns undefined and so writes
- * a bank with no `"caption": null` in it.
- */
-type Patch<T> = { [K in keyof T]?: T[K] | undefined }
-
-function patched<T extends object>(base: T, patch: Patch<T>): T {
-  const out = { ...base } as Record<string, unknown>
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) delete out[key]
-    else out[key] = value
-  }
-  return out as T
-}
 
 /**
  * What to tell the teacher a save actually did.

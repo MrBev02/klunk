@@ -21,8 +21,15 @@ export function ProfileInstaller({
   index,
   folder,
   syllabusId,
+  onBuild,
   onInstalled,
 }: {
+  /**
+   * Open the profile editor. Klunk ships one profile, so for every teacher who
+   * is not teaching Design and Technology the list above is empty or wrong, and
+   * "build your own" is the only offer that means anything to them.
+   */
+  onBuild?: (() => void) | undefined
   index: ContentIndex
   folder: FileSystemDirectoryHandle
   /**
@@ -47,7 +54,11 @@ export function ProfileInstaller({
       (syllabusId === undefined || s.profile.syllabusId === syllabusId),
   )
 
-  if (offered.length === 0) return null
+  // Nothing to show only when there is also nothing to build. This used to
+  // return null on an empty list, which is precisely the state a teacher of any
+  // subject but Design and Technology is in, so the one control that would have
+  // helped them disappeared along with the list that could not.
+  if (offered.length === 0 && !onBuild) return null
 
   const install = async (shipped: ShippedProfile) => {
     setBusy(shipped.profile.id)
@@ -93,6 +104,16 @@ export function ProfileInstaller({
           </li>
         ))}
       </ul>
+      {onBuild && (
+        <p class="muted">
+          {offered.length > 0
+            ? 'Building towards a different examination? '
+            : 'Klunk has no stock profile for this one. '}
+          <button class="btn btn--small" onClick={onBuild}>
+            Describe your own paper
+          </button>
+        </p>
+      )}
       {problem && <p class="setup__problem">{problem}</p>}
     </>
   )

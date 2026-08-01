@@ -690,6 +690,48 @@ function isBank(value: unknown): value is Bank {
   return bank.type === 'klunk_bank' && Array.isArray(bank.questions)
 }
 
+function isProfile(value: unknown): value is Profile {
+  if (typeof value !== 'object' || value === null) return false
+  const profile = value as Profile
+  return profile.type === 'klunk_profile' && Array.isArray(profile.paper?.sections)
+}
+
+/**
+ * Write a profile a teacher wrote or edited.
+ *
+ * `installProfile` refuses to overwrite anything, because it offers a stock
+ * profile and a teacher who has edited theirs must not lose it to a stray
+ * click. This one has to be able to overwrite, since editing is the whole
+ * point — but only the profile it was opened from. Anything else at that path
+ * belongs to somebody else, and a teacher who picks an id another subject is
+ * already using would otherwise replace that subject's paper structure and be
+ * told it saved.
+ */
+export async function saveProfile(
+  dir: FileSystemDirectoryHandle,
+  profile: Profile,
+  options?: { replacingId?: string | undefined },
+): Promise<{ path: string }> {
+  const path = `profiles/${profile.id}.json`
+  const existing = await readJson(dir, path).catch(() => null)
+
+  if (existing !== null && options?.replacingId !== profile.id) {
+    throw new Error(
+      isProfile(existing)
+        ? `${path} is already there and holds another profile, "${existing.name}". ` +
+          'Give this one a different id.'
+        : `${path} is already there and is not a profile`,
+    )
+  }
+
+  await writeJson(dir, path, profile)
+
+  // An id change leaves the old file behind, holding a profile no longer being
+  // edited. Deleting it is not this function's call — a paper may still name it,
+  // and papers resolve a profile by id — so the caller is told instead.
+  return { path }
+}
+
 /* ------------------------------------------------------------------ querying */
 
 /** Every question across every bank, tagged with the file it came from. */

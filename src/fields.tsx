@@ -165,3 +165,25 @@ export function bankPathFault(input: string): string | null {
   }
   return null
 }
+
+/**
+ * A set of changes to an object, where undefined means "clear this".
+ *
+ * `Partial<T>` cannot say that: under `exactOptionalPropertyTypes` an absent
+ * key and a key holding undefined are different things, and only the first is
+ * allowed. Every field in these forms is optional and clearable, so patches go
+ * through `patched`, which deletes rather than assigns undefined and so writes
+ * a file with no `"caption": null` in it.
+ *
+ * Lived in the question editor until the profile editor needed the same thing.
+ */
+export type Patch<T> = { [K in keyof T]?: T[K] | undefined }
+
+export function patched<T extends object>(base: T, patch: Patch<T>): T {
+  const out = { ...base } as Record<string, unknown>
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete out[key]
+    else out[key] = value
+  }
+  return out as T
+}
