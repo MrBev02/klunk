@@ -137,6 +137,13 @@ Do not re-derive these, and do not contradict them without new evidence.
   question carries a `2–3` band.
 - **2016, 2018 and 2019 each print a Section II question with no stem**, the
   heading followed straight by `(a)`.
+- **Almost no question says "Figure N".** One does, in eleven years. Twelve refer
+  to a picture as "the images show two chairs" or "as shown in the graph", so a
+  rule keyed on the word *Figure* finds nothing.
+- **Rendering stays inside the CSP.** All 128 pages of the eleven papers render
+  with zero `securitypolicyviolation`, so pictures cost nothing of the
+  no-network claim. `getDocument` detaches the bytes it is given, so the text and
+  the pictures must share one open document.
 
 **NESA Stage 6 (2013) syllabuses use two content layouts:**
 - *Wide*: one 3-column table per course, `Outcomes | Students learn about | Students
@@ -226,6 +233,12 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
   perfectly well, so `visibilityState` is not the reliable explanation — the wrong
   machine is. Bringing the tab to the front is still worth trying second, since a
   handle being re-permissioned may need it.
+  **One thing genuinely does hang in a hidden tab, and it is not a save.**
+  `requestAnimationFrame` never fires in a background tab, so anything waiting on
+  one waits for ever with no error and no CSP violation. pdf.js renders that way
+  unless the intent is `print`, which is why `src/pdfimage.ts` sets it. If
+  something hangs, check whether it is waiting on a frame before blaming the
+  machine.
 - **The Chrome browser tools work on this machine. Use them.** They drive the real
   browser here, so `npm run dev` and check the change rather than reasoning about it
   from the source. Driving the question editor this way found four faults that
@@ -376,6 +389,12 @@ forty marks, provenance on each, outcomes from the mapping grid, the extended
 response showing all five bands, and all fourteen saved into a bank that still
 validates. `src/extract.corpus.test.ts` runs all eleven years and skips itself
 when the content folder is absent, so CI never sees a NESA paper.
+
+**Pictures come too** (#24). The page is rendered and the picture cut out of the
+band where the text is not, as a proposal the teacher keeps or drops before
+anything is written; kept ones are written beside the bank and referenced as
+`stimulus`. Rendering rather than lifting image objects out, because the papers
+mix photographs with vector diagrams and only rendering handles both.
 
 The cost is real: pdf.js takes `dist-single` from 166 kB to **1.8 MB**. It
 lazy-loads in the hosted build, which only went 140 kB to 163 kB.
