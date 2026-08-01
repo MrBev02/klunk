@@ -52,10 +52,27 @@ export interface PageText {
 
 /* ------------------------------------------------------------------ the output */
 
+/**
+ * One row of a marking guide's criteria table.
+ *
+ * `marksTo` is set only for a band — an extended response is marked `13–15`,
+ * `10–12`, `7–9` rather than at a single mark. `bank.schema.json` wants a
+ * number, so a band has to be resolved before it can be saved; that is a
+ * decision for whoever does the saving, not for the reader.
+ */
+export interface ExtractedCriterion {
+  marks: number
+  marksTo?: number
+  description: string
+}
+
 export interface ExtractedPart {
   label: string
   text: string
   marks: number
+  /** From the marking guide, once one has been applied. */
+  criteria?: ExtractedCriterion[]
+  sampleAnswer?: string
 }
 
 export interface ExtractedOption {
@@ -77,14 +94,46 @@ export interface ExtractedQuestion {
   pages: number[]
   /** Anything the teacher must look at rather than trust. */
   notes: string[]
+  /** Filled by `stampSource`, once the year and paper are known. */
+  source?: QuestionSource
+
+  /* Everything below comes from the marking guide, via `applyGuide`. */
+
+  /** The correct option's label, for a multiple-choice question. */
+  answer?: string
+  /** Criteria for the question as a whole. Where it has parts, they hold their own. */
+  criteria?: ExtractedCriterion[]
+  sampleAnswer?: string
+  /** Outcome codes the guide's mapping grid gives, e.g. ['H3.2', 'H6.2']. */
+  outcomes?: string[]
+  /** The grid's plain-English topic, which helps a teacher choose the syllabus ids. */
+  content?: string
 }
 
 export type SectionLabel = 'I' | 'II' | 'III'
 
 export interface ExtractedPaper {
   questions: ExtractedQuestion[]
+  /** Read off the front matter, so the teacher confirms a year rather than typing one. */
+  year?: number
   /** Problems with the paper as a whole, as against with one question. */
   notes: string[]
+}
+
+/**
+ * Where a question came from, which an extracted one must carry.
+ *
+ * Reusing a recent HSC question in a school trial is a mistake that actually
+ * happens, and Klunk can only warn about it if the year and number were
+ * recorded. This is `source` in `bank.schema.json`, restated here so the
+ * extractor does not depend on the storage layer.
+ */
+export interface QuestionSource {
+  origin: 'authored' | 'extracted' | 'adapted'
+  paper: string
+  year: number
+  questionNumber: string
+  copyright: string
 }
 
 /* ------------------------------------------------------------------ into lines */
@@ -95,6 +144,20 @@ export interface Line {
   text: string
   /** A bare number alone in the right margin: marks for the block being read. */
   marginMark?: number
+  /**
+   * The top of a band, where the margin held a range rather than a number.
+   *
+   * Only the marking guides do this, and only for an extended response, whose
+   * criteria are bands: `13–15`, `10–12`, `7–9`. A paper never has one.
+   */
+  marginTo?: number
+}
+
+export interface LineOptions {
+  /** Baselines this far apart are the same row. */
+  tolerance?: number
+  /** Accept `13–15` in the margin as well as `3`. Marking guides only. */
+  bands?: boolean
 }
 
 /**
@@ -118,8 +181,21 @@ const MARGIN_FROM = 0.75
 /** Two pieces further apart than this have a space between them. */
 const SPACE_GAP = 1
 
-function isMarginMark(piece: TextPiece, pageWidth: number): boolean {
-  return /^\d{1,2}$/.test(piece.str.trim()) && piece.x >= pageWidth * MARGIN_FROM
+/** The geometry half of the rule, shared by the papers and the marking guides. */
+export function isInMargin(x: number, pageWidth: number): boolean {
+  return x >= pageWidth * MARGIN_FROM
+}
+
+/** An en dash in the guides, but a hyphen costs nothing to accept. */
+const BAND = /^(\d{1,2})\s*[–-]\s*(\d{1,2})$/
+
+function marginMark(piece: TextPiece, pageWidth: number, bands: boolean): [number, number] | null {
+  const text = piece.str.trim()
+  if (!isInMargin(piece.x, pageWidth)) return null
+  if (/^\d{1,2}$/.test(text)) return [Number(text), Number(text)]
+  if (!bands) return null
+  const band = BAND.exec(text)
+  return band ? [Number(band[1]), Number(band[2])] : null
 }
 
 function join(pieces: TextPiece[]): string {
@@ -140,7 +216,8 @@ function join(pieces: TextPiece[]): string {
  * and not the order it is read. Grouping by baseline and sorting across fixes
  * that. Page coordinates run bottom-up, so descending y is top-down.
  */
-export function toLines(page: PageText, tolerance = 2): Line[] {
+export function toLines(page: PageText, options: LineOptions = {}): Line[] {
+  const { tolerance = 2, bands = false } = options
   const rows: { y: number; pieces: TextPiece[] }[] = []
   for (const piece of page.pieces) {
     if (!piece.str.trim()) continue
@@ -153,12 +230,21 @@ export function toLines(page: PageText, tolerance = 2): Line[] {
 
   return rows.map((row) => {
     row.pieces.sort((a, b) => a.x - b.x)
-    const marks = row.pieces.filter((p) => isMarginMark(p, page.width))
-    const rest = row.pieces.filter((p) => !isMarginMark(p, page.width))
+    const marks: [number, number][] = []
+    const rest: TextPiece[] = []
+    for (const piece of row.pieces) {
+      const mark = marginMark(piece, page.width, bands)
+      if (mark) marks.push(mark)
+      else rest.push(piece)
+    }
     const line: Line = { page: page.number, y: row.y, text: join(rest) }
     // Only when it is the sole mark on the row. Two numbers in the margin of one
     // row is not something this understands, and guessing would be worse.
-    if (marks.length === 1) line.marginMark = Number(marks[0]!.str.trim())
+    if (marks.length === 1) {
+      const [from, to] = marks[0]!
+      line.marginMark = from
+      if (to !== from) line.marginTo = to
+    }
     return line
   })
 }
@@ -219,6 +305,15 @@ function isFurniture(text: string): boolean {
 
 /* ------------------------------------------------------------------ the shapes */
 
+/**
+ * The one line that says which year this is.
+ *
+ * It is front matter and dropped as furniture, so the year is taken as it goes
+ * past. Provenance needs it, and asking a teacher to type a year that is printed
+ * on page one is a way of getting it wrong.
+ */
+const YEAR = /^(\d{4}) HIGHER SCHOOL CERTIFICATE EXAMINATION$/i
+
 const SECTION = /^Section (I{1,3})$/
 const HEADING = /^Question (\d+) \((\d+) marks?\)$/
 const CONTINUED = /^Question (\d+) \(continued\)$/i
@@ -255,8 +350,14 @@ interface Building {
  */
 export function extractPaper(pages: PageText[]): ExtractedPaper {
   const lines: Line[] = []
+  let year: number | undefined
   for (const page of pages) {
     for (const line of toLines(page)) {
+      // Taken on the way past, from a line that is furniture and is dropped a
+      // moment later. It is the only place the paper says which year it is.
+      const stamped = YEAR.exec(line.text)
+      if (stamped && year === undefined) year = Number(stamped[1])
+
       if (!isFurniture(line.text)) {
         lines.push(line)
       } else if (line.marginMark !== undefined) {
@@ -389,7 +490,30 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     }
   }
 
-  return { questions, notes }
+  return year === undefined ? { questions, notes } : { questions, year, notes }
+}
+
+/**
+ * Record where every question came from.
+ *
+ * Separate from extraction because the year is the only part of it the PDF
+ * knows. Which examination this is and who owns it are things the teacher is
+ * choosing when they pick the file, and a wrong guess about copyright is worse
+ * than no guess: it is the field that decides where a paper containing the
+ * question may go.
+ */
+export function stampSource(
+  paper: ExtractedPaper,
+  details: Omit<QuestionSource, 'questionNumber' | 'origin'> & { origin?: QuestionSource['origin'] },
+): ExtractedPaper {
+  const { origin = 'extracted', ...rest } = details
+  return {
+    ...paper,
+    questions: paper.questions.map((question) => ({
+      ...question,
+      source: { ...rest, origin, questionNumber: String(question.number) },
+    })),
+  }
 }
 
 /* ------------------------------------------------------- one question's insides */

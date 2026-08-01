@@ -23,6 +23,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { extractPaper } from './extract'
+import { applyGuide, extractGuide } from './guide'
 import { pagesFromDocument } from './pdftext'
 
 const CORPUS = '../klunk-content/source/nsw-hsc-dt/papers'
@@ -52,14 +53,22 @@ const EXPECTED: Record<number, { sectionII: number[]; sectionIII: number[] }> = 
   2025: { sectionII: [2, 3, 4, 6], sectionIII: [15] },
 }
 
-async function read(year: number) {
+async function open(file: string) {
   // The legacy build is the one that runs under Node. The browser uses the
   // ordinary one; `pagesFromDocument` is what both share, so this exercises the
   // conversion the app actually performs.
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const data = new Uint8Array(readFileSync(`${CORPUS}/dt-${year}-paper.pdf`))
+  const data = new Uint8Array(readFileSync(`${CORPUS}/${file}`))
   const doc = await pdfjs.getDocument({ data }).promise
-  return extractPaper(await pagesFromDocument(doc as never))
+  return pagesFromDocument(doc as never)
+}
+
+async function read(year: number) {
+  return extractPaper(await open(`dt-${year}-paper.pdf`))
+}
+
+async function readGuide(year: number) {
+  return extractGuide(await open(`dt-${year}-mg.pdf`))
 }
 
 describe.skipIf(!available)('the 2015-2025 corpus', () => {
@@ -108,6 +117,74 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
           expect(sum, `Q${q.number} parts sum`).toBe(q.marks)
           expect(q.parts.every((p) => p.text !== '')).toBe(true)
         }
+      }
+    })
+
+    it(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
+      const guide = await readGuide(year)
+
+      // Ten objective questions in every year, so ten answers, each a real label.
+      expect(Object.keys(guide.answerKey)).toHaveLength(10)
+      for (let n = 1; n <= 10; n += 1) {
+        expect(guide.answerKey[n], `no answer for Q${n}`).toMatch(/^[A-D]$/)
+      }
+
+      expect(guide.year).toBe(year)
+      expect(guide.entries.length).toBeGreaterThan(0)
+
+      for (const entry of guide.entries) {
+        const where = entry.part ? `Q${entry.number}(${entry.part})` : `Q${entry.number}`
+        expect(entry.criteria.length, `${where} has no criteria`).toBeGreaterThan(0)
+        expect(entry.criteria.every((c) => c.description !== '')).toBe(true)
+        // A criterion worth nothing means a mark was missed, not that NESA wrote one.
+        expect(entry.criteria.every((c) => c.marks > 0), `${where} has a zero criterion`).toBe(true)
+      }
+
+      // The mapping grid covers every question in the paper, the ten objective
+      // ones included, so it is a second independent reading of the whole thing.
+      for (const row of guide.mapping) {
+        const where = row.part ? `Q${row.number}(${row.part})` : `Q${row.number}`
+        expect(row.outcomes.length, `${where} has no outcomes`).toBeGreaterThan(0)
+        expect(
+          row.outcomes.every((o) => /^[A-Z]\d+\.\d+$/.test(o)),
+          `${where}: ${row.outcomes.join(', ')}`,
+        ).toBe(true)
+      }
+      expect(guide.notes).toEqual([])
+
+      // 2016 is the one year that leaves a cell of the grid blank — its Section
+      // III row gives no marks — so it is the one year the grid is not a
+      // complete second reading of the paper.
+      const total = guide.mapping.reduce((sum, m) => sum + (m.marks ?? 0), 0)
+      expect(total).toBe(year === 2016 ? 25 : 40)
+
+      // The extended response is banded rather than marked criterion by
+      // criterion, and it is always the last entry. Banding is *not* unique to
+      // it: from 2018 a Section II question carries a `2–3` band too, so
+      // "only Section III is banded" is not a rule and is not tested as one.
+      const last = guide.entries[guide.entries.length - 1]!
+      expect(last.criteria.every((c) => c.marksTo !== undefined), `${year} Q${last.number}`).toBe(true)
+      expect(Math.max(...last.criteria.map((c) => c.marksTo ?? 0))).toBe(15)
+    })
+
+    it(`${year}: the guide goes back onto the paper without a mismatch`, async () => {
+      const marked = applyGuide(await read(year), await readGuide(year))
+
+      expect(marked.notes, `${year} paper-level notes`).toEqual([])
+
+      for (const q of marked.questions) {
+        if (q.section === 'I') {
+          expect(q.answer, `Q${q.number} has no answer`).toMatch(/^[A-D]$/)
+          expect(q.options?.some((o) => o.label === q.answer)).toBe(true)
+          continue
+        }
+        expect(q.outcomes?.length, `Q${q.number} has no outcomes`).toBeGreaterThan(0)
+        // Criteria live on the question, or on each of its parts, never nowhere.
+        const marks = q.parts
+          ? q.parts.every((p) => (p.criteria?.length ?? 0) > 0)
+          : (q.criteria?.length ?? 0) > 0
+        expect(marks, `Q${q.number} has no criteria`).toBe(true)
+        expect(q.notes.filter((n) => /marking guide|answer key/i.test(n))).toEqual([])
       }
     })
   }
