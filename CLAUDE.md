@@ -152,7 +152,39 @@ Do not re-derive these, and do not contradict them without new evidence.
   appear as paragraphs above. Textiles and Design.
 - Course membership comes from the outcome code prefix (P/H), or a `(Preliminary)` /
   `(HSC)` marker. Relying only on `Content: ... HSC` headings silently misfiles whole
-  courses.
+  courses. **In the wide layout the prefix is no help**, because the outcomes sit
+  inside the table and are not in scope when the course is decided — there the
+  heading is the only signal, and a wide table with no heading above it is filed
+  under `course`, deliberately, rather than guessed at.
+
+**There is a third old layout, and it is not read.** Visual Arts Stage 6 (2016)
+heads its content table `Content | Preliminary course | HSC course` — three
+columns, but the course is a *column* rather than a heading, so both the layout
+test and the course rule miss and the parser refuses the document. Probably the
+whole 2016 Creative Arts family. See #34.
+
+**The NSW Curriculum Reform syllabuses are a different document, not a new
+wrapper.** Established from Biology 11–12 (2025), English Advanced 11–12 (2024)
+and Mathematics Advanced 11–12 (2024), all in `../klunk-content/source/`:
+- **No content tables at all.** Headings and bulleted lists. `parseSyllabusXml`
+  refuses all three, correctly.
+- Outcome codes are `BI-11-01`, `BI-11WS-01` — not `P1.1`/`H1.1`.
+- Courses are **Year 11 / Year 12**, not Preliminary / HSC.
+- Nesting is a level deeper: focus area → sub-heading → bullets, which maps onto
+  group → topic → points without changing the schema.
+- **`curriculum.nsw.edu.au` exports Word as well as PDF**, with checkboxes for
+  which elements to include. The Word export is much the better input — heading
+  level from `w:pStyle` and nesting from `w:numPr`, rather than inferred from
+  coordinates. In the PDF the two-column outcomes table interleaves
+  (`BI-11WS-01 WorkingBI-12WS-01 Working`) and formulae scatter into fragments.
+- Every page of the Biology PDF has a text layer and **zero rotated runs**,
+  unlike the past papers.
+
+**Two editions of one subject are live at the same time.** The Biology document
+states it: 2027 Term 1 starts the new syllabus for Year 11 *while Year 12
+continues on the 2017 one*, and the first HSC examination for the new course is
+2028. So a folder holding two models for one subject is the normal state for a
+year, not an accident. See #29.
 
 **IB DP Design Technology changed:** first teaching August 2025, first assessment May
 2027. Six core topics plus four HL options became three themes; Paper 3 abolished. **No
@@ -184,7 +216,11 @@ npm run build          # typecheck, then tests, then dist/ for GitHub Pages
 npm run build:single   # dist-single/ one self-contained HTML for a shared drive
 npm run typecheck
 
-# Generate a syllabus model from a NESA Stage 6 .docx
+# The reference implementation of the syllabus generator. NOT the route a
+# teacher takes any more — that is the "From a syllabus" tab, which reads the
+# .docx in the browser (src/docx.ts + src/syllabus.ts). This is kept because
+# src/syllabus.corpus.test.ts checks the port against it, and they must agree
+# exactly on all four documents.
 python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \
     --id nsw-hsc-design-technology --name "Design and Technology" \
     --out ../klunk-content/syllabus/nsw-hsc-design-technology.json
@@ -261,6 +297,22 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
   **Clicking by coordinate is unreliable here**: the screenshot is scaled relative to
   CSS pixels, and a click computed from `getBoundingClientRect` silently missed a
   button twice. Use `find` to get a ref and click the ref.
+  **A ref click misses too, and more often than the note above implies.** "Create
+  paper" was clicked twice by ref with nothing happening, and a plain
+  `element.click()` in `javascript_tool` worked first time on the same button. So
+  when a ref click appears to do nothing, do not conclude the handler is broken —
+  try the JS click before reading any code. Note the trade: a JS click is a real
+  event to the page but skips whatever the browser does about user gestures, which
+  is why it is not the default.
+  **Chrome allows one download per site and then blocks silently.** Fetching four
+  NESA syllabuses, the first landed and every later one did nothing at all: no
+  error, no console message, the button still there. It is Chrome's
+  "allow multiple downloads" permission, which is browser UI and therefore
+  invisible to a page screenshot. Ask the user for the click rather than retrying.
+  **NESA's download links are served from another host.** A link on
+  `educationstandards.nsw.edu.au` resolves to `www.nsw.gov.au/sites/default/files/…`,
+  and `curl` against the first host returns an HTML page with a 200 regardless of
+  headers. Read the real `href` out of the page before fetching.
   **Never call `navigator.clipboard.readText()`** to check a copy button. It raises a
   permission prompt that froze the renderer and timed out CDP. Assert on what the app
   says it did instead.
@@ -403,6 +455,28 @@ lazy-loads in the hosted build, which only went 140 kB to 163 kB.
 carry `marksTo` so a band stays a band, a part may carry its own criteria, and a
 question may have no text when its parts do the asking. All three are what the
 examinations actually print.
+
+**A teacher of any subject can describe their own examination** (#27), on the
+Papers tab and the first-run screen. `src/profile.tsx` is a form over
+`profile.schema.json`, `validateProfile` restates its rules, and four of those
+rules go beyond the schema because each produces a profile that looks fine and
+then rejects every paper built against it. Klunk shipping one profile and telling
+everyone else to copy a JSON file was the same failure `src/shipped.ts` was
+written to fix, left in place for every subject but D&T. **#8 is now a teacher's
+afternoon rather than a code change.**
+
+**A syllabus model is built from the `.docx` in the app** (#28, the 2013 half).
+`src/docx.ts` reads one zip member with `DecompressionStream`; `src/syllabus.ts`
+is the parser and takes XML and no file. `src/syllabus.corpus.test.ts` checks it
+against the Python tool on all four documents and they agree exactly, which is
+what makes the port trustworthy rather than merely plausible. The new-format half
+is not built.
+
+**A paper says when it has unsaved changes, and everything that would discard
+them asks first** (#11, #21). `paperIsDirty` compares against the folder with
+object keys sorted, so a hand-edited file does not read as permanently dirty.
+The guard covers all four paths that clear a paper, not the one that had a
+confirm bolted to it.
 
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
