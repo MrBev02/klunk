@@ -751,6 +751,19 @@ export async function saveProfile(
 
 /* ------------------------------------------------------------------ querying */
 
+/**
+ * Which syllabus a question belongs to.
+ *
+ * The bank's default, overridden by the question's own. `bank.schema.json`
+ * calls the bank field a default and says a question may override it, so
+ * resolving it here means nothing downstream has to remember that — and it is
+ * one rule rather than two, which matters now that both the folder listing and
+ * a paper's own references have to answer the question.
+ */
+function syllabusOf(bank: Bank, question: Question): string | undefined {
+  return question.syllabus?.syllabusId ?? bank.syllabusId
+}
+
 /** Every question across every bank, tagged with the file it came from. */
 export function allQuestions(index: ContentIndex): QuestionRef[] {
   const out: QuestionRef[] = []
@@ -760,10 +773,7 @@ export function allQuestions(index: ContentIndex): QuestionRef[] {
         question,
         file: bank.path,
         bankName: bank.data.name,
-        // The bank's default, overridden by the question's own. `bank.schema.json`
-        // calls the bank field a default and says a question may override it,
-        // so resolving it here means nothing downstream has to remember that.
-        syllabusId: question.syllabus?.syllabusId ?? bank.data.syllabusId,
+        syllabusId: syllabusOf(bank.data, question),
       })
     }
   }
@@ -797,6 +807,8 @@ export interface FoundQuestion {
   file: string
   /** True when the exact path missed and the question was recovered elsewhere. */
   relocated: boolean
+  /** The syllabus it belongs to, so a paper can notice one from another subject. */
+  syllabusId?: string | undefined
 }
 
 /**
@@ -817,14 +829,28 @@ export function findQuestion(
 ): FoundQuestion | null {
   const exact = index.banks.find((b) => b.path === file)
   const hit = exact?.data.questions.find((q) => q.id === questionId)
-  if (hit && exact) return { question: hit, file: exact.path, relocated: false }
+  if (hit && exact) {
+    return {
+      question: hit,
+      file: exact.path,
+      relocated: false,
+      syllabusId: syllabusOf(exact.data, hit),
+    }
+  }
 
   const base = file.split('/').pop()
   if (base) {
     for (const bank of index.banks) {
       if (bank.path.split('/').pop() !== base) continue
       const found = bank.data.questions.find((q) => q.id === questionId)
-      if (found) return { question: found, file: bank.path, relocated: true }
+      if (found) {
+        return {
+          question: found,
+          file: bank.path,
+          relocated: true,
+          syllabusId: syllabusOf(bank.data, found),
+        }
+      }
     }
   }
 
@@ -834,7 +860,14 @@ export function findQuestion(
   const matches: FoundQuestion[] = []
   for (const bank of index.banks) {
     for (const q of bank.data.questions) {
-      if (q.id === questionId) matches.push({ question: q, file: bank.path, relocated: true })
+      if (q.id === questionId) {
+        matches.push({
+          question: q,
+          file: bank.path,
+          relocated: true,
+          syllabusId: syllabusOf(bank.data, q),
+        })
+      }
     }
   }
   return matches.length === 1 ? (matches[0] ?? null) : null

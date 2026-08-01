@@ -16,13 +16,14 @@ import {
   newPaper,
   paperIsDirty,
   paperIsSaved,
+  pickableQuestions,
   removeRef,
   resolvePaper,
   rowAnswers,
   shuffledChoices,
 } from './paper'
 import type { ContentIndex } from './storage'
-import type { Bank, Paper, Profile, Question } from './types'
+import type { Bank, Paper, Profile, Question, Syllabus } from './types'
 
 const profile: Profile = {
   formatVersion: '1',
@@ -312,6 +313,158 @@ describe('checkPaper against papers already sat', () => {
 
     const checks = checkPaper(resolvePaper(index, paper, profile))
     expect(checks.some((c) => c.message.includes('"2025 Trial"'))).toBe(true)
+  })
+})
+
+/** The same paper, assessing a named syllabus, which is what a real profile does. */
+const designProfile: Profile = { ...profile, syllabusId: 'nsw-hsc-design-technology' }
+
+/** Section II: short answer and extended response, so the written questions qualify. */
+const written15 = designProfile.paper.sections[1]
+
+/**
+ * A folder holding two subjects, which is what `../klunk-content` holds and
+ * what a shared OneDrive drifts into.
+ *
+ * Both NSW models number their topics from one within each course, so `HSC-01`
+ * names a different topic in each and the tags cannot separate them. The
+ * syllabus a question resolves to is the only thing that can, and a question
+ * naming none must stay visible: all that is known about it is a bare topic id.
+ */
+function twoSubjects(): ContentIndex {
+  const syllabus = (id: string, name: string): { path: string; data: Syllabus } => ({
+    path: `syllabus/${id}.json`,
+    data: { formatVersion: '1', type: 'klunk_syllabus', id, name, framework: 'nsw', courses: [] },
+  })
+  const bank = (name: string, syllabusId: string | undefined, questions: Question[]) => ({
+    path: `bank/${name}.json`,
+    data: {
+      formatVersion: '1',
+      type: 'klunk_bank' as const,
+      ...(syllabusId === undefined ? {} : { syllabusId }),
+      questions,
+    },
+  })
+
+  return {
+    profiles: [{ path: 'profiles/test.json', data: designProfile }],
+    syllabuses: [
+      syllabus('nsw-hsc-design-technology', 'Design and Technology'),
+      syllabus('nsw-hsc-textiles-and-design', 'Textiles and Design'),
+    ],
+    banks: [
+      bank('design', 'nsw-hsc-design-technology', [mc('dt-mc'), written('dt-written', 15)]),
+      bank('textiles', 'nsw-hsc-textiles-and-design', [written('tex-written', 15)]),
+      bank('loose', undefined, [written('loose-written', 15)]),
+    ],
+    papers: [],
+    problems: [],
+    scanned: 5,
+    pdfs: [],
+    docx: [],
+    images: new Map(),
+  }
+}
+
+/**
+ * Klunk prints whatever a paper references, so this is the one place in the app
+ * where offering the wrong subject's question reaches a student.
+ */
+describe('pickableQuestions', () => {
+  const paper = newPaper(designProfile, 'p1', 'Test')
+
+  it('offers only the subject the paper assesses', () => {
+    const ids = pickableQuestions(
+      twoSubjects(),
+      paper,
+      written15,
+      designProfile.syllabusId,
+    ).map((r) => r.question.id)
+
+    // The Textiles question is gone; the untagged one stays, because nothing
+    // about it rules it out.
+    expect(ids).toEqual(['dt-written', 'loose-written'])
+  })
+
+  it('offers everything when the profile names no syllabus', () => {
+    // Nothing can be decided, so nothing is narrowed. The builder says as much
+    // on screen rather than filtering on a guess.
+    const ids = pickableQuestions(twoSubjects(), paper, written15, undefined).map(
+      (r) => r.question.id,
+    )
+    expect(ids).toEqual(['dt-written', 'tex-written', 'loose-written'])
+  })
+
+  it('still keeps the section to its own question types', () => {
+    const ids = pickableQuestions(
+      twoSubjects(),
+      paper,
+      designProfile.paper.sections[0],
+      designProfile.syllabusId,
+    ).map((r) => r.question.id)
+    expect(ids).toEqual(['dt-mc'])
+  })
+
+  it('drops a question already somewhere on the paper', () => {
+    const used = addRef(paper, 1, 'bank/design.json#dt-written')
+    const ids = pickableQuestions(
+      twoSubjects(),
+      used,
+      written15,
+      designProfile.syllabusId,
+    ).map((r) => r.question.id)
+    expect(ids).toEqual(['loose-written'])
+  })
+})
+
+/**
+ * The picker cannot help a paper built before it filtered, or one whose file
+ * was edited by hand. This is the last look before printing.
+ */
+describe('checkPaper against another subject', () => {
+  const foreign = () => {
+    const index = twoSubjects()
+    let paper = newPaper(designProfile, 'p1', 'Test')
+    paper = addRef(paper, 1, 'bank/textiles.json#tex-written')
+    return { index, paper }
+  }
+
+  it('warns, naming both subjects rather than their ids', () => {
+    const { index, paper } = foreign()
+    const checks = checkPaper(resolvePaper(index, paper, designProfile))
+    const warning = checks.find((c) => c.message.includes('belongs to'))
+
+    expect(warning?.severity).toBe('warning')
+    expect(warning?.message).toBe(
+      'Question 1 belongs to Textiles and Design, not Design and Technology',
+    )
+    expect(warning?.where).toBe('Section II')
+  })
+
+  it('falls back to the id when that model is not in the folder', () => {
+    const { index, paper } = foreign()
+    // Ordinary: Klunk ships no syllabus models, so a bank can name one the
+    // teacher has not generated.
+    index.syllabuses = []
+    const warning = checkPaper(resolvePaper(index, paper, designProfile)).find((c) =>
+      c.message.includes('belongs to'),
+    )
+    expect(warning?.message).toContain('nsw-hsc-textiles-and-design')
+  })
+
+  it('says nothing when the profile names no syllabus', () => {
+    const { index, paper } = foreign()
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    expect(checks.some((c) => c.message.includes('belongs to'))).toBe(false)
+  })
+
+  it('says nothing about a question that names no syllabus', () => {
+    const index = twoSubjects()
+    let paper = newPaper(designProfile, 'p1', 'Test')
+    paper = addRef(paper, 1, 'bank/loose.json#loose-written')
+
+    const checks = checkPaper(resolvePaper(index, paper, designProfile))
+    expect(checks.some((c) => c.message.includes('belongs to'))).toBe(false)
   })
 })
 

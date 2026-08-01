@@ -1006,6 +1006,18 @@ code,
   font-style: italic;
 }
 
+/* Said once, above the search box, when the rail cannot tell one subject from
+   another. Quiet enough not to shout on every paper, loud enough to be read
+   before a question is picked. */
+.bank__unlinked {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 3px solid var(--red);
+  background: var(--red-soft);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
 /* --------------------------------------------------------------------- hero */
 
 .hero {

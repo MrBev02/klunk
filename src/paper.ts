@@ -11,17 +11,18 @@
 import type {
   ContentIndex,
 } from './storage'
-import { findQuestion } from './storage'
+import { allQuestions, findQuestion, inSyllabus } from './storage'
 import type {
   Paper,
   PaperRef,
   Profile,
   ProfileSection,
   Question,
+  QuestionRef,
   QuestionType,
   TableRow,
 } from './types'
-import { parseRef } from './types'
+import { parseRef, refKey } from './types'
 
 export interface ResolvedQuestion {
   question: Question
@@ -32,6 +33,8 @@ export interface ResolvedQuestion {
   note?: string | undefined
   /** Titles of other papers marked as already sat that also use this question. */
   usedIn?: string[] | undefined
+  /** The syllabus it belongs to, which may not be the one the paper assesses. */
+  syllabusId?: string | undefined
 }
 
 export interface ResolvedSection {
@@ -55,6 +58,14 @@ export interface ResolvedPaper {
   relocated: { from: string; to: string }[]
   /** Stimulus images by folder-relative path, so the renderer can print them. */
   images: Map<string, string>
+  /**
+   * Syllabus names by id, so a check can name a subject rather than an id.
+   *
+   * A bank may name a syllabus whose model is not in the folder — the model is
+   * the teacher's to generate and Klunk ships none — so a lookup that misses is
+   * ordinary and falls back to the id.
+   */
+  syllabusNames: Map<string, string>
 }
 
 export type Severity = 'error' | 'warning'
@@ -143,6 +154,7 @@ export function resolvePaper(
         marks: override ?? found.question.marks,
         note: typeof ref === 'object' ? ref.note : undefined,
         usedIn: sat.get(found.question.id),
+        syllabusId: found.syllabusId,
       })
     }
 
@@ -164,6 +176,7 @@ export function resolvePaper(
     missing,
     relocated,
     images: index.images,
+    syllabusNames: new Map(index.syllabuses.map(({ data }) => [data.id, data.name])),
   }
 }
 
@@ -298,8 +311,26 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   }
 
   // Warnings: recoverable, but a teacher would want to know.
+  const subject = (id: string) => resolved.syllabusNames.get(id) ?? id
   for (const section of resolved.sections) {
     for (const q of section.questions) {
+      // A folder is meant to hold one subject, and nothing enforces it. The
+      // builder no longer offers another subject's questions, but that cannot
+      // help a paper built before it stopped, or one whose file was edited by
+      // hand, and this is the last point before printing where anything looks.
+      // A warning rather than an error: a teacher who means it — two editions
+      // of one syllabus live at once during a transition — must still be able
+      // to print.
+      if (profile.syllabusId && q.syllabusId && q.syllabusId !== profile.syllabusId) {
+        checks.push({
+          severity: 'warning',
+          where: section.title,
+          message:
+            `Question ${q.number} belongs to ${subject(q.syllabusId)}, ` +
+            `not ${subject(profile.syllabusId)}`,
+        })
+      }
+
       const src = q.question.source
       if (src?.origin === 'extracted' && src.year) {
         checks.push({
@@ -553,4 +584,35 @@ export function isTypeAllowed(
 ): boolean {
   if (!section?.questionTypes?.length) return true
   return section.questionTypes.includes(type)
+}
+
+/**
+ * The questions that may be offered into one section of a paper.
+ *
+ * Three rules: the question belongs to the syllabus this paper assesses, its
+ * type is allowed in the section, and it is not already somewhere on the paper.
+ *
+ * The syllabus rule is the reason this is a function rather than a filter in
+ * the builder. One folder per subject is the intention and nothing enforces it,
+ * so a folder holding Design and Technology and Textiles and Design — which
+ * `../klunk-content` does — offered both in one list, indistinguishable, and
+ * Klunk would print whichever was picked. `inSyllabus` decides it, so a
+ * question naming no syllabus still shows, for the reason set out there.
+ *
+ * `syllabusId` absent means the profile names no syllabus and nothing can be
+ * decided, so everything is offered and the builder says why on screen.
+ */
+export function pickableQuestions(
+  index: ContentIndex,
+  paper: Paper,
+  section: ProfileSection | undefined,
+  syllabusId: string | undefined,
+): QuestionRef[] {
+  const used = new Set(paper.sections.flatMap((s) => s.refs.map(refKey)))
+  return allQuestions(index).filter(
+    (ref) =>
+      (syllabusId === undefined || inSyllabus(ref, syllabusId)) &&
+      isTypeAllowed(ref.question.questionType, section) &&
+      !used.has(`${ref.file}#${ref.question.id}`),
+  )
 }

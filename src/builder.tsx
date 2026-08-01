@@ -2,9 +2,9 @@ import { useMemo, useState } from 'preact/hooks'
 import {
   addRef,
   checkPaper,
-  isTypeAllowed,
   moveRef,
   newPaper,
+  pickableQuestions,
   removeRef,
   resolvePaper,
   type Check,
@@ -137,13 +137,18 @@ export function Builder({
   const targetSpec = profile?.paper.sections.find(
     (s) => s.id === paper.sections[target]?.profileSectionId,
   )
-  const alreadyUsed = new Set(paper.sections.flatMap((s) => s.refs.map(refKey)))
   const inFolder = allQuestions(index)
-  const pickable = inFolder.filter(
-    (a) =>
-      isTypeAllowed(a.question.questionType, targetSpec) &&
-      !alreadyUsed.has(`${a.file}#${a.question.id}`),
-  )
+  const pickable = pickableQuestions(index, paper, targetSpec, profile?.syllabusId)
+
+  // A profile that names no syllabus cannot tell one subject from another, so
+  // the rail offers everything in the folder. That is the honest thing to do
+  // and the wrong thing to leave unsaid, and it is one field on a form the
+  // teacher already owns. Silent where the folder holds no model to link to.
+  const profilePath = index.profiles.find((p) => p.data.id === profile?.id)?.path
+  const linkSyllabus =
+    profile && !profile.syllabusId && index.syllabuses.length > 0 && profilePath
+      ? () => onEditProfile(profile, profilePath)
+      : undefined
 
   return (
     <div class="split split--build">
@@ -322,6 +327,7 @@ export function Builder({
         targetName={resolved.sections[target]?.title ?? `Section ${target + 1}`}
         spec={targetSpec ? describeSpec(targetSpec) : ''}
         onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
+        onLinkSyllabus={linkSyllabus}
       />
     </div>
   )
@@ -333,6 +339,7 @@ function BankRail({
   targetName,
   spec,
   onAdd,
+  onLinkSyllabus,
 }: {
   options: ReturnType<typeof allQuestions>
   /** No questions in the folder at all, as against none left for this section. */
@@ -340,6 +347,8 @@ function BankRail({
   targetName: string
   spec: string
   onAdd: (file: string, id: string) => void
+  /** Given only when the profile names no syllabus, so nothing can be filtered. */
+  onLinkSyllabus?: (() => void) | undefined
 }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -360,6 +369,15 @@ function BankRail({
             {spec}
           </p>
         )}
+        {onLinkSyllabus && (
+          <p class="bank__unlinked">
+            This paper's structure names no syllabus, so every question in the folder is
+            offered here, including any belonging to another subject.{' '}
+            <button class="btn btn--small" onClick={onLinkSyllabus}>
+              Link a syllabus
+            </button>
+          </p>
+        )}
         <input
           class="input"
           type="search"
@@ -374,10 +392,15 @@ function BankRail({
           {/* An empty folder used to be told its questions were all already on the
               paper, which is a confusing thing to read when you have written none.
               Reachable in earnest now that a new folder can be set up in the app. */}
+          {/* "Every question of the right type is already on this paper" used
+              to stand here, and it stopped being true once the rail filtered by
+              syllabus: the rest may be another subject's, and saying so is what
+              tempts a teacher into printing one. This claims only what is
+              known. */}
           {bankEmpty
             ? 'No questions in this folder yet. Write one on the Questions tab and it will appear here.'
             : options.length === 0
-              ? 'Every question of the right type is already on this paper.'
+              ? 'Nothing in this folder fits this section.'
               : 'Nothing matches that search.'}
         </p>
       ) : (
