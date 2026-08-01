@@ -20,10 +20,18 @@ import type { ContentIndex } from './storage'
 export function ProfileInstaller({
   index,
   folder,
+  syllabusId,
   onInstalled,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
+  /**
+   * Offer only what fits this syllabus. Setup wants everything Klunk has, since
+   * a new folder does not yet say what it is for; the prompt factory is already
+   * drafting a particular subject, and offering that teacher another subject's
+   * profile is the same substitution the factory just stopped making.
+   */
+  syllabusId?: string
   onInstalled: () => void
 }) {
   const [busy, setBusy] = useState('')
@@ -33,7 +41,11 @@ export function ProfileInstaller({
     () => new Set(index.profiles.map((p) => p.data.id)),
     [index.profiles],
   )
-  const offered = SHIPPED_PROFILES.filter((s) => !here.has(s.profile.id))
+  const offered = SHIPPED_PROFILES.filter(
+    (s) =>
+      !here.has(s.profile.id) &&
+      (syllabusId === undefined || s.profile.syllabusId === syllabusId),
+  )
 
   if (offered.length === 0) return null
 

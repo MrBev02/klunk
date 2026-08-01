@@ -13,13 +13,21 @@
  * editor to be fixed, which is what the editor was built for.
  */
 
+import type { ComponentChildren } from 'preact'
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import type { Editing } from './editor'
 import { bankPathFault, Field, normaliseBankPath, NumField, CheckList } from './fields'
 import { ingestQuestions, AI_TAG, type Draft, type Ingest, type IngestContext } from './ingest'
 import { buildPrompt, outcomesFor } from './prompt'
 import { QuestionDetail } from './question'
-import { allQuestions, questionIds, saveQuestion, type ContentIndex } from './storage'
+import { ProfileInstaller } from './setup'
+import {
+  allQuestions,
+  inSyllabus,
+  questionIds,
+  saveQuestion,
+  type ContentIndex,
+} from './storage'
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
@@ -89,8 +97,11 @@ export function Factory({
   const chosenPoints = points.filter((p) => pointIds.includes(p.id))
 
   const existing = useMemo(
-    () => (includeExisting ? questionsOn(index, topicIds, pointIds) : []),
-    [index, topicIds, pointIds, includeExisting],
+    () =>
+      includeExisting && chosen
+        ? questionsOn(index, chosen.syllabus.id, topicIds, pointIds)
+        : [],
+    [index, chosen, topicIds, pointIds, includeExisting],
   )
 
   const prompt = useMemo(() => {
@@ -378,6 +389,29 @@ export function Factory({
         points={chosenPoints.length}
         stems={existing.length}
         topics={topics.length}
+        noProfile={
+          chosen && !profile ? (
+            <section class="panel panel--note">
+              <p class="panel__title">
+                No paper profile for {chosen.syllabus.name} in this folder
+              </p>
+              <p>
+                So the prompt cannot say where this type of question sits on the real
+                paper, and the room it allows for an answer is a general two ruled lines
+                a mark rather than this examination's. Everything else in it — the
+                course, the topics, the content points — is unaffected. Klunk would
+                rather say less than describe another subject's examination as though it
+                were this one.
+              </p>
+              <ProfileInstaller
+                index={index}
+                folder={folder}
+                syllabusId={chosen.syllabus.id}
+                onInstalled={onSaved}
+              />
+            </section>
+          ) : null
+        }
       />
 
       <section class="panel">
@@ -555,11 +589,14 @@ function PromptStep({
   points,
   stems,
   topics,
+  noProfile,
 }: {
   prompt: string
   points: number
   stems: number
   topics: number
+  /** Said above the prompt, because it is about what the prompt does not contain. */
+  noProfile: ComponentChildren
 }) {
   const [said, setSaid] = useState('')
 
@@ -600,6 +637,8 @@ function PromptStep({
         This is the whole of what leaves your machine. Read it, copy it, and paste it
         into whatever your school licenses.
       </p>
+
+      {noProfile}
 
       {prompt ? (
         <>
@@ -736,11 +775,21 @@ export function courseChoices(index: ContentIndex): CourseChoice[] {
   return out
 }
 
-/** The profile for this syllabus, or any profile at all rather than none. */
+/**
+ * The profile for this syllabus, and no other.
+ *
+ * It used to fall back to `index.profiles[0]` — any profile at all rather than
+ * none — which is harmless in a folder holding one subject and indefensible in
+ * one holding two. The profile supplies ruled lines per mark and where this type
+ * of question sits on the real paper, so borrowing Design and Technology's for a
+ * Textiles draft composes a prompt that states the wrong examination as fact,
+ * with nothing on screen saying it substituted. A profile is the shape of a
+ * *particular* public examination; there is no reading under which another
+ * subject's describes this one. The prompt now simply says less.
+ */
 function profileFor(index: ContentIndex, syllabus: Syllabus | undefined): Profile | undefined {
   if (!syllabus) return undefined
-  const matched = index.profiles.find((p) => p.data.syllabusId === syllabus.id)
-  return (matched ?? index.profiles[0])?.data
+  return index.profiles.find((p) => p.data.syllabusId === syllabus.id)?.data
 }
 
 /**
@@ -767,10 +816,23 @@ function defaultMarks(type: QuestionType, profile: Profile | undefined): number 
   }
 }
 
-/** Questions already tagged against any of these topics or points. */
-function questionsOn(index: ContentIndex, topicIds: string[], pointIds: string[]): Question[] {
+/**
+ * Questions in this syllabus already tagged against any of these topics or points.
+ *
+ * The syllabus is not decoration here either. These stems go into the prompt as
+ * the ones not to write again, and topic ids repeat across models, so matching
+ * on the bare id sent Design and Technology's questions into a Textiles prompt —
+ * the same borrowing as the profile fallback, in a different field.
+ */
+function questionsOn(
+  index: ContentIndex,
+  syllabusId: string,
+  topicIds: string[],
+  pointIds: string[],
+): Question[] {
   const wanted = new Set([...topicIds, ...pointIds])
   return allQuestions(index)
+    .filter((r) => inSyllabus(r, syllabusId))
     .map((r) => r.question)
     .filter((q) => {
       const tagged = [...(q.syllabus?.topicIds ?? []), ...(q.syllabus?.pointIds ?? [])]
