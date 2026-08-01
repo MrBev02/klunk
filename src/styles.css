@@ -1656,3 +1656,30 @@ code,
 .draft .rowbtns {
   margin-top: 0.8rem;
 }
+
+/* Proposed picture cut-outs in the past-paper review grid. Wide, because the
+   whole point is that a teacher can see whether the crop caught the diagram. */
+.cutouts {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.cutouts li {
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cutouts img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rule, #d8d3c8);
+  background: #fff;
+}
+.cutouts--dropped img {
+  opacity: 0.35;
+  filter: grayscale(1);
+}

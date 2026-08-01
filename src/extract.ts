@@ -88,10 +88,19 @@ export interface ExtractedQuestion {
   section: SectionLabel
   options?: ExtractedOption[]
   parts?: ExtractedPart[]
-  /** Figures referred to by name. Images cannot be lifted out, so these are flagged. */
+  /** Figures named in the text. What to say about a missing one is `adopt.ts`'s to decide. */
   figures: string[]
   /** Pages it was found on, which is what a teacher checks a doubtful question against. */
   pages: number[]
+  /**
+   * How far down each of those pages the question reaches.
+   *
+   * Only a picture needs this. A band of a page that no text touches is where a
+   * photograph or a diagram sits, and it belongs to whichever question's text
+   * surrounds it — which cannot be worked out from a page number alone when a
+   * page carries the end of one question and the start of the next.
+   */
+  spans: QuestionSpan[]
   /** Anything the teacher must look at rather than trust. */
   notes: string[]
   /** Filled by `stampSource`, once the year and paper are known. */
@@ -108,6 +117,14 @@ export interface ExtractedQuestion {
   outcomes?: string[]
   /** The grid's plain-English topic, which helps a teacher choose the syllabus ids. */
   content?: string
+}
+
+/** The top and bottom of a question's text on one page, in PDF points. */
+export interface QuestionSpan {
+  page: number
+  /** The highest baseline, so the largest y. */
+  top: number
+  bottom: number
 }
 
 export type SectionLabel = 'I' | 'II' | 'III'
@@ -390,6 +407,12 @@ interface Building {
   pages: Set<number>
   /** Body lines in order, before they are split into stem, options and parts. */
   body: Line[]
+  /**
+   * Every line the question owns, headings included, kept only to work out how
+   * far down each page it reaches. `body` cannot serve: a picture printed
+   * between the heading and the first line of text would fall outside it.
+   */
+  all: Line[]
   notes: string[]
 }
 
@@ -465,6 +488,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
       // is not what it looks like, and that is worth saying rather than guessing.
       if (open && open.number === number) {
         open.pages.add(line.page)
+        open.all.push(line)
         continue
       }
       const earlier = built.find((q) => q.number === number)
@@ -473,6 +497,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
         open = earlier
         built.splice(built.indexOf(earlier), 1)
         open.pages.add(line.page)
+        open.all.push(line)
         continue
       }
       notes.push(
@@ -490,6 +515,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
       if (open && open.number === number && open.body.length === 0) {
         open.marks = marks
         open.pages.add(line.page)
+        open.all.push(line)
         continue
       }
       close()
@@ -502,6 +528,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
         section: section ?? 'I',
         pages: new Set([line.page]),
         body: [],
+        all: [line],
         notes: [],
       }
       continue
@@ -522,6 +549,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
           section: 'I',
           pages: new Set([line.page]),
           body: [{ ...line, text: objective[2]! }],
+          all: [line],
           notes: [],
         }
         continue
@@ -531,6 +559,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     if (open) {
       open.pages.add(line.page)
       open.body.push(line)
+      open.all.push(line)
     }
   }
   close()
@@ -593,6 +622,7 @@ function finish(building: Building): ExtractedQuestion {
     section,
     figures: [...figures],
     pages: [...building.pages].sort((a, b) => a - b),
+    spans: spansOf(building.all),
     notes,
   }
 
@@ -619,11 +649,6 @@ function finish(building: Building): ExtractedQuestion {
       )
     }
   }
-  if (figures.size > 0) {
-    notes.push(
-      `Refers to ${[...figures].join(', ')}. Images are not lifted out of the PDF, so add them yourself or reword the question.`,
-    )
-  }
   // Three of the eleven papers print a Section II question with no stem at all:
   // the heading is followed straight by `(a)`. That is the paper rather than a
   // misread, so it is not an error — but `bank.schema.json` requires question
@@ -638,6 +663,20 @@ function finish(building: Building): ExtractedQuestion {
     )
   }
   return question
+}
+
+/** How far down each page a question's own lines reach. */
+function spansOf(lines: Line[]): QuestionSpan[] {
+  const byPage = new Map<number, QuestionSpan>()
+  for (const line of lines) {
+    const held = byPage.get(line.page)
+    if (!held) byPage.set(line.page, { page: line.page, top: line.y, bottom: line.y })
+    else {
+      held.top = Math.max(held.top, line.y)
+      held.bottom = Math.min(held.bottom, line.y)
+    }
+  }
+  return [...byPage.values()].sort((a, b) => a.page - b.page)
 }
 
 function splitOptions(body: Line[]): { stem: string; options: ExtractedOption[] } {

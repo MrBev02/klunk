@@ -18,13 +18,21 @@
 import { useMemo, useState } from 'preact/hooks'
 import { adoptPaper, type Adopted } from './adopt'
 import type { Editing } from './editor'
-import { extractPaper, stampSource } from './extract'
+import { extractPaper, stampSource, type ExtractedQuestion } from './extract'
 import { courseChoices } from './factory'
 import { CheckList, Field } from './fields'
 import { applyGuide, extractGuide } from './guide'
-import { readPdf } from './pdftext'
+import { cutOut, picturesFor, type Cutout } from './pdfimage'
+import { openPdf, pagesFromDocument, readPdf } from './pdftext'
 import { QuestionDetail } from './question'
-import { questionIds, readBytes, saveQuestion, type ContentIndex } from './storage'
+import {
+  copyFileInto,
+  joinPath,
+  questionIds,
+  readBytes,
+  saveQuestion,
+  type ContentIndex,
+} from './storage'
 import { QUESTION_TYPE_LABELS, questionLabel } from './types'
 import { cleanQuestion } from './validate'
 
@@ -79,7 +87,11 @@ export function Extractor({
     setRenamed({})
     setRead(null)
     try {
-      let paper = extractPaper(await readPdf(await readBytes(folder, paperPath)))
+      // One open document for both the text and the pictures: `getDocument`
+      // detaches the bytes it is given, so opening the same file twice throws.
+      const doc = await openPdf(await readBytes(folder, paperPath))
+      const pages = await pagesFromDocument(doc)
+      let paper = extractPaper(pages)
       if (guidePath) {
         paper = applyGuide(paper, extractGuide(await readPdf(await readBytes(folder, guidePath))))
       }
@@ -92,6 +104,19 @@ export function Extractor({
         })
       }
 
+      // Where the text is not, on the pages a question covers.
+      const wanted = new Map<ExtractedQuestion, ReturnType<typeof picturesFor>>()
+      for (const question of paper.questions) {
+        const regions = picturesFor(question, pages)
+        if (regions.length > 0) wanted.set(question, regions)
+      }
+      const cut = await cutOut(doc, [...wanted.values()].flat())
+      const cutouts = new Map<ExtractedQuestion, Cutout[]>()
+      for (const [question, regions] of wanted) {
+        const mine = cut.filter((c) => regions.includes(c.region))
+        if (mine.length > 0) cutouts.set(question, mine)
+      }
+
       const adopted = adoptPaper(paper, {
         bankPath,
         inFolder: questionIds(index),
@@ -100,7 +125,7 @@ export function Extractor({
         ),
         syllabusId: chosen?.syllabus.id,
         courseId: chosen?.course.id,
-      })
+      }, cutouts)
 
       const notes = [...paper.notes]
       if (year === undefined) {
@@ -125,13 +150,51 @@ export function Extractor({
   const ready = unsaved.filter((a) => !a.faults.some((f) => f.severity === 'error'))
   const stuck = unsaved.length - ready.length
 
+  const togglePicture = (id: string, at: number) => {
+    setRead((r) =>
+      r === null
+        ? r
+        : {
+            ...r,
+            adopted: r.adopted.map((a) =>
+              a.question.id !== id
+                ? a
+                : {
+                    ...a,
+                    pictures: a.pictures.map((p, i) => (i === at ? { ...p, keep: !p.keep } : p)),
+                  },
+            ),
+          },
+    )
+  }
+
   const saveReady = async () => {
     setSaving(true)
     setFailed('')
     try {
       const moved: Record<string, string> = {}
       for (const item of ready) {
-        const written = await saveQuestion(folder, bankPath, cleanQuestion(item.question), {
+        // The pictures go in first, because the question has to point at them and
+        // a question pointing at a file that was never written prints a
+        // placeholder naming a file nobody has.
+        const kept = item.pictures.filter((p) => p.keep)
+        const stimulus = []
+        for (const [at, picture] of kept.entries()) {
+          const name = `${item.question.id}${kept.length > 1 ? `-${at + 1}` : ''}.png`
+          const written = await copyFileInto(folder, imageDirectory(bankPath), name, picture.cutout.blob)
+          stimulus.push({
+            kind: 'image' as const,
+            // Stored relative to the bank, which is how every other stimulus is
+            // stored and what lets the whole folder be moved.
+            file: relativeToBank(bankPath, imageDirectory(bankPath), written),
+            alt: `Picture from question ${item.question.source?.questionNumber ?? item.question.id} of the ${item.question.source?.year ?? ''} paper`.trim(),
+          })
+        }
+
+        const question = stimulus.length > 0
+          ? { ...item.question, stimulus }
+          : item.question
+        const written = await saveQuestion(folder, bankPath, cleanQuestion(question), {
           syllabusId: chosen?.syllabus.id,
         })
         if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
@@ -304,6 +367,7 @@ export function Extractor({
                 item={item}
                 at={i}
                 bankPath={bankPath}
+                onTogglePicture={(n) => togglePicture(item.question.id, n)}
                 saved={alreadySaved.has(savedAs(item))}
                 savedAs={renamed[item.question.id]}
                 onEdit={() =>
@@ -341,6 +405,19 @@ export function Extractor({
   )
 }
 
+/** Where a bank's pictures live, beside the bank rather than mixed in with it. */
+function imageDirectory(bankPath: string): string {
+  const slash = bankPath.lastIndexOf('/')
+  return slash < 0 ? 'stimulus' : `${bankPath.slice(0, slash)}/stimulus`
+}
+
+/** `copyFileInto` returns a filename; a stimulus wants it relative to the bank. */
+function relativeToBank(bankPath: string, directory: string, name: string): string {
+  const full = directory ? `${directory}/${name}` : name
+  const bankDir = bankPath.slice(0, Math.max(0, bankPath.lastIndexOf('/')))
+  return bankDir && full.startsWith(`${bankDir}/`) ? full.slice(bankDir.length + 1) : full
+}
+
 function ExtractedCard({
   item,
   at,
@@ -349,6 +426,7 @@ function ExtractedCard({
   bankPath,
   onEdit,
   onDiscard,
+  onTogglePicture,
 }: {
   item: Adopted
   at: number
@@ -357,6 +435,7 @@ function ExtractedCard({
   bankPath: string
   onEdit: () => void
   onDiscard: () => void
+  onTogglePicture: (at: number) => void
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
@@ -389,6 +468,29 @@ function ExtractedCard({
             so this went in as <span class="mono">{savedAs}</span> rather than replacing
             theirs.
           </p>
+        </div>
+      )}
+
+      {item.pictures.length > 0 && (
+        <div class="draft__note">
+          <p class="det__label">
+            {item.pictures.filter((p) => p.keep).length} of {item.pictures.length} picture
+            {item.pictures.length === 1 ? '' : 's'} will be saved with this question
+          </p>
+          <p class="hint">
+            Cut from where the page has no text on it, which is a good guess and not a
+            fact. Drop anything that is not part of the question.
+          </p>
+          <ul class="cutouts">
+            {item.pictures.map((picture, n) => (
+              <li key={n} class={picture.keep ? '' : 'cutouts--dropped'}>
+                <img src={picture.cutout.url} alt={`Picture ${n + 1} from page ${picture.cutout.region.page}`} />
+                <button class="btn btn--small" onClick={() => onTogglePicture(n)} disabled={saved}>
+                  {picture.keep ? 'Drop this one' : 'Keep it after all'}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

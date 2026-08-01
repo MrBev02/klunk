@@ -383,7 +383,10 @@ describe('the variants that break a naive parser', () => {
 })
 
 describe('what the teacher is told to check', () => {
-  it('flags figures, because an image cannot be lifted out of the PDF', () => {
+  it('records the figures a question names, and says nothing about them', () => {
+    // What to do about a picture is not the reader's to decide: pictures are cut
+    // out of the page now, so a note here saying they cannot be would be a lie.
+    // `adopt.ts` warns, and only when no picture was cut out for the question.
     const paper = extractPaper([
       page(
         5,
@@ -394,8 +397,7 @@ describe('what the teacher is told to check', () => {
     ])
     const q = paper.questions[0]!
     expect(q.figures).toEqual(['Figure 1', 'Figure 2'])
-    expect(q.notes.join(' ')).toMatch(/Figure 1, Figure 2/)
-    expect(q.notes.join(' ')).toMatch(/add them yourself/)
+    expect(q.notes.join(' ')).not.toMatch(/Figure|picture|image/i)
   })
 
   it('reports a gap in the numbering rather than quietly returning fewer questions', () => {

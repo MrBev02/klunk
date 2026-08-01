@@ -18,6 +18,7 @@
  */
 
 import type { ExtractedPaper, ExtractedQuestion } from './extract'
+import type { Cutout } from './pdfimage'
 import type { Check } from './paper'
 import type { Question, QuestionConfig, QuestionPart } from './types'
 import { suggestQuestionId, validateQuestion } from './validate'
@@ -36,6 +37,14 @@ export interface AdoptContext {
 
 export interface Adopted {
   question: Question
+  /**
+   * Pictures cut out of the page for this question, none of them kept yet.
+   *
+   * A crop is a proposal: it was worked out from where the text is not, which is
+   * a good guess and not a fact. The teacher keeps or drops each one before
+   * anything is written, the same as everything else here.
+   */
+  pictures: { cutout: Cutout; keep: boolean }[]
   /** Where it came from in the PDF, so a doubtful one can be checked against the paper. */
   pages: number[]
   /** What the readers noticed, in the teacher's words. */
@@ -49,15 +58,23 @@ export interface Adopted {
  * Ids are handed out against a set that grows as it goes, so two questions in
  * one paper cannot be given the same one.
  */
-export function adoptPaper(paper: ExtractedPaper, ctx: AdoptContext): Adopted[] {
+export function adoptPaper(
+  paper: ExtractedPaper,
+  ctx: AdoptContext,
+  cutouts: Map<ExtractedQuestion, Cutout[]> = new Map(),
+): Adopted[] {
   const taken = new Set([...ctx.inFolder, ...ctx.inBank])
   return paper.questions.map((extracted) => {
     const question = toQuestion(extracted, ctx, taken)
     taken.add(question.id)
     return {
       question,
+      // Kept by default. A question that had a picture on the page almost always
+      // needs it, and a teacher scanning fifteen of these should be undoing the
+      // rare wrong one rather than ticking every right one.
+      pictures: (cutouts.get(extracted) ?? []).map((cutout) => ({ cutout, keep: true })),
       pages: extracted.pages,
-      notes: [...extracted.notes, ...describeLosses(extracted)],
+      notes: [...extracted.notes, ...describeLosses(extracted, (cutouts.get(extracted) ?? []).length)],
       faults: validateQuestion(question, {
         inBank: ctx.inBank,
         inFolder: ctx.inFolder,
@@ -73,8 +90,26 @@ export function adoptPaper(paper: ExtractedPaper, ctx: AdoptContext): Adopted[] 
  * is the case that matters: the question still reads sensibly with the words
  * "Figure 1" in it and prints as a question about a picture nobody can see.
  */
-function describeLosses(q: ExtractedQuestion): string[] {
+/** Wording the papers use for a picture that is never called a Figure. */
+const SHOWS_A_PICTURE =
+  /\b(shown|shown below|the images?\b|images? (represent|show|illustrate)|diagram|photograph|illustrat|graph)/i
+
+function describeLosses(q: ExtractedQuestion, kept: number): string[] {
   const out: string[] = []
+  const words = [q.text, ...(q.parts ?? []).map((p) => p.text), ...(q.options ?? []).map((o) => o.text)].join(' ')
+
+  // The figure warning used to hang off the words "Figure N", which exactly one
+  // question in eleven years uses. Twelve others say "the images show two
+  // chairs" or "as shown in the graph" and got nothing at all, and none of it
+  // reached Section I, which returns early. Both of those are fixed here rather
+  // than in the reader, because it is the adoption that loses the picture.
+  if (kept === 0 && (q.figures.length > 0 || SHOWS_A_PICTURE.test(words))) {
+    out.push(
+      q.figures.length > 0
+        ? `Refers to ${q.figures.join(', ')}, and no picture was cut out for it. Add one yourself or reword the question.`
+        : 'This question seems to be about a picture, and none was cut out for it. Check it against the paper.',
+    )
+  }
   if (q.content) {
     out.push(
       `The marking guide files this under "${q.content}". Klunk has not guessed which syllabus topic that is, so tag it yourself.`,

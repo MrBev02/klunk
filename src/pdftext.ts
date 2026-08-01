@@ -31,16 +31,30 @@
 
 import type { PageText, TextPiece } from './extract'
 
-/** The shape of a pdf.js document, narrowed to what this module actually uses. */
-interface PdfDocumentLike {
+/**
+ * The shape of a pdf.js document, narrowed to what Klunk actually uses.
+ *
+ * Exported because the document has to be *shared*: `getDocument` transfers the
+ * bytes to the worker port and detaches the ArrayBuffer, so opening the same
+ * `Uint8Array` a second time throws `DataCloneError`. Reading the text and
+ * cutting the pictures out therefore work from one open document rather than
+ * each opening their own.
+ */
+export interface PdfDocumentLike {
   numPages: number
   getPage(n: number): Promise<PdfPageLike>
 }
 
-interface PdfPageLike {
+export interface PdfPageLike {
   /** [x0, y0, x1, y1] in points. */
   view: number[]
   getTextContent(): Promise<{ items: unknown[] }>
+  getViewport(options: { scale: number }): { width: number; height: number }
+  render(options: {
+    canvas: HTMLCanvasElement
+    viewport: unknown
+    intent?: string
+  }): { promise: Promise<void> }
 }
 
 /**
@@ -104,7 +118,7 @@ export async function pagesFromDocument(doc: PdfDocumentLike): Promise<PageText[
  * separate chunk; it cannot help the single-file build, which inlines everything
  * by definition and grows by about 1.4 MB for this feature.
  */
-export async function readPdf(bytes: Uint8Array): Promise<PageText[]> {
+export async function openPdf(bytes: Uint8Array): Promise<PdfDocumentLike> {
   const pdfjs = await import('pdfjs-dist')
   const worker = await import('pdfjs-dist/build/pdf.worker.mjs')
 
@@ -112,7 +126,13 @@ export async function readPdf(bytes: Uint8Array): Promise<PageText[]> {
   // getDocument, or pdf.js will go looking for a worker file that is not there.
   ;(globalThis as Record<string, unknown>).pdfjsWorker = worker
 
+  // This detaches `bytes`. Whatever else needs the file must use the document
+  // returned here, not the array that was passed in.
   const doc = await pdfjs.getDocument({ data: bytes }).promise
+  return doc as unknown as PdfDocumentLike
+}
 
-  return pagesFromDocument(doc as unknown as PdfDocumentLike)
+/** Open a PDF and read its text, for a caller that wants nothing else from it. */
+export async function readPdf(bytes: Uint8Array): Promise<PageText[]> {
+  return pagesFromDocument(await openPdf(bytes))
 }
