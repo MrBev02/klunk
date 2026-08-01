@@ -41,17 +41,24 @@ export function Builder({
   folder,
   paper,
   setPaper,
+  dirty,
+  onClose,
   onSaved,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
   paper: Paper | null
   setPaper: (p: Paper | null) => void
+  /** Whether the paper on screen differs from the one in the folder. */
+  dirty: boolean
+  /** Routed through the app's guard, because Close discards as much as Forget does. */
+  onClose: () => void
   onSaved: () => void
 }) {
   const profiles = index.profiles.map((p) => p.data)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState('')
+  const [failed, setFailed] = useState('')
   const [preview, setPreview] = useState<PrintMode | null>(null)
   const [target, setTarget] = useState(0)
 
@@ -76,13 +83,17 @@ export function Builder({
   const save = async () => {
     setSaving(true)
     setSaved('')
+    setFailed('')
     try {
       const path = `papers/${paper.id}.json`
       await writeJson(folder, path, paper)
       setSaved(`Saved to ${path}`)
       onSaved()
     } catch (err) {
-      setSaved(`Could not save: ${(err as Error).message}`)
+      // Kept apart from the success message rather than sharing one line: a
+      // failed save leaves the paper dirty, and the dirty notice must not be
+      // what hides the reason it is still dirty.
+      setFailed(`Could not save: ${(err as Error).message}`)
     } finally {
       setSaving(false)
     }
@@ -165,16 +176,27 @@ export function Builder({
               ))}
             </select>
             <span class="muted paperstatus__note">
+              {/* "Save to record the change" used to be appended here. It was
+                  standing in for an unsaved-changes indicator that did not
+                  exist; there is one now, so the hint can go back to saying
+                  what the setting does. */}
               {paper.status === 'used'
                 ? 'Its questions now raise a warning on any other paper that uses them.'
                 : 'Mark a paper as sat and Klunk warns when another paper reuses its questions.'}
-              {' Save to record the change.'}
             </span>
           </div>
 
           <div class="rowbtns" style={{ marginTop: '0.8rem' }}>
-            <button class="btn btn--primary" disabled={saving} onClick={() => void save()}>
-              {saving ? 'Saving…' : 'Save'}
+            {/* The button says which of the two states the paper is in, because
+                nothing else on this screen did. A teacher who has changed
+                something sees "Save changes"; one who has not sees a Save that
+                is plainly not waiting to be pressed. */}
+            <button
+              class="btn btn--primary"
+              disabled={saving || !dirty}
+              onClick={() => void save()}
+            >
+              {saving ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
             </button>
             <button class="btn" onClick={() => setPreview('paper')}>
               Preview paper
@@ -182,13 +204,20 @@ export function Builder({
             <button class="btn" onClick={() => setPreview('guide')}>
               Preview marking guide
             </button>
-            <button class="btn btn--small" onClick={() => setPaper(null)}>
+            <button class="btn btn--small" onClick={onClose}>
               Close
             </button>
           </div>
-          {saved && (
+          {failed && <p class="setup__problem">{failed}</p>}
+          {!failed && (
             <p class="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-              {saved}
+              {dirty ? (
+                <>
+                  Not yet in <span class="mono">papers/{paper.id}.json</span>.
+                </>
+              ) : (
+                (saved ?? '')
+              )}
             </p>
           )}
         </section>

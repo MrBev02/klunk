@@ -14,6 +14,8 @@ import {
   checkPaper,
   moveRef,
   newPaper,
+  paperIsDirty,
+  paperIsSaved,
   removeRef,
   resolvePaper,
   rowAnswers,
@@ -467,5 +469,74 @@ describe('surviving a moved or renamed bank', () => {
     const resolved = resolvePaper(withDecoy, paper, profile)
     expect(resolved.relocated).toEqual([])
     expect(resolved.sections[0]?.questions[0]?.file).toBe('bank/test.json')
+  })
+})
+
+describe('paperIsDirty', () => {
+  /** The folder as it looks once this paper has been written to it. */
+  const savedAs = (index: ContentIndex, paper: Paper): ContentIndex => ({
+    ...index,
+    papers: [{ path: `papers/${paper.id}.json`, data: paper }],
+  })
+
+  it('calls a paper that has never been saved changed', () => {
+    const { index, paper } = goodPaper()
+    expect(paperIsDirty(index, paper)).toBe(true)
+    expect(paperIsSaved(index, paper)).toBe(false)
+  })
+
+  it('calls a paper that matches the folder unchanged', () => {
+    const { index, paper } = goodPaper()
+    const after = savedAs(index, paper)
+    expect(paperIsDirty(after, paper)).toBe(false)
+    expect(paperIsSaved(after, paper)).toBe(true)
+  })
+
+  it('notices the status change that makes the reuse warning work', () => {
+    const { index, paper } = goodPaper()
+    const after = savedAs(index, paper)
+    // The case from #11: marking a paper as sat is what warns other papers off
+    // its questions, and it does nothing at all until it reaches the file.
+    expect(paperIsDirty(after, { ...paper, status: 'used' })).toBe(true)
+  })
+
+  it('notices a question added, removed or moved', () => {
+    const { index, paper } = goodPaper()
+    const after = savedAs(index, paper)
+    expect(paperIsDirty(after, addRef(paper, 1, 'bank/test.json#g'))).toBe(true)
+    expect(paperIsDirty(after, removeRef(paper, 0, 0))).toBe(true)
+    expect(paperIsDirty(after, moveRef(paper, 0, 0, 1))).toBe(true)
+  })
+
+  it('survives a file whose keys a teacher reordered by hand', () => {
+    const { index, paper } = goodPaper()
+    // Nothing stops a teacher opening papers/p1.json in an editor. Key order is
+    // not part of what a paper says, so a reordered file is not a change — and
+    // an indicator that says otherwise can never be cleared.
+    const reordered = Object.fromEntries(
+      Object.entries(paper).reverse(),
+    ) as unknown as Paper
+    expect(paperIsDirty(savedAs(index, reordered), paper)).toBe(false)
+  })
+
+  it('does not mistake an absent optional field for a changed one', () => {
+    const { index, paper } = goodPaper()
+    // In memory an untouched optional is `undefined`; in the file it is absent.
+    // JSON.stringify drops it on the way out, so the two must compare equal.
+    const onDisk = { ...paper }
+    delete (onDisk as { note?: string }).note
+    expect(paperIsDirty(savedAs(index, onDisk), { ...paper, note: undefined } as Paper)).toBe(
+      false,
+    )
+  })
+
+  it('still notices a change buried in a section', () => {
+    const { index, paper } = goodPaper()
+    const after = savedAs(index, paper)
+    const retitled: Paper = {
+      ...paper,
+      sections: paper.sections.map((s, i) => (i === 1 ? { ...s, title: 'Part B' } : s)),
+    }
+    expect(paperIsDirty(after, retitled)).toBe(true)
   })
 })

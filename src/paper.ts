@@ -430,6 +430,54 @@ export function newPaper(profile: Profile, id: string, title: string): Paper {
   }
 }
 
+/* ------------------------------------------------------- saved or not saved */
+
+/**
+ * JSON with object keys in a fixed order, so two objects that hold the same
+ * thing produce the same string.
+ *
+ * A plain `JSON.stringify` compare would work for a paper Klunk itself wrote
+ * and read back, because the same code writes the keys in the same order every
+ * time. It would not survive a teacher hand-editing `papers/x.json` and moving
+ * a key, which would then read as unsaved changes for ever with nothing a teacher
+ * could do to clear it. An indicator that cries wolf is worse than no indicator,
+ * since the whole point of this one is that it can be trusted before a discard.
+ *
+ * Array order is preserved: the order of sections, and of the questions in
+ * them, is the paper.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+  const entries = Object.entries(value as Record<string, unknown>)
+    // `undefined` is what an absent optional field looks like in memory and it
+    // is not written to the file at all, so it must not count as a difference.
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`
+}
+
+/**
+ * Whether the paper being edited differs from the one in the folder.
+ *
+ * A paper is edited in memory and only written on Save, and nothing said so: a
+ * teacher could set the status to "already sat" — which is what makes Klunk warn
+ * other papers off its questions — navigate away, and lose the safeguard while
+ * the screen still showed it set.
+ *
+ * A paper that has never been saved counts as changed, because everything about
+ * it is unwritten.
+ */
+export function paperIsDirty(index: ContentIndex, paper: Paper): boolean {
+  const onDisk = index.papers.find((p) => p.data.id === paper.id)?.data
+  return onDisk === undefined || canonical(onDisk) !== canonical(paper)
+}
+
+/** Whether this paper exists in the folder at all, which changes what a discard costs. */
+export function paperIsSaved(index: ContentIndex, paper: Paper): boolean {
+  return index.papers.some((p) => p.data.id === paper.id)
+}
+
 export function addRef(paper: Paper, sectionIndex: number, ref: PaperRef): Paper {
   return {
     ...paper,

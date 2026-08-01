@@ -4,6 +4,7 @@ import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionEditor, type Editing } from './editor'
 import { Extractor } from './extractor'
 import { Factory } from './factory'
+import { paperIsDirty, paperIsSaved } from './paper'
 import { QuestionRow } from './question'
 import { ProfileInstaller, SyllabusNote } from './setup'
 import {
@@ -31,6 +32,18 @@ import {
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
 type View = 'library' | 'build' | 'draft' | 'paper'
 
+/** Something that would discard unsaved work, held until a teacher confirms it. */
+interface Guarded {
+  /**
+   * What is about to happen, as the subject of "… will discard …": "Forgetting
+   * klunk-content", "Opening another folder", "Closing this paper".
+   */
+  what: string
+  /** The confirming button, which says what it does rather than "OK". */
+  confirm: string
+  run: () => void | Promise<void>
+}
+
 export function App() {
   const caps = useMemo(detectCapabilities, [])
   const insecure = useMemo(() => insecureContextWarning(caps), [caps])
@@ -41,6 +54,7 @@ export function App() {
   const [error, setError] = useState<string>('')
   const [view, setView] = useState<View>('library')
   const [paper, setPaper] = useState<Paper | null>(null)
+  const dirty = paper !== null && paperIsDirty(index, paper)
   /** 'new' to write one, an Editing to change one, null when the editor is shut. */
   const [editor, setEditor] = useState<'new' | Editing | null>(null)
   const [notice, setNotice] = useState('')
@@ -48,8 +62,8 @@ export function App() {
   const [folders, setFolders] = useState<RememberedFolder[]>([])
   /** Which of them is open, by position, since a handle is not the same object twice. */
   const [current, setCurrent] = useState(-1)
-  /** A folder waiting on a second click, because switching would close an open paper. */
-  const [pendingSwitch, setPendingSwitch] = useState<RememberedFolder | null>(null)
+  /** An action waiting on a second click, because it would discard unsaved work. */
+  const [pending, setPending] = useState<Guarded | null>(null)
 
   // The live index is mirrored in a ref so a rescan can hand the one it replaces
   // to scanFolder for its image URLs to be released. A ref, not the state value:
@@ -153,7 +167,7 @@ export function App() {
    */
   const switchTo = useCallback(
     async (entry: RememberedFolder) => {
-      setPendingSwitch(null)
+      setPending(null)
       try {
         if (!(await openFolder(entry.handle))) {
           setError(
@@ -177,19 +191,42 @@ export function App() {
     [load],
   )
 
-  /** Ask first when a switch would close an open paper, since nothing else says so. */
-  const requestSwitch = useCallback(
-    (entry: RememberedFolder) => {
-      if (paper) setPendingSwitch(entry)
-      else void switchTo(entry)
+  /**
+   * Anything that would throw away unsaved work asks first.
+   *
+   * Switching folders used to be the only path that asked, and it asked because
+   * somebody remembered to bolt a confirm onto that one caller. Forget, Add
+   * folder and the builder's own Close discarded exactly the same work in
+   * silence. One guard rather than three confirms means the next path that
+   * clears a paper cannot forget to ask, which is the failure this had already
+   * had three times.
+   *
+   * The condition is unsaved changes, not merely an open paper. Warning about a
+   * paper that is already written to the folder trains teachers to click through
+   * the warning, and then it is not a warning.
+   */
+  const guard = useCallback(
+    (action: Guarded) => {
+      if (dirty) setPending(action)
+      else void action.run()
     },
-    [paper, switchTo],
+    [dirty],
+  )
+
+  const requestSwitch = useCallback(
+    (entry: RememberedFolder) =>
+      guard({
+        what: `Moving to ${entry.handle.name}`,
+        confirm: `Switch to ${entry.handle.name}`,
+        run: () => switchTo(entry),
+      }),
+    [guard, switchTo],
   )
 
   /** Stop remembering the open folder. Its contents are untouched. */
   const close = useCallback(async () => {
     if (folder) await forgetFolder(folder)
-    setPendingSwitch(null)
+    setPending(null)
     setPaper(null)
     setEditor(null)
     setNotice('')
@@ -208,6 +245,32 @@ export function App() {
     setCurrent(-1)
     setPhase('empty')
   }, [folder, load, replaceIndex])
+
+  const requestForget = useCallback(
+    () =>
+      guard({
+        what: `Forgetting ${folder?.name ?? 'this folder'}`,
+        confirm: 'Forget it anyway',
+        run: close,
+      }),
+    [guard, folder, close],
+  )
+
+  const requestAddFolder = useCallback(
+    () =>
+      guard({
+        what: 'Opening another folder',
+        confirm: 'Open another folder',
+        run: choose,
+      }),
+    [guard, choose],
+  )
+
+  const requestClosePaper = useCallback(
+    () =>
+      guard({ what: 'Closing this paper', confirm: 'Close it anyway', run: () => setPaper(null) }),
+    [guard],
+  )
 
   // Opening and closing the editor swaps the whole page for a taller or
   // shorter one. Without this a teacher who saves from the bottom of a long
@@ -241,7 +304,7 @@ export function App() {
               current={current}
               openName={folder.name}
               onSwitch={requestSwitch}
-              onAdd={() => void choose()}
+              onAdd={requestAddFolder}
             />
             <button class="btn btn--small" onClick={() => void load(folder)}>
               Reload
@@ -249,7 +312,7 @@ export function App() {
             <button
               class="btn btn--small"
               title="Klunk stops remembering this folder. Nothing in it is changed."
-              onClick={() => void close()}
+              onClick={requestForget}
             >
               Forget
             </button>
@@ -257,20 +320,40 @@ export function App() {
         )}
       </header>
 
-      {pendingSwitch && (
+      {pending && paper && (
         <section class="panel panel--alert">
-          <p class="panel__title">You are in the middle of a paper</p>
+          {/* The paper is named in the heading rather than the sentence. Putting
+              it in the sentence made the builder's own Close read "Closing it
+              closes Guard test paper", since that action's subject and object
+              are the same thing. */}
+          <p class="panel__title">{paper.title} has changes you have not saved</p>
           <p>
-            Moving to <strong>{pendingSwitch.handle.name}</strong> closes it. Anything you
-            have already saved is safe in this folder's <code>papers/</code> and will be
-            there when you come back; anything you have changed since is not.
+            {pending.what}{' '}
+            {paperIsSaved(index, paper) ? (
+              <>
+                will discard everything you have changed since you last saved. The
+                version already in this folder's <code>papers/</code> is safe and will be
+                there when you come back.
+              </>
+            ) : (
+              <>
+                will discard the whole paper. It has never been saved, so there is no
+                copy in this folder's <code>papers/</code> to come back to.
+              </>
+            )}
           </p>
           <div class="rowbtns">
-            <button class="btn" onClick={() => setPendingSwitch(null)}>
+            <button class="btn" onClick={() => setPending(null)}>
               Stay here
             </button>
-            <button class="btn btn--primary" onClick={() => void switchTo(pendingSwitch)}>
-              Switch to {pendingSwitch.handle.name}
+            <button
+              class="btn btn--primary"
+              onClick={() => {
+                setPending(null)
+                void pending.run()
+              }}
+            >
+              {pending.confirm}
             </button>
           </div>
         </section>
@@ -383,6 +466,8 @@ export function App() {
               folder={folder}
               paper={paper}
               setPaper={setPaper}
+              dirty={dirty}
+              onClose={requestClosePaper}
               onSaved={() => void load(folder)}
             />
           )}
