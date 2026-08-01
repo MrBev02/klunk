@@ -796,6 +796,7 @@ function Library({
                 key={`${ref.file}#${ref.question.id}`}
                 item={ref}
                 index={i}
+                images={index.images}
                 action={
                   <button class="btn btn--small" onClick={() => onEdit(ref)}>
                     Edit this question

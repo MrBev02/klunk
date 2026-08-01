@@ -13,8 +13,10 @@
 import { useState } from 'preact/hooks'
 import { rowAnswers, shuffledChoices } from './paper'
 import { markRange } from './render'
+import { joinPath } from './storage'
+import type { Stimulus } from './types'
 import { QUESTION_TYPE_LABELS, questionLabel, type Question, type QuestionRef } from './types'
-import { looksBanded, needsGuide } from './validate'
+import { hasGuide, looksBanded, needsGuide } from './validate'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -22,10 +24,13 @@ export function QuestionRow({
   item,
   index = 0,
   action,
+  images,
 }: {
   item: QuestionRef
   index?: number
   action?: preact.ComponentChildren
+  /** Stimulus images by folder path, so a question can show its picture. */
+  images?: Map<string, string> | undefined
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
@@ -64,7 +69,7 @@ export function QuestionRow({
         <div class="qrow__detail">
           {/* The collapsed row above already shows the stem, so repeating it
               here just pushed the answers further down the screen. */}
-          <QuestionDetail question={q} showStem={false} />
+          <QuestionDetail question={q} showStem={false} bankFile={item.file} images={images} />
           <p class="det__label" style={{ marginTop: '0.9rem' }}>
             <span class="mono">{item.file}</span> · <span class="mono">{q.id}</span>
           </p>
@@ -78,9 +83,14 @@ export function QuestionRow({
 export function QuestionDetail({
   question: q,
   showStem = true,
+  bankFile,
+  images,
 }: {
   question: Question
   showStem?: boolean
+  /** Where the question lives, since a stimulus path is relative to its bank. */
+  bankFile?: string | undefined
+  images?: Map<string, string> | undefined
 }) {
   return (
     <>
@@ -95,6 +105,11 @@ export function QuestionDetail({
                 {s.text}
                 {s.caption && <em> — {s.caption}</em>}
               </p>
+            ) : imageUrl(s, bankFile, images) ? (
+              <figure key={i} class="stim-figure">
+                <img src={imageUrl(s, bankFile, images)} alt={s.alt ?? ''} />
+                {s.caption && <figcaption>{s.caption}</figcaption>}
+              </figure>
             ) : (
               <p key={i} class="stim-note">
                 Image: <span class="mono">{s.file ?? 'unnamed'}</span>
@@ -224,7 +239,7 @@ function Body({ question: q }: { question: Question }) {
                 <span class="parts-list__marks">{p.marks}m</span>
                 {p.sampleAnswer && <p class="parts-list__sample">{p.sampleAnswer}</p>}
                 {p.criteria?.length ? (
-                  <table class="crit">
+                  <table class="crit crit--part">
                     <tbody>
                       {p.criteria.map((c, j) => (
                         <tr key={j}>
@@ -244,9 +259,31 @@ function Body({ question: q }: { question: Question }) {
   }
 }
 
+/**
+ * The picture itself where it can be found, and its filename where it cannot.
+ *
+ * Showing only the filename was tolerable while every image was one a teacher
+ * had chosen and could picture from its name. Klunk now cuts pictures out of
+ * past papers by itself, and a teacher checking fifteen of those needs to see
+ * what was cut.
+ */
+function imageUrl(
+  s: Stimulus,
+  bankFile: string | undefined,
+  images: Map<string, string> | undefined,
+): string | undefined {
+  if (s.kind !== 'image' || !s.file || !bankFile || !images) return undefined
+  return images.get(joinPath(bankFile, s.file))
+}
+
 function Guide({ question: q }: { question: Question }) {
   const g = q.markingGuide
-  if (!g?.criteria?.length && !g?.sampleAnswer && !g?.notes) {
+  if (!g || (!g.criteria?.length && !g.sampleAnswer && !g.notes)) {
+    // A question marked part by part keeps everything on its parts, which the
+    // parts list has already shown. Asking for criteria directly underneath a
+    // table of them is the kind of nagging that teaches a teacher to ignore
+    // every warning Klunk gives.
+    if (hasGuide(q)) return null
     if (needsGuide(q.questionType)) {
       return (
         <div class="det">

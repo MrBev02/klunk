@@ -402,7 +402,8 @@ function GuideBlock({ question }: { question: Question }) {
     question.questionType === 'drawing'
   // A question whose parts each carry a sample answer is already covered, so
   // saying so again at question level is nagging rather than useful.
-  const partsCovered = question.config?.parts?.some((p) => p.sampleAnswer) ?? false
+  const partsCovered =
+    question.config?.parts?.some((p) => p.sampleAnswer || p.criteria?.length) ?? false
   const showMissing = wantsSample && !guide?.sampleAnswer && !partsCovered
   const hasAnything = guide?.sampleAnswer || guide?.criteria?.length || guide?.notes
 

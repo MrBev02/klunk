@@ -365,13 +365,31 @@ function finish(building: Building, notes: string[]): GuideEntry {
     }
   }
 
-  const sampleAnswer = building.prose.join(' ').trim()
+  const sampleAnswer = joinProse(building.prose)
   return {
     number: building.number,
     ...(building.part ? { part: building.part } : {}),
     criteria,
     ...(sampleAnswer ? { sampleAnswer } : {}),
   }
+}
+
+/**
+ * Put a sample answer back together without running its bullets into one another.
+ *
+ * The guides write these as lists as often as prose — a fifteen-mark answer can
+ * be twenty bullets — and joining every line with a space produced one wall of
+ * text with `•` scattered through it, which is unreadable and not what NESA
+ * printed. A line that starts a bullet starts a new line here; anything else
+ * continues the one before it, because a bullet wraps.
+ */
+function joinProse(lines: string[]): string {
+  const out: string[] = []
+  for (const line of lines) {
+    if (BULLET.test(line) || out.length === 0) out.push(line.trim())
+    else out[out.length - 1] = `${out[out.length - 1]} ${line.trim()}`.trim()
+  }
+  return out.join('\n').trim()
 }
 
 /* --------------------------------------------------------------- putting it back */

@@ -1683,3 +1683,36 @@ code,
   opacity: 0.35;
   filter: grayscale(1);
 }
+
+/* A marking guide's bullets are lines, not one run of prose. The readers keep
+   the line breaks; without this the browser collapses them and a twenty-bullet
+   sample answer prints as a wall of text with dots scattered through it. */
+.sample,
+.parts-list__sample,
+.crit td:first-child,
+.guide__sample,
+.guide__criteria td:first-child {
+  white-space: pre-line;
+}
+
+/* A part's criteria sit under the part, not in the 2rem column its label uses.
+   Without this every character wrapped onto its own line. */
+.crit--part {
+  grid-column: 2 / -1;
+  margin-top: 0.3rem;
+}
+
+.stim-figure {
+  margin: 0.4rem 0;
+}
+.stim-figure img {
+  max-width: min(100%, 28rem);
+  height: auto;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+.stim-figure figcaption {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  margin-top: 0.2rem;
+}
