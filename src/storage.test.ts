@@ -13,6 +13,7 @@ import {
   allQuestions,
   copyFileInto,
   emptyIndex,
+  folderIsMissing,
   inSyllabus,
   joinPath,
   mergeFolder,
@@ -249,6 +250,42 @@ describe('scanFolder image loading', () => {
     await expect(scanFolder(broken, first)).rejects.toThrow('permission revoked mid-scan')
     expect(first.images.size).toBe(1)
     expect(revoked).toEqual([])
+  })
+})
+
+describe('folderIsMissing', () => {
+  /**
+   * A folder Klunk still remembers and that is no longer on the computer.
+   *
+   * What a browser actually hands back: a handle that answers for its name and
+   * its permission, and throws only when something is read from it. Found in the
+   * real IndexedDB on the development machine, not imagined.
+   */
+  const vanished = {
+    kind: 'directory',
+    name: 'klunk-english',
+    async *entries(): AsyncGenerator<[string, unknown]> {
+      throw new DOMException(
+        'A requested file or directory could not be found at the time an operation was processed.',
+        'NotFoundError',
+      )
+    },
+  } as unknown as FileSystemDirectoryHandle
+
+  it('recognises a scan of a folder that has gone', async () => {
+    const err = await scanFolder(vanished).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    )
+    expect(folderIsMissing(err)).toBe(true)
+  })
+
+  it('does not take an ordinary failure for a folder that has gone', () => {
+    expect(folderIsMissing(new Error('permission revoked mid-scan'))).toBe(false)
+    expect(folderIsMissing(new DOMException('no', 'NotAllowedError'))).toBe(false)
+    expect(folderIsMissing(null)).toBe(false)
+    // The name is a property to read, not a string to match against a message.
+    expect(folderIsMissing('NotFoundError')).toBe(false)
   })
 })
 

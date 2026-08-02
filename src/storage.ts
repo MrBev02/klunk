@@ -350,6 +350,25 @@ export async function openFolder(handle: FileSystemDirectoryHandle): Promise<boo
   return (await handle.requestPermission({ mode: 'readwrite' })) === 'granted'
 }
 
+/**
+ * Whether a failure means the folder is no longer there.
+ *
+ * A handle outlives what it points at. A folder renamed, moved to another drive
+ * or deleted between sessions leaves a handle that is still remembered, still
+ * reports its permission, and then throws on the first read. That is an ordinary
+ * end to a folder's life — a shared OneDrive folder reorganised over a holiday
+ * does it — so it is worth telling apart from a genuine failure, which is all
+ * "Something went wrong" could say.
+ *
+ * By name rather than `instanceof DOMException`, because the throw comes from
+ * the browser's file system and the type is not worth depending on.
+ */
+export function folderIsMissing(err: unknown): boolean {
+  return (
+    typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'NotFoundError'
+  )
+}
+
 /** Stop remembering one folder. The folder itself is untouched. */
 export async function forgetFolder(handle: FileSystemDirectoryHandle): Promise<void> {
   const kept: FileSystemDirectoryHandle[] = []

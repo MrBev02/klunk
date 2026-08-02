@@ -507,9 +507,16 @@ click each. With a file that is not a profile sitting at
 this folder" reported `… is already there, so nothing was written.` and left the
 file on disk untouched.
 
-That session also found a remembered handle pointing at a folder that no longer
-exists. See #37: it is listed like any other, and nothing can remove it, because
-Forget only ever forgets the folder that is open.
+**A folder that has gone says so, and can be forgotten from where it fails**
+(#37), which is what that session turned up on the way. A remembered handle
+pointed at a folder that no longer existed: it was listed like any other, opening
+it said only "Something went wrong", and nothing could remove it, because Forget
+in the header only ever forgets the folder that is *open*. It also held one of
+the eight remembered places for good. Now `folderIsMissing` tells a
+`NotFoundError` from a genuine failure, the panel names the folder, and forgetting
+it returns the teacher to the folder they were in rather than to the welcome
+screen. The check cannot come earlier: reading a folder needs the grant, so the
+permission click is always spent before the folder can be found to be gone.
 
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.

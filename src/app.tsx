@@ -12,6 +12,7 @@ import { ProfileInstaller, SyllabusNote } from './setup'
 import {
   allQuestions,
   emptyIndex,
+  folderIsMissing,
   forgetFolder,
   inSyllabus,
   listFolders,
@@ -54,6 +55,14 @@ export function App() {
   const [folder, setFolder] = useState<FileSystemDirectoryHandle | null>(null)
   const [index, setIndex] = useState<ContentIndex>(emptyIndex)
   const [error, setError] = useState<string>('')
+  /**
+   * The folder an error is about, when the folder itself has gone.
+   *
+   * Held rather than inferred from the message, because it is the handle that
+   * has to be forgotten, and by the time the error is on screen it is no longer
+   * the open folder and may never have been one.
+   */
+  const [gone, setGone] = useState<FileSystemDirectoryHandle | null>(null)
   const [view, setView] = useState<View>('library')
   const [paper, setPaper] = useState<Paper | null>(null)
   const dirty = paper !== null && paperIsDirty(index, paper)
@@ -107,6 +116,7 @@ export function App() {
   const load = useCallback(
     async (handle: FileSystemDirectoryHandle) => {
       setPhase('scanning')
+      setGone(null)
       try {
         replaceIndex(await scanFolder(handle, indexRef.current))
         setFolder(handle)
@@ -118,6 +128,10 @@ export function App() {
         await rememberFolder(handle).catch(() => undefined)
         await refreshFolders(handle)
       } catch (err) {
+        // The folder having gone is not a fault to report as one, and it is the
+        // only failure with a way out of its own: say which folder, and offer to
+        // stop remembering it.
+        if (folderIsMissing(err)) setGone(handle)
         setError((err as Error).message)
         setPhase('error')
       }
@@ -181,6 +195,9 @@ export function App() {
           return
         }
       } catch (err) {
+        // Asking for permission can be where a folder that has gone is first
+        // noticed, before anything has been read from it.
+        if (folderIsMissing(err)) setGone(entry.handle)
         setError((err as Error).message)
         setPhase('error')
         return
@@ -258,6 +275,43 @@ export function App() {
         run: close,
       }),
     [guard, folder, close],
+  )
+
+  /**
+   * Stop remembering a folder that is no longer on this computer.
+   *
+   * Forget in the header can only ever drop the folder that is *open*, and this
+   * one cannot be opened, so before this there was no way to be rid of it at
+   * all: it sat in the list for good, offering an error to anyone who clicked
+   * it and holding one of the eight remembered places against a folder that
+   * still exists.
+   *
+   * Nothing is asked first, unlike the other three ways of forgetting a folder.
+   * There is nothing to discard: a paper is cleared before a switch is even
+   * attempted, and this folder has nothing in it to lose.
+   */
+  const forgetMissing = useCallback(
+    async (handle: FileSystemDirectoryHandle) => {
+      await forgetFolder(handle).catch(() => undefined)
+      setGone(null)
+      setError('')
+
+      // Back to the folder that was open, when the failure was a switch away
+      // from one. Its index was never replaced, so there is nothing to re-read.
+      if (folder) {
+        await refreshFolders(folder)
+        setPhase('ready')
+        return
+      }
+
+      const remaining = await listFolders().catch(() => [])
+      const next = remaining.find((f) => f.permission === 'granted')
+      if (next) return load(next.handle)
+      setFolders(remaining)
+      setCurrent(-1)
+      setPhase('empty')
+    },
+    [folder, load, refreshFolders],
   )
 
   const requestAddFolder = useCallback(
@@ -386,9 +440,24 @@ export function App() {
 
       {phase === 'error' && (
         <section class="panel panel--alert">
-          <p class="panel__title">Something went wrong</p>
-          <p>{error}</p>
+          <p class="panel__title">
+            {gone ? `${gone.name} is no longer on this computer` : 'Something went wrong'}
+          </p>
+          {gone ? (
+            <p>
+              Klunk still remembers this folder, but it has been renamed, moved or deleted
+              since it was last opened, so there is nothing left to read. Forgetting it
+              only stops it being offered here; it does not delete anything.
+            </p>
+          ) : (
+            <p>{error}</p>
+          )}
           <div class="rowbtns">
+            {gone && (
+              <button class="btn btn--primary" onClick={() => void forgetMissing(gone)}>
+                Forget {gone.name}
+              </button>
+            )}
             <button class="btn" onClick={() => void choose()}>
               Choose a folder
             </button>
