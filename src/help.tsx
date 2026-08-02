@@ -46,10 +46,10 @@ export function Help({ onClose }: { onClose: () => void }) {
       </div>
 
       <p class="help__lede">
-        Klunk builds exam papers out of questions you already have. It runs in this
-        browser tab. There is no account to make, no server, and nothing is uploaded.
-        Your questions and papers are ordinary files in a folder you choose, usually
-        the subject's OneDrive or Teams folder, and Klunk reads and writes them there.
+        Klunk builds exam papers out of questions you already have. It runs in this browser
+        tab. There is no account to make, no server, and nothing is uploaded. Your questions
+        and papers are ordinary files in a folder you choose, usually the subject's OneDrive
+        or Teams folder, and Klunk reads and writes them there.
       </p>
 
       <nav class="help__contents" aria-label="On this page">
@@ -84,8 +84,8 @@ export function Help({ onClose }: { onClose: () => void }) {
           </li>
         </ol>
         <p class="muted">
-          Everything Klunk writes is plain text in your own folder. You can copy it, back
-          it up, or send it to a colleague, with or without Klunk.
+          Everything Klunk writes is plain text in your own folder. You can copy it, back it
+          up, or send it to a colleague, with or without Klunk.
         </p>
       </section>
 
@@ -99,7 +99,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p>
-          <strong>Use one folder per subject.</strong> The permission you give then covers
+          <strong>Use one folder per subject.</strong> The access you give Klunk then covers
           only the subject you are working on, and swapping to another one later takes a
           single click in the header. Most people use a folder on OneDrive or Teams. It is
           already backed up, and colleagues teaching the same course can share it.
@@ -110,16 +110,15 @@ export function Help({ onClose }: { onClose: () => void }) {
           many sections, what each section is worth, which question types go where, and how
           long students get. The checker compares your paper against it. Klunk comes with
           the profile for NSW HSC Design and Technology. For any other exam, use{' '}
-          <strong>Describe your own paper</strong> on the Papers tab. It is a form you fill
-          in, not a file you edit, and it takes an afternoon once for a whole faculty.
+          <strong>Describe your own paper</strong> on the Papers tab. You fill it in on
+          screen like any other form, and it takes an afternoon once for a whole faculty.
         </p>
 
         <p>
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
           points. <strong>Klunk does not come with any, and that is on purpose.</strong> A
-          syllabus is copyright. Copying a reasonable portion for your own teaching is
-          fine, but publishing a whole one, rearranged, is not. So you build your own from
-          your own copy. Save the syllabus <code>.docx</code> into your folder and open the{' '}
+          syllabus is copyright, so Klunk cannot hand you one. You build your own from your
+          own copy. Save the syllabus <code>.docx</code> into your folder and open the{' '}
           <strong>From a syllabus</strong> tab. It shows you every course, topic and content
           point it found before it writes anything.
         </p>
@@ -171,9 +170,9 @@ export function Help({ onClose }: { onClose: () => void }) {
         </dl>
 
         <p>
-          Every question remembers where it came from. For anything read out of a past
-          paper that means the year and the question number, so Klunk can warn you before
-          you put a public exam question into a school trial.
+          Every question remembers where it came from. For anything read out of a past paper
+          that means the year and the question number, so Klunk can warn you before you put
+          a public exam question into a school trial.
         </p>
 
         <p>
@@ -285,10 +284,10 @@ export function Help({ onClose }: { onClose: () => void }) {
 
           <dt>"Welcome back", and it asks you to confirm access again</dt>
           <dd>
-            Your browser has let the folder permission lapse, which it does from time to
-            time. Nothing has been forgotten, and you do not need the file dialog. Click
-            your folder, then confirm once when the browser asks. It is one click per
-            folder, once a session.
+            Your browser is asking you to confirm access to your folder again, which it does
+            from time to time. Your folders are all still there. Click the one you want,
+            then confirm once when the browser asks. It is one click per folder, once a
+            session.
           </dd>
 
           <dt>"… is no longer on this computer"</dt>
@@ -325,10 +324,10 @@ export function Help({ onClose }: { onClose: () => void }) {
 
           <dt>A button seems to do nothing at all</dt>
           <dd>
-            It is usually the folder rather than the button. The permission may have lapsed,
-            or the same folder may be open somewhere else. Click <strong>Reload</strong>,
-            and if the browser asks for your folder again, say yes. If you work on more than
-            one computer, check you are on the one whose browser has the folder.
+            Check the folder first, because that is nearly always the cause. Click{' '}
+            <strong>Reload</strong>, and if the browser asks for access again, say yes. If
+            you work on more than one computer, check you are on the one whose browser has
+            the folder.
           </dd>
 
           <dt>A picture prints as a grey box</dt>
@@ -344,8 +343,8 @@ export function Help({ onClose }: { onClose: () => void }) {
         <p>
           <strong>Nothing, unless you copy it out yourself.</strong> Klunk makes no network
           requests once the page has loaded. The page's own security policy blocks them, so
-          this holds whether or not you take our word for it. There is no account, no server
-          and no database.
+          it cannot make one even by accident. There is no account, no server and no
+          database.
         </p>
         <p>
           Klunk never contacts an AI service. That is why the AI step is copy and paste. The
@@ -354,7 +353,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
         <p class="muted">
           Your folder stays where it is. If it lives on OneDrive it syncs the way it always
-          has, which is Microsoft doing what you already asked it to do.
+          has.
         </p>
       </section>
 
@@ -381,8 +380,8 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">Something wrong, or missing</h3>
         <p>
           Tell whoever gave you this link. It helps a great deal if you say what you were
-          looking at, what you did, and what you expected to happen instead. Klunk is small,
-          and most faults get fixed the same week they are reported.
+          looking at, what you did, and what you expected to happen instead. That is usually
+          enough to find the fault straight away.
         </p>
         <div class="rowbtns">
           <button class="btn btn--primary" onClick={onClose}>
