@@ -231,7 +231,15 @@ uv run --with jsonschema python <validation script>
 
 Regression check for the generator: Design and Technology must stay at
 **20 topics / 78 points / 12 outcomes** (Preliminary) and **20 / 61 / 13** (HSC).
-Textiles and Design at **18 / 104 / 11** and **16 / 79 / 13**.
+Textiles and Design at **18 / 104 / 11** and **15 / 80 / 13**.
+
+Textiles HSC was 16 / 79 until #26, and the change is a fix rather than drift: one
+topic runs past the bottom of a page and continues in a fresh table row opening
+`iv)`, which was read as a sixteenth topic named after a content point. Merging it
+into its parent moves that line from a heading to a point. **The count was right
+while the content was wrong**, which is the whole lesson of this section — so the
+corpus test now also asserts that no topic name opens with a list marker and that
+none carries a non-breaking space.
 
 Groups are part of that check, because they were wrong for a long time without
 changing any count. Design and Technology must have **no group on any topic**: it

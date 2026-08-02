@@ -63,8 +63,14 @@ const EXPECTED: Record<string, Expected> = {
         ],
       },
       hsc: {
-        topics: 16,
-        points: 79,
+        // Was 16 and 79 until #26. One HSC topic runs past the bottom of a page
+        // and continues in a fresh table row opening on "iv)", which was read as
+        // a sixteenth topic named after a content point. Merging it into its
+        // parent moves that line from a heading to a point: one topic fewer,
+        // one point more, and the count that was "right" all along was counting
+        // the fault.
+        topics: 15,
+        points: 80,
         outcomes: 13,
         groups: [
           'Design',
@@ -122,6 +128,24 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
     const groups = courses.flatMap((c) => c.topics.map((t) => t.group ?? ''))
     expect(groups.filter((g) => / /.test(g))).toEqual([])
   })
+
+  // #26, and the two checks a count cannot make: a count says how many topics
+  // there are, never whether they are topics.
+  for (const subject of Object.keys(EXPECTED)) {
+    it(`names no ${subject} topic after a content point`, async () => {
+      const courses = await coursesOf(EXPECTED[subject]!.path)
+      const names = courses.flatMap((c) => c.topics.map((t) => t.name))
+      // A heading never opens "i)" or "iv)" or "a)". A row that does is the tail
+      // of the topic above, which ran past the bottom of a page.
+      expect(names.filter((n) => /^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)/.test(n))).toEqual([])
+    })
+
+    it(`carries no non-breaking space into a ${subject} topic name`, async () => {
+      const courses = await coursesOf(EXPECTED[subject]!.path)
+      const names = courses.flatMap((c) => c.topics.map((t) => t.name))
+      expect(names.filter((n) => /\u00a0/.test(n))).toEqual([])
+    })
+  }
 
   for (const path of ALSO_PARSES) {
     const name = path.split('/').pop() ?? path

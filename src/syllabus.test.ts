@@ -93,6 +93,14 @@ describe('tidyName', () => {
   it('leaves a heading that says nothing of the sort', () => {
     expect(tidyName('emerging technologies')).toBe('emerging technologies')
   })
+
+  it('flattens the non-breaking spaces the document is full of', () => {
+    // #26. Invisible on screen, so a name carrying one looks identical to a
+    // name without and matches nothing. The verbatim heading is kept in `text`.
+    expect(tidyName('the impact of the major design\u00a0project')).toBe(
+      'the impact of the major design project',
+    )
+  })
 })
 
 describe('focusAreaName', () => {
@@ -182,6 +190,118 @@ describe('parseSyllabusXml, narrow layout', () => {
       'Design',
       'Properties and Performance of Textiles',
     ])
+  })
+})
+
+/**
+ * A topic that ran past the bottom of a page (#26).
+ *
+ * Word starts a fresh table row after the break and the list carries on from
+ * where it stopped, so the row opens on "iv)" with no heading of its own.
+ * Textiles HSC has one, and it became a topic named after a content point with
+ * the five points that followed it hanging underneath.
+ */
+describe('a row that continues the topic above', () => {
+  const xml = body(
+    para('P2.1', 'explains innovations'),
+    table(
+      narrowHeader,
+      row(
+        cell('Innovations', 'advances in:', 'i)fibre', 'ii)yarn'),
+        cell('identify innovations'),
+      ),
+      row(cell('iii)fabric', 'the advantages of:', 'the consumer'), cell('evaluate advances')),
+      row(cell('Major Textiles Project', 'investigation'), cell('investigate')),
+    ),
+  )
+
+  it('adds the whole cell to the topic above rather than starting one', () => {
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics.map((t) => t.name)).toEqual(['Innovations', 'Major Textiles Project'])
+    expect(course?.topics[0]?.points?.map((p) => p.text)).toEqual([
+      'advances in:',
+      'i)fibre',
+      'ii)yarn',
+      // The heading line of the continuation row is content, not a heading.
+      'iii)fabric',
+      'the advantages of:',
+      'the consumer',
+    ])
+  })
+
+  it('numbers the points it merges on from the parent, and takes its skills too', () => {
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics[0]?.points?.map((p) => p.id)).toEqual([
+      'PRE-01.01',
+      'PRE-01.02',
+      'PRE-01.03',
+      'PRE-01.04',
+      'PRE-01.05',
+      'PRE-01.06',
+    ])
+    expect(course?.topics[0]?.skills).toEqual(['identify innovations', 'evaluate advances'])
+  })
+
+  it('numbers the topics after it as though it had never been there', () => {
+    // The point of the fix a teacher sees: the ids do not skip, and no topic is
+    // named after a content point.
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics.map((t) => t.id)).toEqual(['PRE-01', 'PRE-02'])
+  })
+
+  it('takes it as a topic when there is nothing to continue', () => {
+    // No NESA syllabus opens a course on a continuation, and reading it as a
+    // topic at least keeps the content.
+    const [course] = parseSyllabusXml(
+      body(
+        para('P2.1', 'explains innovations'),
+        table(narrowHeader, row(cell('iv)finishing techniques', 'a point'), cell('x'))),
+      ),
+    )
+    expect(course?.topics.map((t) => t.id)).toEqual(['PRE-01'])
+  })
+})
+
+describe('what a tab or a line break is worth', () => {
+  // #26: both used to be replaced in the XML before the runs were collected,
+  // which did nothing at all — only <w:t> contents are read, so the space landed
+  // between elements and went out with the markup. "Design inspiration" and
+  // "including:" arrived as one word.
+  const tabbed = (...parts: string[]) => `<w:p>${parts.join('')}</w:p>`
+  const run = (text: string) => `<w:r><w:t>${text}</w:t></w:r>`
+
+  it('reads a tab between two runs as a space', () => {
+    const xml = body(
+      table(
+        narrowHeader,
+        `<w:tr><w:tc>${tabbed(run('Design inspiration'), '<w:tab/>', run('including:'))}</w:tc><w:tc>${tabbed(run('x'))}</w:tc></w:tr>`,
+      ),
+    )
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics[0]?.text).toBe('Design inspiration including:')
+    expect(course?.topics[0]?.name).toBe('Design inspiration')
+  })
+
+  it('reads a line break the same way, and counts a tab beside a space once', () => {
+    const xml = body(
+      table(
+        narrowHeader,
+        `<w:tr><w:tc>${tabbed(run('the use of textiles to enhance'), '<w:br/>', '<w:tab/>', run('performance'))}</w:tc><w:tc>${tabbed(run('x'))}</w:tc></w:tr>`,
+      ),
+    )
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics[0]?.text).toBe('the use of textiles to enhance performance')
+  })
+
+  it('leaves a tab stop alone, since that is a paragraph property and not text', () => {
+    const xml = body(
+      table(
+        narrowHeader,
+        `<w:tr><w:tc>${tabbed('<w:pPr><w:tabs><w:tab w:val="left" w:pos="999"/></w:tabs></w:pPr>', run('Fabric structure'))}</w:tc><w:tc>${tabbed(run('x'))}</w:tc></w:tr>`,
+      ),
+    )
+    const [course] = parseSyllabusXml(xml)
+    expect(course?.topics[0]?.text).toBe('Fabric structure')
   })
 })
 

@@ -48,6 +48,19 @@ DOC_TYPE = "klunk_syllabus"
 # a line of raw markup.
 DROP_RE = re.compile(r"<w:instrText.*?</w:instrText>|<w:delText.*?</w:delText>", re.S)
 TAG_RE = re.compile(r"<[^>]+>")
+
+# A paragraph's visible text, in document order: the runs themselves, and the
+# two things between runs that are a space on the page.
+#
+# Replacing those two in the XML before reading the runs looked like it worked
+# and did nothing at all, because only <w:t> contents are collected: the space
+# landed between elements and was thrown away with the rest of the markup. So
+# "Design inspiration<tab>including:" arrived as "Design inspirationincluding:",
+# and the syllabus is full of them.
+#
+# `<w:tab/>` only, never `<w:tab w:val="left" w:pos="999"/>`: the second is a
+# tab stop in the paragraph's properties, not a tab in its text.
+TEXT_RE = re.compile(r"<w:t(?: [^>]*)?>(.*?)</w:t>|<w:tab/>|<w:br(?: [^>]*)?/>", re.S)
 PARA_RE = re.compile(r"<w:p(?: [^>]*)?>.*?</w:p>|<w:p(?: [^>]*)?/>", re.S)
 ROW_RE = re.compile(r"<w:tr(?: [^>]*)?>.*?</w:tr>", re.S)
 CELL_RE = re.compile(r"<w:tc(?: [^>]*)?>.*?</w:tc>", re.S)
@@ -95,6 +108,20 @@ COURSE_SUFFIX_RE = re.compile(r"\s*\((?:Preliminary|HSC)\)\s*$", re.I)
 # A topic heading often ends by announcing its own list.
 TRAILING_NOISE_RE = re.compile(r"[,;]?\s*includ(?:ing|es)\s*[:;.]?\s*$", re.I)
 
+# A row whose "Students learn about" cell opens with a list marker is not a new
+# topic. It is the tail of the one above, which ran past the bottom of a page:
+# Word starts a fresh table row after the break, and the list carries on from
+# where it stopped. Textiles HSC does this once, at "iv)", and the row was read
+# as a topic named after a content point with the five points that followed it
+# hanging underneath.
+#
+# The same shape as the "Question N (continued)" blocks in the past papers, and
+# the same rule: merge into the parent rather than register a new one.
+#
+# Only a marker in brackets, which is what NESA prints. A full stop after the
+# numeral would also match "i.e." at the start of a heading.
+CONTINUATION_RE = re.compile(r"^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)")
+
 CONTENT_HEADERS = ("outcomes", "students learn about", "students learn to")
 
 
@@ -136,12 +163,18 @@ def para_text(xml: str) -> str:
         xml: The raw ``<w:p>`` element.
 
     Returns:
-        Runs joined, tabs and breaks flattened, entities decoded.
+        Runs joined, tabs and breaks flattened to spaces, entities decoded.
     """
     xml = DROP_RE.sub("", xml)
-    xml = xml.replace("<w:tab/>", " ").replace("<w:br/>", " ")
-    runs = re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S)
-    return html.unescape("".join(TAG_RE.sub("", r) for r in runs)).strip()
+    parts = [
+        " " if m.group(1) is None else TAG_RE.sub("", m.group(1))
+        for m in TEXT_RE.finditer(xml)
+    ]
+    text = html.unescape("".join(parts))
+    # A tab beside a typed space is one gap on the page, not two. Only runs of
+    # ordinary spaces: a non-breaking space is published punctuation and stays
+    # exactly where NESA put it.
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
 def cell_lines(xml: str) -> list[str]:
@@ -272,9 +305,14 @@ def tidy_name(heading: str) -> str:
         heading: The heading exactly as published.
 
     Returns:
-        The heading without its trailing list announcement or punctuation.
+        The heading without its trailing list announcement or punctuation, and
+        with its whitespace flattened.
     """
-    return TRAILING_NOISE_RE.sub("", heading).strip().rstrip(":;.,").strip()
+    name = TRAILING_NOISE_RE.sub("", heading).strip().rstrip(":;.,").strip()
+    # The .docx is full of non-breaking spaces. They are invisible on screen, so
+    # a name carrying one looks identical to a name without and does not match
+    # it. `text` keeps the heading exactly as published; this is the label.
+    return " ".join(name.split())
 
 
 def focus_area_name(captured: str) -> str:
@@ -324,6 +362,22 @@ def add_topic(
         return
 
     heading, *points = about
+
+    # A continuation of the topic above, not a topic. Everything in the cell is
+    # content, the heading line included, and the "learn to" cell belongs to the
+    # same topic as well. Nothing to continue means the document opened with one,
+    # which no NESA syllabus does; taking it as a topic is then the only reading
+    # left and loses nothing.
+    if course.topics and CONTINUATION_RE.match(heading):
+        parent = course.topics[-1]
+        start = len(parent.points)
+        parent.points.extend(
+            Point(id=f"{parent.id}.{start + i:02d}", text=p)
+            for i, p in enumerate(about, 1)
+        )
+        parent.skills.extend(skills)
+        return
+
     topic = Topic(
         id=f"{course.id.upper()}-{len(course.topics) + 1:02d}",
         name=tidy_name(heading),
