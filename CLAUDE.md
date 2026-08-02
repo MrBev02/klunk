@@ -324,6 +324,18 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
   **Never call `navigator.clipboard.readText()`** to check a copy button. It raises a
   permission prompt that froze the renderer and timed out CDP. Assert on what the app
   says it did instead.
+- **The folder grant does not lapse by closing the tab.** Closing every Klunk tab
+  and opening a fresh one left `queryPermission` at `granted` for both remembered
+  folders, so waiting for a cold start is not how the lapsed-grant path gets
+  driven. The only deliberate route is Chrome's own site controls — the sliders
+  icon left of the address bar → **File editing** → off, or
+  `chrome://settings/content/filesystem` — and the extension cannot open a
+  `chrome://` page, so it is a click to ask the user for. Afterwards every handle
+  reads `prompt`, which is the state the welcome screen is written for. Renewing
+  costs the user one more click, on Chrome's permission bubble, and that bubble
+  does not appear while the tab is in a background window: the request simply
+  hangs until the tab is brought to the front. The folder picker behaves the same
+  way, so bring the window forward *before* triggering either.
 
 ## Work is tracked in GitHub issues
 
@@ -486,6 +498,19 @@ object keys sorted, so a hand-edited file does not read as permanently dirty.
 The guard covers all four paths that clear a paper, not the one that had a
 confirm bolted to it.
 
+**Both folder-switching branches have now been driven, not merely covered** (#22).
+With every grant reset in Chrome, the welcome screen listed all three remembered
+folders rather than hiding the lapsed ones, and one click on a folder renewed its
+permission and loaded it — the other two stayed lapsed, which is the design, one
+click each. With a file that is not a profile sitting at
+`profiles/nsw-hsc-design-technology.json`, the offer stayed on screen, and "Add to
+this folder" reported `… is already there, so nothing was written.` and left the
+file on disk untouched.
+
+That session also found a remembered handle pointing at a folder that no longer
+exists. See #37: it is listed like any other, and nothing can remove it, because
+Forget only ever forgets the folder that is open.
+
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
 
@@ -503,8 +528,9 @@ alternatives separated by a slash.
 
 Much of the open backlog is what driving the app turned up rather than what building
 it did. **#18** and **#19** are both cases where a folder holding two syllabus models
-is handled as though it held one, which `../klunk-content` does hold; **#21** and
-**#22** are paths that shipped without ever being driven.
+is handled as though it held one, which `../klunk-content` does hold. **#21** and
+**#22** were both paths that shipped without ever being driven, and both are now
+closed: #21 by a fix, #22 by driving it and finding the code right.
 
 **Word export is deliberately not built.** It only earns its complexity if teachers
 actually want to hand-edit papers, and the user wants to gauge demand first. If it
