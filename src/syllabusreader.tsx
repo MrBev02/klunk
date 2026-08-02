@@ -106,14 +106,13 @@ export function SyllabusReader({
       <section class="panel">
         <p class="panel__title">No syllabus document in this folder</p>
         <p>
-          Download the syllabus from NESA as a <code>.docx</code> and save it into this
-          folder — anywhere in it — then reload. Klunk reads it here, and the model it
-          writes stays in your folder.
+          Download the syllabus from NESA as a <code>.docx</code> and save it anywhere in
+             this folder, then reload. Klunk reads it here, and the model it writes stays in
+             your folder.
         </p>
         <p class="hint">
-          Klunk ships no syllabus model on purpose. A syllabus is copyright, and the whole
-          content inventory of one, restructured and published, is not a reasonable portion
-          under anyone's reading. Generating from your own copy is what keeps that true.
+          Klunk does not come with any syllabus model, and that is on purpose. A syllabus is
+             copyright, so you build your own from your own copy.
         </p>
       </section>
     )
@@ -126,8 +125,8 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          A NESA Stage 6 syllabus as downloaded, in Word format. Nothing leaves your
-          machine: the file is read here, in the browser.
+          A NESA Stage 6 syllabus as you downloaded it, in Word format. Klunk reads it here
+             in the browser, and nothing leaves your computer.
         </p>
 
         <Field label="Document" for="sr-docx">
@@ -170,9 +169,8 @@ export function SyllabusReader({
             <span class="step">2</span> Check what was found
           </p>
           <p class="hint">
-            Against the document itself. These counts are the whole of what Klunk can
-            check for you — if a course is missing or a number looks wrong, the model is
-            wrong, and writing it would put that into every question tagged against it.
+            Check these counts against the document itself. If a course is missing or a number
+               looks wrong, the model is wrong, and so is every question you tag with it.
           </p>
 
           <ul class="plain setup__list">
@@ -227,10 +225,9 @@ export function SyllabusReader({
 
           {clash && (
             <p class="setup__problem">
-              This folder already has a syllabus with the id <code>{id}</code>. Saving
-              replaces it, and every question tagged against it keeps pointing at the id —
-              so this is the right thing to do when you are re-reading the same syllabus,
-              and the wrong thing for a different subject.
+              This folder already has a syllabus with the id <code>{id}</code>. Saving replaces
+                 it, and questions tagged against it keep working. That is what you want when you
+                 are re-reading the same syllabus. For a different subject, change the id above.
             </p>
           )}
 

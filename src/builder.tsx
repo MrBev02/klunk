@@ -180,7 +180,7 @@ export function Builder({
             onInput={(e) => setPaper({ ...paper, title: (e.target as HTMLInputElement).value })}
           />
           <p class="muted" style={{ fontSize: '0.86rem' }}>
-            {profile ? profile.name : 'No profile: structure cannot be checked'} ·{' '}
+            {profile ? profile.name : 'No profile, so Klunk cannot check this paper'} ·{' '}
             <span class="mono">papers/{paper.id}.json</span>
           </p>
 
@@ -291,7 +291,7 @@ export function Builder({
                     )
                     return (
                       <li key={refKey(ref)}>
-                        <span class="picked__n">{rq?.number ?? '—'}</span>
+                        <span class="picked__n">{rq?.number ?? '·'}</span>
                         <span class="picked__marks">{rq ? `${rq.marks}m` : '?'}</span>
                         <span class="picked__text">
                           {rq ? questionLabel(rq.question) : (
@@ -392,8 +392,8 @@ function BankRail({
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
         </div>
         <p class="bank__empty">
-          This paper has no sections, so there is nowhere to put a question. Its profile
-          decides them, so start the paper again from a profile that has some.
+          Start this paper again from a profile that has sections. This one has none, so
+             there is nowhere to put a question.
         </p>
       </aside>
     )
@@ -411,8 +411,8 @@ function BankRail({
         )}
         {onLinkSyllabus && (
           <p class="bank__unlinked">
-            This paper's structure names no syllabus, so every question in the folder is
-            offered here, including any belonging to another subject.{' '}
+            This paper's profile does not say which subject it is for, so every question in
+               the folder is offered here, including any from another subject.{' '}
             <button class="btn btn--small" onClick={onLinkSyllabus}>
               Link a syllabus
             </button>
@@ -557,8 +557,8 @@ function StartPaper({
         <p class="panel__title">No profile in this folder yet</p>
         <p>
           A profile says how a paper is built: how many sections, what each is worth, which
-          question types belong where. Klunk ships the ones it knows, so pick the paper you
-          are building towards and it goes into <code>profiles/</code> here.
+             question types belong where. Pick the exam you are building towards and Klunk
+             writes it into <code>profiles/</code> here.
         </p>
         {/* This used to end by telling a teacher to copy `schemas/profile.schema.json`
             and change the sections to match, which is the app giving up on its own
@@ -622,7 +622,7 @@ function StartPaper({
           {taken ? (
             <div class="setup__problem" style={{ fontSize: '0.8rem' }}>
               <span class="mono">papers/{slug}.json</span> already holds "{taken.data.title}".
-              Retitle this one, or:
+                 Give this paper a different title, or open the one already there.
               <div class="rowbtns" style={{ marginTop: '0.5rem' }}>
                 <button class="btn btn--small" onClick={() => onStart(taken.data)}>
                   Open "{taken.data.title}"
@@ -672,8 +672,8 @@ function StartPaper({
           <section class="hero">
             <h2>No papers yet</h2>
             <p>
-              Start one on the left. Klunk fills in the sections your profile expects, then
-              you pick questions into them.
+              Start one on the left. Klunk fills in the sections your profile expects, then you
+                 pick questions into them.
             </p>
           </section>
         ) : (

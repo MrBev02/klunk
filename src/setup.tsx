@@ -107,7 +107,7 @@ export function ProfileInstaller({
       {onBuild && (
         <p class="muted">
           {offered.length > 0
-            ? 'Building towards a different examination? '
+            ? 'Building towards a different exam? '
             : 'Klunk has no stock profile for this one. '}
           <button class="btn btn--small" onClick={onBuild}>
             Describe your own paper
@@ -130,22 +130,19 @@ export function SyllabusNote() {
   return (
     <>
       <p>
-        A syllabus model is the list of outcomes, topics and content points that
-        questions are tagged against. <strong>Klunk ships none, on purpose.</strong> A
-        syllabus is copyright, and the whole content inventory of one, restructured and
-        published, is not a reasonable portion under anyone's reading. So you generate
-        one from your own copy of the syllabus, into your own folder.
+        A syllabus model is the list of outcomes, topics and content points that you tag
+           your questions against. <strong>Klunk does not come with any, and that is on
+           purpose.</strong> A syllabus is copyright, so you build your own from your own
+           copy, into your own folder.
       </p>
       <p class="muted">
         For a NSW Stage 6 syllabus, save the <code>.docx</code> you downloaded from NESA
-        into this folder and Klunk reads it on the <strong>From a syllabus</strong> tab.
-        It shows you the courses, topics and content points it found before anything is
-        written.
+           into this folder, then open the <strong>From a syllabus</strong> tab. It shows you
+           the courses, topics and content points it found before it writes anything.
       </p>
       <p class="muted">
-        Without one you can still write questions and build papers. You just cannot tag
-        a question to a topic, and the coverage a paper has is not something Klunk can
-        work out.
+        You can still write questions and build papers without one. You just cannot tag a
+           question to a topic, and Klunk cannot tell you what a paper covers.
       </p>
     </>
   )

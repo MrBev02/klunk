@@ -188,9 +188,9 @@ export function Factory({
       <section class="panel">
         <p class="panel__title">No syllabus model in this folder</p>
         <p>
-          The whole point of this is a prompt with your syllabus already in it, so there
-          is nothing to write until Klunk has one to read. Put your own copy of the
-          syllabus <span class="mono">.docx</span> in this folder and build one on the
+          This tab writes a prompt with your syllabus already in it, so it needs a syllabus
+             model first. Put your own copy of the syllabus <span class="mono">.docx</span> in
+             this folder and build one on the
           <strong> From a syllabus</strong> tab.
         </p>
       </section>
@@ -204,8 +204,8 @@ export function Factory({
           <span class="step">1</span> Choose what to ask for
         </p>
         <p class="hint">
-          Klunk has no AI in it. It writes the prompt, you take it to whatever your
-          school licenses, and you bring the answer back.
+          Klunk has no AI in it. It writes the prompt, you take it to whatever your school
+             pays for, and you bring the answer back.
         </p>
 
         <div class="fieldrow">
@@ -396,12 +396,11 @@ export function Factory({
                 No paper profile for {chosen.syllabus.name} in this folder
               </p>
               <p>
-                So the prompt cannot say where this type of question sits on the real
-                paper, and the room it allows for an answer is a general two ruled lines
-                a mark rather than this examination's. Everything else in it — the
-                course, the topics, the content points — is unaffected. Klunk would
-                rather say less than describe another subject's examination as though it
-                were this one.
+                The prompt cannot say where this kind of question sits on the real paper,
+                   and it asks for a general two ruled lines a mark instead of this exam's own
+                   spacing. The course, the topics and the content points all still go in.
+                   Klunk leaves the rest out rather than describing another subject's exam as
+                   though it were this one.
               </p>
               <ProfileInstaller
                 index={index}
@@ -419,9 +418,9 @@ export function Factory({
           <span class="step">3</span> Paste the answer back
         </p>
         <p class="hint">
-          Paste the whole reply, code fence and chatter included. Klunk finds the JSON,
-          checks it against the same rules the editor uses, and shows you everything it
-          had to change before anything is written.
+          Paste the whole reply, including any chatter around it. Klunk finds the questions
+             in it, checks them against the same rules the editor uses, and shows you
+             everything it had to change before it writes anything.
         </p>
 
         <textarea
@@ -482,7 +481,7 @@ export function Factory({
                 >
                   {index.banks.map((b) => (
                     <option key={b.path} value={b.path}>
-                      {b.data.name ? `${b.data.name} — ${b.path}` : b.path}
+                      {b.data.name ? `${b.data.name} (${b.path})` : b.path}
                     </option>
                   ))}
                   <option value="">A new bank…</option>
@@ -501,8 +500,8 @@ export function Factory({
             </div>
             {pathFault && <p class="missing">{pathFault}</p>}
             <p class="hint">
-              The ids below were assigned against that bank. Everything read here is
-              tagged <span class="mono">{AI_TAG}</span>.
+              The ids below were worked out against that bank. Every question here is tagged{' '}
+                 <span class="mono">{AI_TAG}</span>.
             </p>
 
             <ul class="plain drafts">
@@ -609,7 +608,7 @@ function PromptStep({
       setSaid('Copied. Paste it into your school’s AI.')
     } catch {
       // The recovery is the teacher's hands: the text is right there, selectable.
-      setSaid('Your browser would not let Klunk copy. Select the prompt and press Ctrl+C.')
+      setSaid('Your browser would not let Klunk copy this. Select the prompt and press Ctrl+C.')
     }
   }
 
@@ -634,8 +633,8 @@ function PromptStep({
       </div>
 
       <p class="hint">
-        This is the whole of what leaves your machine. Read it, copy it, and paste it
-        into whatever your school licenses.
+        This is the whole of what leaves your computer. Read it, copy it, and paste it
+           into whatever your school pays for.
       </p>
 
       {noProfile}
@@ -655,7 +654,7 @@ function PromptStep({
         <div class="promptbox promptbox--empty">
           {topics === 0
             ? 'Add a topic above and the prompt appears here, with your syllabus in it.'
-            : 'Every content point is unticked, so there is nothing to ask about. Tick at least one.'}
+               : 'Every content point is unticked, so there is nothing to ask about. Tick at least one.'}
         </div>
       )}
     </section>

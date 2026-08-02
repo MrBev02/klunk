@@ -234,7 +234,7 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
   rows.forEach((r, i) => {
     const where = `Row ${i + 1}`
     if (!r.label.trim()) err('This row has no label, so the student sees a blank line.', where)
-    if (r.marks !== undefined && r.marks < 0) err('A row cannot be worth less than nothing.', where)
+    if (r.marks !== undefined && r.marks < 0) err('A row cannot be worth less than zero marks.', where)
 
     // A row carrying more cells than there are columns means answers that will
     // never print, which is silent on the page and wrong in the marking guide.

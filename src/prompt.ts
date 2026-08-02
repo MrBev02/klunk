@@ -100,7 +100,7 @@ function assesses(spec: PromptSpec): string {
 
   const chosen = new Set(spec.pointIds)
   for (const topic of spec.topics) {
-    lines.push(`Topic ${topic.id} — ${plain(topic.name)}`)
+    lines.push(`Topic ${topic.id}: ${plain(topic.name)}`)
     const points = (topic.points ?? []).filter((p) => chosen.has(p.id))
     for (const p of points) lines.push(`  ${p.id}  ${plain(p.text)}`)
     lines.push('')

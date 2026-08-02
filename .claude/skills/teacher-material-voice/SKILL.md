@@ -40,6 +40,12 @@ Applies to headings, button labels, table cells, tooltips, and any string that
 gets copied elsewhere, such as the composed AI prompt. Hyphens in compound words
 (`ai-drafted`, `self-contained`) are fine.
 
+**One exception: a range of numbers.** The real paper prints mark bands and
+question ranges with an en dash, so Klunk keeps it wherever it reproduces or
+quotes one. That covers the band on the printed marking guide (`13–15`), the
+example section instruction in the profile editor (`Attempt Questions 11–14`),
+and the message that reads a band back to a teacher. Prose never gets one.
+
 ## Rule 2 — Nothing inverted, and no "not X, but Y"
 
 Say the thing forwards. Do not lead with the negative, and do not rearrange a

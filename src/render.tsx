@@ -309,7 +309,7 @@ function GuideAnswer({ item }: { item: ResolvedQuestion }) {
         <>
           <p class="answer">
             <strong>Answer: {letters[correctIndex]}</strong>
-            {correct ? ` — ${correct.text}` : ''}
+            {correct ? `. ${correct.text}` : ''}
           </p>
           {correct?.feedback && <p class="why">{correct.feedback}</p>}
         </>

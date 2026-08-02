@@ -198,7 +198,8 @@ export function App() {
       try {
         if (!(await openFolder(entry.handle))) {
           setError(
-            `Klunk no longer has permission for ${entry.handle.name}. Add it again to carry on.`,
+            `Klunk needs your permission to open ${entry.handle.name}. Click it again and confirm
+             access when the browser asks.`,
           )
           setPhase('error')
           return
@@ -478,13 +479,13 @@ export function App() {
         {phase === 'error' && (
           <section class="panel panel--alert">
             <p class="panel__title">
-              {gone ? `${gone.name} is no longer on this computer` : 'Something went wrong'}
+              {gone ? `${gone.name} is no longer on this computer` : 'Klunk could not open that folder'}
             </p>
             {gone ? (
               <p>
-                Klunk still remembers this folder, but it has been renamed, moved or deleted
-                since it was last opened, so there is nothing left to read. Forgetting it
-                only stops it being offered here; it does not delete anything.
+                This folder has been renamed, moved or deleted since Klunk last opened it, so
+                   there is nothing left to read. Forgetting it stops Klunk offering it, and
+                   deletes nothing.
               </p>
             ) : (
               <p>{error}</p>
@@ -752,13 +753,13 @@ function Welcome({
       <section class="panel panel--alert">
         <p class="panel__title">Klunk needs Chrome or Edge</p>
         <p>
-          Klunk works by opening a folder on your computer and reading and writing in
-          place. Only Chrome and Edge can do that, so this browser cannot run it. Open
-          the same link in Chrome or Edge and carry on.
+          Open the same link in Chrome or Edge to carry on. Klunk works by opening a
+             folder on your computer and writing to it, and only those two browsers can do
+             that.
         </p>
         <p class="muted">
-          Nothing is lost by switching. Your banks and papers are ordinary files in your
-          own folder, so the other browser reads exactly the same content.
+          You lose nothing by switching. Your banks and papers are ordinary files in your
+             own folder, so the other browser reads exactly the same ones.
         </p>
         {insecure && <p class="muted">{insecure}</p>}
       </section>
@@ -774,8 +775,8 @@ function Welcome({
         <h2>Welcome back</h2>
         <p>
           Your browser needs you to confirm access again before Klunk can read{' '}
-          {folders.length === 1 ? 'your folder' : 'these folders'}. One click each, and
-          only once this session.
+          {folders.length === 1 ? 'your folder' : 'these folders'}. It is one click for each
+             folder, and only once this session.
         </p>
         <div class="hero__folders">
           {folders.map((entry) => (
@@ -802,13 +803,13 @@ function Welcome({
       <h2>Choose your folder</h2>
       <p>
         Point Klunk at the folder holding one subject's question banks and papers,
-        normally a OneDrive or Teams folder. One folder per subject: that way the
-        permission you give covers only the subject you are working on, and switching
-        between subjects later is a click.
+           usually a OneDrive or Teams folder. Use one folder per subject: the access you
+           give then covers only the subject you are working on, and swapping to another
+           one later takes a single click.
       </p>
       <p class="muted">
-        Nothing is copied anywhere else and nothing leaves your computer. Your browser
-        remembers the folder, so you do this once per subject.
+        Klunk copies nothing anywhere else, and nothing leaves your computer. Your
+           browser remembers the folder, so you only do this once per subject.
       </p>
       <div class="rowbtns" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
         <button class="btn btn--primary" onClick={onChoose}>
@@ -879,23 +880,22 @@ function Library({
     return (
       <section class="panel setup">
         <p class="panel__title">
-          {both ? 'A new subject, then. Two things to set up.' : 'One thing still to set up.'}
+          {both ? 'A new subject. Two things to set up.' : 'One thing still to set up.'}
         </p>
         <p class="muted">
           {both
-            ? 'This folder holds nothing yet. Klunk can supply one of the two things it needs and deliberately cannot supply the other.'
-            : needsProfile
-              ? 'The syllabus model is in place. This folder has no paper profile yet, and that one Klunk can supply.'
-              : 'The profile is in place. The syllabus model is the part Klunk deliberately cannot supply.'}
+            ? 'This folder is empty. Klunk can give you one of the two things it needs, and you build the other yourself.'
+               : needsProfile
+                 ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
+                 : 'The profile is in place. The syllabus model is the one you build yourself.'}
         </p>
 
         {needsProfile && (
           <>
             <h3 class="setup__head">{both && '1 · '}A paper profile</h3>
             <p>
-              A profile is the shape of the real examination: how many sections, what each
-              is worth, which question types belong where. It is what the paper checker
-              checks against.
+              A profile is the shape of the real exam: how many sections, what each is worth,
+                 which question types belong where. The checker compares your paper against it.
             </p>
             <ProfileInstaller
               index={index}
@@ -1055,9 +1055,9 @@ function Library({
           <section class="panel">
             <p class="panel__title">No questions found</p>
             <p>
-              Klunk read {index.scanned} JSON file{index.scanned === 1 ? '' : 's'} but none
-              were question banks. A bank needs <code>"type": "klunk_bank"</code> at the top
-              level.
+              Klunk read {index.scanned} file{index.scanned === 1 ? '' : 's'} in this folder, and
+                 none of them holds questions. Write your first question and Klunk makes the bank
+                 for it.
             </p>
             <div class="rowbtns">
               <button class="btn btn--primary" onClick={onNew}>

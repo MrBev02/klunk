@@ -123,10 +123,9 @@ export function ProfileEditor({
 
       {!editing && (
         <p class="hint">
-          A profile is the shape of the examination you are building towards: how many
-          sections, what each is worth, which kinds of question belong where. Klunk checks
-          every paper against it, and it is what tells the AI prompt where a question sits
-          on the real paper.
+          A profile is the shape of the exam you are building towards: how many sections,
+             what each is worth, which kinds of question belong where. Klunk checks every paper
+             against it, and it tells the AI prompt where a question sits on the real paper.
         </p>
       )}
 
@@ -232,7 +231,7 @@ export function ProfileEditor({
             class="input"
             rows={3}
             value={(draft.paper.instructions ?? []).join('\n')}
-            placeholder={'Reading time – 5 minutes\nWrite using black pen'}
+            placeholder={'Reading time: 5 minutes\nWrite using black pen'}
             onInput={(e) =>
               setPaper({
                 instructions: (e.target as HTMLTextAreaElement).value.split('\n'),

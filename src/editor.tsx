@@ -375,7 +375,7 @@ export function QuestionEditor({
           {draft.questionText.trim() ? (
             <QuestionDetail question={question} />
           ) : (
-            <p class="muted">Nothing to show until the question says something.</p>
+            <p class="muted">The preview appears once the question has some text in it.</p>
           )}
         </div>
       </aside>
@@ -686,8 +686,8 @@ function TableFields({
                     value={(r.cells?.[j]?.answers ?? []).join(' / ')}
                     placeholder={
                       columns.length > 2
-                        ? `${col.trim() || `Column ${j + 2}`}, alternatives separated by /`
-                        : 'Accepted answers, alternatives separated by /'
+                        ? `${col.trim() || `Column ${j + 2}`}. Put a slash between alternatives.`
+                           : 'Accepted answers. Put a slash between alternatives.'
                     }
                     onInput={(e) =>
                       changeRow(i, {
@@ -1141,9 +1141,9 @@ function TaggingFields({
 
       {courses.length === 0 ? (
         <p class="hint">
-          No syllabus model in this folder, so there is nothing to tag against. Put the
-          syllabus <span class="mono">.docx</span> in this folder and build one on the
-          <strong> From a syllabus</strong> tab, and it appears here.
+          Put the syllabus <span class="mono">.docx</span> in this folder and build a model
+             on the <strong>From a syllabus</strong> tab. Its topics appear here once you
+             have one.
         </p>
       ) : (
         <>
@@ -1417,15 +1417,15 @@ function DestinationFields({
 
       {editing?.fresh ? (
         <p class="hint">
-          Saving writes this question into <span class="mono">{editing.file}</span>. The id
-          was assigned when the answer was read in, against everything already in your
-          folder, so it is fixed here.
+          Saving writes this question into <span class="mono">{editing.file}</span>. Klunk
+             worked out the id when it read the answer in, against everything already in your
+             folder, so it is fixed here.
         </p>
       ) : editing ? (
         <p class="hint">
           Saving replaces this question in <span class="mono">{editing.file}</span>. Papers
-          refer to a question by its id, so the id cannot be changed here: changing it
-          would orphan every paper already using it.
+             refer to a question by its id, so the id cannot be changed here. Changing it would
+             break every paper already using it.
         </p>
       ) : (
         <>
@@ -1438,7 +1438,7 @@ function DestinationFields({
             >
               {index.banks.map((b) => (
                 <option key={b.path} value={b.path}>
-                  {b.data.name ? `${b.data.name} — ${b.path}` : b.path}
+                  {b.data.name ? `${b.data.name} (${b.path})` : b.path}
                 </option>
               ))}
               <option value="">A new bank…</option>

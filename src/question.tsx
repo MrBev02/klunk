@@ -103,7 +103,7 @@ export function QuestionDetail({
             s.kind === 'text' ? (
               <p key={i} class="sample">
                 {s.text}
-                {s.caption && <em> — {s.caption}</em>}
+                {s.caption && <em>. {s.caption}</em>}
               </p>
             ) : imageUrl(s, bankFile, images) ? (
               <figure key={i} class="stim-figure">
@@ -113,7 +113,7 @@ export function QuestionDetail({
             ) : (
               <p key={i} class="stim-note">
                 Image: <span class="mono">{s.file ?? 'unnamed'}</span>
-                {s.alt ? ` — ${s.alt}` : ''}
+                {s.alt ? `. ${s.alt}` : ''}
                 {s.caption ? ` (${s.caption})` : ''}
               </p>
             ),
@@ -141,7 +141,7 @@ function Body({ question: q }: { question: Question }) {
                 <span class="opts__letter">{LETTERS[i]}</span>
                 <span>
                   {c.text}
-                  {i === correctIndex && <strong class="muted"> — correct</strong>}
+                  {i === correctIndex && <strong class="muted"> (correct)</strong>}
                 </span>
                 {c.feedback && <span class="opts__why">{c.feedback}</span>}
               </li>
@@ -229,7 +229,7 @@ function Body({ question: q }: { question: Question }) {
       return (
         <div class="det">
           <p class="det__label">
-            Parts{sum !== q.marks && <span class="missing"> — these total {sum}, not {q.marks}</span>}
+            Parts{sum !== q.marks && <span class="missing"> (these total {sum}, not {q.marks})</span>}
           </p>
           <ul class="parts-list">
             {parts.map((p, i) => (

@@ -130,7 +130,7 @@ export function Extractor({
       const notes = [...paper.notes]
       if (year === undefined) {
         notes.push(
-          'No year was found on the front of this paper, so nothing has been stamped with where it came from. Add it in the editor before saving, or these questions cannot be traced back.',
+          'Klunk could not find a year on the front of this paper, so these questions do not say where they came from. Add the year in the editor before you save them.',
         )
       }
       setRead({ adopted, notes, ...(year === undefined ? {} : { year }) })
@@ -213,10 +213,9 @@ export function Extractor({
       <section class="panel">
         <p class="panel__title">No PDFs in this folder</p>
         <p>
-          Klunk fills a bank from the past papers already in your content folder. Put the
-          paper, and its marking guide if you have one, somewhere under the folder you
-          opened — <span class="mono">source/</span> is the usual place — and they appear
-          here.
+          Klunk fills a bank from the past papers already in your folder. Put the paper, and
+             its marking guide if you have one, anywhere in the folder you opened. Most people
+             use <span class="mono">source/</span>. They appear here once you reload.
         </p>
       </section>
     )
@@ -229,8 +228,8 @@ export function Extractor({
           <span class="step">1</span> Choose the paper
         </p>
         <p class="hint">
-          Both files stay on this machine. Klunk reads them in the browser and sends
-          nothing anywhere.
+          Both files stay on your computer. Klunk reads them in the browser and sends
+             nothing anywhere.
         </p>
 
         <div class="grid2">
@@ -322,8 +321,8 @@ export function Extractor({
             <span class="step">2</span> Check every question before it is kept
           </p>
           <p class="hint">
-            A question read wrongly and saved quietly is found in the exam room. Klunk has
-            said what it is unsure about; the reading of it is yours.
+            Klunk has flagged what it is unsure about. Read each question against the paper
+               before you save it, because a question read wrongly is found in the exam room.
           </p>
 
           {read.notes.length > 0 && (
@@ -478,8 +477,8 @@ function ExtractedCard({
             {item.pictures.length === 1 ? '' : 's'} will be saved with this question
           </p>
           <p class="hint">
-            Cut from where the page has no text on it, which is a good guess and not a
-            fact. Drop anything that is not part of the question.
+            Klunk cuts these from the parts of the page with no text on them, so it gets one
+               wrong from time to time. Drop anything that is not part of the question.
           </p>
           <ul class="cutouts">
             {item.pictures.map((picture, n) => (
