@@ -468,6 +468,27 @@ describe('checkPaper against another subject', () => {
   })
 })
 
+/**
+ * Why the builder must never aim at a section the paper does not have.
+ *
+ * `addRef` rewrites the section whose index matches and there is none, so the
+ * paper comes back equal to the one that went in: the question is not added,
+ * nothing is raised, and `paperIsDirty` says nothing changed, which is true.
+ * That is defensible for a pure function and unusable as a button, so the range
+ * is the caller's to hold — see the clamp in `src/builder.tsx`.
+ */
+describe('addRef out of range', () => {
+  it('returns the paper unchanged, silently', () => {
+    const paper = newPaper(profile, 'p1', 'Test')
+    const after = addRef(paper, 7, 'bank/test.json#a')
+
+    expect(after.sections.flatMap((s) => s.refs)).toEqual([])
+    expect(paperIsDirty(indexWith([mc('a')]), after)).toBe(
+      paperIsDirty(indexWith([mc('a')]), paper),
+    )
+  })
+})
+
 describe('rowAnswers', () => {
   const row = {
     label: 'Chopping board',

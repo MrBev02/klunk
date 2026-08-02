@@ -65,7 +65,7 @@ export function Builder({
   const [saved, setSaved] = useState('')
   const [failed, setFailed] = useState('')
   const [preview, setPreview] = useState<PrintMode | null>(null)
-  const [target, setTarget] = useState(0)
+  const [aimedAt, setTarget] = useState(0)
 
   if (!paper) {
     return (
@@ -81,6 +81,14 @@ export function Builder({
       />
     )
   }
+
+  // Which section a question would be added to. Kept inside the paper's own
+  // range rather than used as stored, because adding to a section that is not
+  // there is silent: `addRef` rewrites the section whose index matches and there
+  // is none, so the paper comes back unchanged, nothing is said, and it does not
+  // even read as unsaved. The state is reset per paper in `app.tsx`; this is the
+  // guarantee that does not depend on remembering to.
+  const target = Math.min(aimedAt, paper.sections.length - 1)
 
   const profile = profiles.find((p) => p.id === paper.profileId)
   const resolved = resolvePaper(index, paper, profile)
@@ -324,6 +332,10 @@ export function Builder({
       <BankRail
         options={pickable}
         bankEmpty={inFolder.length === 0}
+        // Below the one section `paper.schema.json` requires, so only a
+        // hand-edited file gets here. It still must not offer a + that quietly
+        // does nothing.
+        noSection={target < 0}
         targetName={resolved.sections[target]?.title ?? `Section ${target + 1}`}
         spec={targetSpec ? describeSpec(targetSpec) : ''}
         onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
@@ -336,6 +348,7 @@ export function Builder({
 function BankRail({
   options,
   bankEmpty,
+  noSection,
   targetName,
   spec,
   onAdd,
@@ -344,6 +357,8 @@ function BankRail({
   options: ReturnType<typeof allQuestions>
   /** No questions in the folder at all, as against none left for this section. */
   bankEmpty: boolean
+  /** The paper has no section to add to, so there is nothing this rail can do. */
+  noSection: boolean
   targetName: string
   spec: string
   onAdd: (file: string, id: string) => void
@@ -358,6 +373,21 @@ function BankRail({
     if (!needle) return options
     return options.filter((o) => questionHaystack(o.question).includes(needle))
   }, [options, text])
+
+  if (noSection) {
+    return (
+      <aside class="bank">
+        <div class="bank__head">
+          <span class="rail__label">Adding to</span>
+          <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
+        </div>
+        <p class="bank__empty">
+          This paper has no sections, so there is nowhere to put a question. Its profile
+          decides them, so start the paper again from a profile that has some.
+        </p>
+      </aside>
+    )
+  }
 
   return (
     <aside class="bank">

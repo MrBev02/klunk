@@ -509,7 +509,15 @@ export function App() {
           )}
 
           {view === 'build' && folder && (
+            /* Keyed on the paper, so everything the builder remembers about the
+               one on screen — which section is being added to, the message
+               from the last save, what the bank rail is searched for — goes
+               when the paper does. It is kept mounted otherwise, and a
+               three-section paper closed in favour of a one-section paper left
+               it aiming at a section that no longer existed: the rail said
+               "Section 2" and + silently did nothing. */
             <Builder
+              key={paper?.id ?? 'none'}
               index={index}
               folder={folder}
               paper={paper}
