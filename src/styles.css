@@ -1728,3 +1728,104 @@ code,
   color: var(--ink-soft);
   margin-top: 0.2rem;
 }
+
+/* --------------------------------------------------------------------- help
+ *
+ * A reading surface first and a screen second: this is the one place in Klunk
+ * that is prose to be read straight through rather than a form to work in. So
+ * it takes a measure (about 68 characters), a serif for the headings, and the
+ * same opaque paper the question list gets, for the same reason — the drafting
+ * grid is an underlay, not something to read off.
+ */
+
+.help {
+  /* A sheet rather than a screen. The panel takes the measure, not the text
+     inside it: capping the prose but leaving the paper full width left a hand's
+     width of empty white down the right of every paragraph. */
+  max-width: 47rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  padding: 1.5rem 1.8rem 2.5rem;
+}
+
+.help__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 0.8rem;
+}
+
+.help__title {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.help__lede {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 1.2rem 0 0;
+}
+
+/* Two columns of contents, because nine one-line entries down the page look
+   like the page itself and a teacher scrolls past them. */
+.help__contents ol {
+  columns: 2;
+  column-gap: 2rem;
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+  font-family: var(--ui);
+  font-size: 0.92rem;
+}
+
+.help__contents li {
+  margin-bottom: 0.3rem;
+  break-inside: avoid;
+}
+
+.help__contents a,
+.help a {
+  color: var(--blue);
+}
+
+.help__sec {
+  /* The masthead is not fixed, so this is only breathing room: a heading
+     jumped to from the contents should not sit flush against the top. */
+  scroll-margin-top: 1rem;
+}
+
+.help__sec p,
+.help__sec li,
+.help__sec dd {
+  line-height: 1.65;
+}
+
+.help__sec ul,
+.help__steps {
+  padding-left: 1.2rem;
+}
+
+.help__steps li,
+.help__sec ul li {
+  margin-bottom: 0.5rem;
+}
+
+/* Both definition lists are lookup tables: the term is what the teacher is
+   looking at on screen, so it has to be findable by eye at a scroll. */
+.help__files dt,
+.help__trouble dt {
+  font-weight: 600;
+  margin-top: 1rem;
+}
+
+.help__files dd,
+.help__trouble dd {
+  margin: 0.25rem 0 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--rule);
+  color: var(--ink-soft);
+}

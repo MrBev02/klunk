@@ -324,6 +324,12 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
   **Never call `navigator.clipboard.readText()`** to check a copy button. It raises a
   permission prompt that froze the renderer and timed out CDP. Assert on what the app
   says it did instead.
+- **Match a button by its whole label, never a substring.** Driving the question
+  editor with `javascript_tool`, a regex of `/cancel|discard|close/i` looking for
+  **Cancel** hit **Save and close** first, and a placeholder question went into
+  `bank/example-bank.json`. It was removed and the bank verified back to
+  question-for-question identical, but a click with a side effect deserves
+  `b.textContent.trim() === 'Cancel'` and nothing looser.
 - **The folder grant does not lapse by closing the tab.** Closing every Klunk tab
   and opening a fresh one left `queryPermission` at `granted` for both remembered
   folders, so waiting for a cold start is not how the lapsed-grant path gets
@@ -497,6 +503,23 @@ them asks first** (#11, #21). `paperIsDirty` compares against the folder with
 object keys sorted, so a hand-edited file does not read as permanently dirty.
 The guard covers all four paths that clear a paper, not the one that had a
 confirm bolted to it.
+
+**A teacher can read how Klunk works** (#38). `src/help.tsx` is the one screen
+that is prose rather than a form: the shape of the work, what lands in the
+folder, the three ways questions get in, and troubleshooting keyed to the exact
+words on screen so it can be scanned for what a teacher is looking at. Most of it
+is not a description of buttons but the *reasons* behind the decisions that read
+as faults from outside — no syllabus ships, the AI step is copy-and-paste, a
+missing picture prints a grey box, the browser asks for the folder again.
+
+Two decisions there are structural. It is a screen and not a link, because
+`connect-src 'none'` forbids fetching a documentation site and `build:single` is
+one HTML file on a shared drive with nothing beside it. And it hangs off the
+masthead rather than being a sixth tab, because a tab only exists once a folder
+is open and the teacher most in need of help is the one still looking at "Choose
+your folder" — driven on a fresh origin to prove it. Everything else is hidden
+rather than unmounted while it is open, for the reason the tabs are hidden while
+the editor is: a half-written question survived a trip to help and back.
 
 **Both folder-switching branches have now been driven, not merely covered** (#22).
 With every grant reset in Chrome, the welcome screen listed all three remembered

@@ -4,6 +4,7 @@ import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { QuestionEditor, type Editing } from './editor'
 import { Extractor } from './extractor'
 import { Factory } from './factory'
+import { Help } from './help'
 import { paperIsDirty, paperIsSaved } from './paper'
 import { ProfileEditor, type EditingProfile } from './profile'
 import { SyllabusReader } from './syllabusreader'
@@ -77,6 +78,14 @@ export function App() {
   const [current, setCurrent] = useState(-1)
   /** An action waiting on a second click, because it would discard unsaved work. */
   const [pending, setPending] = useState<Guarded | null>(null)
+  /**
+   * Whether the help page is showing.
+   *
+   * Not a view and not a tab. A tab only exists once a folder is open, and the
+   * teacher most in need of help is the one still looking at "Choose your
+   * folder", so it has to be reachable from every screen including that one.
+   */
+  const [help, setHelp] = useState(false)
 
   // The live index is mirrored in a ref so a rescan can hand the one it replaces
   // to scanFolder for its image URLs to be released. A ref, not the state value:
@@ -338,6 +347,13 @@ export function App() {
     window.scrollTo({ top: 0 })
   }, [])
 
+  // Opening or closing help swaps the whole page, so the scroll position that
+  // belonged to the other one is never where the teacher wants to land.
+  const showHelp = useCallback((next: boolean) => {
+    setHelp(next)
+    window.scrollTo({ top: 0 })
+  }, [])
+
   const showProfileEditor = useCallback((next: 'new' | EditingProfile | null) => {
     setProfileEditor(next)
     setNotice('')
@@ -373,263 +389,285 @@ export function App() {
           <h1 class="masthead__title">Klunk</h1>
           <span class="masthead__rule">exam papers, from questions you have</span>
         </div>
-        {folder && (
-          <div class="masthead__folder">
-            <Switcher
-              folders={folders}
-              current={current}
-              openName={folder.name}
-              onSwitch={requestSwitch}
-              onAdd={requestAddFolder}
-            />
-            <button class="btn btn--small" onClick={() => void load(folder)}>
-              Reload
-            </button>
-            <button
-              class="btn btn--small"
-              title="Klunk stops remembering this folder. Nothing in it is changed."
-              onClick={requestForget}
-            >
-              Forget
-            </button>
-          </div>
-        )}
+        {/* Help sits with the folder controls but outside them, because the
+            teacher who has not got a folder open yet is the likeliest to want
+            it. */}
+        <div class="masthead__folder">
+          {folder && (
+            <>
+              <Switcher
+                folders={folders}
+                current={current}
+                openName={folder.name}
+                onSwitch={requestSwitch}
+                onAdd={requestAddFolder}
+              />
+              <button class="btn btn--small" onClick={() => void load(folder)}>
+                Reload
+              </button>
+              <button
+                class="btn btn--small"
+                title="Klunk stops remembering this folder. Nothing in it is changed."
+                onClick={requestForget}
+              >
+                Forget
+              </button>
+            </>
+          )}
+          <button
+            class="btn btn--small"
+            title="How Klunk works, and what to do when something looks wrong"
+            onClick={() => showHelp(!help)}
+          >
+            {help ? 'Close help' : 'Help'}
+          </button>
+        </div>
       </header>
 
-      {pending && paper && (
-        <section class="panel panel--alert">
-          {/* The paper is named in the heading rather than the sentence. Putting
-              it in the sentence made the builder's own Close read "Closing it
-              closes Guard test paper", since that action's subject and object
-              are the same thing. */}
-          <p class="panel__title">{paper.title} has changes you have not saved</p>
-          <p>
-            {pending.what}{' '}
-            {paperIsSaved(index, paper) ? (
-              <>
-                will discard everything you have changed since you last saved. The
-                version already in this folder's <code>papers/</code> is safe and will be
-                there when you come back.
-              </>
-            ) : (
-              <>
-                will discard the whole paper. It has never been saved, so there is no
-                copy in this folder's <code>papers/</code> to come back to.
-              </>
-            )}
-          </p>
-          <div class="rowbtns">
-            <button class="btn" onClick={() => setPending(null)}>
-              Stay here
-            </button>
-            <button
-              class="btn btn--primary"
-              onClick={() => {
-                setPending(null)
-                void pending.run()
-              }}
-            >
-              {pending.confirm}
-            </button>
-          </div>
-        </section>
-      )}
+      {help && <Help onClose={() => showHelp(false)} />}
 
-      {phase === 'starting' && <p class="muted">Looking for the folder you used last time…</p>}
-      {phase === 'scanning' && <p class="muted">Reading your folder…</p>}
+      {/* Everything else is hidden rather than unmounted while help is open,
+          for the reason the tabs are hidden rather than unmounted while the
+          editor is open: a teacher reads help *because* they are in the middle
+          of something, and a batch of AI drafts or a half-built paper has to
+          still be there when they come back. */}
+      <div hidden={help}>
 
-      {phase === 'error' && (
-        <section class="panel panel--alert">
-          <p class="panel__title">
-            {gone ? `${gone.name} is no longer on this computer` : 'Something went wrong'}
-          </p>
-          {gone ? (
+        {pending && paper && (
+          <section class="panel panel--alert">
+            {/* The paper is named in the heading rather than the sentence. Putting
+                it in the sentence made the builder's own Close read "Closing it
+                closes Guard test paper", since that action's subject and object
+                are the same thing. */}
+            <p class="panel__title">{paper.title} has changes you have not saved</p>
             <p>
-              Klunk still remembers this folder, but it has been renamed, moved or deleted
-              since it was last opened, so there is nothing left to read. Forgetting it
-              only stops it being offered here; it does not delete anything.
+              {pending.what}{' '}
+              {paperIsSaved(index, paper) ? (
+                <>
+                  will discard everything you have changed since you last saved. The
+                  version already in this folder's <code>papers/</code> is safe and will be
+                  there when you come back.
+                </>
+              ) : (
+                <>
+                  will discard the whole paper. It has never been saved, so there is no
+                  copy in this folder's <code>papers/</code> to come back to.
+                </>
+              )}
             </p>
-          ) : (
-            <p>{error}</p>
-          )}
-          <div class="rowbtns">
-            {gone && (
-              <button class="btn btn--primary" onClick={() => void forgetMissing(gone)}>
-                Forget {gone.name}
+            <div class="rowbtns">
+              <button class="btn" onClick={() => setPending(null)}>
+                Stay here
               </button>
+              <button
+                class="btn btn--primary"
+                onClick={() => {
+                  setPending(null)
+                  void pending.run()
+                }}
+              >
+                {pending.confirm}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {phase === 'starting' && <p class="muted">Looking for the folder you used last time…</p>}
+        {phase === 'scanning' && <p class="muted">Reading your folder…</p>}
+
+        {phase === 'error' && (
+          <section class="panel panel--alert">
+            <p class="panel__title">
+              {gone ? `${gone.name} is no longer on this computer` : 'Something went wrong'}
+            </p>
+            {gone ? (
+              <p>
+                Klunk still remembers this folder, but it has been renamed, moved or deleted
+                since it was last opened, so there is nothing left to read. Forgetting it
+                only stops it being offered here; it does not delete anything.
+              </p>
+            ) : (
+              <p>{error}</p>
             )}
-            <button class="btn" onClick={() => void choose()}>
-              Choose a folder
-            </button>
+            <div class="rowbtns">
+              {gone && (
+                <button class="btn btn--primary" onClick={() => void forgetMissing(gone)}>
+                  Forget {gone.name}
+                </button>
+              )}
+              <button class="btn" onClick={() => void choose()}>
+                Choose a folder
+              </button>
+            </div>
+          </section>
+        )}
+
+        {phase === 'empty' && (
+          <Welcome
+            caps={caps}
+            insecure={insecure}
+            folders={folders}
+            onChoose={() => void choose()}
+            onOpen={(entry) => void switchTo(entry)}
+          />
+        )}
+
+        {/* The editor takes the whole screen, tabs included. A half-written
+            question is easy to lose to a stray click on another tab, and there is
+            nothing to come back to once it is gone. */}
+        {phase === 'ready' && folder && editor !== null && (
+          <QuestionEditor
+            index={index}
+            folder={folder}
+            editing={editor === 'new' ? null : editor}
+            onCancel={() => showEditor(null)}
+            onSaved={(message) => {
+              showEditor(null)
+              setNotice(message)
+              void load(folder)
+            }}
+          />
+        )}
+
+        {/* Same treatment as the question editor: the whole screen, because a
+            half-described examination is as easy to lose to a stray tab click and
+            as annoying to type again. */}
+        {phase === 'ready' && folder && profileEditor !== null && (
+          <ProfileEditor
+            index={index}
+            folder={folder}
+            editing={profileEditor === 'new' ? null : profileEditor}
+            onCancel={() => showProfileEditor(null)}
+            onSaved={(message) => {
+              showProfileEditor(null)
+              setNotice(message)
+              void load(folder)
+            }}
+          />
+        )}
+
+        {/* Kept mounted, not unmounted, while the editor is open. A batch of
+            questions read back from an AI is expensive to get and lives in this
+            subtree; sending one of them to the editor to be fixed must not throw
+            away the other four.
+
+            A rescan has to keep it mounted for the same reason. Saving anything
+            reloads the folder, which runs phase through ready → scanning →
+            ready, and unmounting on the way past discarded the whole batch the
+            moment the first questions in it were saved. `folder` is what
+            separates a reload from the very first scan, which has nothing worth
+            keeping and should show the message on its own. */}
+        {(phase === 'ready' || (phase === 'scanning' && folder)) && (
+          <div hidden={editor !== null || profileEditor !== null}>
+            {notice && (
+              <section class="panel panel--ok">
+                <p>{notice}</p>
+              </section>
+            )}
+
+            <nav class="tabs">
+              <button
+                class={`tab ${view === 'library' ? 'tab--on' : ''}`}
+                onClick={() => setView('library')}
+              >
+                Questions<span class="tab__n">{questionCount}</span>
+              </button>
+              <button
+                class={`tab ${view === 'build' ? 'tab--on' : ''}`}
+                onClick={() => setView('build')}
+              >
+                Papers<span class="tab__n">{index.papers.length}</span>
+              </button>
+              <button
+                class={`tab ${view === 'draft' ? 'tab--on' : ''}`}
+                onClick={() => setView('draft')}
+                title="Klunk writes the prompt, your school's AI answers it, Klunk checks the answer"
+              >
+                Draft with AI
+              </button>
+              <button
+                class={`tab ${view === 'paper' ? 'tab--on' : ''}`}
+                onClick={() => setView('paper')}
+                title="Read a past paper and its marking guide out of this folder"
+              >
+                From a past paper
+                {index.pdfs.length > 0 && <span class="tab__n">{index.pdfs.length}</span>}
+              </button>
+              <button
+                class={`tab ${view === 'syllabus' ? 'tab--on' : ''}`}
+                onClick={() => setView('syllabus')}
+                title="Build a syllabus model from the NESA document in this folder"
+              >
+                From a syllabus
+                {index.docx.length > 0 && <span class="tab__n">{index.docx.length}</span>}
+              </button>
+            </nav>
+
+            {view === 'library' && folder && (
+              <Library
+                index={index}
+                folder={folder}
+                onNew={() => openEditor('new')}
+                onEdit={(item) => openEditor({ question: item.question, file: item.file })}
+                onBuildProfile={() => showProfileEditor('new')}
+                onReload={() => void load(folder)}
+              />
+            )}
+
+            {view === 'build' && folder && (
+              /* Keyed on the paper, so everything the builder remembers about the
+                 one on screen — which section is being added to, the message
+                 from the last save, what the bank rail is searched for — goes
+                 when the paper does. It is kept mounted otherwise, and a
+                 three-section paper closed in favour of a one-section paper left
+                 it aiming at a section that no longer existed: the rail said
+                 "Section 2" and + silently did nothing. */
+              <Builder
+                key={paper?.id ?? 'none'}
+                index={index}
+                folder={folder}
+                paper={paper}
+                setPaper={setPaper}
+                onBuildProfile={() => showProfileEditor('new')}
+                onEditProfile={(profile, path) => showProfileEditor({ profile, path })}
+                dirty={dirty}
+                onClose={requestClosePaper}
+                onSaved={() => void load(folder)}
+              />
+            )}
+
+            {view === 'draft' && folder && (
+              <Factory
+                index={index}
+                folder={folder}
+                onEdit={(editing) => openEditor(editing)}
+                onSaved={() => void load(folder)}
+              />
+            )}
+
+            {view === 'paper' && folder && (
+              <Extractor
+                index={index}
+                folder={folder}
+                onEdit={(editing) => openEditor(editing)}
+                onSaved={() => void load(folder)}
+              />
+            )}
+
+            {view === 'syllabus' && folder && (
+              <SyllabusReader
+                index={index}
+                folder={folder}
+                today={today}
+                onSaved={(message) => {
+                  setNotice(message)
+                  void load(folder)
+                }}
+              />
+            )}
           </div>
-        </section>
-      )}
-
-      {phase === 'empty' && (
-        <Welcome
-          caps={caps}
-          insecure={insecure}
-          folders={folders}
-          onChoose={() => void choose()}
-          onOpen={(entry) => void switchTo(entry)}
-        />
-      )}
-
-      {/* The editor takes the whole screen, tabs included. A half-written
-          question is easy to lose to a stray click on another tab, and there is
-          nothing to come back to once it is gone. */}
-      {phase === 'ready' && folder && editor !== null && (
-        <QuestionEditor
-          index={index}
-          folder={folder}
-          editing={editor === 'new' ? null : editor}
-          onCancel={() => showEditor(null)}
-          onSaved={(message) => {
-            showEditor(null)
-            setNotice(message)
-            void load(folder)
-          }}
-        />
-      )}
-
-      {/* Same treatment as the question editor: the whole screen, because a
-          half-described examination is as easy to lose to a stray tab click and
-          as annoying to type again. */}
-      {phase === 'ready' && folder && profileEditor !== null && (
-        <ProfileEditor
-          index={index}
-          folder={folder}
-          editing={profileEditor === 'new' ? null : profileEditor}
-          onCancel={() => showProfileEditor(null)}
-          onSaved={(message) => {
-            showProfileEditor(null)
-            setNotice(message)
-            void load(folder)
-          }}
-        />
-      )}
-
-      {/* Kept mounted, not unmounted, while the editor is open. A batch of
-          questions read back from an AI is expensive to get and lives in this
-          subtree; sending one of them to the editor to be fixed must not throw
-          away the other four.
-
-          A rescan has to keep it mounted for the same reason. Saving anything
-          reloads the folder, which runs phase through ready → scanning →
-          ready, and unmounting on the way past discarded the whole batch the
-          moment the first questions in it were saved. `folder` is what
-          separates a reload from the very first scan, which has nothing worth
-          keeping and should show the message on its own. */}
-      {(phase === 'ready' || (phase === 'scanning' && folder)) && (
-        <div hidden={editor !== null || profileEditor !== null}>
-          {notice && (
-            <section class="panel panel--ok">
-              <p>{notice}</p>
-            </section>
-          )}
-
-          <nav class="tabs">
-            <button
-              class={`tab ${view === 'library' ? 'tab--on' : ''}`}
-              onClick={() => setView('library')}
-            >
-              Questions<span class="tab__n">{questionCount}</span>
-            </button>
-            <button
-              class={`tab ${view === 'build' ? 'tab--on' : ''}`}
-              onClick={() => setView('build')}
-            >
-              Papers<span class="tab__n">{index.papers.length}</span>
-            </button>
-            <button
-              class={`tab ${view === 'draft' ? 'tab--on' : ''}`}
-              onClick={() => setView('draft')}
-              title="Klunk writes the prompt, your school's AI answers it, Klunk checks the answer"
-            >
-              Draft with AI
-            </button>
-            <button
-              class={`tab ${view === 'paper' ? 'tab--on' : ''}`}
-              onClick={() => setView('paper')}
-              title="Read a past paper and its marking guide out of this folder"
-            >
-              From a past paper
-              {index.pdfs.length > 0 && <span class="tab__n">{index.pdfs.length}</span>}
-            </button>
-            <button
-              class={`tab ${view === 'syllabus' ? 'tab--on' : ''}`}
-              onClick={() => setView('syllabus')}
-              title="Build a syllabus model from the NESA document in this folder"
-            >
-              From a syllabus
-              {index.docx.length > 0 && <span class="tab__n">{index.docx.length}</span>}
-            </button>
-          </nav>
-
-          {view === 'library' && folder && (
-            <Library
-              index={index}
-              folder={folder}
-              onNew={() => openEditor('new')}
-              onEdit={(item) => openEditor({ question: item.question, file: item.file })}
-              onBuildProfile={() => showProfileEditor('new')}
-              onReload={() => void load(folder)}
-            />
-          )}
-
-          {view === 'build' && folder && (
-            /* Keyed on the paper, so everything the builder remembers about the
-               one on screen — which section is being added to, the message
-               from the last save, what the bank rail is searched for — goes
-               when the paper does. It is kept mounted otherwise, and a
-               three-section paper closed in favour of a one-section paper left
-               it aiming at a section that no longer existed: the rail said
-               "Section 2" and + silently did nothing. */
-            <Builder
-              key={paper?.id ?? 'none'}
-              index={index}
-              folder={folder}
-              paper={paper}
-              setPaper={setPaper}
-              onBuildProfile={() => showProfileEditor('new')}
-              onEditProfile={(profile, path) => showProfileEditor({ profile, path })}
-              dirty={dirty}
-              onClose={requestClosePaper}
-              onSaved={() => void load(folder)}
-            />
-          )}
-
-          {view === 'draft' && folder && (
-            <Factory
-              index={index}
-              folder={folder}
-              onEdit={(editing) => openEditor(editing)}
-              onSaved={() => void load(folder)}
-            />
-          )}
-
-          {view === 'paper' && folder && (
-            <Extractor
-              index={index}
-              folder={folder}
-              onEdit={(editing) => openEditor(editing)}
-              onSaved={() => void load(folder)}
-            />
-          )}
-
-          {view === 'syllabus' && folder && (
-            <SyllabusReader
-              index={index}
-              folder={folder}
-              today={today}
-              onSaved={(message) => {
-                setNotice(message)
-                void load(folder)
-              }}
-            />
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       <footer class="colophon">
         Runs entirely in your browser · nothing uploaded · no network after load
