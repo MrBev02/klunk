@@ -4,6 +4,7 @@ import {
   checkPaper,
   moveRef,
   newPaper,
+  paperIsDirty,
   pickableQuestions,
   removeRef,
   resolvePaper,
@@ -13,7 +14,7 @@ import {
 import { QuestionDetail, shortType } from './question'
 import { PrintablePaper, type PrintMode } from './render'
 import { ProfileInstaller } from './setup'
-import { allQuestions, writeJson, type ContentIndex } from './storage'
+import { allQuestions, savePaper, type ContentIndex } from './storage'
 import {
   QUESTION_TYPE_LABELS,
   questionHaystack,
@@ -67,6 +68,13 @@ export function Builder({
   const [preview, setPreview] = useState<PrintMode | null>(null)
   const [aimedAt, setTarget] = useState(0)
 
+  // Whether this paper is the one already in `papers/<id>.json`, rather than a
+  // new one that happens to want the same file. Decided once, at mount, because
+  // that is the only moment the two can be told apart: a paper opened from the
+  // folder starts identical to its file and a new one does not. The builder is
+  // keyed on the paper in `app.tsx`, so mount is per paper.
+  const [owns, setOwns] = useState(() => paper !== null && !paperIsDirty(index, paper))
+
   if (!paper) {
     return (
       <StartPaper
@@ -100,8 +108,10 @@ export function Builder({
     setSaved('')
     setFailed('')
     try {
-      const path = `papers/${paper.id}.json`
-      await writeJson(folder, path, paper)
+      const { path } = await savePaper(folder, paper, { replacing: owns })
+      // From here this paper is the one in that file, so the next save is an
+      // edit rather than a first write and must not be refused by its own.
+      setOwns(true)
       setSaved(`Saved to ${path}`)
       onSaved()
     } catch (err) {
@@ -538,6 +548,9 @@ function StartPaper({
     [title],
   )
 
+  /** The paper this title would write over, if the folder already holds one. */
+  const taken = papers.find((p) => p.data.id === slug)
+
   if (profiles.length === 0) {
     return (
       <section class="panel setup">
@@ -593,6 +606,7 @@ function StartPaper({
           </select>
           <button
             class="btn btn--primary"
+            disabled={taken !== undefined}
             onClick={() => {
               const profile = profiles.find((p) => p.id === profileId)
               if (profile) onStart(newPaper(profile, slug, title))
@@ -600,9 +614,26 @@ function StartPaper({
           >
             Create paper
           </button>
-          <p class="muted mono" style={{ fontSize: '0.75rem', marginTop: '0.6rem' }}>
-            papers/{slug}.json
-          </p>
+          {/* The file is named from the title, and every new paper starts with
+              the same title, so the second one asks for the first one's file.
+              Caught here rather than at the save, because a teacher who wanted
+              that paper wanted to open it, and one who wanted a new paper only
+              has to say which. */}
+          {taken ? (
+            <div class="setup__problem" style={{ fontSize: '0.8rem' }}>
+              <span class="mono">papers/{slug}.json</span> already holds "{taken.data.title}".
+              Retitle this one, or:
+              <div class="rowbtns" style={{ marginTop: '0.5rem' }}>
+                <button class="btn btn--small" onClick={() => onStart(taken.data)}>
+                  Open "{taken.data.title}"
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p class="muted mono" style={{ fontSize: '0.75rem', marginTop: '0.6rem' }}>
+              papers/{slug}.json
+            </p>
+          )}
         </section>
 
         {/* A profile is not something a teacher sets up once and never looks at

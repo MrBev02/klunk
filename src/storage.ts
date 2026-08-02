@@ -749,6 +749,49 @@ export async function saveProfile(
   return { path }
 }
 
+function isPaper(value: unknown): value is Paper {
+  if (typeof value !== 'object' || value === null) return false
+  const paper = value as Paper
+  return paper.type === 'klunk_paper' && Array.isArray(paper.sections)
+}
+
+/**
+ * Write a paper, unless the file belongs to a different one.
+ *
+ * A paper's id is made from its title, and every new paper starts with the same
+ * default title, so `papers/trial-hsc-examination.json` is the file two papers
+ * in a row will ask for. Writing straight to it replaced a finished paper with
+ * an empty draft and reported a successful save, which is the one outcome a
+ * teacher cannot undo: papers are not in any history.
+ *
+ * `replacing` is the caller saying this paper *is* the one in that file. The
+ * check reads the folder rather than the last scan, so it also catches the other
+ * teacher on the shared drive who saved between this paper being started and
+ * this save being pressed.
+ */
+export async function savePaper(
+  dir: FileSystemDirectoryHandle,
+  paper: Paper,
+  options?: { replacing?: boolean },
+): Promise<{ path: string }> {
+  const path = `papers/${paper.id}.json`
+
+  if (!options?.replacing) {
+    const existing = await readJson(dir, path).catch(() => null)
+    if (existing !== null) {
+      throw new Error(
+        isPaper(existing)
+          ? `${path} is already there and holds "${existing.title}". Retitle this paper, ` +
+            'or close it and open that one to add to it.'
+          : `${path} is already there and is not a paper`,
+      )
+    }
+  }
+
+  await writeJson(dir, path, paper)
+  return { path }
+}
+
 /* ------------------------------------------------------------------ querying */
 
 /**

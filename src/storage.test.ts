@@ -18,6 +18,7 @@ import {
   mergeFolder,
   releaseImages,
   safeFilename,
+  savePaper,
   saveQuestion,
   scanFolder,
   type ContentIndex,
@@ -573,6 +574,77 @@ describe('inSyllabus', () => {
     const loose = allQuestions(twoSubjects())[2]!
     expect(inSyllabus(loose, 'nsw-hsc-design-technology')).toBe(true)
     expect(inSyllabus(loose, 'anything-at-all')).toBe(true)
+  })
+})
+
+/**
+ * The write nobody can undo.
+ *
+ * A paper's file is named from its title, every new paper starts with the same
+ * default title, and papers are in no history: whatever a save replaces is gone.
+ */
+describe('savePaper', () => {
+  const paperNamed = (id: string, title: string): Paper => ({
+    formatVersion: '1',
+    type: 'klunk_paper',
+    id,
+    title,
+    profileId: 'nsw-hsc-design-technology',
+    sections: [{ profileSectionId: 'I', refs: [`bank/design.json#${id}`] }],
+  })
+
+  it('writes a paper whose file is not there yet', async () => {
+    const files = tree({})
+    const { path } = await savePaper(dirHandle(files), paperNamed('trial', 'Trial'))
+
+    expect(path).toBe('papers/trial.json')
+    expect(readJson(files, 'papers/trial.json')).toEqual(paperNamed('trial', 'Trial'))
+  })
+
+  it('refuses to write over a paper it was not opened from, and names it', async () => {
+    const theirs = paperNamed('trial-hsc-examination', 'Trial HSC Examination')
+    const files = tree({ 'papers/trial-hsc-examination.json': JSON.stringify(theirs) })
+
+    await expect(
+      savePaper(dirHandle(files), paperNamed('trial-hsc-examination', 'Trial HSC Examination')),
+    ).rejects.toThrow(/already there and holds "Trial HSC Examination"/)
+
+    // The point of the test: the finished paper is untouched.
+    expect(readJson(files, 'papers/trial-hsc-examination.json')).toEqual(theirs)
+  })
+
+  it('writes when the caller says this paper is the one in that file', async () => {
+    const files = tree({
+      'papers/trial.json': JSON.stringify(paperNamed('trial', 'Trial')),
+    })
+    const edited = { ...paperNamed('trial', 'Trial'), status: 'final' as const }
+
+    await savePaper(dirHandle(files), edited, { replacing: true })
+    expect(readJson(files, 'papers/trial.json')).toEqual(edited)
+  })
+
+  it('refuses a file that is there and is not a paper', async () => {
+    const files = tree({ 'papers/trial.json': JSON.stringify({ type: 'klunk_bank' }) })
+
+    await expect(savePaper(dirHandle(files), paperNamed('trial', 'Trial'))).rejects.toThrow(
+      /is not a paper/,
+    )
+  })
+
+  // The other teacher on the shared drive, who saved between this paper being
+  // started and this save being pressed. The last scan does not know about it,
+  // so the check has to read the folder.
+  it('catches a file that appeared after the last scan', async () => {
+    const files = tree({})
+    const dir = dirHandle(files)
+    await savePaper(dir, paperNamed('trial', 'Mine'))
+
+    files.delete('papers')
+    const theirs = paperNamed('trial', 'Theirs')
+    const appeared = tree({ 'papers/trial.json': JSON.stringify(theirs) })
+    for (const [name, node] of appeared) files.set(name, node)
+
+    await expect(savePaper(dir, paperNamed('trial', 'Mine'))).rejects.toThrow(/holds "Theirs"/)
   })
 })
 
