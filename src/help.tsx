@@ -22,6 +22,17 @@
  * they would call it.
  */
 
+/**
+ * The one address in the app that points off this computer.
+ *
+ * It is a link and not a request, so `connect-src 'none'` is untouched and the
+ * no-network claim still holds: nothing happens until a teacher clicks it. It
+ * earns its place because "tell whoever gave you this link" is a dead end for
+ * the teacher two schools along whose colleague has left, and a fault nobody can
+ * report is a fault nobody fixes.
+ */
+const ISSUES_URL = 'https://github.com/MrBev02/klunk/issues'
+
 /** Where the reader is in the page. Plain anchors: no script, no dependency. */
 const CONTENTS: { id: string; title: string }[] = [
   { id: 'help-shape', title: 'How it works, in four steps' },
@@ -33,6 +44,7 @@ const CONTENTS: { id: string; title: string }[] = [
   { id: 'help-trouble', title: 'When something looks wrong' },
   { id: 'help-privacy', title: 'What leaves your computer' },
   { id: 'help-limits', title: 'What Klunk does not do' },
+  { id: 'help-report', title: 'Reporting something wrong' },
 ]
 
 export function Help({ onClose }: { onClose: () => void }) {
@@ -353,7 +365,8 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
         <p class="muted">
           Your folder stays where it is. If it lives on OneDrive it syncs the way it always
-          has.
+          has. The one address in Klunk that points anywhere else is the link for reporting
+          a fault at the end of this page, and it does nothing until you click it.
         </p>
       </section>
 
@@ -376,12 +389,26 @@ export function Help({ onClose }: { onClose: () => void }) {
         </ul>
       </section>
 
-      <section class="help__sec">
-        <h3 class="setup__head">Something wrong, or missing</h3>
+      <section id="help-report" class="help__sec">
+        <h3 class="setup__head">Reporting something wrong</h3>
         <p>
-          Tell whoever gave you this link. It helps a great deal if you say what you were
-          looking at, what you did, and what you expected to happen instead. That is usually
-          enough to find the fault straight away.
+          Tell whoever gave you this link first. It helps a great deal if you say what you
+          were looking at, what you did, and what you expected to happen instead. That is
+          usually enough to find the fault straight away.
+        </p>
+        <p>
+          If there is nobody to ask, or it looks like a fault in Klunk rather than something
+          you can fix, report it at{' '}
+          <a href={ISSUES_URL} target="_blank" rel="noreferrer">
+            github.com/MrBev02/klunk/issues
+          </a>
+          . That is where faults in Klunk are tracked and fixed, and you do not need to know
+          anything about code to describe one.
+        </p>
+        <p class="muted">
+          That link is the one thing on this page that leaves Klunk, and it opens in a new
+          tab. Everything posted there is public and stays public, so write what happened in
+          your own words and keep your questions and papers out of it.
         </p>
         <div class="rowbtns">
           <button class="btn btn--primary" onClick={onClose}>

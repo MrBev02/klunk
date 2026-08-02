@@ -512,6 +512,15 @@ is not a description of buttons but the *reasons* behind the decisions that read
 as faults from outside — no syllabus ships, the AI step is copy-and-paste, a
 missing picture prints a grey box, the browser asks for the folder again.
 
+**The help page carries the one address in Klunk that points off this computer**
+(#40), the issue tracker, for the teacher who has nobody local to ask or whose
+problem is a fault rather than a mistake. It does not touch the no-network claim
+and the CSP is unchanged: `connect-src 'none'` and `form-action 'none'` govern
+requests the page makes, and a link is navigation that happens only on a click.
+The copy says so, and says in the same breath that anything posted there is
+public, because a teacher reporting "this question prints wrongly" would
+otherwise paste an unreleased trial into a public issue.
+
 Two decisions there are structural. It is a screen and not a link, because
 `connect-src 'none'` forbids fetching a documentation site and `build:single` is
 one HTML file on a shared drive with nothing beside it. And it hangs off the
