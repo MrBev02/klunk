@@ -7,11 +7,15 @@
  * link would work for some teachers and silently fail for the rest.
  *
  * Most of what is written here is not a description of buttons. It is the
- * reasons behind the decisions that look like faults from the outside — no
+ * reasons behind the decisions that look like faults from the outside: no
  * syllabus ships, the AI step is copy-and-paste, a missing picture prints a grey
  * box, the browser asks for the folder again. Every one of those has been read
  * as broken by somebody, and none of the reasons were anywhere a teacher could
  * find them.
+ *
+ * The prose here is deliberately plainer than the rest of this codebase. Short
+ * sentences, no dashes holding clauses together, nothing inverted for emphasis.
+ * A teacher reading this is stuck and wants an answer, not a style.
  *
  * The troubleshooting section is keyed to the exact words on screen, so it can
  * be scanned for what the teacher is actually looking at rather than for what
@@ -20,7 +24,7 @@
 
 /** Where the reader is in the page. Plain anchors: no script, no dependency. */
 const CONTENTS: { id: string; title: string }[] = [
-  { id: 'help-shape', title: 'The shape of the work' },
+  { id: 'help-shape', title: 'How it works, in four steps' },
   { id: 'help-setup', title: 'Setting up a subject folder' },
   { id: 'help-files', title: 'What Klunk puts in your folder' },
   { id: 'help-questions', title: 'Three ways to get questions in' },
@@ -42,10 +46,10 @@ export function Help({ onClose }: { onClose: () => void }) {
       </div>
 
       <p class="help__lede">
-        Klunk turns the questions you already have into examination papers. It runs entirely
-        in this browser tab — no account, no server, nothing uploaded — and your questions
-        and papers are ordinary files in a folder you choose, normally the subject's
-        OneDrive or Teams folder. Klunk reads and writes them in place.
+        Klunk builds exam papers out of questions you already have. It runs in this
+        browser tab. There is no account to make, no server, and nothing is uploaded.
+        Your questions and papers are ordinary files in a folder you choose, usually
+        the subject's OneDrive or Teams folder, and Klunk reads and writes them there.
       </p>
 
       <nav class="help__contents" aria-label="On this page">
@@ -59,30 +63,29 @@ export function Help({ onClose }: { onClose: () => void }) {
       </nav>
 
       <section id="help-shape" class="help__sec">
-        <h3 class="setup__head">The shape of the work</h3>
+        <h3 class="setup__head">How it works, in four steps</h3>
         <ol class="help__steps">
           <li>
-            <strong>Point Klunk at your subject's folder.</strong> Once per subject, and the
-            browser remembers it.
+            <strong>Point Klunk at your subject's folder.</strong> You do this once, and
+            your browser remembers it.
           </li>
           <li>
-            <strong>Give that folder two things:</strong> a <em>paper profile</em>, which is
-            the shape of the real examination, and a <em>syllabus model</em>, which is the
-            outcomes, topics and content points your questions are tagged against.
+            <strong>Put two things in that folder.</strong> A <em>paper profile</em>, which
+            is the shape of the real exam. And a <em>syllabus model</em>, which is the
+            outcomes, topics and content points you tag your questions against.
           </li>
           <li>
-            <strong>Fill it with questions</strong> — write them, draft them with your
+            <strong>Add your questions.</strong> Write them yourself, draft them with your
             school's AI, or read them out of a past paper.
           </li>
           <li>
-            <strong>Build a paper</strong> against the profile, check it, and print the
+            <strong>Build a paper</strong> against the profile, check it, then print the
             student paper and the marking guide.
           </li>
         </ol>
         <p class="muted">
-          Nothing is ever locked away. Every file Klunk writes is plain text in your own
-          folder, which you can copy, back up, or hand to a colleague, with or without
-          Klunk.
+          Everything Klunk writes is plain text in your own folder. You can copy it, back
+          it up, or send it to a colleague, with or without Klunk.
         </p>
       </section>
 
@@ -90,41 +93,41 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">Setting up a subject folder</h3>
 
         <p>
-          <strong>Chrome or Edge.</strong> They are the only browsers that can open a folder
-          on your computer and write into it. Safari and Firefox cannot, and Klunk says so
-          plainly rather than half-working.
+          <strong>Use Chrome or Edge.</strong> They are the only browsers that can open a
+          folder on your computer and write to it. Safari and Firefox cannot do it at all,
+          so Klunk tells you instead of half working.
         </p>
 
         <p>
-          <strong>One folder per subject.</strong> That way the permission you give covers
-          only the subject you are working on, and switching between subjects later is one
-          click in the header. A folder on OneDrive or Teams is the usual choice: it is
-          backed up already, and colleagues teaching the same course can share it.
+          <strong>Use one folder per subject.</strong> The permission you give then covers
+          only the subject you are working on, and swapping to another one later takes a
+          single click in the header. Most people use a folder on OneDrive or Teams. It is
+          already backed up, and colleagues teaching the same course can share it.
         </p>
 
         <p>
-          <strong>A paper profile</strong> is the shape of the real examination: total
-          marks, how many sections, what each is worth, which question types belong where,
-          how long students get. It is what the checker checks a paper against. Klunk
-          supplies the NSW HSC Design and Technology profile; for any other examination,{' '}
-          <strong>Describe your own paper</strong> on the Papers tab is a form to fill in,
-          not a file to hand-edit. That is an afternoon, once, for a whole faculty.
+          <strong>A paper profile</strong> is the shape of the real exam: total marks, how
+          many sections, what each section is worth, which question types go where, and how
+          long students get. The checker compares your paper against it. Klunk comes with
+          the profile for NSW HSC Design and Technology. For any other exam, use{' '}
+          <strong>Describe your own paper</strong> on the Papers tab. It is a form you fill
+          in, not a file you edit, and it takes an afternoon once for a whole faculty.
         </p>
 
         <p>
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
-          points. <strong>Klunk ships none, deliberately.</strong> A syllabus is copyright:
-          copying a reasonable portion for your own teaching is fine, and publishing the
-          whole content inventory of one, restructured, is not — under anyone's reading. So
-          you build your own from your own copy. Save the syllabus <code>.docx</code> into
-          the folder and read it on the <strong>From a syllabus</strong> tab; it shows you
-          every course, topic and content point it found before anything is written.
+          points. <strong>Klunk does not come with any, and that is on purpose.</strong> A
+          syllabus is copyright. Copying a reasonable portion for your own teaching is
+          fine, but publishing a whole one, rearranged, is not. So you build your own from
+          your own copy. Save the syllabus <code>.docx</code> into your folder and open the{' '}
+          <strong>From a syllabus</strong> tab. It shows you every course, topic and content
+          point it found before it writes anything.
         </p>
 
         <p class="muted">
-          Without a profile you cannot build a paper. Without a syllabus model you still can
-          — you just cannot tag a question to a topic, and Klunk cannot work out what a
-          paper covers.
+          You need a profile before you can build a paper. You do not need a syllabus model
+          to write questions or build papers, but without one you cannot tag a question to a
+          topic, and Klunk cannot tell you what a paper covers.
         </p>
       </section>
 
@@ -136,30 +139,30 @@ export function Help({ onClose }: { onClose: () => void }) {
           </dt>
           <dd>
             Your questions. One bank can hold as many as you like, and you can have as many
-            banks as you like — one per year group, or per topic, or per teacher.
+            banks as you like. One per year group, or per topic, or per teacher.
           </dd>
 
           <dt>
             <code>bank/stimulus/</code>
           </dt>
           <dd>
-            Pictures a question shows. Kept beside the bank that refers to them, so moving
-            or renaming the whole folder breaks nothing.
+            Pictures your questions show. They sit next to the bank that uses them, so you
+            can move or rename the whole folder and nothing breaks.
           </dd>
 
           <dt>
             <code>papers/</code>
           </dt>
           <dd>
-            A paper: which questions, in what order, in which section.{' '}
-            <strong>By reference, not by copy.</strong> Correcting a question corrects it
-            everywhere it appears, and a paper from last year still prints.
+            A paper: which questions, in what order, in which section. A paper points at
+            questions instead of copying them, so fixing a question fixes it everywhere it
+            appears, and last year's paper still prints.
           </dd>
 
           <dt>
             <code>profiles/</code>
           </dt>
-          <dd>The examination shapes described above.</dd>
+          <dd>The exam shapes described above.</dd>
 
           <dt>
             <code>syllabus/</code>
@@ -168,13 +171,15 @@ export function Help({ onClose }: { onClose: () => void }) {
         </dl>
 
         <p>
-          Two things worth knowing about those files. A question{' '}
-          <strong>remembers where it came from</strong> — the year and question number, for
-          anything read out of a past paper — which is what lets Klunk warn you before you
-          put a public examination question into a school trial. And the folder{' '}
-          <strong>can be moved or renamed</strong>: a paper finds its questions again by the
-          same file, then the same filename elsewhere, then the question's own id, and tells
-          you when it cannot be certain instead of guessing.
+          Every question remembers where it came from. For anything read out of a past
+          paper that means the year and the question number, so Klunk can warn you before
+          you put a public exam question into a school trial.
+        </p>
+
+        <p>
+          You can move or rename the folder. When a paper goes looking for its questions it
+          tries the same file first, then the same filename somewhere else, then the
+          question's own id. If it cannot be sure, it tells you instead of guessing.
         </p>
       </section>
 
@@ -182,32 +187,32 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">Three ways to get questions in</h3>
 
         <p>
-          <strong>Write one.</strong> Questions tab → <strong>Write a question</strong>. The
-          form shows the whole question, laid out as a student would see it, beside the
-          fields as you type. Tagging it to a topic is optional, but it is what makes
-          filtering and coverage work later.
+          <strong>Write one.</strong> Go to the Questions tab and click{' '}
+          <strong>Write a question</strong>. As you type, the form shows the finished
+          question next to the fields, laid out the way a student will see it. Tagging it to
+          a topic is optional, but it is what makes filtering and coverage work later.
         </p>
 
         <p>
-          <strong>Draft with AI.</strong> Klunk holds no AI key and contacts no AI service.
-          The tab does three steps instead: you choose the topics and content points, Klunk
-          writes the prompt — with the exact topic ids, what a mark is worth in this
-          subject, and where that question type sits on the real paper already filled in —
-          and you copy it into whatever your school licenses. Paste the reply back and Klunk
-          reads it, repairs what it safely can and says what it repaired, and refuses what
-          it cannot trust. <strong>The whole prompt is on screen before you copy it</strong>
-          , which is what makes "you decide what leaves your machine" true rather than a
-          promise. Everything that comes back is tagged <code>ai-drafted</code>.
+          <strong>Draft with AI.</strong> Klunk has no AI key and never contacts an AI
+          service. The tab works in three steps instead. You choose the topics and content
+          points. Klunk writes a prompt for you, with the topic ids, what a mark is worth in
+          this subject, and where that question type sits on the real paper already filled
+          in. You copy that prompt into whatever your school pays for. Paste the reply back
+          and Klunk reads it: it repairs what it safely can and tells you what it repaired,
+          and it refuses anything it cannot trust. You can read the whole prompt before you
+          copy it, so you always know exactly what you are sending. Everything that comes
+          back is tagged <code>ai-drafted</code>.
         </p>
 
         <p>
-          <strong>Read a past paper.</strong> Put the examination PDF, and the marking guide
-          if you have it, into the folder. The <strong>From a past paper</strong> tab lists
-          what it found there, reads the questions out with their marks, takes the outcome
-          codes from the marking guide's mapping grid, and offers any pictures it can cut
-          out. Nothing is written until you have seen every question, and one with a problem
-          goes to the editor rather than into a bank. Built and tested against NSW HSC
-          papers from 2015 onwards.
+          <strong>Read a past paper.</strong> Put the exam PDF in your folder, along with
+          the marking guide if you have it. The <strong>From a past paper</strong> tab lists
+          what it found. It reads out the questions and their marks, takes the outcome codes
+          from the marking guide's mapping grid, and offers you any pictures it can cut out.
+          Nothing is written until you have looked at every question, and anything with a
+          problem goes to the editor instead of into a bank. This was built and tested on
+          NSW HSC papers from 2015 onwards.
         </p>
       </section>
 
@@ -215,55 +220,55 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">Building and printing a paper</h3>
 
         <p>
-          On the Papers tab, start a paper against a profile and add questions from your
-          library. The rail down the side says which section you are adding to and what that
-          section still needs.
+          Open the Papers tab and start a paper against a profile, then add questions from
+          your library. The rail down the side shows which section you are adding to and
+          what that section still needs.
         </p>
 
         <p>
-          The <strong>Checks</strong> panel is live. It compares what you have built against
-          the profile — marks, section totals, question types — and it also warns about the
-          things a teacher means to catch: a question from a public paper students may have
-          seen, a question already on a paper they have sat, a question belonging to another
-          subject, a question tagged to nothing.
+          The <strong>Checks</strong> panel updates as you build. It compares your paper
+          against the profile: marks, section totals and question types. It also warns you
+          about the things you would want to catch anyway. A question from a public paper
+          your students may have seen. A question that is already on a paper they have sat.
+          A question belonging to another subject. A question tagged to nothing.
         </p>
 
         <p>
-          <strong>Student paper</strong> and <strong>Marking guide</strong> are previews of
-          the real thing, on A4. From either, <strong>Print / Save as PDF</strong> hands it
-          to your browser's print dialog; choose "Save as PDF" there for a file. Only the
-          paper prints — none of Klunk's own screen goes with it.
+          <strong>Student paper</strong> and <strong>Marking guide</strong> show you the
+          real thing, on A4. From either one, <strong>Print / Save as PDF</strong> opens
+          your browser's print dialog. Choose "Save as PDF" there if you want a file. Only
+          the paper prints, and none of Klunk's own screen goes with it.
         </p>
 
         <p>
           <strong>Save changes</strong> writes the paper into <code>papers/</code>. Klunk
-          says when a paper has changes you have not saved, and everything that would throw
-          them away asks first.
+          tells you when a paper has changes you have not saved, and it asks first before
+          anything throws them away.
         </p>
 
         <p class="muted">
-          A picture that prints as a grey box naming a file is not a glitch to ignore: that
-          image is missing from the folder. It prints that way on purpose, so it is caught
-          on the proof rather than in the examination room.
+          If a picture prints as a grey box with a filename in it, that image is missing
+          from your folder. Klunk prints the box on purpose, so you catch it on the proof
+          and not in the exam room.
         </p>
       </section>
 
       <section id="help-sharing" class="help__sec">
         <h3 class="setup__head">Sharing a folder with colleagues</h3>
         <p>
-          A folder on OneDrive or Teams behaves exactly as you would expect: everyone who
-          has the folder has the questions, and each of them opens it in their own browser.
-          Two things are worth knowing.
+          A folder on OneDrive or Teams works the way you would expect. Everyone who has the
+          folder has the questions, and each person opens it in their own browser. Two
+          things are worth knowing.
         </p>
         <p>
           Klunk writes whole files. If two people save into the same bank at the same
-          moment, the later save can flatten the earlier one. Working in different banks —{' '}
-          <code>bank/year11.json</code>, <code>bank/trials.json</code> — removes the problem
-          rather than managing it.
+          moment, the second save can wipe out the first. Working in separate banks, such as{' '}
+          <code>bank/year11.json</code> and <code>bank/trials.json</code>, avoids this
+          completely.
         </p>
         <p>
           <strong>Reload</strong> in the header re-reads the folder. Klunk reads it when you
-          open it, not continuously, so click Reload when you know somebody else has been
+          open it, not all the time, so click Reload when you know somebody else has been
           working in it.
         </p>
       </section>
@@ -273,64 +278,63 @@ export function Help({ onClose }: { onClose: () => void }) {
         <dl class="help__trouble">
           <dt>"Klunk needs Chrome or Edge"</dt>
           <dd>
-            Open the same link in Chrome or Edge. Nothing is lost by switching: your content
-            is ordinary files in your own folder, so the other browser reads exactly the
-            same ones.
+            Open the same link in Chrome or Edge. You lose nothing by switching. Your
+            content is ordinary files in your own folder, so the other browser reads exactly
+            the same ones.
           </dd>
 
-          <dt>"Welcome back … confirm access again"</dt>
+          <dt>"Welcome back", and it asks you to confirm access again</dt>
           <dd>
             Your browser has let the folder permission lapse, which it does from time to
-            time. Nothing has been forgotten and you do not need the file dialog: click the
-            folder, and confirm once when the browser asks. One click each, and only once
-            that session.
+            time. Nothing has been forgotten, and you do not need the file dialog. Click
+            your folder, then confirm once when the browser asks. It is one click per
+            folder, once a session.
           </dd>
 
           <dt>"… is no longer on this computer"</dt>
           <dd>
-            That folder has been renamed, moved or deleted since Klunk last opened it.{' '}
-            <strong>Forget</strong> it — that only stops it being offered here, and deletes
-            nothing.
+            That folder has been renamed, moved or deleted since Klunk last opened it. Click{' '}
+            <strong>Forget</strong>. That only stops Klunk offering it to you, and it
+            deletes nothing.
           </dd>
 
-          <dt>The topic list is empty, or a question cannot be tagged</dt>
+          <dt>The topic list is empty, or you cannot tag a question</dt>
           <dd>
-            This folder has no syllabus model in it. Build one on the{' '}
-            <strong>From a syllabus</strong> tab from the syllabus <code>.docx</code>.
+            This folder has no syllabus model in it. Build one from your syllabus{' '}
+            <code>.docx</code> on the <strong>From a syllabus</strong> tab.
           </dd>
 
           <dt>"No profile in this folder yet"</dt>
           <dd>
-            A paper needs an examination shape to be built against. Add the stock profile if
-            it is your subject, or describe your own on the Papers tab.
+            A paper needs an exam shape to be built against. Add the stock profile if it
+            matches your subject, or describe your own on the Papers tab.
           </dd>
 
           <dt>"… files could not be read"</dt>
           <dd>
-            A file in the folder is not what its name suggests, or has been damaged. Klunk
-            names it and carries on with the rest, because one bad file must not hide the
-            other forty.
+            A file in your folder is not what its name suggests, or it has been damaged.
+            Klunk names the file and carries on with the rest, so one bad file does not hide
+            the other forty.
           </dd>
 
           <dt>A question is missing, or a count looks wrong</dt>
           <dd>
             Click <strong>Reload</strong>. If it is still missing, check the folder name in
-            the header — being in last term's folder looks exactly like this.
+            the header. Being in last term's folder looks exactly like this.
           </dd>
 
           <dt>A button seems to do nothing at all</dt>
           <dd>
-            Nearly always the folder rather than the button: a permission that has lapsed,
-            or the same folder open somewhere else. Click <strong>Reload</strong>, and if
-            the browser asks for the folder again, let it. If you are working on more than
-            one computer, check you are on the one whose browser holds the folder.
+            It is usually the folder rather than the button. The permission may have lapsed,
+            or the same folder may be open somewhere else. Click <strong>Reload</strong>,
+            and if the browser asks for your folder again, say yes. If you work on more than
+            one computer, check you are on the one whose browser has the folder.
           </dd>
 
           <dt>A picture prints as a grey box</dt>
           <dd>
-            The image file it names is not in the folder — it was moved, renamed, or never
-            copied in. Deliberate: an examination with a missing figure should fail loudly
-            on the proof.
+            The image file it names is not in your folder. It was moved, renamed, or never
+            copied in. Put it back and print the proof again.
           </dd>
         </dl>
       </section>
@@ -339,18 +343,18 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">What leaves your computer</h3>
         <p>
           <strong>Nothing, unless you copy it out yourself.</strong> Klunk makes no network
-          requests at all once the page has loaded. That is enforced by the page's own
-          security policy rather than promised, so it holds whether or not you take our word
-          for it. There is no account, no server and no database.
+          requests once the page has loaded. The page's own security policy blocks them, so
+          this holds whether or not you take our word for it. There is no account, no server
+          and no database.
         </p>
         <p>
-          No AI service is contacted from inside Klunk, which is why the AI step is
-          copy-and-paste: the only text that ever leaves is text you have read on screen and
-          chosen to send, to whichever service your school licenses.
+          Klunk never contacts an AI service. That is why the AI step is copy and paste. The
+          only text that leaves is text you have read on screen and chosen to send, to
+          whichever service your school pays for.
         </p>
         <p class="muted">
           Your folder stays where it is. If it lives on OneDrive it syncs the way it always
-          has — that is Microsoft doing what you already asked it to, not Klunk.
+          has, which is Microsoft doing what you already asked it to do.
         </p>
       </section>
 
@@ -358,19 +362,17 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">What Klunk does not do</h3>
         <ul>
           <li>
-            <strong>No Word export.</strong> Papers print to PDF. Merging into a school's
-            own <code>.docx</code> template is possible and deliberately not built until
-            teachers say they want it.
+            <strong>No Word export.</strong> Papers print to PDF. Merging them into a
+            school's own <code>.docx</code> template is possible, and it is not built yet.
           </li>
           <li>
-            <strong>Two editions of one syllabus in one folder</strong> — a new syllabus
-            starting while the old one finishes — is not handled as well as it will need to
-            be.
+            <strong>Two editions of one syllabus in the same folder</strong> is not handled
+            well yet. This comes up when a new syllabus starts while the old one finishes.
           </li>
           <li>
-            <strong>No past papers for a brand new course.</strong> Where a syllabus has
-            just changed there is nothing to read questions out of, so they have to be
-            written or drafted.
+            <strong>No past papers for a brand new course.</strong> If a syllabus has just
+            changed there is nothing to read questions out of, so you write or draft them
+            instead.
           </li>
         </ul>
       </section>
@@ -378,9 +380,9 @@ export function Help({ onClose }: { onClose: () => void }) {
       <section class="help__sec">
         <h3 class="setup__head">Something wrong, or missing</h3>
         <p>
-          Tell whoever gave you this link. It helps enormously to say what you were looking
-          at, what you did, and what you expected instead — Klunk is small enough that most
-          faults are fixed the same week they are reported.
+          Tell whoever gave you this link. It helps a great deal if you say what you were
+          looking at, what you did, and what you expected to happen instead. Klunk is small,
+          and most faults get fixed the same week they are reported.
         </p>
         <div class="rowbtns">
           <button class="btn btn--primary" onClick={onClose}>
