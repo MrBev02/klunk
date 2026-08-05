@@ -14,6 +14,7 @@ import {
   allQuestions,
   emptyIndex,
   folderIsMissing,
+  folderProblem,
   forgetFolder,
   inSyllabus,
   listFolders,
@@ -24,6 +25,7 @@ import {
   restoreFolder,
   scanFolder,
   type ContentIndex,
+  type FolderProblem,
   type RememberedFolder,
 } from './storage'
 import {
@@ -55,7 +57,7 @@ export function App() {
   const [phase, setPhase] = useState<Phase>('starting')
   const [folder, setFolder] = useState<FileSystemDirectoryHandle | null>(null)
   const [index, setIndex] = useState<ContentIndex>(emptyIndex)
-  const [error, setError] = useState<string>('')
+  const [error, setError] = useState<FolderProblem | null>(null)
   /**
    * The folder an error is about, when the folder itself has gone.
    *
@@ -141,7 +143,7 @@ export function App() {
         // only failure with a way out of its own: say which folder, and offer to
         // stop remembering it.
         if (folderIsMissing(err)) setGone(handle)
-        setError((err as Error).message)
+        setError(folderProblem(err, handle.name))
         setPhase('error')
       }
     },
@@ -179,7 +181,7 @@ export function App() {
         await load(handle)
       }
     } catch (err) {
-      setError((err as Error).message)
+      setError(folderProblem(err))
       setPhase('error')
     }
   }, [load])
@@ -197,10 +199,11 @@ export function App() {
       setPending(null)
       try {
         if (!(await openFolder(entry.handle))) {
-          setError(
-            `Klunk needs your permission to open ${entry.handle.name}. Click it again and confirm
-             access when the browser asks.`,
-          )
+          setError({
+            message:
+              `Klunk needs your permission to open ${entry.handle.name}. Click it again and ` +
+              `confirm access when the browser asks.`,
+          })
           setPhase('error')
           return
         }
@@ -208,7 +211,7 @@ export function App() {
         // Asking for permission can be where a folder that has gone is first
         // noticed, before anything has been read from it.
         if (folderIsMissing(err)) setGone(entry.handle)
-        setError((err as Error).message)
+        setError(folderProblem(err, entry.handle.name))
         setPhase('error')
         return
       }
@@ -304,7 +307,7 @@ export function App() {
     async (handle: FileSystemDirectoryHandle) => {
       await forgetFolder(handle).catch(() => undefined)
       setGone(null)
-      setError('')
+      setError(null)
 
       // Back to the folder that was open, when the failure was a switch away
       // from one. Its index was never replaced, so there is nothing to re-read.
@@ -488,7 +491,14 @@ export function App() {
                    deletes nothing.
               </p>
             ) : (
-              <p>{error}</p>
+              <>
+                <p>{error?.message}</p>
+                {error?.detail && (
+                  <p class="hint">
+                    If you report this, include this line: <code>{error.detail}</code>
+                  </p>
+                )}
+              </>
             )}
             <div class="rowbtns">
               {gone && (

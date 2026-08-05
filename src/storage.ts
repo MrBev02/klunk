@@ -369,6 +369,55 @@ export function folderIsMissing(err: unknown): boolean {
   )
 }
 
+/** A folder failure, said in a way a teacher can act on. */
+export interface FolderProblem {
+  /** What happened, then what to do about it. */
+  message: string
+  /**
+   * The browser's own words, carried only where Klunk did not recognise the
+   * failure. Shown as something to quote in a fault report rather than as the
+   * answer, because on its own it is not one.
+   */
+  detail?: string
+}
+
+/**
+ * What went wrong with a folder, for the panel that has to say so.
+ *
+ * The failures below are the ones a teacher reaches by clicking, and each has a
+ * different way out, so each gets its own sentence naming the button that takes
+ * it. Everything else gets a plain sentence and keeps the browser's text
+ * separately: the help page points at a public issue tracker (#40), and a report
+ * saying only "it would not open" cannot be acted on.
+ *
+ * Without this the panel printed whatever the browser threw, which reads
+ * "Failed to execute 'requestPermission' on 'FileSystemHandle': User activation
+ * is required to request permissions." (#41)
+ */
+export function folderProblem(err: unknown, name?: string): FolderProblem {
+  const which = name ? `“${name}”` : 'that folder'
+  const kind = typeof err === 'object' && err !== null ? (err as { name?: unknown }).name : undefined
+
+  if (kind === 'NotFoundError') {
+    return { message: `${which} is no longer on this computer, so there is nothing to read.` }
+  }
+  if (kind === 'NotAllowedError' || kind === 'SecurityError') {
+    return {
+      message:
+        `Your browser did not give Klunk access to ${which}. Click Choose a folder, pick it ` +
+        `again, and confirm access when the browser asks.`,
+    }
+  }
+
+  const detail = err instanceof Error ? err.message : String(err)
+  return {
+    message:
+      `Klunk could not open ${which}. Click Choose a folder and pick it again. If that does ` +
+      `not work, check the folder is on a drive this computer can reach.`,
+    ...(detail ? { detail } : {}),
+  }
+}
+
 /** Stop remembering one folder. The folder itself is untouched. */
 export async function forgetFolder(handle: FileSystemDirectoryHandle): Promise<void> {
   const kept: FileSystemDirectoryHandle[] = []

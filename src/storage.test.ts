@@ -23,6 +23,7 @@ import {
   saveQuestion,
   scanFolder,
   type ContentIndex,
+  folderProblem,
 } from './storage'
 import type { Bank, Loaded, Paper, Question } from './types'
 
@@ -286,6 +287,45 @@ describe('folderIsMissing', () => {
     expect(folderIsMissing(null)).toBe(false)
     // The name is a property to read, not a string to match against a message.
     expect(folderIsMissing('NotFoundError')).toBe(false)
+  })
+})
+
+describe('folderProblem', () => {
+  // The panel used to print whatever the browser threw, which read "Failed to
+  // execute 'requestPermission' on 'FileSystemHandle': User activation is
+  // required to request permissions." (#41)
+  const browserWords = /requestPermission|FileSystemHandle|DOMException|user activation/i
+
+  it('says what to do when the browser withheld access', () => {
+    for (const name of ['NotAllowedError', 'SecurityError']) {
+      const { message, detail } = folderProblem(new DOMException('nope', name), 'klunk-content')
+      expect(message).toContain('klunk-content')
+      // Naming the button is the whole point: the teacher has to press one.
+      expect(message).toContain('Choose a folder')
+      expect(message).not.toMatch(browserWords)
+      // Klunk recognised this one, so there is nothing left to quote.
+      expect(detail).toBeUndefined()
+    }
+  })
+
+  it('says a folder that has gone has gone', () => {
+    const err = new DOMException('could not be found', 'NotFoundError')
+    expect(folderProblem(err, 'klunk-english').message).toContain('klunk-english')
+    expect(folderProblem(err, 'klunk-english').message).not.toMatch(browserWords)
+  })
+
+  it('keeps the browser text for a failure it does not recognise, beside the answer', () => {
+    // Dropping it entirely would leave a teacher with nothing to put in a fault
+    // report, and the help page points at a public issue tracker (#40).
+    const { message, detail } = folderProblem(new Error('quota exceeded somewhere odd'), 'klunk-dt')
+    expect(message).toContain('klunk-dt')
+    expect(message).toContain('Choose a folder')
+    expect(message).not.toContain('quota exceeded')
+    expect(detail).toBe('quota exceeded somewhere odd')
+  })
+
+  it('manages without a folder name, because the file dialog fails before there is one', () => {
+    expect(folderProblem(new Error('boom')).message).toContain('that folder')
   })
 })
 
