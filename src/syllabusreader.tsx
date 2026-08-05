@@ -11,23 +11,22 @@
  * untouched, because the file is one they already have rather than one fetched
  * from NESA.
  *
- * Nothing is written until the teacher has seen what was found. The counts are
- * the thing they can actually check against the document in front of them, and
- * the groups are listed rather than counted because they were wrong for a long
- * time without changing any count (#14).
+ * Nothing is written until the teacher has seen what was found, and since #42
+ * that means the topics themselves rather than a count of them. The counts stay,
+ * because both #14 and #26 first showed as a count that was wrong, and the groups
+ * are listed rather than counted because they were wrong for a long time without
+ * changing any count. But #26 is the case that decided the shape of this screen:
+ * the count was right while the content was wrong, so the content is on screen
+ * and can be corrected before anything is written.
  */
 
 import { useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
 import { FORMAT_DESCRIPTIONS, readSyllabusXml, type SyllabusFormat } from './formats'
-import {
-  NotASyllabusError,
-  suggestSyllabusId,
-  summarise,
-  toSyllabus,
-  type SyllabusSummary,
-} from './syllabus'
+import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
+import { problemsWith, tidyCourses } from './syllabusedit'
+import { SyllabusReview } from './syllabusreview'
 import { writeJson, type ContentIndex } from './storage'
 import type { Syllabus, SyllabusCourse } from './types'
 
@@ -48,9 +47,11 @@ export function SyllabusReader({
   const [failed, setFailed] = useState('')
   const [found, setFound] = useState<{
     courses: SyllabusCourse[]
-    summary: SyllabusSummary[]
+    /** The parse as it came out, so undoing every correction is going back to it. */
+    original: SyllabusCourse[]
     format: SyllabusFormat
   } | null>(null)
+  const [edits, setEdits] = useState<string[]>([])
 
   const [id, setId] = useState('')
   const [name, setName] = useState('')
@@ -61,15 +62,29 @@ export function SyllabusReader({
   const outPath = `syllabus/${id || '…'}.json`
   const clash = id !== '' && taken.has(id)
 
+  // Recomputed from the courses rather than kept beside them, so a correction
+  // moves the counts on screen. A count that went stale the moment a topic was
+  // merged would be worse than no count at all.
+  const summary = useMemo(() => (found ? summarise(found.courses) : []), [found])
+  const problems = useMemo(() => (found ? problemsWith(found.courses) : []), [found])
+
+  const change = (courses: SyllabusCourse[], what: string) => {
+    setFound((was) => (was === null ? was : { ...was, courses }))
+    // Typing in a field reports the same change on every keystroke, so only a
+    // change different from the last one is worth a line.
+    setEdits((was) => (was[was.length - 1] === what ? was : [...was, what]))
+  }
+
   const read = async () => {
     if (!path) return
     setReading(true)
     setFailed('')
     setFound(null)
+    setEdits([])
     try {
       const file = await fileFrom(folder, path)
       const { format, courses } = readSyllabusXml(await readDocxXml(file))
-      setFound({ courses, summary: summarise(courses), format })
+      setFound({ courses, original: courses, format })
       const base = path.split('/').pop() ?? path
       setId(suggestSyllabusId(base))
       setName(prettyName(base))
@@ -93,7 +108,7 @@ export function SyllabusReader({
     setSaving(true)
     setFailed('')
     try {
-      const model: Syllabus = toSyllabus(found.courses, {
+      const model: Syllabus = toSyllabus(tidyCourses(found.courses), {
         id,
         name: name.trim() || id,
         syllabusVersion: edition,
@@ -178,44 +193,78 @@ export function SyllabusReader({
       )}
 
       {found && (
-        <section class="panel">
-          <p class="panel__title">
-            <span class="step">2</span> Check what was found
-          </p>
-          <p class="hint">
-            Klunk read this as {FORMAT_DESCRIPTIONS[found.format]}. Check the counts below
-               against the document itself. If a course is missing or a number looks wrong,
-               the model is wrong, and so is every question you tag with it.
-          </p>
-
-          <ul class="plain setup__list">
-            {found.summary.map((c) => (
-              <li key={c.courseId} class="setup__row">
-                <div>
-                  <strong>{c.courseName}</strong>
-                  <br />
-                  <span class="muted mono setup__meta">
-                    {c.topics} topics · {c.points} content points · {c.outcomes} outcomes
-                  </span>
-                  <br />
-                  <span class="muted setup__meta">
-                    {c.groups.length === 0
-                      ? 'No focus areas, so every topic sits directly under the course.'
-                      : `Focus areas: ${c.groups.join(' · ')}`}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {found.courses.every((c) => c.topics.every((t) => (t.outcomes ?? []).length === 0)) && (
-            <p class="hint">
-              This syllabus sets its outcomes against the course rather than against each
-                 topic, so no topic above lists any. When you write a question, Klunk offers
-                 you every outcome in the course.
+        <>
+          <section class="panel">
+            <p class="panel__title">
+              <span class="step">2</span> Check what was found
             </p>
+            <p class="hint">
+              Klunk read this as {FORMAT_DESCRIPTIONS[found.format]}. Read the topics below
+                 against the document itself. Whatever is wrong here is wrong in every question
+                 you tag against it, so it is worth ten minutes now.
+            </p>
+
+            <ul class="plain setup__list">
+              {summary.map((c) => (
+                <li key={c.courseId} class="setup__row">
+                  <div>
+                    <strong>{c.courseName}</strong>
+                    <br />
+                    <span class="muted mono setup__meta">
+                      {c.topics} topics · {c.points} content points · {c.outcomes} outcomes
+                    </span>
+                    <br />
+                    <span class="muted setup__meta">
+                      {c.groups.length === 0
+                        ? 'No focus areas, so every topic sits directly under the course.'
+                        : `Focus areas: ${c.groups.join(' · ')}`}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {found.courses.every((c) => c.topics.every((t) => (t.outcomes ?? []).length === 0)) && (
+              <p class="hint">
+                This syllabus sets its outcomes against the course rather than against each
+                   topic, so no topic below lists any. When you write a question, Klunk offers
+                   you every outcome in the course.
+              </p>
+            )}
+
+            <p class="hint">
+              Open a topic to see its content points, and use Fix this topic to change
+                 anything that came out wrong. Nothing is written into your folder until you
+                 save at the bottom of this page.
+            </p>
+          </section>
+
+          <SyllabusReview courses={found.courses} onChange={change} />
+
+          {edits.length > 0 && (
+            <section class="panel panel--note">
+              <p class="panel__title">
+                You have changed {edits.length} thing{edits.length === 1 ? '' : 's'}
+              </p>
+              <ul class="plain review__log">
+                {edits.map((what, i) => (
+                  <li key={i}>{what}</li>
+                ))}
+              </ul>
+              <div class="rowbtns">
+                <button
+                  class="btn btn--small"
+                  onClick={() => {
+                    setFound((was) => (was === null ? was : { ...was, courses: was.original }))
+                    setEdits([])
+                  }}
+                >
+                  Undo every change
+                </button>
+              </div>
+            </section>
           )}
-        </section>
+        </>
       )}
 
       {found && (
@@ -276,8 +325,26 @@ export function SyllabusReader({
             </p>
           )}
 
+          {problems.length > 0 && (
+            <div class="panel panel--alert">
+              <p class="panel__title">
+                {problems.length} thing{problems.length === 1 ? '' : 's'} to fix before this can
+                be saved
+              </p>
+              <ul class="plain">
+                {problems.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div class="rowbtns">
-            <button class="btn btn--primary" disabled={!id || saving} onClick={() => void save()}>
+            <button
+              class="btn btn--primary"
+              disabled={!id || saving || problems.length > 0}
+              onClick={() => void save()}
+            >
               {saving ? 'Saving…' : clash ? 'Replace it' : 'Save the model'}
             </button>
           </div>

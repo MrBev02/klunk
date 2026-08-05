@@ -59,6 +59,7 @@ klunk/                     this repo - app and tools only, public
     syllabus.ts            the 2013 content-table reader, and the model
     headings.ts            the Outcomes/Content reader and the prose reader
     formats.ts             picks the reader that fits the document
+    syllabusedit.ts        correcting a parsed model, pure and testable
     fixtures/              fictional sample data for development
 ../klunk-content/          NOT in git - the teacher's content folder equivalent
   source/                  downloaded syllabus docs and past papers
@@ -314,6 +315,19 @@ into its parent moves that line from a heading to a point. **The count was right
 while the content was wrong**, which is the whole lesson of this section — so the
 corpus test now also asserts that no topic name opens with a list marker and that
 none carries a non-breaking space.
+
+**Textiles Preliminary has the same fault and its 18 / 104 / 11 encodes it** (#43),
+found by driving the review panel over it. `PRE-05 verbal` is a content point of
+`PRE-04 Communication techniques`, sitting alongside `graphical` and `written`,
+which continues in a fresh table row after a page break. This one opens `verbal`
+rather than `iv)`, so `CONTINUATION_RE` does not catch it, and **nothing
+structural separates it from a real topic**: it carries its own skills, the same
+six outcomes and the same focus area as the topics either side. The lowercase
+heading is the only tell, and that cannot be the rule, because all forty of Design
+and Technology's topic headings are lowercase and all forty are real. Corrected it
+is 17 / 105 / 11. Do not change the corpus counts without settling #43 one way or
+the other: this may be a document a teacher corrects by hand rather than one the
+parser can get right.
 
 Groups are part of that check, because they were wrong for a long time without
 changing any count. Design and Technology must have **no group on any topic**: it
@@ -585,6 +599,40 @@ Verified in the browser against `../klunk-content`, not just reasoned about:
 Drama, English Advanced and Visual Arts each read to the counts above, Visual Arts
 written to `syllabus/nsw-hsc-visual-arts.json` and validating, and its seventeen
 HSC topics then offered by name on the Draft with AI tab.
+
+**A syllabus can be read topic by topic and corrected before it is written**
+(#42). "Check what was found" was four numbers and a list of focus areas, which is
+everything #26 says is not enough: the count was right while the content was
+wrong. So `src/syllabusreview.tsx` puts every topic on screen with its group, its
+outcomes, its content points and their ids, and the published heading where the
+tidied name has moved away from it, because that is the line a teacher compares
+against the page. `src/syllabusedit.ts` holds the corrections as pure functions
+over `SyllabusCourse[]`, so all of it is testable without a `.docx`: merge a topic
+into the one above (#26 by hand), split one at a content point (the same rule
+firing wrongly), clear the group across a whole course (#14 by hand), edit or
+delete any name, point, outcome or skill, add a point the reader dropped.
+
+Three decisions worth not reversing. **Ids never renumber**: deleting `HSC-02`
+leaves `HSC-03` alone and a new topic takes an id past the end, never a vacated
+one, because a question tags itself with a topic id and the screen offers to
+replace a model that questions already point at. **Nothing is dropped for being
+empty** except a skill, which nothing references; an empty point or outcome is
+reported by `problemsWith` and disables Save, so a line cleared by accident is
+said out loud rather than quietly lost. And **reading is a separate mode from
+editing**, because the collapsed list of topic names is where a content point
+masquerading as a heading is obvious, and a page of textareas is a worse thing to
+read than a page of text.
+
+Verified by driving it, which is also how #43 was found: Textiles read to
+18 / 104 / 11 and 15 / 80 / 13, the bad topic merged with one click, the counts
+moved to 17 / 105 with the summary above following, the split put it back and took
+`PRE-19` rather than the vacated `PRE-05`, Undo every change returned the parse,
+an emptied heading blocked the save by name, and the corrected model was written
+and validates against `syllabus.schema.json`. Mathematics renders all 201 Year 11
+points in about half a second. Drama and the outcome list both needed boxes that
+grow to their content: those documents write content and outcomes as whole
+paragraphs, and a two-row box clips them mid-sentence, which is useless for the
+one job the panel has.
 
 **`syllabusVersion` no longer defaults to `Stage 6 (2013)`.** That was true of the
 only two documents Klunk could read when it was written and is false of the four
