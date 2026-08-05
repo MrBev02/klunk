@@ -21,32 +21,8 @@
  * count are the group heading (#14) and course membership.
  */
 
+import { blocks, tidyHeading } from './ooxml'
 import type { Syllabus, SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
-
-/* ---------------------------------------------------------------- the markup */
-
-// Field instructions and deleted runs carry text that is never visible in Word.
-// Table-of-contents entries are where a naive extractor picks them up and emits
-// a line of raw markup.
-const DROP_RE = /<w:instrText[\s\S]*?<\/w:instrText>|<w:delText[\s\S]*?<\/w:delText>/g
-const TAG_RE = /<[^>]+>/g
-const PARA_RE = /<w:p(?: [^>]*)?>[\s\S]*?<\/w:p>|<w:p(?: [^>]*)?\/>/g
-const ROW_RE = /<w:tr(?: [^>]*)?>[\s\S]*?<\/w:tr>/g
-const CELL_RE = /<w:tc(?: [^>]*)?>[\s\S]*?<\/w:tc>/g
-const TABLE_RE = /<w:tbl(?: [^>]*)?>[\s\S]*?<\/w:tbl>/g
-
-// A paragraph's visible text, in document order: the runs themselves, and the
-// two things between runs that are a space on the page.
-//
-// Replacing those two in the XML before reading the runs looked like it worked
-// and did nothing at all, because only <w:t> contents are collected: the space
-// landed between elements and was thrown away with the rest of the markup. So
-// "Design inspiration<tab>including:" arrived as "Design inspirationincluding:",
-// and the syllabus is full of them.
-//
-// `<w:tab/>` only, never `<w:tab w:val="left" w:pos="999"/>`: the second is a
-// tab stop in the paragraph's properties, not a tab in its text.
-const TEXT_RE = /<w:t(?: [^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br(?: [^>]*)?\/>/g
 
 /* ----------------------------------------------------------------- the rules */
 
@@ -107,79 +83,6 @@ const CONTENT_HEADERS = ['outcomes', 'students learn about', 'students learn to'
 
 /* ------------------------------------------------------------------ reading */
 
-/** The visible text of one paragraph: runs joined, tabs and breaks flattened to spaces. */
-function paraText(xml: string): string {
-  const cleaned = xml.replace(DROP_RE, '')
-  let out = ''
-  for (const m of cleaned.matchAll(TEXT_RE)) {
-    out += m[1] === undefined ? ' ' : m[1].replace(TAG_RE, '')
-  }
-  // A tab beside a typed space is one gap on the page, not two. Only runs of
-  // ordinary spaces: a non-breaking space is published punctuation and stays
-  // exactly where NESA put it.
-  return unescapeXml(out).replace(/[ \t]{2,}/g, ' ').trim()
-}
-
-/**
- * XML entities, which is all a `.docx` uses.
- *
- * Not `DOMParser`: this runs in tests as well as in the browser, and the five
- * named entities plus numeric references are the whole of what OOXML escapes.
- */
-function unescapeXml(text: string): string {
-  return text
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    // Last, or an escaped "&amp;lt;" would decode twice.
-    .replace(/&amp;/g, '&')
-}
-
-/**
- * One entry per non-empty paragraph in a table cell.
- *
- * Paragraph boundaries are the content structure. The first paragraph of a
- * "Students learn about" cell is the topic heading and the rest are its content
- * points, so joining them into one string discards the only signal that says
- * which is which.
- */
-function cellLines(xml: string): string[] {
-  return [...xml.matchAll(PARA_RE)].map((m) => paraText(m[0])).filter((t) => t !== '')
-}
-
-type Block =
-  | { kind: 'para'; text: string }
-  | { kind: 'table'; rows: string[][][] }
-
-/** Paragraphs outside tables, and tables as rows of cells, in document order. */
-function* blocks(xml: string): Generator<Block> {
-  const spans: { at: number; block: Block }[] = []
-  const covered: [number, number][] = []
-
-  for (const m of xml.matchAll(TABLE_RE)) {
-    const at = m.index
-    covered.push([at, at + m[0].length])
-    const rows: string[][][] = []
-    for (const r of m[0].matchAll(ROW_RE)) {
-      const cells = [...r[0].matchAll(CELL_RE)].map((c) => cellLines(c[0]))
-      if (cells.length > 0) rows.push(cells)
-    }
-    if (rows.length > 0) spans.push({ at, block: { kind: 'table', rows } })
-  }
-
-  for (const m of xml.matchAll(PARA_RE)) {
-    const at = m.index
-    if (covered.some(([s, e]) => s <= at && at < e)) continue
-    const text = paraText(m[0])
-    if (text) spans.push({ at, block: { kind: 'para', text } })
-  }
-
-  for (const { block } of spans.sort((a, b) => a.at - b.at)) yield block
-}
-
 /**
  * Which content-table layout a table uses, if any.
  *
@@ -234,11 +137,9 @@ export function courseOf(codes: string[], hint: string | null): { id: string; na
  * original still has to be checkable against the syllabus.
  */
 export function tidyName(heading: string): string {
-  const name = heading.replace(TRAILING_NOISE_RE, '').trim().replace(/[:;.,]+$/, '').trim()
-  // The .docx is full of non-breaking spaces. They are invisible on screen, so a
-  // name carrying one looks identical to a name without and does not match it.
-  // `text` keeps the heading exactly as published; this is the label.
-  return name.split(/\s+/).join(' ')
+  // `text` keeps the heading exactly as published; this is the label, so the
+  // non-breaking spaces the .docx is full of come out here rather than there.
+  return tidyHeading(heading.replace(TRAILING_NOISE_RE, ''))
 }
 
 /**
@@ -476,7 +377,13 @@ export function toSyllabus(courses: SyllabusCourse[], who: SyllabusIdentity): Sy
     name: who.name,
     framework: who.framework ?? 'NESA',
     authority: who.authority ?? 'NSW Education Standards Authority',
-    syllabusVersion: who.syllabusVersion ?? 'Stage 6 (2013)',
+    // No default. This used to fall back to "Stage 6 (2013)", which was true of
+    // the only two documents Klunk could then read and is false of Visual Arts
+    // Stage 6 (2016), Drama Stage 6 (2009) and the 2024 syllabuses. A teacher
+    // checks this field to tell which edition a bank is tagged against, and two
+    // editions of one subject are live at the same time (#29), so a confident
+    // wrong answer here is worse than none.
+    ...(who.syllabusVersion?.trim() ? { syllabusVersion: who.syllabusVersion.trim() } : {}),
     source,
     courses,
   }

@@ -20,9 +20,9 @@
 import { useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
+import { FORMAT_DESCRIPTIONS, readSyllabusXml, type SyllabusFormat } from './formats'
 import {
   NotASyllabusError,
-  parseSyllabusXml,
   suggestSyllabusId,
   summarise,
   toSyllabus,
@@ -46,12 +46,15 @@ export function SyllabusReader({
   const [path, setPath] = useState('')
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
-  const [found, setFound] = useState<{ courses: SyllabusCourse[]; summary: SyllabusSummary[] } | null>(
-    null,
-  )
+  const [found, setFound] = useState<{
+    courses: SyllabusCourse[]
+    summary: SyllabusSummary[]
+    format: SyllabusFormat
+  } | null>(null)
 
   const [id, setId] = useState('')
   const [name, setName] = useState('')
+  const [edition, setEdition] = useState('')
   const [saving, setSaving] = useState(false)
 
   const taken = useMemo(() => new Set(index.syllabuses.map((s) => s.data.id)), [index.syllabuses])
@@ -65,11 +68,15 @@ export function SyllabusReader({
     setFound(null)
     try {
       const file = await fileFrom(folder, path)
-      const courses = parseSyllabusXml(await readDocxXml(file))
-      setFound({ courses, summary: summarise(courses) })
+      const { format, courses } = readSyllabusXml(await readDocxXml(file))
+      setFound({ courses, summary: summarise(courses), format })
       const base = path.split('/').pop() ?? path
       setId(suggestSyllabusId(base))
       setName(prettyName(base))
+      // Filled in only where the format settles it: the content-table layout is
+      // the 2013 one and nothing else uses it. Every other shape covers more
+      // than one edition, so the teacher says which.
+      setEdition(format === 'tables' ? 'Stage 6 (2013)' : '')
     } catch (err) {
       setFailed(
         err instanceof NotADocxError || err instanceof NotASyllabusError
@@ -89,6 +96,7 @@ export function SyllabusReader({
       const model: Syllabus = toSyllabus(found.courses, {
         id,
         name: name.trim() || id,
+        syllabusVersion: edition,
         sourceTitle: path.split('/').pop() ?? path,
         retrieved: today,
       })
@@ -110,6 +118,10 @@ export function SyllabusReader({
              this folder, then reload. Klunk reads it here, and the model it writes stays in
              your folder.
         </p>
+        <p>
+          On <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF.
+             Choose Word. Klunk cannot read the PDF.
+        </p>
         <p class="hint">
           Klunk does not come with any syllabus model, and that is on purpose. A syllabus is
              copyright, so you build your own from your own copy.
@@ -125,8 +137,10 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          A NESA Stage 6 syllabus as you downloaded it, in Word format. Klunk reads it here
-             in the browser, and nothing leaves your computer.
+          A NESA syllabus as you downloaded it, in Word format. Klunk reads the Stage 6
+             syllabuses and the newer Year 11 and 12 ones, and it works out which kind you
+             have given it. It reads the document here in the browser, and nothing leaves
+             your computer.
         </p>
 
         <Field label="Document" for="sr-docx">
@@ -169,8 +183,9 @@ export function SyllabusReader({
             <span class="step">2</span> Check what was found
           </p>
           <p class="hint">
-            Check these counts against the document itself. If a course is missing or a number
-               looks wrong, the model is wrong, and so is every question you tag with it.
+            Klunk read this as {FORMAT_DESCRIPTIONS[found.format]}. Check the counts below
+               against the document itself. If a course is missing or a number looks wrong,
+               the model is wrong, and so is every question you tag with it.
           </p>
 
           <ul class="plain setup__list">
@@ -192,6 +207,14 @@ export function SyllabusReader({
               </li>
             ))}
           </ul>
+
+          {found.courses.every((c) => c.topics.every((t) => (t.outcomes ?? []).length === 0)) && (
+            <p class="hint">
+              This syllabus sets its outcomes against the course rather than against each
+                 topic, so no topic above lists any. When you write a question, Klunk offers
+                 you every outcome in the course.
+            </p>
+          )}
         </section>
       )}
 
@@ -222,6 +245,28 @@ export function SyllabusReader({
               />
             </Field>
           </div>
+
+          <Field
+            label="Edition"
+            for="sr-edition"
+            hint="As the document names it. Leave it blank if you are not sure."
+          >
+            <input
+              id="sr-edition"
+              class="input"
+              value={edition}
+              placeholder="Stage 6 (2013)"
+              onInput={(e) => setEdition((e.target as HTMLInputElement).value)}
+            />
+          </Field>
+
+          {edition.trim() === '' && (
+            <p class="hint">
+              Two editions of a subject can run at once, with Year 11 on the new syllabus
+                 while Year 12 finishes the old one. Filling this in is what tells your two
+                 models apart later.
+            </p>
+          )}
 
           {clash && (
             <p class="setup__problem">

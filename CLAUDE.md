@@ -55,6 +55,10 @@ klunk/                     this repo - app and tools only, public
   profiles/                paper rules per course (these DO ship)
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
+    ooxml.ts               Word markup to paragraphs and tables, deciding nothing
+    syllabus.ts            the 2013 content-table reader, and the model
+    headings.ts            the Outcomes/Content reader and the prose reader
+    formats.ts             picks the reader that fits the document
     fixtures/              fictional sample data for development
 ../klunk-content/          NOT in git - the teacher's content folder equivalent
   source/                  downloaded syllabus docs and past papers
@@ -157,17 +161,63 @@ Do not re-derive these, and do not contradict them without new evidence.
   heading is the only signal, and a wide table with no heading above it is filed
   under `course`, deliberately, rather than guessed at.
 
-**There is a third old layout, and it is not read.** Visual Arts Stage 6 (2016)
-heads its content table `Content | Preliminary course | HSC course` — three
-columns, but the course is a *column* rather than a heading, so both the layout
-test and the course rule miss and the parser refuses the document. Probably the
-whole 2016 Creative Arts family. See #34.
+**There is no third table layout. There are two more shapes, and neither uses a
+table for content at all** (#34, #28). Established from Visual Arts Stage 6
+(2016), Drama Stage 6 (2009), English Advanced 11–12 (2024) and Mathematics
+Advanced 11–12 (2024).
+
+- **Visual Arts's `Content | Preliminary course | HSC course` table is the
+  *outcomes* table, not a content table.** Its rows are content areas
+  (`practice`, `frames`, `representation`) and its cells hold `P1:…`/`H1:…`. The
+  content is section 8, prose under headings.
+- **That table shape is the one thing every non-2013 document shares.** Drama
+  heads its `Objectives | Preliminary Course Outcomes | HSC Course Outcomes` and
+  the 2024 exports head theirs `Year 11 | Year 12`. In all three the *column*
+  names the course. It is not optional: Drama's H2.5 is in that table and
+  attached to no topic, so a model built from the topic blocks alone is an
+  outcome short.
+- **Drama and the 2024 exports share a second contract: a course section holding
+  a repeating `[topic heading, "Outcomes", "Content"]`.** They disagree on
+  everything else. The outcome code opens the line in Drama (`P1.1 develops…`)
+  and closes it in the 2024 exports (`…shapes meaning EAV-11-01`); content
+  points are paragraphs in Drama and bullets in the exports; the exports carry a
+  further level of sub-heading inside `Content` and Drama carries none.
+- **Heading level numbers cannot be ranked.** Drama styles the first topic of
+  8.1 `Head5` and the next two `Heading3`, and styles `Content` as `Heading3`
+  under two topics and `Head6` under the third. What decides whether a heading
+  opens a section is whether the *next* heading is `Outcomes` or `Content`.
+  Levels are used for one thing only, where they do agree: a heading at or above
+  the course heading's level ends the course.
+- **Bold means heading in Visual Arts and means nothing in Drama.** All sixty
+  Visual Arts headings are entirely bold and no body paragraph is, and the
+  document carries no `w:pStyle` at all; Drama styles its headings properly and
+  also bolds ordinary sentences. So the bold rule is scoped to the prose reader,
+  which also requires a bold, numbered top-level section titled `Content`.
+  `w:val="0"` has to be honoured or half of each document reads as bold.
+- **`w:outlineLvl` is not enough even in Visual Arts**: `8.5 The Frames` carries
+  none. The section number Word concatenates onto the heading text
+  (`8.3Practice in…`) is the reliable depth.
+- **Visual Arts content is shared between the courses**, and the syllabus says
+  so. 8.1 is Preliminary, 8.2 is HSC, 8.3 to 8.5 are for both, so both courses
+  carry the same 132 points. Its topics get **no outcomes**: the outcomes map to
+  content areas, three of which have no section, and pairing them by name would
+  be the #14 mistake again. `outcomesFor` in `src/prompt.ts` already falls back
+  to the whole course.
+- **Word keeps mathematics in its own namespace.** Reading `<w:t>` alone silently
+  mutilates **159 of the 359** content points in Mathematics Advanced, leaving
+  sentences that still parse and still count. `<m:t>` has to be read too. What
+  comes back is linear and lossy, `y=ax2+bx+c`, because the structure is in the
+  elements. Mathematics Advanced is the only one of the six documents with any,
+  so this cannot disturb the others.
+
+Music 1 is published only as a legacy `.doc`, which is not a zip and which
+`src/docx.ts` cannot open. Drama is the Creative Arts sibling that #34 asked for.
 
 **The NSW Curriculum Reform syllabuses are a different document, not a new
 wrapper.** Established from Biology 11–12 (2025), English Advanced 11–12 (2024)
 and Mathematics Advanced 11–12 (2024), all in `../klunk-content/source/`:
 - **No content tables at all.** Headings and bulleted lists. `parseSyllabusXml`
-  refuses all three, correctly.
+  refuses all three, correctly; `parseHeadingsXml` reads them.
 - Outcome codes are `BI-11-01`, `BI-11WS-01` — not `P1.1`/`H1.1`.
 - Courses are **Year 11 / Year 12**, not Preliminary / HSC.
 - Nesting is a level deeper: focus area → sub-heading → bullets, which maps onto
@@ -232,6 +282,30 @@ uv run --with jsonschema python <validation script>
 Regression check for the generator: Design and Technology must stay at
 **20 topics / 78 points / 12 outcomes** (Preliminary) and **20 / 61 / 13** (HSC).
 Textiles and Design at **18 / 104 / 11** and **15 / 80 / 13**.
+
+The counts for the other two shapes, in `src/headings.corpus.test.ts`, established
+by hand off the documents rather than inherited:
+
+| | first course | second course |
+|---|---|---|
+| Drama Stage 6 (2009) | pre **3 / 15 / 18** | hsc **3 / 20 / 19** |
+| English Advanced 11–12 (2024) | y11 **9 / 30 / 6** | y12 **12 / 43 / 6** |
+| Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
+| Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
+
+Four of those numbers are the ones a rewrite would get wrong. Drama's HSC has
+**one more outcome than its Preliminary** because H2.5 comes from the outcome
+table and no topic. Mathematics has **eleven outcomes against the table's ten**
+because `MAO-WM-01 Working mathematically` is stated above that table and reaches
+the model through the focus areas citing it. English has **three topics per focus
+area rather than two**, the third being the paragraph describing it, because
+nothing under a `Content` heading is dropped. Visual Arts's two courses hold the
+**same 132 points** on purpose.
+
+Groups are part of this check too. Drama has none: three topics per course with
+nothing dividing them. Mathematics Year 11 has five and not seven, because
+`Trigonometric identities and equations` and `Graph transformations` set out
+their content with no sub-headings and are therefore topics rather than groups.
 
 Textiles HSC was 16 / 79 until #26, and the change is a fix rather than drift: one
 topic runs past the bottom of a page and continues in a fresh table row opening
@@ -495,8 +569,29 @@ afternoon rather than a code change.**
 `src/docx.ts` reads one zip member with `DecompressionStream`; `src/syllabus.ts`
 is the parser and takes XML and no file. `src/syllabus.corpus.test.ts` checks it
 against the Python tool on all four documents and they agree exactly, which is
-what makes the port trustworthy rather than merely plausible. The new-format half
-is not built.
+what makes the port trustworthy rather than merely plausible.
+
+**All three shapes of NESA syllabus now read** (#28, #34). `src/ooxml.ts` reports
+what the markup says about each paragraph — text, heading level, bold, list — and
+decides nothing; `src/headings.ts` holds the two new readers; `src/formats.ts`
+picks between all three and reports which one claimed the document, on screen,
+because if Klunk has taken a document for the wrong shape the counts underneath
+are what shows it. Each reader refuses what it does not recognise rather than
+producing half a model, which is what makes trying them in order safe. The 2013
+reader goes first: Design and Technology has headings too and would be read badly
+by the others.
+
+Verified in the browser against `../klunk-content`, not just reasoned about:
+Drama, English Advanced and Visual Arts each read to the counts above, Visual Arts
+written to `syllabus/nsw-hsc-visual-arts.json` and validating, and its seventeen
+HSC topics then offered by name on the Draft with AI tab.
+
+**`syllabusVersion` no longer defaults to `Stage 6 (2013)`.** That was true of the
+only two documents Klunk could read when it was written and is false of the four
+added since. It is a field a teacher reads to tell which edition their questions
+are tagged against, and two editions of a subject run at once (#29), so the reader
+asks for it and prefills only where the format settles it, which is the
+content-table layout.
 
 **A paper says when it has unsaved changes, and everything that would discard
 them asks first** (#11, #21). `paperIsDirty` compares against the folder with

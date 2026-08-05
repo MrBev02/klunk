@@ -431,6 +431,18 @@ describe('toSyllabus', () => {
       'https://example.invalid',
     )
   })
+
+  it('claims no edition unless it was told one', () => {
+    // This used to default to "Stage 6 (2013)", which was true of the only two
+    // documents Klunk could read at the time. It is false of Visual Arts Stage 6
+    // (2016), of Drama Stage 6 (2009) and of the 2024 syllabuses, and a teacher
+    // reads this field to tell which edition their questions are tagged against.
+    expect('syllabusVersion' in toSyllabus([], identity)).toBe(false)
+    expect('syllabusVersion' in toSyllabus([], { ...identity, syllabusVersion: '  ' })).toBe(false)
+    expect(toSyllabus([], { ...identity, syllabusVersion: ' 11–12 (2024) ' }).syllabusVersion).toBe(
+      '11–12 (2024)',
+    )
+  })
 })
 
 describe('suggestSyllabusId', () => {
