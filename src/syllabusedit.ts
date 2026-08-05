@@ -21,7 +21,8 @@
  * That is why nothing here is derived from an array index.
  */
 
-import type { SyllabusCourse, SyllabusOutcome, SyllabusPoint, SyllabusTopic } from './types'
+import { inSyllabus, syllabusIdsOf } from './storage'
+import type { QuestionRef, SyllabusCourse, SyllabusOutcome, SyllabusPoint, SyllabusTopic } from './types'
 
 export class SyllabusEditError extends Error {}
 
@@ -450,6 +451,75 @@ export function tidyCourses(courses: SyllabusCourse[]): SyllabusCourse[] {
     }
     return out
   })
+}
+
+/* ------------------------------------------------------ replacing a model */
+
+/**
+ * Everything a question can tag itself with: topic ids, content point ids and
+ * outcome codes. All three can be edited or deleted on the way in, and a question
+ * cites all three.
+ */
+function taggedIds(courses: SyllabusCourse[]): Set<string> {
+  const out = new Set<string>()
+  for (const course of courses) {
+    for (const outcome of course.outcomes ?? []) out.add(outcome.code)
+    for (const topic of course.topics) {
+      out.add(topic.id)
+      for (const point of topic.points ?? []) out.add(point.id)
+    }
+  }
+  return out
+}
+
+export interface Replacing {
+  /** Ids the model in the folder has and the one on screen does not. */
+  lost: string[]
+  /** How many questions in the folder are tagged against one of them. */
+  questions: number
+  /** Which of the lost ids a question actually cites, in id order. */
+  inUse: string[]
+}
+
+/**
+ * What replacing the model in the folder would cost, counted rather than guessed.
+ *
+ * The screen used to tell a teacher that "questions tagged against it keep
+ * working", which was true while a model was always a straight parse of a
+ * document: the same file in, the same ids out. Corrections make it false, and a
+ * re-read that quietly takes `PRE-04.07` away from every question tagged with it
+ * is exactly the kind of damage nothing downstream notices (#44).
+ *
+ * Only an id the folder's model **has** and the new one **lacks** counts. An id
+ * neither has changes nothing by being replaced, so counting it would raise a
+ * false alarm about a question that was already tagged against something else.
+ *
+ * `inSyllabus` decides which questions are in scope, rather than a rule invented
+ * here, because it is the reading the rest of the app already takes: a question
+ * naming a different syllabus is out, and one naming none cannot be ruled out.
+ */
+export function costOfReplacing(
+  inFolder: SyllabusCourse[],
+  onScreen: SyllabusCourse[],
+  questions: QuestionRef[],
+  syllabusId: string,
+): Replacing {
+  const kept = taggedIds(onScreen)
+  const lost = new Set([...taggedIds(inFolder)].filter((id) => !kept.has(id)))
+
+  const inUse = new Set<string>()
+  let count = 0
+  for (const ref of questions) {
+    if (!inSyllabus(ref, syllabusId)) continue
+    const cited = [...syllabusIdsOf(ref.question), ...(ref.question.outcomes ?? [])].filter((id) =>
+      lost.has(id),
+    )
+    if (cited.length === 0) continue
+    count += 1
+    for (const id of cited) inUse.add(id)
+  }
+
+  return { lost: [...lost].sort(), questions: count, inUse: [...inUse].sort() }
 }
 
 /**

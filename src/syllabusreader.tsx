@@ -25,9 +25,9 @@ import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
 import { FORMAT_DESCRIPTIONS, readSyllabusXml, type SyllabusFormat } from './formats'
 import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
-import { problemsWith, tidyCourses } from './syllabusedit'
+import { costOfReplacing, problemsWith, tidyCourses } from './syllabusedit'
 import { SyllabusReview } from './syllabusreview'
-import { writeJson, type ContentIndex } from './storage'
+import { allQuestions, writeJson, type ContentIndex } from './storage'
 import type { Syllabus, SyllabusCourse } from './types'
 
 export function SyllabusReader({
@@ -67,6 +67,17 @@ export function SyllabusReader({
   // merged would be worse than no count at all.
   const summary = useMemo(() => (found ? summarise(found.courses) : []), [found])
   const problems = useMemo(() => (found ? problemsWith(found.courses) : []), [found])
+
+  // What replacing the model already in the folder would take away from the
+  // questions tagged against it. Counted rather than promised: this screen used
+  // to tell a teacher those questions keep working, which stopped being true the
+  // moment a model could be corrected by hand (#44).
+  const replacing = useMemo(() => {
+    if (!found || !clash) return null
+    const onDisk = index.syllabuses.find((s) => s.data.id === id)
+    if (!onDisk) return null
+    return costOfReplacing(onDisk.data.courses, found.courses, allQuestions(index), id)
+  }, [found, clash, id, index])
 
   const change = (courses: SyllabusCourse[], what: string) => {
     setFound((was) => (was === null ? was : { ...was, courses }))
@@ -317,11 +328,32 @@ export function SyllabusReader({
             </p>
           )}
 
-          {clash && (
+          {clash && replacing !== null && replacing.questions > 0 && (
             <p class="setup__problem">
-              This folder already has a syllabus with the id <code>{id}</code>. Saving replaces
-                 it, and questions tagged against it keep working. That is what you want when you
-                 are re-reading the same syllabus. For a different subject, change the id above.
+              {replacing.questions} question{replacing.questions === 1 ? '' : 's'} in this folder
+                 {replacing.questions === 1 ? ' is' : ' are'} tagged against something this model
+                 does not have. Saving replaces <code>{outPath}</code>, and those tags stop
+                 matching anything: {nameSome(replacing.inUse)}. Klunk does not retag the
+                 questions for you, so open them afterwards and tag them again.
+            </p>
+          )}
+
+          {clash && replacing !== null && replacing.questions === 0 && (
+            <p class="hint">
+              Saving replaces <code>{outPath}</code>.{' '}
+              {replacing.lost.length === 0
+                ? 'Everything that file has is in this model too, so the questions tagged against it are unaffected.'
+                : `${replacing.lost.length} topics, content points and outcomes in that file are not in this model, and no question in this folder is tagged against any of them.`}{' '}
+              For a different subject, change the id above.
+            </p>
+          )}
+
+          {clash && replacing === null && (
+            <p class="setup__problem">
+              This folder already has a syllabus with the id <code>{id}</code>, and saving
+                 replaces it. Klunk could not read the one already there, so it cannot tell you
+                 what the questions tagged against it lose. For a different subject, change the
+                 id above.
             </p>
           )}
 
@@ -352,6 +384,18 @@ export function SyllabusReader({
       )}
     </div>
   )
+}
+
+/**
+ * A few of the ids, named rather than counted.
+ *
+ * All of them would be a wall of codes on a warning a teacher reads in passing,
+ * and none of them would leave nothing to go and look for.
+ */
+function nameSome(ids: string[]): string {
+  const shown = ids.slice(0, 6).join(', ')
+  const rest = ids.length - 6
+  return rest > 0 ? `${shown} and ${rest} more` : shown
 }
 
 /** A filename to something worth putting in front of a teacher. */

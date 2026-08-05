@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addPoint,
   clearGroups,
+  costOfReplacing,
   deleteOutcome,
   deletePoint,
   deleteSkill,
@@ -31,7 +32,7 @@ import {
   SyllabusEditError,
   tidyCourses,
 } from './syllabusedit'
-import type { SyllabusCourse } from './types'
+import type { Question, QuestionRef, SyllabusCourse } from './types'
 
 /** The Textiles HSC shape from #26: a topic, then its tail read as a topic of its own. */
 function courses(): SyllabusCourse[] {
@@ -323,6 +324,107 @@ describe('tidying on the way to the file', () => {
     expect(tidyCourses(blanked)[0]?.topics[0]?.group).toBe('x')
     const empty = editSkill(courses(), 'hsc', 'HSC-01', 0, '   ')
     expect(tidyCourses(empty)[0]?.topics[0]?.skills).toEqual([])
+  })
+})
+
+describe('what replacing the model in the folder would cost', () => {
+  const asked = (
+    id: string,
+    tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[] },
+    syllabusId: string | undefined = 'textiles',
+  ): QuestionRef => {
+    const question: Question = {
+      id,
+      questionType: 'short_answer',
+      questionText: 'Explain one thing',
+      marks: 3,
+      syllabus: { topicIds: tags.topicIds ?? [], pointIds: tags.pointIds ?? [] },
+      ...(tags.outcomes ? { outcomes: tags.outcomes } : {}),
+    }
+    return { question, file: 'bank/b.json', syllabusId }
+  }
+
+  it('says nothing is lost when the document is simply read again', () => {
+    expect(costOfReplacing(courses(), courses(), [asked('q1', { topicIds: ['HSC-02'] })], 'textiles'))
+      .toEqual({ lost: [], questions: 0, inUse: [] })
+  })
+
+  it('counts the questions a merge would leave pointing at nothing', () => {
+    const merged = mergeTopicUp(courses(), 'hsc', 'HSC-02')
+    const cost = costOfReplacing(
+      courses(),
+      merged,
+      [
+        asked('q1', { topicIds: ['HSC-02'] }),
+        asked('q2', { pointIds: ['HSC-02.01', 'HSC-02.02'] }),
+        asked('q3', { topicIds: ['HSC-01'] }),
+      ],
+      'textiles',
+    )
+    expect(cost.lost).toEqual(['HSC-02', 'HSC-02.01', 'HSC-02.02'])
+    expect(cost.questions).toBe(2)
+    expect(cost.inUse).toEqual(['HSC-02', 'HSC-02.01', 'HSC-02.02'])
+  })
+
+  it('counts a question once however many of its tags are lost', () => {
+    const merged = mergeTopicUp(courses(), 'hsc', 'HSC-02')
+    const cost = costOfReplacing(
+      courses(),
+      merged,
+      [asked('q1', { topicIds: ['HSC-02'], pointIds: ['HSC-02.01', 'HSC-02.02'] })],
+      'textiles',
+    )
+    expect(cost.questions).toBe(1)
+  })
+
+  it('counts an outcome a question cites, not only its topics', () => {
+    const after = deleteOutcome(courses(), 'hsc', 'H2.1')
+    const cost = costOfReplacing(courses(), after, [asked('q1', {}, 'textiles')], 'textiles')
+    expect(cost.lost).toEqual(['H2.1'])
+    expect(cost.questions).toBe(0)
+
+    const cited = costOfReplacing(
+      courses(),
+      after,
+      [asked('q1', { outcomes: ['H2.1'] })],
+      'textiles',
+    )
+    expect(cited.questions).toBe(1)
+    expect(cited.inUse).toEqual(['H2.1'])
+  })
+
+  it('reports an id nothing uses as lost, and no questions with it', () => {
+    const after = deleteTopic(courses(), 'hsc', 'HSC-03')
+    const cost = costOfReplacing(courses(), after, [asked('q1', { topicIds: ['HSC-01'] })], 'textiles')
+    expect(cost.lost).toEqual(['HSC-03', 'HSC-03.01'])
+    expect(cost.questions).toBe(0)
+    expect(cost.inUse).toEqual([])
+  })
+
+  it('leaves another subject alone, and keeps a question that names no syllabus', () => {
+    const merged = mergeTopicUp(courses(), 'hsc', 'HSC-02')
+    const cost = costOfReplacing(
+      courses(),
+      merged,
+      [
+        asked('q1', { topicIds: ['HSC-02'] }, 'design-technology'),
+        asked('q2', { topicIds: ['HSC-02'] }, undefined),
+      ],
+      'textiles',
+    )
+    // The first names a different syllabus and is out of scope. The second names
+    // none, and all that is known about it is the bare id it carries.
+    expect(cost.questions).toBe(1)
+  })
+
+  it('ignores an id neither model has, which replacing does not change', () => {
+    const cost = costOfReplacing(
+      courses(),
+      courses(),
+      [asked('q1', { topicIds: ['PRE-99'] })],
+      'textiles',
+    )
+    expect(cost.questions).toBe(0)
   })
 })
 
