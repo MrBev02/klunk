@@ -67,6 +67,15 @@ desktop.ini
 .idea/
 *.swp
 
+# Claude Code's per-machine settings, which record absolute paths.
+#
+# This file holds things like Read(//Users/<name>/.../klunk-content/**), so
+# committing it publishes both the machine's username and the location of the
+# teacher's content folder. Named file by file rather than ignoring `.claude/`,
+# because `.claude/skills/` is tracked on purpose: the teacher-material voice
+# skill is part of the project and belongs in the repo.
+.claude/settings.local.json
+
 # Python (the generators in tools/)
 __pycache__/
 *.py[cod]
