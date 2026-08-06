@@ -1,22 +1,30 @@
 /**
  * Picking the reader that fits the document a teacher handed over.
  *
- * There are three, because NESA has published three shapes of syllabus and a
- * teacher should not have to know which one they are holding. Each reader
- * refuses a document it does not recognise rather than producing a half-model,
- * so trying them in order is safe: the first one that recognises the document
- * is the one that reads it.
+ * There are three for Word documents, because NESA has published three shapes
+ * of syllabus and a teacher should not have to know which one they are holding.
+ * Each reader refuses a document it does not recognise rather than producing a
+ * half-model, so trying them in order is safe: the first one that recognises the
+ * document is the one that reads it.
  *
  * Order matters in one place. The 2013 reader runs first because a document with
  * a `Students learn about` table is that document, whatever else it also
  * contains, and because both other readers would find something to say about it.
+ *
+ * The fourth shape is a spreadsheet and so does not join that queue: a workbook
+ * and a Word document are told apart by their extension long before either
+ * reader sees them, and `readSyllabusWorkbook` takes rows where the other three
+ * take XML. It is here anyway so that everything that decides what a document is
+ * lives in one file.
  */
 
 import { parseHeadingsXml, parseProseXml } from './headings'
+import { readIbDesignTechnology } from './ibdt'
 import { NotASyllabusError, parseSyllabusTables } from './syllabus'
 import type { SyllabusCourse } from './types'
+import type { Sheet } from './xlsx'
 
-export type SyllabusFormat = 'tables' | 'headings' | 'prose'
+export type SyllabusFormat = 'tables' | 'headings' | 'prose' | 'workbook'
 
 /**
  * What to tell a teacher the document was read as.
@@ -29,6 +37,7 @@ export const FORMAT_DESCRIPTIONS: Record<SyllabusFormat, string> = {
   tables: 'a Stage 6 syllabus that sets out its content in a table',
   headings: 'a syllabus that sets out each topic under Outcomes and Content headings',
   prose: 'an older syllabus whose content is written as numbered sections of prose',
+  workbook: 'the IB Design Technology syllabus map, one row per understanding',
 }
 
 /**
@@ -74,4 +83,18 @@ export function readSyllabusXml(xml: string): SyllabusReading {
       'under Outcomes and Content headings, and an older one written as numbered ' +
       'sections of prose. This document is none of those.',
   )
+}
+
+/**
+ * Read a spreadsheet as a syllabus.
+ *
+ * One reader, so there is nothing to choose between. It is separate from
+ * `readSyllabusXml` rather than a fourth entry in it because the two take
+ * different things — sheets against markup — and collapsing them would mean
+ * opening every workbook as a Word document first to find out it is not one.
+ *
+ * @throws NotASyllabusError when the workbook is not a syllabus map.
+ */
+export function readSyllabusWorkbook(sheets: Sheet[]): SyllabusReading {
+  return { format: 'workbook', ...readIbDesignTechnology(sheets), suspects: [] }
 }

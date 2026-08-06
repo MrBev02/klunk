@@ -12,6 +12,12 @@
  * ZIP64 extensions — is refused by name rather than half-handled, because a
  * syllabus that parsed into the wrong shape would be worse than one that did
  * not parse at all.
+ *
+ * `src/xlsx.ts` calls it several times over the same bytes, because a workbook
+ * keeps its text in one member and its structure in three others. That is the
+ * only reason `readZipMember` takes the member name rather than hard-coding
+ * `word/document.xml`, and the only reason it has to say which kind of file it
+ * was handed when it refuses one.
  */
 
 const SIG_EOCD = 0x06054b50
@@ -28,15 +34,29 @@ const ZIP64_MARKER = 0xffffffff
 export class NotADocxError extends Error {}
 
 /**
+ * What kind of Office file is being opened, for the wording of a failure.
+ *
+ * Only ever appears in a message a teacher reads. A spreadsheet that is not a
+ * zip is not "not a Word document", and being told the wrong thing about the
+ * file you just picked is worse than being told nothing.
+ */
+export type OfficeKind = 'Word document' | 'spreadsheet'
+
+/**
  * Read one member of a zip as text.
  *
  * @param bytes The whole file.
  * @param name Member path, e.g. `word/document.xml`.
+ * @param what What to call the file if it turns out not to be one.
  * @returns The member's contents, decoded as UTF-8.
  */
-export async function readZipMember(bytes: ArrayBuffer, name: string): Promise<string> {
+export async function readZipMember(
+  bytes: ArrayBuffer,
+  name: string,
+  what: OfficeKind = 'Word document',
+): Promise<string> {
   const view = new DataView(bytes)
-  const eocd = findEocd(view)
+  const eocd = findEocd(view, what)
 
   const count = view.getUint16(eocd + 10, true)
   const directoryAt = view.getUint32(eocd + 16, true)
@@ -46,7 +66,7 @@ export async function readZipMember(bytes: ArrayBuffer, name: string): Promise<s
   }
 
   const entry = findEntry(view, directoryAt, count, name)
-  if (entry === null) throw new NotADocxError(`no ${name} inside: not a Word document`)
+  if (entry === null) throw new NotADocxError(`no ${name} inside: not a ${what}`)
 
   // The central directory's copy of the name and extra lengths need not match
   // the local header's, so the data offset has to come from the local header.
@@ -82,13 +102,13 @@ export async function readDocxXml(file: Blob): Promise<string> {
  * carries a comment, which may be up to 64k. Word writes none, but a file that
  * has been through some other tool may.
  */
-function findEocd(view: DataView): number {
+function findEocd(view: DataView, what: OfficeKind): number {
   const smallest = 22
   const furthest = Math.max(0, view.byteLength - smallest - 0xffff)
   for (let at = view.byteLength - smallest; at >= furthest; at--) {
     if (view.getUint32(at, true) === SIG_EOCD) return at
   }
-  throw new NotADocxError('this is not a zip file, so it is not a Word document')
+  throw new NotADocxError(`this is not a zip file, so it is not a ${what}`)
 }
 
 interface Entry {

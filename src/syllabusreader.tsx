@@ -23,12 +23,42 @@
 import { useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
-import { FORMAT_DESCRIPTIONS, readSyllabusXml, type SyllabusFormat } from './formats'
+import {
+  FORMAT_DESCRIPTIONS,
+  readSyllabusWorkbook,
+  readSyllabusXml,
+  type SyllabusFormat,
+} from './formats'
 import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
 import { costOfReplacing, problemsWith, tidyCourses } from './syllabusedit'
 import { SyllabusReview } from './syllabusreview'
 import { allQuestions, writeJson, type ContentIndex } from './storage'
 import type { Syllabus, SyllabusCourse } from './types'
+import { readWorkbook } from './xlsx'
+
+/**
+ * Who publishes what Klunk just read, so the model says so.
+ *
+ * Only the workbook settles it, because it is one document rather than a shape:
+ * the three Word readers each cover several NESA syllabuses and none of them
+ * covers anything else. `toSyllabus` defaults to NESA, which is right for all
+ * three of those and wrong for the IB map.
+ */
+const IB: { framework: string; authority: string; licence: string } = {
+  framework: 'IB',
+  authority: 'International Baccalaureate Organization',
+  licence: 'International Baccalaureate Organization. Not redistributable.',
+}
+
+/** Prefilled only where the shape of the document settles which edition it is. */
+const EDITIONS: Partial<Record<SyllabusFormat, string>> = {
+  tables: 'Stage 6 (2013)',
+  workbook: 'First assessment 2027',
+}
+
+function isWorkbook(path: string): boolean {
+  return path.toLowerCase().endsWith('.xlsx')
+}
 
 export function SyllabusReader({
   index,
@@ -59,6 +89,14 @@ export function SyllabusReader({
   const [name, setName] = useState('')
   const [edition, setEdition] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Both kinds in one list, sorted together, because a teacher picks the
+  // document they downloaded and should not first have to know which reader
+  // Klunk will use on it.
+  const documents = useMemo(
+    () => [...index.docx, ...index.workbooks].sort((a, b) => a.localeCompare(b)),
+    [index.docx, index.workbooks],
+  )
 
   const taken = useMemo(() => new Set(index.syllabuses.map((s) => s.data.id)), [index.syllabuses])
   const outPath = `syllabus/${id || '…'}.json`
@@ -96,15 +134,18 @@ export function SyllabusReader({
     setEdits([])
     try {
       const file = await fileFrom(folder, path)
-      const { format, courses, suspects } = readSyllabusXml(await readDocxXml(file))
+      const { format, courses, suspects } = isWorkbook(path)
+        ? readSyllabusWorkbook(await readWorkbook(file))
+        : readSyllabusXml(await readDocxXml(file))
       setFound({ courses, original: courses, format, suspects })
       const base = path.split('/').pop() ?? path
-      setId(suggestSyllabusId(base))
-      setName(prettyName(base))
+      setId(format === 'workbook' ? 'ib-dp-design-technology' : suggestSyllabusId(base))
+      setName(format === 'workbook' ? 'Design Technology' : prettyName(base))
       // Filled in only where the format settles it: the content-table layout is
-      // the 2013 one and nothing else uses it. Every other shape covers more
-      // than one edition, so the teacher says which.
-      setEdition(format === 'tables' ? 'Stage 6 (2013)' : '')
+      // the 2013 one and nothing else uses it, and the syllabus map is the one
+      // course whose first assessment year is the whole reason it exists. Every
+      // other shape covers more than one edition, so the teacher says which.
+      setEdition(EDITIONS[format] ?? '')
     } catch (err) {
       setFailed(
         err instanceof NotADocxError || err instanceof NotASyllabusError
@@ -127,6 +168,7 @@ export function SyllabusReader({
         syllabusVersion: edition,
         sourceTitle: path.split('/').pop() ?? path,
         retrieved: today,
+        ...(found.format === 'workbook' ? IB : {}),
       })
       await writeJson(folder, outPath, model)
       onSaved(`Saved ${outPath}. Its topics are now offered wherever a question is tagged.`)
@@ -137,18 +179,23 @@ export function SyllabusReader({
     }
   }
 
-  if (index.docx.length === 0) {
+  if (documents.length === 0) {
     return (
       <section class="panel">
         <p class="panel__title">No syllabus document in this folder</p>
         <p>
-          Download the syllabus from NESA as a <code>.docx</code> and save it anywhere in
-             this folder, then reload. Klunk reads it here, and the model it writes stays in
-             your folder.
+          Save your syllabus anywhere in this folder, then reload. Klunk reads it here, and
+             the model it writes stays in your folder.
         </p>
         <p>
-          On <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF.
-             Choose Word. Klunk cannot read the PDF.
+          For a NESA syllabus, download it as a <code>.docx</code>. On{' '}
+          <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF. Choose
+             Word. Klunk cannot read the PDF.
+        </p>
+        <p>
+          For IB Design Technology, use the old-to-new syllabus map, which is the{' '}
+          <code>.xlsx</code> published alongside the new course. The IB guide itself comes as
+             a PDF, and Klunk cannot read it.
         </p>
         <p class="hint">
           Klunk does not come with any syllabus model, and that is on purpose. A syllabus is
@@ -165,10 +212,10 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          A NESA syllabus as you downloaded it, in Word format. Klunk reads the Stage 6
-             syllabuses and the newer Year 11 and 12 ones, and it works out which kind you
-             have given it. It reads the document here in the browser, and nothing leaves
-             your computer.
+          Your syllabus as you downloaded it. Klunk reads the NESA Stage 6 syllabuses and the
+             newer Year 11 and 12 ones in Word format, and the IB Design Technology syllabus
+             map as a spreadsheet. It works out which kind you have given it. It reads the
+             document here in the browser, and nothing leaves your computer.
         </p>
 
         <Field label="Document" for="sr-docx">
@@ -183,7 +230,7 @@ export function SyllabusReader({
             }}
           >
             <option value="">Choose a file…</option>
-            {index.docx.map((p) => (
+            {documents.map((p) => (
               <option key={p} value={p}>
                 {p}
               </option>

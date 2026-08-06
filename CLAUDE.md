@@ -56,8 +56,10 @@ klunk/                     this repo - app and tools only, public
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
     ooxml.ts               Word markup to paragraphs and tables, deciding nothing
+    xlsx.ts                spreadsheet to rows of text, deciding nothing
     syllabus.ts            the 2013 content-table reader, and the model
     headings.ts            the Outcomes/Content reader and the prose reader
+    ibdt.ts                the IB DP Design Technology syllabus map reader
     formats.ts             picks the reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
     modelcheck.ts          tags that name nothing, and two models of one document
@@ -243,6 +245,53 @@ year, not an accident. See #29.
 past paper exists for the new course**, so its bank must be authored from the subject
 guide, not extracted. Do not promise IB extraction.
 
+**The IB structure is established from the guide itself** (`Design technology guide`,
+published February 2025, first assessment 2027, in `../klunk-content/source/ib-dt/`),
+not inferred:
+- **Three themes by four levels of organization**, and the guide's Overview table
+  is the authority: `A. Design in theory`, `B. Design in practice`,
+  `C. Design in context` across `1. People`, `2. Process`, `3. Product`,
+  `4. Production`. Twenty-four topics, numbered `A1.1` … `C4.1`, of which
+  **eleven are marked `(HL only)`**, so SL is the other thirteen.
+- **A topic is never half HL.** The marker sits on the understanding in the
+  syllabus map, but it agrees across every understanding of a topic, which is
+  what makes splitting SL from HL a whole topic at a time safe. `ibdt.ts` checks
+  it rather than assuming it.
+- **Each topic is a run of numbered understandings**, and each understanding is
+  two things: the statement (`1.1.5 In design, consideration must be given to
+  work envelopes…`) and, under it, `Students must be able to …`. The second is
+  where the command term lives, so both belong in the content point.
+  **Nineteen of the 161 statements are published with no full stop**, which is
+  why the two are joined with one added rather than a bare space.
+- **The guide is a PDF and the IB publishes no Word export of it**, unlike
+  `curriculum.nsw.edu.au`. What a teacher can hold in a machine-readable shape is
+  the ManageBac old-to-new **syllabus map `.xlsx`**, and it is a faithful
+  transcription: A1.1's seven understandings and A2.1's five match the guide word
+  for word. So `ibdt.ts` reads the workbook, and the guide is what it was checked
+  against.
+- **The map sets the new syllabus beside the 2020 one it replaces**, and four of
+  its six column headings repeat on the old side. `SL and HL or HL only` heads
+  two columns. The new course is the left-hand set throughout.
+
+**The IB assessment model, from the guide's own outline** (pages 60 to 62). Nothing
+here is in the syllabus map, which gets two of these numbers wrong:
+
+| | SL | HL |
+|---|---|---|
+| Paper 1 | 1 hour, 30 marks, **20%** | 1 h 30 min, 40 marks, 25% |
+| Paper 2 | 1 h 30 min, 50 marks, 40% | 2 h 30 min, 80 marks, 45% |
+| Internal assessment | 50 hours, 33 marks, **40%** | 50 hours, 33 marks, 30% |
+
+Paper 1 is multiple choice, Paper 2 is short-answer and extended-response "based
+on the analysis of a product". Both papers draw on all three themes and test
+AO1–AO3 at roughly 50% AO1+AO2 and 50% AO3. **Recommended teaching hours are 150
+(SL) and 240 (HL)**, of which content is 90 and 180.
+
+**No IB specimen paper is in the content folder.** The Paper 1 that is there is a
+**RevisionDojo practice paper**, not the IB's own, so its thirty questions
+corroborate the guide's 30-mark SL Paper 1 without being evidence of anything
+else. See #45 before writing an IB profile.
+
 **Dropped from scope:** Industrial Technology and Food Technology. Their `.docx` files
 are kept in `../klunk-content/fixtures/` purely as parser regression tests.
 
@@ -294,6 +343,21 @@ by hand off the documents rather than inherited:
 | English Advanced 11–12 (2024) | y11 **9 / 30 / 6** | y12 **12 / 43 / 6** |
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
+
+The IB map, in `src/ibdt.corpus.test.ts`, counted off the guide's Overview table
+and its numbered understandings rather than off the parser:
+
+| | first course | second course |
+|---|---|---|
+| IB DP Design Technology (2027) | sl **13 / 79 / 0** | hl **24 / 161 / 0** |
+
+Zero outcomes in both, because the IB has assessment objectives against the whole
+course and nothing that maps to a topic. HL is the **whole** syllabus and not the
+eleven extra topics, so every SL topic appears in both courses under the same id,
+which is the Visual Arts arrangement with the sharing one-way. Three groups per
+course, the themes. The level of organization is folded into the topic name
+(`A1.1 People: Ergonomics`) because the schema has one grouping level and the
+theme is the one worth having there.
 
 Four of those numbers are the ones a rewrite would get wrong. Drama's HSC has
 **one more outcome than its Preliminary** because H2.5 comes from the outcome
@@ -632,6 +696,26 @@ Verified in the browser against `../klunk-content`, not just reasoned about:
 Drama, English Advanced and Visual Arts each read to the counts above, Visual Arts
 written to `syllabus/nsw-hsc-visual-arts.json` and validating, and its seventeen
 HSC topics then offered by name on the Draft with AI tab.
+
+**IB DP Design Technology reads too, from a spreadsheet** (#4). `src/xlsx.ts` is
+the workbook half of what `ooxml.ts` does for Word: shared strings, merged cells
+carried down, rows out, deciding nothing. `src/ibdt.ts` is the reader and takes
+rows and no file. It finds the sheet by its six column headings rather than by
+coordinates, so it refuses the other seven sheets of the workbook instead of
+reading assessment comparisons as content.
+
+Klunk still ships no model. The document is the teacher's own copy of the
+old-to-new syllabus map, and the model goes into their folder as
+`syllabus/ib-dp-design-technology.json` with `framework: IB` and the IB's licence
+on it.
+
+Verified in the browser against `../klunk-content`, and then against the guide
+itself: the map read to 13 / 79 (SL) and 24 / 161 (HL), the model saved and
+validates against `syllabus.schema.json`, both courses are offered on the Draft
+with AI tab, and all eleven HL-only topics appear under Higher level and none
+under Standard level. The guide's Overview table names the same twenty-four
+topics with the same eleven HL markers, and A1.1 and A2.1 hold exactly the seven
+and five understandings the model gives them.
 
 **A syllabus can be read topic by topic and corrected before it is written**
 (#42). "Check what was found" was four numbers and a list of focus areas, which is

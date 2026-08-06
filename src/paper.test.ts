@@ -89,6 +89,7 @@ function indexWith(questions: Question[]): ContentIndex {
     scanned: 2,
     pdfs: [],
     docx: [],
+    workbooks: [],
     images: new Map(),
   }
 }
@@ -381,6 +382,7 @@ function twoSubjects(): ContentIndex {
     scanned: 5,
     pdfs: [],
     docx: [],
+    workbooks: [],
     images: new Map(),
   }
 }

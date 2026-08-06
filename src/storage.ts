@@ -66,6 +66,14 @@ export interface ContentIndex {
    */
   docx: string[]
   /**
+   * Every spreadsheet in the folder, by path, unread.
+   *
+   * The IB publishes no Word export of its guide, so the document an IB teacher
+   * can actually hold is the old-vs-new syllabus map (#4), which is an `.xlsx`.
+   * Same reasoning and same cost as `docx`: paths only.
+   */
+  workbooks: string[]
+  /**
    * Stimulus images, keyed by folder-relative path, as object URLs.
    *
    * Loaded eagerly for the images questions actually reference, rather than
@@ -85,6 +93,7 @@ export function emptyIndex(): ContentIndex {
     scanned: 0,
     pdfs: [],
     docx: [],
+    workbooks: [],
     images: new Map(),
   }
 }
@@ -476,10 +485,16 @@ export async function scanFolder(
       index.pdfs.push(path)
       continue
     }
-    // Word's lock files are real .docx-adjacent entries in the folder and are
-    // not documents. Offering `~$syllabus.docx` would only ever waste a click.
-    if (path.toLowerCase().endsWith('.docx') && !(path.split('/').pop() ?? '').startsWith('~$')) {
+    // Office lock files are real .docx- and .xlsx-adjacent entries in the folder
+    // and are not documents. Offering `~$syllabus.docx` would only ever waste a
+    // click.
+    const lock = (path.split('/').pop() ?? '').startsWith('~$')
+    if (path.toLowerCase().endsWith('.docx') && !lock) {
       index.docx.push(path)
+      continue
+    }
+    if (path.toLowerCase().endsWith('.xlsx') && !lock) {
+      index.workbooks.push(path)
       continue
     }
     if (!path.toLowerCase().endsWith('.json')) continue
@@ -526,6 +541,7 @@ export async function scanFolder(
   index.papers.sort(byPath)
   index.pdfs.sort((a, b) => a.localeCompare(b))
   index.docx.sort((a, b) => a.localeCompare(b))
+  index.workbooks.sort((a, b) => a.localeCompare(b))
 
   await loadImages(dir, index)
 
