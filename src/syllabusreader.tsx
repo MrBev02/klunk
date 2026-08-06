@@ -28,7 +28,7 @@
  * document's filename as its source, and it goes into the folder either way.
  */
 
-import { useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
 import {
@@ -122,6 +122,17 @@ export function SyllabusReader({
     () => [...index.docx, ...index.workbooks].sort((a, b) => a.localeCompare(b)),
     [index.docx, index.workbooks],
   )
+
+  // A rescan can take away the document chosen out of the folder: it can be
+  // renamed, moved, or tidied away once its model is saved. The selection has to
+  // go with it, or Read it points at a file that is not there. What was already
+  // parsed stays, because a correction half made is worth more than a selection,
+  // and `found` carries the filename the model records for exactly this reason.
+  useEffect(() => {
+    setChosen((was) =>
+      was === null || was.file !== null || documents.includes(was.path) ? was : null,
+    )
+  }, [documents])
 
   const taken = useMemo(() => new Set(index.syllabuses.map((s) => s.data.id)), [index.syllabuses])
   const outPath = `syllabus/${id || '…'}.json`
@@ -261,10 +272,8 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          Your syllabus as you downloaded it. Klunk reads the NESA Stage 6 syllabuses and the
-             newer Year 11 and 12 ones in Word format, and the IB Design Technology syllabus
-             map as a spreadsheet. It works out which kind you have given it. It reads the
-             document here in the browser, and nothing leaves your computer.
+          Klunk reads a syllabus as a Word document, and the IB Design Technology syllabus
+             map as a spreadsheet. It works out which kind you have given it.
         </p>
 
         {documents.length > 0 && (
@@ -301,39 +310,33 @@ export function SyllabusReader({
           onDrop={drop}
         >
           <button class="btn" onClick={() => void pick()}>
-            Choose a file on this computer
+            {documents.length > 0 ? 'Or choose a file on this computer' : 'Choose a file on this computer'}
           </button>
-          <p class="hint">
-            Or drag the syllabus onto this box. Klunk reads it where it is and does not copy
-               it into your folder. The model it builds is written into your folder.
-          </p>
+          <p class="hint">Or drag a syllabus onto this box.</p>
         </div>
-
-        {chosen?.file && <p class="pickfile__chosen">Ready to read: {chosen.path}</p>}
 
         {documents.length === 0 && (
           <>
             <p class="hint">
-              This folder has no syllabus document in it. You can read one straight off this
-                 computer with the button above. If you would rather keep it with your
-                 questions, save it anywhere in your folder and reload, and Klunk will offer
-                 it here as well.
+              This folder has no syllabus document in it. Choose one from this computer with
+                 the button above.
             </p>
             <p class="hint">
-              For a NESA syllabus, download it as a <code>.docx</code>. On{' '}
-              <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF.
-                 Choose Word. Klunk cannot read the PDF.
-            </p>
-            <p class="hint">
-              For IB Design Technology, use the old-to-new syllabus map, which is the{' '}
-              <code>.xlsx</code> published alongside the new course. The IB guide itself comes
-                 as a PDF, and Klunk cannot read it.
-            </p>
-            <p class="hint">
-              Klunk does not come with any syllabus model, and that is on purpose. A syllabus
-                 is copyright, so you build your own from your own copy.
+              If you are offered Word or PDF, choose Word. Klunk cannot read a syllabus as a
+                 PDF, and <strong>Help</strong> says which document each syllabus needs.
             </p>
           </>
+        )}
+
+        {chosen && (
+          <div class="chosen">
+            <p class="chosen__file">{chosen.path}</p>
+            <p class="chosen__where">
+              {chosen.file
+                ? 'From this computer. Klunk reads it where it is and does not copy it into your folder.'
+                : 'From this folder.'}
+            </p>
+          </div>
         )}
 
         <div class="rowbtns">

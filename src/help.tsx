@@ -136,6 +136,20 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p class="muted">
+          <strong>Which document to use.</strong> Klunk reads a syllabus as a Word{' '}
+          <code>.docx</code>. That covers the NESA Stage 6 syllabuses, which set their
+          content out in a table, and the newer Year 11 and 12 ones, which use headings and
+          bullet points. On <code>curriculum.nsw.edu.au</code> the Download button offers
+          Word and PDF, so choose Word. Klunk cannot read a syllabus as a PDF.
+        </p>
+
+        <p class="muted">
+          For IB Design Technology, the document is the old-to-new syllabus map, a
+          spreadsheet you can download from ManageBac. The IB subject guide itself is a PDF,
+          and Klunk cannot read it.
+        </p>
+
+        <p class="muted">
           You need a profile before you can build a paper. You do not need a syllabus model
           to write questions or build papers, but without one you cannot tag a question to a
           topic, and Klunk cannot tell you what a paper covers.
