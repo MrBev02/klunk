@@ -23,6 +23,7 @@ import {
   cleanQuestion,
   cleanSchool,
   emptyIdContext,
+  hasGuide,
   suggestQuestionId,
   validateProfile,
   validateQuestion,
@@ -704,7 +705,63 @@ describe('validateProfile', () => {
    * thing to debug from the far end, which is the same argument as the sections
    * adding up.
    */
-  describe('a section a student chooses from', () => {
+  describe('a marking guide in the shape NESA prints one', () => {
+  it('keeps a band that is several points, and the answers-could-include list', () => {
+    // 2025 HSC Visual Arts Question 1: two points in the top band, and a
+    // ten-point list of what a marker should accept.
+    const cleaned = cleanQuestion(
+      question({
+        questionType: 'extended_response',
+        marks: 5,
+        markingGuide: {
+          criteria: [
+            {
+              marks: 5,
+              description:
+                'Provides a thorough description of Paula Rego’s artmaking practice\n' +
+                'Uses the source material in a well-reasoned way',
+            },
+          ],
+          answersCouldInclude: [
+            'Uses acrylic paint on paper laid on a large canvas',
+            '   ',
+            'Subject matter includes figures in the landscape',
+          ],
+        },
+      }),
+    )
+
+    expect(cleaned.markingGuide?.criteria?.[0]?.description).toContain('\n')
+    // The blank a half-filled list leaves behind goes; the rest stays in order.
+    expect(cleaned.markingGuide?.answersCouldInclude).toEqual([
+      'Uses acrylic paint on paper laid on a large canvas',
+      'Subject matter includes figures in the landscape',
+    ])
+  })
+
+  it('counts an answers list as a marking guide, so it is not reported as missing', () => {
+    const q = question({
+      questionType: 'extended_response',
+      marks: 5,
+      markingGuide: { answersCouldInclude: ['Something a marker should accept'] },
+    })
+    expect(hasGuide(q)).toBe(true)
+  })
+
+  it('drops the list entirely when nothing is left in it', () => {
+    const cleaned = cleanQuestion(
+      question({
+        questionType: 'extended_response',
+        marks: 5,
+        markingGuide: { sampleAnswer: 'A response.', answersCouldInclude: ['', '  '] },
+      }),
+    )
+    expect(cleaned.markingGuide?.answersCouldInclude).toBeUndefined()
+    expect(cleaned.markingGuide?.sampleAnswer).toBe('A response.')
+  })
+})
+
+describe('a section a student chooses from', () => {
     const choice = (over: Partial<Profile['paper']['sections'][number]> = {}) =>
       profile({
         paper: {

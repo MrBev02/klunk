@@ -100,6 +100,11 @@
               "description": "Mark-by-mark or band criteria for the question as a whole. A question split into parts carries its criteria on the parts instead.",
               "items": { "$ref": "#/$defs/criterion" }
             },
+            "answersCouldInclude": {
+              "type": "array",
+              "description": "What a marker should accept, one point per entry. Every question in a NESA marking guideline ends with an 'Answers could include:' list, and it is the longest part of it: 2025 HSC Visual Arts Question 3 runs to twelve points. Distinct from 'notes', which is an aside about how to mark, where this is the substance being marked against.",
+              "items": { "type": "string" }
+            },
             "notes": { "type": "string" }
           }
         },
@@ -172,7 +177,10 @@
           "type": "number",
           "description": "The top of a band, so '13-15' is marks 13 and marksTo 15. Every HSC extended response is banded, and from 2018 a six-mark short answer carries a band too, so this is the normal case rather than an exotic one. Without it a marking guide prints a single number where the examination printed a range, which is wrong on the page a marker reads."
         },
-        "description": { "type": "string" }
+        "description": {
+          "type": "string",
+          "description": "What a response in this band does. A NESA band is two or three separate points rather than one sentence, so newlines separate them and the marking guide prints them as the bulleted list the guidelines print."
+        }
       }
     },
 

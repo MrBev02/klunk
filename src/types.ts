@@ -218,6 +218,13 @@ export interface MarkCriterion {
   /** The mark, or the bottom of the band where `marksTo` is present. */
   marks: number
   /**
+   * What a response in this band does.
+   *
+   * A NESA band is two or three separate points rather than one sentence, so a
+   * newline separates them and the guide prints the list the guidelines print.
+   */
+  description: string
+  /**
    * The top of a band, so `13–15` is 13 and 15.
    *
    * Every HSC extended response is banded and from 2018 a six-mark short answer
@@ -226,7 +233,6 @@ export interface MarkCriterion {
    * page a marker actually reads.
    */
   marksTo?: number
-  description: string
 }
 
 export interface QuestionPart {
@@ -298,6 +304,14 @@ export interface Question {
   markingGuide?: {
     sampleAnswer?: string
     criteria?: MarkCriterion[]
+    /**
+     * What a marker should accept, one point per entry.
+     *
+     * Every question in a NESA marking guideline ends with an `Answers could
+     * include:` list and it is the longest part of it. Apart from `notes`, which
+     * is an aside about how to mark: this is the substance being marked against.
+     */
+    answersCouldInclude?: string[]
     notes?: string
   }
   source?: {

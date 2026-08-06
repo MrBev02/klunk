@@ -327,23 +327,46 @@ function QuestionBlock({
   images: Map<string, string>
 }) {
   const q = item.question
+  const marks = `(${item.marks} mark${item.marks === 1 ? '' : 's'})`
+
+  /*
+   * NESA prints a question two ways and Klunk used to print one.
+   *
+   * An objective question is numbered inline, `1  Which factor …`, with its
+   * options under it. Everything else gets a heading of its own,
+   * `Question 11 (4 marks)`, with the stem below. `src/extract.ts` has always
+   * read both — the inline form at its objective branch and the heading form in
+   * `HEADING` — because eleven years of papers taught it to; the renderer knew
+   * only the second shape and drew every question in the first.
+   */
+  const asHeading = q.questionType !== 'multiple_choice' && q.questionType !== 'true_false'
 
   return (
     <div class="q-print">
-      <div class="q-print__head">
-        <span class="q-print__n">{item.number}</span>
+      {asHeading ? (
         <div class="q-print__body">
-          <p class="q-print__text">{q.questionText}</p>
+          <h3 class="q-print__heading">
+            Question {item.number} {marks}
+          </h3>
           {q.stimulus?.map((s, i) => (
             <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
           ))}
+          {q.questionText.trim() && <p class="q-print__text">{q.questionText}</p>}
         </div>
-        <span class="q-print__marks">
-          ({item.marks} mark{item.marks === 1 ? '' : 's'})
-        </span>
-      </div>
+      ) : (
+        <div class="q-print__head">
+          <span class="q-print__n">{item.number}</span>
+          <div class="q-print__body">
+            <p class="q-print__text">{q.questionText}</p>
+            {q.stimulus?.map((s, i) => (
+              <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
+            ))}
+          </div>
+          <span class="q-print__marks">{marks}</span>
+        </div>
+      )}
 
-      <div class="q-print__answer">
+      <div class={asHeading ? 'q-print__answer q-print__answer--full' : 'q-print__answer'}>
         <QuestionBody item={item} mode={mode} profile={profile} />
       </div>
 
@@ -589,7 +612,11 @@ function GuideBlock({ question }: { question: Question }) {
   const partsCovered =
     question.config?.parts?.some((p) => p.sampleAnswer || p.criteria?.length) ?? false
   const showMissing = wantsSample && !guide?.sampleAnswer && !partsCovered
-  const hasAnything = guide?.sampleAnswer || guide?.criteria?.length || guide?.notes
+  const hasAnything =
+    guide?.sampleAnswer ||
+    guide?.criteria?.length ||
+    guide?.answersCouldInclude?.length ||
+    guide?.notes
 
   if (!hasAnything && !showMissing) return null
 
@@ -620,6 +647,20 @@ function GuideBlock({ question }: { question: Question }) {
         </>
       ) : null}
 
+      {/* What a marker should accept. Every NESA guideline ends with one and it
+          is the longest part of it, so it is a list of its own rather than
+          being run into the notes. */}
+      {guide?.answersCouldInclude?.length ? (
+        <>
+          <p class="guide__head">Answers could include</p>
+          <ul class="guide__points">
+            {guide.answersCouldInclude.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
       {guide?.notes && <p class="guide__notes">{guide.notes}</p>}
     </div>
   )
@@ -635,15 +676,47 @@ function GuideBlock({ question }: { question: Question }) {
 function Criteria({ criteria }: { criteria: MarkCriterion[] }) {
   return (
     <table class="guide__criteria">
+      <thead>
+        <tr>
+          <th>Criteria</th>
+          <th class="guide__marks">Marks</th>
+        </tr>
+      </thead>
       <tbody>
         {criteria.map((c, i) => (
           <tr key={i}>
-            <td>{c.description}</td>
+            <td>
+              <CriterionPoints description={c.description} />
+            </td>
             <td class="guide__marks">{markRange(c)}</td>
           </tr>
         ))}
       </tbody>
     </table>
+  )
+}
+
+/**
+ * One band's criteria.
+ *
+ * A NESA band is two or three separate points rather than one sentence, so a
+ * newline separates them and they print as the list the guidelines print. A
+ * single-line description stays a plain sentence, because most of them are and a
+ * bullet on its own is noise.
+ */
+function CriterionPoints({ description }: { description: string }) {
+  const points = description
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (points.length <= 1) return <>{points[0] ?? ''}</>
+  return (
+    <ul class="guide__points">
+      {points.map((point, i) => (
+        <li key={i}>{point}</li>
+      ))}
+    </ul>
   )
 }
 

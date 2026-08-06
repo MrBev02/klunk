@@ -337,7 +337,14 @@ export function needsGuide(type: QuestionType): boolean {
 
 export function hasGuide(question: Question): boolean {
   const g = question.markingGuide
-  if (g?.sampleAnswer?.trim() || g?.notes?.trim() || g?.criteria?.length) return true
+  if (
+    g?.sampleAnswer?.trim() ||
+    g?.notes?.trim() ||
+    g?.criteria?.length ||
+    g?.answersCouldInclude?.length
+  ) {
+    return true
+  }
   // A question split into parts carries its sample answers and criteria on the
   // parts, and then has no `markingGuide` of its own at all.
   return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim() || p.criteria?.length)
@@ -888,6 +895,7 @@ export function cleanQuestion(draft: Question): Question {
   const guide = compact({
     sampleAnswer: text(draft.markingGuide?.sampleAnswer),
     criteria: cleanCriteria(draft.markingGuide?.criteria),
+    answersCouldInclude: list(draft.markingGuide?.answersCouldInclude),
     notes: text(draft.markingGuide?.notes),
   })
   if (guide) out.markingGuide = guide

@@ -391,9 +391,23 @@
   font-size: 10pt;
 }
 
+/* `Question 11 (4 marks)` on a line of its own, which is how NESA prints
+   anything that is not an objective question. */
+.q-print__heading {
+  margin: 0 0 3mm;
+  font-size: 11pt;
+  font-weight: 700;
+}
+
 .q-print__answer {
   margin-left: 11mm;
   margin-top: 2mm;
+}
+
+/* A question that carries its own heading has no number column to clear, so its
+   answer space runs the full width, as the printed papers do. */
+.q-print__answer--full {
+  margin-left: 0;
 }
 
 .q-print__hint {
@@ -715,10 +729,25 @@
   font-style: italic;
 }
 
-/* No header row: two columns of criteria and marks read fine without one, and
-   the row it saves is a row of vertical space on a long guide. */
+/* The header row is back. It was dropped as a row of vertical space that two
+   columns read fine without, which is true of a two-line guide and false of a
+   NESA one: the official guidelines head every table `Criteria | Marks`, and on
+   a five-band table running over a page break the marks column needs saying. */
 .guide__criteria th {
-  display: none;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The points inside a band, and the answers-could-include list. A NESA band is
+   two or three separate statements, not one sentence. */
+.guide__points {
+  margin: 0;
+  padding-left: 4mm;
+}
+
+.guide__points li {
+  margin-bottom: 0.8mm;
 }
 
 .stimulus__img {
