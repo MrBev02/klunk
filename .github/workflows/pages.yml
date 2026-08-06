@@ -51,17 +51,47 @@ jobs:
         with:
           path: dist
 
+  # This job is attempted twice, and the reason is #53 rather than superstition.
+  #
+  # A Pages deployment sits in `deployment_queued` until GitHub allocates a
+  # runner to it, and the action waits ten minutes and then cancels its own
+  # deployment. There is no knob: the `timeout:` input is clamped by
+  # `Math.min(timeoutInput, MAX_TIMEOUT)` against a hardcoded 600000 in the
+  # action's src/internal/deployment.js, so asking for twenty minutes is
+  # silently given ten. It was tried, and the run still aborted at 10m11s.
+  #
+  # On 2026-08-06 that allocation became unreliable — three of five runs failed,
+  # and the difference was only ever how long the wait was, never anything about
+  # this repository. The artifact is 580 kB and had not changed size in days.
+  #
+  #   cb1d19d   59 polls  ✓        d5e384c   63 polls  ✓
+  #   5cc40ef  115 polls  ✗        e21484a  115 polls  ✗
+  #   564fb33  121 polls  ✗
+  #
+  # A second attempt is a second draw from that queue, and on those numbers it
+  # would have rescued every failure. It costs a further ten minutes of runner
+  # time only on a run that has already failed once. If both attempts time out,
+  # the job fails, which is what should happen — that is a genuinely stuck
+  # deployment rather than a slow one.
+  #
+  # When Pages is allocating promptly again this is dead weight, and taking it
+  # back out is the right move. Nothing here breaks if it is left in.
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      # Whichever attempt got there. `||` returns the first non-empty value, and
+      # a step that failed leaves its outputs empty.
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
-      # There is deliberately no `timeout:` here, because it cannot help. The
-      # action clamps it — `Math.min(timeoutInput, MAX_TIMEOUT)` against a
-      # hardcoded 600000 in src/internal/deployment.js — so ten minutes is the
-      # longest this step can ever wait, and asking for twenty is silently
-      # given ten. See #53: it was tried, and the run still aborted at 10m11s.
       - id: deployment
+        uses: actions/deploy-pages@v5
+        # So a timeout falls through to the retry instead of ending the job.
+        continue-on-error: true
+
+      # No `continue-on-error` here: if the second draw fails too, the deploy
+      # has failed and the run must say so.
+      - id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5
