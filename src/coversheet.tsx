@@ -254,82 +254,192 @@ export function IdentificationFields({
 }) {
   const change = (i: number, patch: Patch<IdentificationField>) =>
     setFields((list) => list.map((f, j) => (i === j ? patched(f, patch) : f)))
+  const move = (i: number, by: number) =>
+    setFields((list) => {
+      const to = i + by
+      if (to < 0 || to >= list.length) return list
+      const out = [...list]
+      const [item] = out.splice(i, 1)
+      if (item !== undefined) out.splice(to, 0, item)
+      return out
+    })
 
   return (
     <section class="panel">
       <p class="panel__title">What a student fills in</p>
       <p class="hint">{hint}</p>
 
-      {fields.length === 0 && (
+      {fields.length === 0 ? (
         <p class="hint">
           Nothing yet, so the cover prints no boxes at all. Most schools ask for a name and a
           class.
         </p>
+      ) : (
+        <IdentificationPreview fields={fields} />
       )}
 
-      {fields.map((field, i) => (
-        <div class="editor__sub" key={i}>
-          <div class="fieldrow">
-            <Field label="Label" hint="The words printed above the space">
-              <input
-                class="input"
-                value={field.label}
-                placeholder="Name"
-                onInput={(e) => change(i, { label: (e.target as HTMLInputElement).value })}
-              />
-            </Field>
+      {/* Each one is a bordered block rather than a run of fields.
+          Unbordered, the checkbox and Remove belonging to one row sat nearer the
+          next row's Label than their own, so they read as introducing the row
+          below. Nothing else on this screen repeats without a heading to anchor
+          it: the profile editor's sections carry "Section I". These carry the
+          label the teacher typed. */}
+      <ol class="idlist">
+        {fields.map((field, i) => (
+          <li class="idfield" key={i}>
+            <div class="idfield__head">
+              <span class="idfield__n">{String(i + 1).padStart(2, '0')}</span>
+              <span class={`idfield__name ${field.label.trim() ? '' : 'idfield__name--none'}`}>
+                {field.label.trim() || 'Not named yet'}
+              </span>
+              <span class="rowbtns">
+                <button
+                  class="btn btn--icon"
+                  title="Move up"
+                  disabled={i === 0}
+                  onClick={() => move(i, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  class="btn btn--icon"
+                  title="Move down"
+                  disabled={i === fields.length - 1}
+                  onClick={() => move(i, 1)}
+                >
+                  ↓
+                </button>
+                <button
+                  class="btn btn--small"
+                  onClick={() => setFields((l) => l.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </span>
+            </div>
 
-            <Field label="What it looks like">
-              <select
-                class="input"
-                value={field.kind}
-                onChange={(e) =>
-                  change(i, { kind: (e.target as HTMLSelectElement).value as 'write' | 'boxes' })
-                }
-              >
-                <option value="write">A line to write on</option>
-                <option value="boxes">A row of boxes, one character each</option>
-              </select>
-            </Field>
+            <div class="idfield__body">
+              <div class="fieldrow">
+                {/* The hint that used to sit under every one of these said the
+                    same sentence four times over. It is in the panel's own
+                    opening line now, said once. */}
+                <Field label="Label">
+                  <input
+                    class="input"
+                    value={field.label}
+                    placeholder="Name"
+                    onInput={(e) => change(i, { label: (e.target as HTMLInputElement).value })}
+                  />
+                </Field>
 
-            {field.kind === 'boxes' && (
-              <Field label="How many boxes" hint="A student number is usually eight">
-                <NumField
-                  value={field.boxes}
-                  min={1}
-                  max={20}
-                  placeholder={String(DEFAULT_BOXES)}
-                  onChange={(n) => change(i, { boxes: n })}
+                <Field label="What it looks like">
+                  <select
+                    class="input"
+                    value={field.kind}
+                    onChange={(e) =>
+                      change(i, {
+                        kind: (e.target as HTMLSelectElement).value as 'write' | 'boxes',
+                      })
+                    }
+                  >
+                    <option value="write">A line to write on</option>
+                    <option value="boxes">A row of boxes, one character each</option>
+                  </select>
+                </Field>
+
+                {field.kind === 'boxes' && (
+                  <Field label="How many boxes" hint="A student number is usually eight">
+                    <NumField
+                      value={field.boxes}
+                      min={1}
+                      max={20}
+                      placeholder={String(DEFAULT_BOXES)}
+                      onChange={(n) => change(i, { boxes: n })}
+                    />
+                  </Field>
+                )}
+              </div>
+
+              <label class="checkline idfield__every">
+                <input
+                  type="checkbox"
+                  checked={field.onEveryPage ?? false}
+                  onChange={(e) =>
+                    change(i, { onEveryPage: (e.target as HTMLInputElement).checked || undefined })
+                  }
                 />
-              </Field>
-            )}
-          </div>
+                <span>
+                  Also print this at the top of every page
+                  <span class="hint">
+                    For a number that has to be on every sheet once a paper is split up for
+                    marking.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </li>
+        ))}
+      </ol>
 
-          <div class="rowbtns">
-            <label class="checkline">
-              <input
-                type="checkbox"
-                checked={field.onEveryPage ?? false}
-                onChange={(e) =>
-                  change(i, { onEveryPage: (e.target as HTMLInputElement).checked || undefined })
-                }
-              />
-              <span>Print this at the top of every page, not just the cover</span>
-            </label>
-            <button class="btn btn--small" onClick={() => setFields((l) => l.filter((_, j) => j !== i))}>
-              Remove
-            </button>
-          </div>
-        </div>
-      ))}
-
-      <button
-        class="btn"
-        onClick={() => setFields((l) => [...l, { label: '', kind: 'write' }])}
-      >
+      <button class="btn" onClick={() => setFields((l) => [...l, { label: '', kind: 'write' }])}>
         Add something to fill in
       </button>
     </section>
+  )
+}
+
+/**
+ * What the boxes will look like on the paper.
+ *
+ * Built from the printed stylesheet's own classes rather than from a copy of
+ * them, so this cannot drift away from what comes out of the printer. It answers
+ * the question the form on its own could not: where any of this ends up, and
+ * what ticking "every page" actually moves.
+ *
+ * The same reasoning as the question editor previewing a question beside itself
+ * as it is typed.
+ */
+function IdentificationPreview({ fields }: { fields: IdentificationField[] }) {
+  const named = fields.filter((f) => f.label.trim())
+  const onCover = named.filter((f) => !f.onEveryPage)
+  const everyPage = named.filter((f) => f.onEveryPage)
+
+  const block = (list: IdentificationField[]) => (
+    <div class="ident">
+      {list.map((f, i) => (
+        <div class="ident__field" key={i}>
+          <span class="ident__label">{f.label.trim()}</span>
+          {f.kind === 'boxes' ? (
+            <span class="ident__boxes">
+              {Array.from({ length: Math.max(1, Math.round(f.boxes ?? DEFAULT_BOXES)) }, (_, j) => (
+                <span class="ident__box" key={j} />
+              ))}
+            </span>
+          ) : (
+            <span class="ident__write" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  return (
+    <div class="idpreview">
+      <div class="idpreview__col">
+        <p class="rail__label">On the cover</p>
+        {onCover.length > 0 ? (
+          block(onCover)
+        ) : (
+          <p class="hint">Nothing, so the cover prints no box.</p>
+        )}
+      </div>
+      {everyPage.length > 0 && (
+        <div class="idpreview__col">
+          <p class="rail__label">At the top of every page</p>
+          <div class="idpreview__loose">{block(everyPage)}</div>
+        </div>
+      )}
+    </div>
   )
 }
 

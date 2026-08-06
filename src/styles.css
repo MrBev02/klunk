@@ -1320,6 +1320,137 @@ button.chip {
   margin-top: 1rem;
 }
 
+/* ------------------------------------------------- what a student fills in
+ *
+ * A repeating row with no heading of its own, which is the case the plain
+ * .editor__sub stack cannot carry. Unbordered, each row's checkbox and Remove
+ * sat nearer the next row's Label than their own fields, so they read as
+ * belonging to the row below. Every other repeating list in this app has a
+ * strong first line to hang on, either a letter (.editrow__letter) or a name
+ * (Section I); these get a number and the label the teacher typed.
+ */
+
+.idlist {
+  list-style: none;
+  margin: 0.9rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.idfield {
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--paper-raised);
+}
+
+.idfield__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--rule);
+  /* The one tint in the block, so the head reads as a lid rather than as a
+     first row of content. */
+  background: linear-gradient(0deg, rgb(31 78 121 / 3%), rgb(31 78 121 / 3%));
+  border-radius: var(--r) var(--r) 0 0;
+}
+
+.idfield__n {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.idfield__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.idfield__name--none {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+.idfield__head .rowbtns {
+  flex: none;
+  margin: 0;
+}
+
+.idfield__body {
+  padding: 0.75rem 0.7rem 0.85rem;
+}
+
+/* Divided off, because it is a different kind of statement from the boxes
+   above it: those say what this is, this says where it goes. */
+.idfield__every {
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed var(--rule);
+  align-items: start;
+}
+
+.idfield__every .hint {
+  display: block;
+  margin: 0.1rem 0 0;
+}
+
+/* ---------------------------------------------------------- the preview
+ *
+ * Drawn with the printed stylesheet's own .ident classes rather than a copy of
+ * them, so it cannot drift from what the printer produces. Those classes are
+ * black ink on white paper, so the surface under them has to be paper whatever
+ * the teacher's screen is doing.
+ */
+
+.idpreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin: 0.9rem 0 0.2rem;
+  /* Sized to the paper it is showing rather than stretched across the panel,
+     which left most of it empty ruled ground. */
+  width: fit-content;
+  max-width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: #fff;
+  color: #000;
+  /* Same faint ground the app uses, so the preview reads as a piece of paper
+     laid on the drafting table rather than as another panel. */
+  background-image:
+    linear-gradient(to right, rgb(31 78 121 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(31 78 121 / 4%) 1px, transparent 1px);
+  background-size: 5mm 5mm;
+}
+
+.idpreview__col {
+  min-width: 0;
+}
+
+.idpreview .rail__label {
+  color: #6f675e;
+  margin-bottom: 0.4rem;
+}
+
+.idpreview .hint {
+  color: #6f675e;
+}
+
+/* The every-page block prints with no rule around it, and the preview has to
+   show that rather than tidy it away. */
+.idpreview__loose .ident {
+  border: none;
+  padding: 0 3mm;
+}
+
 .editor__where {
   margin: 0.6rem 0 0;
   font-size: 0.78rem;
