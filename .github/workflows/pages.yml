@@ -58,14 +58,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # There is deliberately no `timeout:` here, because it cannot help. The
+      # action clamps it — `Math.min(timeoutInput, MAX_TIMEOUT)` against a
+      # hardcoded 600000 in src/internal/deployment.js — so ten minutes is the
+      # longest this step can ever wait, and asking for twenty is silently
+      # given ten. See #53: it was tried, and the run still aborted at 10m11s.
       - id: deployment
         uses: actions/deploy-pages@v5
-        with:
-          # The action polls until Pages accepts the deployment, and its default
-          # is ten minutes. Over one morning the same 580 kB artifact went from
-          # 28 seconds to 8 and a half minutes to accept, and then past ten, so
-          # the deploy that failed had not been rejected — it was still
-          # in_progress when the action stopped waiting. Twenty minutes buys the
-          # room, and costs runner time only on a day the backend is already
-          # slow. If this ever fires, the deployment genuinely is stuck.
-          timeout: 1200000
