@@ -40,6 +40,17 @@
   --mono: 'SF Mono', ui-monospace, Consolas, 'Cascadia Mono', 'Courier New', monospace;
 
   --r: 3px;
+
+  /*
+   * One height for everything a teacher can click or type into.
+   *
+   * Native controls do not agree on their own: measured in Chrome at this type
+   * size, a text input came out 38.1px, a date input 40.1px and a select 34.1px,
+   * so a row of them was always a pixel or three out of line. It reads as
+   * sloppiness rather than as a bug, which is why it survived this long.
+   */
+  --control-h: 2.35rem;
+
   color-scheme: light dark;
 }
 
@@ -360,6 +371,10 @@ code,
   background: var(--paper-raised);
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s, transform 0.06s;
+  /* A full-size button stands beside a full-size box often enough that the two
+     have to be the same height on purpose rather than by coincidence of
+     padding, which is what they were. */
+  min-height: var(--control-h);
 }
 
 .btn:hover:not(:disabled) {
@@ -386,9 +401,12 @@ code,
   border-color: var(--blue);
 }
 
+/* The two small variants are deliberately not control height: they sit inside
+   rows and beside chips, where a full-height button would dominate. */
 .btn--small {
   font-size: 0.78rem;
   padding: 0.22rem 0.5rem;
+  min-height: 0;
 }
 
 .btn--icon {
@@ -396,6 +414,7 @@ code,
   padding: 0.15rem 0.42rem;
   font-size: 0.85rem;
   line-height: 1.3;
+  min-height: 0;
 }
 
 .input {
@@ -403,8 +422,39 @@ code,
   border: 1px solid var(--rule-strong);
   border-radius: var(--r);
   background: var(--paper-raised);
+  /* `font: inherit` would also take the size, so the family is named on its own.
+     Without it a select renders in the browser's form font while the input next
+     to it renders in ours. */
+  font-family: inherit;
   font-size: 0.94rem;
+  /* Stated rather than inherited, because a select does not inherit it: Chrome
+     leaves it at `normal`, which is what made a select four pixels shorter than
+     the input beside it. */
+  line-height: 1.45;
   width: 100%;
+  /* A minimum and not a height, so a control carrying a larger font, such as the
+     paper title, grows instead of clipping its own text. */
+  min-height: var(--control-h);
+  /* Centres the text when the minimum is doing the work. */
+  align-content: center;
+}
+
+/* A textarea is sized by its rows and centring its text would be wrong. */
+textarea.input {
+  min-height: 0;
+  align-content: start;
+}
+
+/* The one control whose intrinsic box is taller than the line it holds: the
+   calendar picker inside it adds about a pixel, which no padding rule reaches.
+   Safe to pin exactly, unlike the others, because a date field never carries a
+   font size of its own. */
+.input[type='date'] {
+  height: var(--control-h);
+}
+
+.input[type='date']::-webkit-datetime-edit {
+  padding: 0;
 }
 
 .input:focus-visible {
