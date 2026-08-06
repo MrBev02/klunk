@@ -62,8 +62,15 @@ export function ProfileEditor({
     [index.profiles, originalId],
   )
 
+  const models = useMemo(() => index.syllabuses.map((s) => s.data), [index.syllabuses])
+  /** The courses of the syllabus chosen above, which is all a course can be picked from. */
+  const courses = models.find((m) => m.id === draft.syllabusId)?.courses ?? []
+
   const cleaned = useMemo(() => cleanProfile(draft), [draft])
-  const faults = useMemo(() => validateProfile(cleaned, takenIds), [cleaned, takenIds])
+  const faults = useMemo(
+    () => validateProfile(cleaned, takenIds, models),
+    [cleaned, takenIds, models],
+  )
   const errors = faults.filter((f) => f.severity === 'error')
 
   const set = (patch: Patch<Profile>) => setDraft((d) => patched(d, patch))
@@ -165,16 +172,48 @@ export function ProfileEditor({
               id="pe-syllabus"
               class="input"
               value={draft.syllabusId ?? ''}
-              onChange={(e) => set({ syllabusId: (e.target as HTMLSelectElement).value })}
+              onChange={(e) =>
+                // The course goes with it. A course id belongs to one model, so
+                // one left over from the previous choice would name nothing in
+                // the new one, and the form would carry an error the teacher
+                // never typed.
+                set({ syllabusId: (e.target as HTMLSelectElement).value, courseId: '' })
+              }
             >
               <option value="">Not linked to one</option>
-              {index.syllabuses.map(({ data }) => (
+              {models.map((data) => (
                 <option key={data.id} value={data.id}>
                   {data.name}
                 </option>
               ))}
             </select>
           </Field>
+
+          {/* Only where there is a choice to make. A syllabus with one course is
+              fully named by naming the subject, and a folder with no model at
+              all has nothing to offer, so in both cases the control would be a
+              question with one answer. */}
+          {courses.length > 1 && (
+            <Field
+              label="Course"
+              for="pe-course"
+              hint="Which year or level this paper is for"
+            >
+              <select
+                id="pe-course"
+                class="input"
+                value={draft.courseId ?? ''}
+                onChange={(e) => set({ courseId: (e.target as HTMLSelectElement).value })}
+              >
+                <option value="">Every course in it</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
         </div>
 
         <div class="fieldrow">

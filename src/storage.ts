@@ -919,6 +919,30 @@ export function inSyllabus(ref: QuestionRef, syllabusId: string): boolean {
   return ref.syllabusId === undefined || ref.syllabusId === syllabusId
 }
 
+/**
+ * Whether this question could be part of that course of a syllabus.
+ *
+ * The same rule as `inSyllabus`, one level down, and deliberately the same rule
+ * rather than a stricter one: a question naming a course is held to it, and a
+ * question naming none is offered, because all that is known about it then is a
+ * bare topic id that could belong to any course in the model. That is the
+ * reading #47 settled and `idsFor` already encodes.
+ *
+ * It matters more here than it looks. A subject runs across several years and
+ * each year sets its own papers, so without this the Year 9 mid-year exam is
+ * built from a list holding every question in the subject, Years 7 to 10
+ * together and indistinguishable — the same fault `inSyllabus` was written for
+ * when one folder held two subjects.
+ *
+ * Read off the question rather than off `QuestionRef`, because unlike a syllabus
+ * a course has no bank-level default to fall back to: `bank.schema.json` carries
+ * `syllabusId` and no `courseId`, so a question is the only thing that can say.
+ */
+export function inCourse(ref: QuestionRef, courseId: string): boolean {
+  const named = ref.question.syllabus?.courseId
+  return named === undefined || named === courseId
+}
+
 /** Every question id in the folder, which is what a new id must not collide with. */
 export function questionIds(index: ContentIndex): Set<string> {
   const out = new Set<string>()

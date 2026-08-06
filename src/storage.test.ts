@@ -14,6 +14,7 @@ import {
   copyFileInto,
   emptyIndex,
   folderIsMissing,
+  inCourse,
   inSyllabus,
   joinPath,
   mergeFolder,
@@ -25,7 +26,7 @@ import {
   type ContentIndex,
   folderProblem,
 } from './storage'
-import type { Bank, Loaded, Paper, Question } from './types'
+import type { Bank, Loaded, Paper, Question, QuestionRef } from './types'
 
 /* -------------------------------------------------- a folder made of strings */
 
@@ -651,6 +652,32 @@ describe('inSyllabus', () => {
     const loose = allQuestions(twoSubjects())[2]!
     expect(inSyllabus(loose, 'nsw-hsc-design-technology')).toBe(true)
     expect(inSyllabus(loose, 'anything-at-all')).toBe(true)
+  })
+})
+
+describe('inCourse', () => {
+  const ref = (courseId?: string): QuestionRef => ({
+    question: {
+      id: 'q1',
+      questionType: 'short_answer',
+      questionText: 'Q',
+      marks: 1,
+      syllabus: { topicIds: ['Y9-01'], ...(courseId ? { courseId } : {}) },
+    },
+    file: 'bank/science.json',
+  })
+
+  it('separates two years of one subject', () => {
+    expect(inCourse(ref('y9'), 'y9')).toBe(true)
+    expect(inCourse(ref('y10'), 'y9')).toBe(false)
+  })
+
+  it('keeps a question that names no course, on the same terms as inSyllabus', () => {
+    // A bank carries a default syllabus and cannot carry a default course, so a
+    // question is the only thing that can say, and most say nothing. Holding
+    // them all out would empty the rail for every bank written before #49.
+    expect(inCourse(ref(), 'y9')).toBe(true)
+    expect(inCourse(ref(), 'anything-at-all')).toBe(true)
   })
 })
 

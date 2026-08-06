@@ -320,6 +320,9 @@ describe('checkPaper against papers already sat', () => {
 /** The same paper, assessing a named syllabus, which is what a real profile does. */
 const designProfile: Profile = { ...profile, syllabusId: 'nsw-hsc-design-technology' }
 
+/** A subject whose model has more than one course, which is what #49 turns on. */
+const scienceProfile: Profile = { ...profile, syllabusId: 'nsw-science-7-10' }
+
 /** Section II: short answer and extended response, so the written questions qualify. */
 const written15 = designProfile.paper.sections[1]
 
@@ -386,6 +389,136 @@ function twoSubjects(): ContentIndex {
     images: new Map(),
   }
 }
+
+/**
+ * One subject across two years, which is the ordinary shape of a 7-10 syllabus
+ * and of every Stage 6 one: `courses` is already plural and already carries it.
+ *
+ * The two years number their topics from one apiece, so the tags cannot tell
+ * them apart any more than two subjects' could. The course a question names is
+ * the only thing that can, and a question naming none stays visible for the
+ * reason `inSyllabus` gives one level up (#47).
+ */
+function twoYears(): ContentIndex {
+  const inCourse = (q: Question, courseId?: string): Question => ({
+    ...q,
+    syllabus: { ...q.syllabus, syllabusId: 'nsw-science-7-10', ...(courseId ? { courseId } : {}) },
+  })
+
+  return {
+    profiles: [{ path: 'profiles/test.json', data: scienceProfile }],
+    syllabuses: [
+      {
+        path: 'syllabus/nsw-science-7-10.json',
+        data: {
+          formatVersion: '1',
+          type: 'klunk_syllabus',
+          id: 'nsw-science-7-10',
+          name: 'Science 7-10',
+          framework: 'nsw',
+          courses: [
+            { id: 'y9', name: 'Year 9', topics: [{ id: 'Y9-01', name: 'One', points: [] }] },
+            { id: 'y10', name: 'Year 10', topics: [{ id: 'Y10-01', name: 'One', points: [] }] },
+          ],
+        },
+      },
+    ],
+    banks: [
+      {
+        path: 'bank/science.json',
+        data: {
+          formatVersion: '1',
+          type: 'klunk_bank',
+          syllabusId: 'nsw-science-7-10',
+          questions: [
+            inCourse(written('y9-written', 15), 'y9'),
+            inCourse(written('y10-written', 15), 'y10'),
+            // Tagged to the subject and to no year, which every question
+            // written before this field existed is.
+            inCourse(written('untagged-written', 15)),
+          ],
+        },
+      },
+    ],
+    papers: [],
+    problems: [],
+    scanned: 3,
+    pdfs: [],
+    docx: [],
+    workbooks: [],
+    images: new Map(),
+  }
+}
+
+describe('pickableQuestions, by course', () => {
+  const y9Profile: Profile = { ...scienceProfile, courseId: 'y9' }
+
+  it('offers only the year the paper is for', () => {
+    const ids = pickableQuestions(
+      twoYears(),
+      newPaper(y9Profile, 'p1', 'Test'),
+      written15,
+      y9Profile.syllabusId,
+      y9Profile.courseId,
+    ).map((r) => r.question.id)
+
+    // Year 10's question is gone. The one naming no year stays: all that is
+    // known about it is a bare topic id, and hiding a question a teacher tagged
+    // is worse than showing one they did not mean.
+    expect(ids).toEqual(['y9-written', 'untagged-written'])
+  })
+
+  it('offers every year when the profile names no course', () => {
+    const ids = pickableQuestions(
+      twoYears(),
+      newPaper(scienceProfile, 'p1', 'Test'),
+      written15,
+      scienceProfile.syllabusId,
+      undefined,
+    ).map((r) => r.question.id)
+
+    // Which is the fault #49 was filed about, and is correct here: the profile
+    // does not say, so nothing can be decided. The builder says so on screen.
+    expect(ids).toEqual(['y9-written', 'y10-written', 'untagged-written'])
+  })
+})
+
+describe('checkPaper, on a question from another course', () => {
+  const y9Profile: Profile = { ...scienceProfile, courseId: 'y9' }
+
+  const warnings = (profile: Profile, questionId: string): string[] => {
+    const paper = addRef(newPaper(profile, 'p1', 'Test'), 1, `bank/science.json#${questionId}`)
+    return checkPaper(resolvePaper(twoYears(), paper, profile))
+      .filter((c) => c.severity === 'warning')
+      .map((c) => c.message)
+  }
+
+  it('names both courses, and by name rather than by id', () => {
+    expect(warnings(y9Profile, 'y10-written')).toContain(
+      'Question 1 is for Year 10, and this paper is for Year 9',
+    )
+  })
+
+  it('says nothing about a question for the right course', () => {
+    expect(warnings(y9Profile, 'y9-written')).not.toContainEqual(
+      expect.stringContaining('this paper is for'),
+    )
+  })
+
+  it('says nothing about a question that names no course', () => {
+    // Same reading as the filter. A question naming no course is not wrong, and
+    // a warning a teacher learns to ignore is worse than no warning (#44).
+    expect(warnings(y9Profile, 'untagged-written')).not.toContainEqual(
+      expect.stringContaining('this paper is for'),
+    )
+  })
+
+  it('says nothing when the profile names no course', () => {
+    expect(warnings(scienceProfile, 'y10-written')).not.toContainEqual(
+      expect.stringContaining('this paper is for'),
+    )
+  })
+})
 
 /**
  * Klunk prints whatever a paper references, so this is the one place in the app

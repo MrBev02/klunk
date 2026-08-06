@@ -12,7 +12,7 @@ import type {
   ContentIndex,
 } from './storage'
 import { knownIds, unresolvedTags, type ModelIds } from './modelcheck'
-import { allQuestions, findQuestion, inSyllabus } from './storage'
+import { allQuestions, findQuestion, inCourse, inSyllabus } from './storage'
 import type {
   Paper,
   PaperRef,
@@ -76,6 +76,16 @@ export interface ResolvedPaper {
    * made yet.
    */
   syllabusTags: Map<string, ModelIds>
+  /**
+   * Course names keyed `syllabusId::courseId`, so a check can say "Year 9"
+   * rather than "y9".
+   *
+   * Keyed by both because a course id is only unique inside its own model: the
+   * IB model holds `A1-1` under Standard level and Higher level both, and every
+   * NESA model numbers a first topic from its own course id. Missing for the
+   * same reason the two maps above are.
+   */
+  courseNames: Map<string, string>
 }
 
 export type Severity = 'error' | 'warning'
@@ -188,6 +198,11 @@ export function resolvePaper(
     images: index.images,
     syllabusNames: new Map(index.syllabuses.map(({ data }) => [data.id, data.name])),
     syllabusTags: knownIds(index.syllabuses),
+    courseNames: new Map(
+      index.syllabuses.flatMap(({ data }) =>
+        data.courses.map((c) => [`${data.id}::${c.id}`, c.name] as const),
+      ),
+    ),
   }
 }
 
@@ -342,6 +357,29 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
         })
       }
 
+      // The same check one level down, and the ordinary case rather than the
+      // exotic one: a subject runs across several years, so a Year 8 question
+      // reaching a Year 9 paper is the mistake that actually happens. Only
+      // where the two agree on the subject, since a question from another
+      // subject is already reported above and saying it twice helps nobody.
+      const asked = q.question.syllabus?.courseId
+      if (
+        profile.courseId &&
+        asked &&
+        asked !== profile.courseId &&
+        (!q.syllabusId || !profile.syllabusId || q.syllabusId === profile.syllabusId)
+      ) {
+        const named = (id: string) =>
+          resolved.courseNames.get(`${profile.syllabusId ?? q.syllabusId ?? ''}::${id}`) ?? id
+        checks.push({
+          severity: 'warning',
+          where: section.title,
+          message:
+            `Question ${q.number} is for ${named(asked)}, ` +
+            `and this paper is for ${named(profile.courseId)}`,
+        })
+      }
+
       const src = q.question.source
       if (src?.origin === 'extracted' && src.year) {
         checks.push({
@@ -469,8 +507,20 @@ export function shuffledChoices(question: Question, seed = ''): ShuffledChoices 
 
 /* ------------------------------------------------------------------ creating */
 
-export function newPaper(profile: Profile, id: string, title: string): Paper {
-  return {
+export function newPaper(
+  profile: Profile,
+  id: string,
+  title: string,
+  /**
+   * What the profile's syllabus and course are called, for the cover.
+   *
+   * Names rather than ids, because these are printed. Passed in rather than
+   * looked up because this function takes a profile and no folder, which is what
+   * makes it testable; the builder has the models and resolves them there.
+   */
+  about?: { subject?: string | undefined; course?: string | undefined },
+): Paper {
+  const paper: Paper = {
     formatVersion: '1',
     type: 'klunk_paper',
     id,
@@ -485,6 +535,23 @@ export function newPaper(profile: Profile, id: string, title: string): Paper {
       refs: [],
     })),
   }
+
+  // The cover prints `course · yearGroup · date`, and until now nothing in the
+  // app wrote any of it: the fields existed and only a hand-edited file ever
+  // filled them. The profile already knows both, so a paper for Year 9 Science
+  // can say so on the page without anybody typing it twice.
+  //
+  // Written field by field, and only where there is something to write. An
+  // empty `school: {}` would be a difference against a paper on disk that has
+  // none, and `paperIsDirty` would report unsaved changes nobody made.
+  const school: NonNullable<Paper['school']> = {}
+  const subject = about?.subject?.trim()
+  const course = about?.course?.trim()
+  if (subject) school.course = subject
+  if (course) school.yearGroup = course
+  if (subject || course) paper.school = school
+
+  return paper
 }
 
 /* ------------------------------------------------------- saved or not saved */
@@ -615,8 +682,9 @@ export function isTypeAllowed(
 /**
  * The questions that may be offered into one section of a paper.
  *
- * Three rules: the question belongs to the syllabus this paper assesses, its
- * type is allowed in the section, and it is not already somewhere on the paper.
+ * Four rules: the question belongs to the syllabus this paper assesses, and to
+ * the course of it the paper is for, its type is allowed in the section, and it
+ * is not already somewhere on the paper.
  *
  * The syllabus rule is the reason this is a function rather than a filter in
  * the builder. One folder per subject is the intention and nothing enforces it,
@@ -625,19 +693,27 @@ export function isTypeAllowed(
  * Klunk would print whichever was picked. `inSyllabus` decides it, so a
  * question naming no syllabus still shows, for the reason set out there.
  *
- * `syllabusId` absent means the profile names no syllabus and nothing can be
- * decided, so everything is offered and the builder says why on screen.
+ * The course rule is the same fault one level down, and it is the ordinary case
+ * rather than the exotic one: a subject runs across several years, every year
+ * sets its own papers, and a profile naming only the subject builds the Year 9
+ * mid-year from a list holding Years 7 to 10 together. `inCourse` decides it on
+ * the same terms.
+ *
+ * Either absent means the profile does not say and nothing can be decided, so
+ * everything is offered and the builder says why on screen.
  */
 export function pickableQuestions(
   index: ContentIndex,
   paper: Paper,
   section: ProfileSection | undefined,
   syllabusId: string | undefined,
+  courseId?: string | undefined,
 ): QuestionRef[] {
   const used = new Set(paper.sections.flatMap((s) => s.refs.map(refKey)))
   return allQuestions(index).filter(
     (ref) =>
       (syllabusId === undefined || inSyllabus(ref, syllabusId)) &&
+      (courseId === undefined || inCourse(ref, courseId)) &&
       isTypeAllowed(ref.question.questionType, section) &&
       !used.has(`${ref.file}#${ref.question.id}`),
   )

@@ -24,6 +24,7 @@ import type {
   QuestionPart,
   QuestionType,
   Stimulus,
+  Syllabus,
   TableRow,
 } from './types'
 
@@ -358,7 +359,20 @@ const PROFILE_ID_SHAPE = /^[a-z0-9]+(-[a-z0-9]+)*$/
  * with the profile, not the paper, being what is wrong. That is a miserable
  * thing to debug from the far end, so it is caught here.
  */
-export function validateProfile(profile: Profile, takenIds: Set<string>): Check[] {
+export function validateProfile(
+  profile: Profile,
+  takenIds: Set<string>,
+  /**
+   * The syllabus models in the folder, so a course id can be checked against
+   * the one it names.
+   *
+   * Optional, and absent means the check does not run. A profile may name a
+   * model the teacher has not generated — Klunk ships none, so that is ordinary
+   * rather than a fault — and the same reading `modelcheck.ts` takes applies
+   * here: a model that is not in the folder is left alone rather than reported.
+   */
+  syllabuses?: Syllabus[],
+): Check[] {
   const out: Check[] = []
   const err = (message: string, where?: string) =>
     out.push({ severity: 'error', message, where })
@@ -376,6 +390,28 @@ export function validateProfile(profile: Profile, takenIds: Set<string>): Check[
     )
   } else if (takenIds.has(profile.id)) {
     err(`This folder already has a profile with the id "${profile.id}"`)
+  }
+
+  // Beyond the schema, and the reason is #47's: a course id is only unique
+  // inside its own model, so one that names nothing filters every question away
+  // and the builder shows an empty list with no explanation. Silent, and it
+  // looks like the bank is empty rather than like the profile is wrong.
+  const courseId = profile.courseId?.trim()
+  if (courseId) {
+    if (!profile.syllabusId?.trim()) {
+      err(
+        `This profile names the course "${courseId}" but no syllabus, so Klunk ` +
+          'cannot tell which subject that course belongs to. Choose a syllabus as well.',
+      )
+    } else {
+      const model = syllabuses?.find((s) => s.id === profile.syllabusId)
+      // A model that is not in the folder is left alone. Klunk ships none and a
+      // profile naming one the teacher has yet to generate is ordinary.
+      if (model && !model.courses.some((c) => c.id === courseId)) {
+        const names = model.courses.map((c) => `"${c.name}"`).join(' or ')
+        err(`${model.name} has no course called "${courseId}". Choose ${names}.`)
+      }
+    }
   }
 
   const paper = profile.paper
@@ -522,6 +558,13 @@ export function cleanProfile(draft: Profile): Profile {
 
   const syllabusId = text(draft.syllabusId)
   if (syllabusId !== undefined) out.syllabusId = syllabusId
+
+  // Dropped along with the syllabus rather than kept on its own. A course id is
+  // only meaningful inside a model — `y9` names a course in every 7-10 syllabus
+  // in the folder — so one left behind after the syllabus was cleared would be
+  // filtering against a course nothing could resolve.
+  const courseId = syllabusId === undefined ? undefined : text(draft.courseId)
+  if (courseId !== undefined) out.courseId = courseId
 
   if (draft.paper.readingMinutes !== undefined) {
     out.paper.readingMinutes = draft.paper.readingMinutes

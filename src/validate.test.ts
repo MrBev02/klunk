@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { Profile, Question, QuestionConfig, QuestionType } from './types'
+import type { Profile, Question, QuestionConfig, QuestionType, Syllabus } from './types'
 import {
   cleanProfile,
   cleanQuestion,
@@ -687,6 +687,60 @@ describe('validateProfile', () => {
     // An empty list and an absent one both mean "anything goes" to isTypeAllowed,
     // which is the opposite of what unticking everything looks like.
     expect(checks.some((c) => c.severity === 'warning')).toBe(true)
+  })
+
+  /**
+   * A course id that names nothing filters every question away, so the builder
+   * shows an empty rail and the profile is what is wrong. That is a miserable
+   * thing to debug from the far end, which is the same argument as the sections
+   * adding up.
+   */
+  describe('the course a profile names', () => {
+    const model: Syllabus = {
+      formatVersion: '1',
+      type: 'klunk_syllabus',
+      id: 'nsw-science-7-10',
+      name: 'Science 7-10',
+      framework: 'nsw',
+      courses: [
+        { id: 'y9', name: 'Year 9', topics: [] },
+        { id: 'y10', name: 'Year 10', topics: [] },
+      ],
+    }
+    // `null` and not `undefined` for "names no syllabus". A default parameter
+    // takes over when the argument is `undefined`, so a helper written the
+    // obvious way checks the default instead of the case the test is named for,
+    // and passes. That is the test bug #44 turned up, repeated here at once.
+    const withCourse = (courseId: string, syllabusId: string | null = 'nsw-science-7-10') =>
+      profile({ ...(syllabusId === null ? {} : { syllabusId }), courseId })
+
+    it('passes a course the model has', () => {
+      expect(validateProfile(withCourse('y9'), new Set(), [model])).toEqual([])
+    })
+
+    it('rejects a course the model does not have, and lists the ones it does', () => {
+      const [first] = validateProfile(withCourse('y7'), new Set(), [model])
+      expect(first?.severity).toBe('error')
+      expect(first?.message).toBe(
+        'Science 7-10 has no course called "y7". Choose "Year 9" or "Year 10".',
+      )
+    })
+
+    it('rejects a course with no syllabus, because it could belong to any model', () => {
+      const errors = validateProfile(withCourse('y9', null), new Set(), [model]).filter(
+        (c) => c.severity === 'error',
+      )
+      expect(errors).toHaveLength(1)
+      expect(errors[0]?.message).toContain('no syllabus')
+    })
+
+    it('says nothing when the model is not in the folder', () => {
+      // Klunk ships no syllabus model, so a profile naming one the teacher has
+      // yet to generate is ordinary rather than a fault. Same reading as
+      // modelcheck.ts takes.
+      expect(validateProfile(withCourse('y7'), new Set(), [])).toEqual([])
+      expect(validateProfile(withCourse('y7'), new Set())).toEqual([])
+    })
   })
 })
 

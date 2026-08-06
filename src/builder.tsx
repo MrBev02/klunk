@@ -156,7 +156,13 @@ export function Builder({
     (s) => s.id === paper.sections[target]?.profileSectionId,
   )
   const inFolder = allQuestions(index)
-  const pickable = pickableQuestions(index, paper, targetSpec, profile?.syllabusId)
+  const pickable = pickableQuestions(
+    index,
+    paper,
+    targetSpec,
+    profile?.syllabusId,
+    profile?.courseId,
+  )
 
   // A profile that names no syllabus cannot tell one subject from another, so
   // the rail offers everything in the folder. That is the honest thing to do
@@ -166,6 +172,16 @@ export function Builder({
   const linkSyllabus =
     profile && !profile.syllabusId && index.syllabuses.length > 0 && profilePath
       ? () => onEditProfile(profile, profilePath)
+      : undefined
+
+  // The same omission one level down, and it goes unsaid the same way. Only
+  // worth raising where the model actually has more than one course: a syllabus
+  // with a single course is fully named by naming the subject, so asking a
+  // teacher to pick its only course would be noise.
+  const model = index.syllabuses.find((s) => s.data.id === profile?.syllabusId)?.data
+  const linkCourse =
+    profile && !profile.courseId && model && model.courses.length > 1 && profilePath
+      ? { subject: model.name, onEdit: () => onEditProfile(profile, profilePath) }
       : undefined
 
   return (
@@ -350,6 +366,7 @@ export function Builder({
         spec={targetSpec ? describeSpec(targetSpec) : ''}
         onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
         onLinkSyllabus={linkSyllabus}
+        linkCourse={linkCourse}
       />
     </div>
   )
@@ -363,6 +380,7 @@ function BankRail({
   spec,
   onAdd,
   onLinkSyllabus,
+  linkCourse,
 }: {
   options: ReturnType<typeof allQuestions>
   /** No questions in the folder at all, as against none left for this section. */
@@ -374,6 +392,12 @@ function BankRail({
   onAdd: (file: string, id: string) => void
   /** Given only when the profile names no syllabus, so nothing can be filtered. */
   onLinkSyllabus?: (() => void) | undefined
+  /**
+   * Given only when the profile names a syllabus that has several courses and
+   * says which none of them. Carries the subject's name so the notice can say
+   * whose courses are being mixed.
+   */
+  linkCourse?: { subject: string; onEdit: () => void } | undefined
 }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -415,6 +439,15 @@ function BankRail({
                the folder is offered here, including any from another subject.{' '}
             <button class="btn btn--small" onClick={onLinkSyllabus}>
               Link a syllabus
+            </button>
+          </p>
+        )}
+        {linkCourse && (
+          <p class="bank__unlinked">
+            This paper's profile does not say which course of {linkCourse.subject} it is for,
+               so questions from every course in it are offered here.{' '}
+            <button class="btn btn--small" onClick={linkCourse.onEdit}>
+              Choose a course
             </button>
           </p>
         )}
@@ -609,7 +642,14 @@ function StartPaper({
             disabled={taken !== undefined}
             onClick={() => {
               const profile = profiles.find((p) => p.id === profileId)
-              if (profile) onStart(newPaper(profile, slug, title))
+              if (!profile) return
+              const model = index.syllabuses.find((s) => s.data.id === profile.syllabusId)?.data
+              onStart(
+                newPaper(profile, slug, title, {
+                  subject: model?.name,
+                  course: model?.courses.find((c) => c.id === profile.courseId)?.name,
+                }),
+              )
             }}
           >
             Create paper

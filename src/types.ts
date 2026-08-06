@@ -107,6 +107,15 @@ export interface Profile {
   id: string
   name: string
   syllabusId?: string
+  /**
+   * Which course of that syllabus, where the paper is for one of them.
+   *
+   * A subject runs across several years and each year sets its own papers, so a
+   * profile that names only the subject cannot tell a Year 9 question from a
+   * Year 10 one. Absent means the whole model, which is what every profile
+   * written before this field meant and must keep meaning.
+   */
+  courseId?: string
   paper: {
     totalMarks: number
     readingMinutes?: number

@@ -810,6 +810,52 @@ grow to their content: those documents write content and outcomes as whole
 paragraphs, and a two-row box clips them mid-sentence, which is useless for the
 one job the panel has.
 
+**A profile names a course, not just a subject** (#49). A subject runs across
+several years and every year sets its own papers, so `Year 9 Science mid-year`
+and `Year 9 Science end-of-year` are the ordinary case rather than the exotic
+one. Three of the four levels were already there: `courses[]` is the year and is
+already plural, `courseNamed` mints `y9` from `Year N` with no new code, topic
+ids are prefixed per course so two years cannot collide, and several profiles in
+one folder was never counted. The missing edge was on the profile, which named a
+syllabus and could not name a course, while a question has carried
+`syllabus.courseId` since the beginning.
+
+`inCourse` in `src/storage.ts` is the sibling of `inSyllabus` and takes
+**deliberately the same rule rather than a stricter one**: a question naming a
+course is held to it, one naming none is offered, because all that is known then
+is a bare topic id that could belong to any course in the model. That is #47's
+reading and it matters more here, since every question written before this field
+existed names no course and holding them out would empty the rail. It reads off
+the question and not off `QuestionRef`, because unlike a syllabus a course has no
+bank-level default to fall back to: `bank.schema.json` carries `syllabusId` and
+no `courseId`.
+
+Two things beyond the filter. `validateProfile` now takes the folder's models and
+rejects a course the named one does not have, because a course id that names
+nothing filters every question away and the builder shows an empty rail with the
+*profile* being what is wrong, which is the same argument as the sections adding
+up. A model that is not in the folder is left alone, as in `modelcheck.ts`. And
+`newPaper` fills `school.course` and `school.yearGroup` from the syllabus and
+course names, which the cover has always printed and **nothing in the app has
+ever written**: until now only a hand-edited file filled them.
+
+Verified by driving it on `../klunk-content`, which holds the IB model with
+Standard and Higher level sharing topic ids. The course select offered both, SL
+was saved to the profile file, an HL question written through the editor onto an
+HL-only topic (11 of them, matching the guide) was **not** offered into the SL
+paper while the SL one was, the cover printed `Design Technology · Standard
+level`, and with the course cleared the rail said so by name and offered both.
+Adding the HL question that way and then setting the course back produced
+`Question 2 is for Higher level, and this paper is for Standard level`, by name
+rather than by id, as a warning rather than an error so the paper still prints.
+
+One test bug worth not repeating, and it is the same one #44 turned up, made
+again in the test written to avoid it: a helper with `syllabusId: string |
+undefined = 'nsw-science-7-10'` swallows an explicit `undefined` and checks the
+default, so a case named "names no syllabus" passed while checking something
+else. It failed for the right reason only because the rule it was testing works.
+`null` is what that parameter has to take.
+
 **A syllabus tag that names nothing is now reported, and so are two models of one
 document** (#44). Both were silent, and both are what a re-read over a corrected
 model produces. `src/modelcheck.ts` holds all of it, taking loaded models rather

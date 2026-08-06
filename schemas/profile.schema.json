@@ -19,6 +19,11 @@
       "description": "The syllabus model this profile assesses. Klunk uses it to offer the right topics when building a paper, and to report coverage."
     },
 
+    "courseId": {
+      "type": "string",
+      "description": "Which course within that model, e.g. the Year 9 of a 7-10 syllabus, or SL of an IB one. A subject runs across several years and each year sets its own papers, so without this every year of a subject is one undifferentiated pool of questions. Absent means the profile assesses the whole model, which is what every profile written before this field meant and still means. Only meaningful alongside syllabusId: a bare course id could belong to any model in the folder."
+    },
+
     "paper": {
       "type": "object",
       "required": ["totalMarks", "sections"],
