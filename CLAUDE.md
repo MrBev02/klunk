@@ -305,6 +305,10 @@ are kept in `../klunk-content/fixtures/` purely as parser regression tests.
   specific recovery.
 - **Commit messages**: descriptive sentences, not Conventional Commits. Say what
   changed and why it mattered. Record corrections honestly rather than quietly fixing.
+  **No trailers**: no `Co-Authored-By`, no `Claude-Session`, no attribution footer,
+  in commits or in PR bodies. The history is prose about the work; tooling trailers
+  are noise in it. This is written here rather than left to a tool's memory because
+  memory is per-machine and the default is to add them.
 - Comments explain **why**, not what.
 
 ## Running things
@@ -436,12 +440,43 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
 
 ## Environment gotchas
 
+**This section describes one machine: the user's Mac, where all of it was
+established.** Development has moved between machines, so read every item below as
+"true here, unverified elsewhere": a note naming a specific path, OS setting or
+piece of hardware is evidence from one place, not a fact about the project.
+Re-establish before relying on it, and correct the note when you do rather than
+adding a second one beside it. Anything that identifies a particular machine or
+installation stays out of this file entirely — the repo is public.
+
+**Two of these live in `.git/config` and therefore do not survive a fresh clone.**
+Both bite immediately and neither announces itself, so set them first on a new
+machine:
+
+```
+git config --local user.name MrBev02
+git config --local user.email 261693983+MrBev02@users.noreply.github.com
+git config --local credential.https://github.com.helper '!gh auth git-credential'
+```
+
+Without the first two, commits land under the machine's global identity, which is
+a different account. Without the third, see the first item below.
+
 - **Git pushes hang.** Two credential helpers are configured and Git Credential Manager
   blocks forever on a GUI prompt in a non-interactive shell. This repo is pinned to
   `gh auth git-credential` locally, so pushes work here. Other repos on this machine
-  are not.
+  are not. GCM is chiefly a Windows component, so expect this sooner rather than
+  later on a Windows machine.
 - **Git identity is set locally** to MrBev02, because the machine's global identity is
   a different account.
+- **`../klunk-content` is not in git and does not come with the repo, deliberately.**
+  Without it, `extract.corpus`, `syllabus.corpus`, `headings.corpus` and
+  `ibdt.corpus` all `describe.skipIf(!available)` themselves, and the port
+  comparison against the Python generator needs `python3` besides. So `npm test`
+  goes **green while testing far less**, and `npm run build` gates on that same
+  green. Nothing on screen says a suite skipped. On a machine without the content
+  folder, a passing build is not evidence that any reader still reads anything —
+  which is this repo's own lesson about the count being right while the content is
+  wrong, arriving from a new direction.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
 - **Two Chrome browsers are connected to this account, and the wrong one is the
   default.** `list_connected_browsers` returns a macOS one (`isLocal: true`) and a
@@ -450,7 +485,10 @@ non-breaking spaces. A group is only ever taken from a heading that says it is o
   more than once: tabs report `visibilityState: hidden`, saves hang with no error,
   and the tab group disappears from under you.
   **Check `list_connected_browsers` before driving anything, and select by
-  `deviceId`.** The macOS one is `5789f377-f76f-453b-84a8-c43b896b8880`.
+  `deviceId`.** Which deviceId is right is a per-machine fact and is deliberately
+  not written down here: this repo is public and an installation id is not
+  something to publish. Identify the right browser by `osPlatform` and `isLocal`
+  each session, then select by its deviceId.
   The display names are worthless: "Browser 1" and "Browser 2" swapped between two
   consecutive calls in one session, and `select_browser` confirmed the macOS
   deviceId with the words "Connected to browser Browser 2". Trust `osPlatform` and
