@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from './builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
+import { CoverEditor } from './coversheet'
 import { QuestionEditor, type Editing } from './editor'
 import { Extractor } from './extractor'
 import { Factory } from './factory'
@@ -74,6 +75,8 @@ export function App() {
   const [editor, setEditor] = useState<'new' | Editing | null>(null)
   /** 'new' to describe a paper structure, an EditingProfile to change one, null when shut. */
   const [profileEditor, setProfileEditor] = useState<'new' | EditingProfile | null>(null)
+  /** Whether the folder's cover sheet is being edited. One folder has one, so this is a flag. */
+  const [coverEditor, setCoverEditor] = useState(false)
   const [notice, setNotice] = useState('')
   /** Every subject folder this browser remembers, most recently used first. */
   const [folders, setFolders] = useState<RememberedFolder[]>([])
@@ -365,6 +368,12 @@ export function App() {
     window.scrollTo({ top: 0 })
   }, [])
 
+  const showCoverEditor = useCallback((next: boolean) => {
+    setCoverEditor(next)
+    setNotice('')
+    window.scrollTo({ top: 0 })
+  }, [])
+
   const openEditor = useCallback(
     (next: 'new' | Editing) => {
       setNotice('')
@@ -558,6 +567,23 @@ export function App() {
           />
         )}
 
+        {/* And again for the cover sheet, which is the same kind of thing: a
+            form holding a logo that has been chosen and not yet copied, which a
+            stray tab click would throw away along with the trip through the
+            native file dialog it cost. */}
+        {phase === 'ready' && folder && coverEditor && (
+          <CoverEditor
+            index={index}
+            folder={folder}
+            onCancel={() => showCoverEditor(false)}
+            onSaved={(message) => {
+              showCoverEditor(false)
+              setNotice(message)
+              void load(folder)
+            }}
+          />
+        )}
+
         {/* Kept mounted, not unmounted, while the editor is open. A batch of
             questions read back from an AI is expensive to get and lives in this
             subtree; sending one of them to the editor to be fixed must not throw
@@ -570,7 +596,7 @@ export function App() {
             separates a reload from the very first scan, which has nothing worth
             keeping and should show the message on its own. */}
         {(phase === 'ready' || (phase === 'scanning' && folder)) && (
-          <div hidden={editor !== null || profileEditor !== null}>
+          <div hidden={editor !== null || profileEditor !== null || coverEditor}>
             {notice && (
               <section class="panel panel--ok">
                 <p>{notice}</p>
@@ -642,6 +668,7 @@ export function App() {
                 setPaper={setPaper}
                 onBuildProfile={() => showProfileEditor('new')}
                 onEditProfile={(profile, path) => showProfileEditor({ profile, path })}
+                onEditCover={() => showCoverEditor(true)}
                 dirty={dirty}
                 onClose={requestClosePaper}
                 onSaved={() => void load(folder)}

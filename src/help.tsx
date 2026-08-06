@@ -176,6 +176,14 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dd>The exam shapes described above.</dd>
 
           <dt>
+            <code>school.json</code>
+          </dt>
+          <dd>
+            Your cover sheet: your school's name, your logo, and the boxes a student fills in.
+            One for the whole folder, so every paper you print from it looks the same.
+          </dd>
+
+          <dt>
             <code>syllabus/</code>
           </dt>
           <dd>The syllabus models you have built.</dd>
@@ -257,6 +265,37 @@ export function Help({ onClose }: { onClose: () => void }) {
           anything throws them away.
         </p>
 
+        <h3 class="setup__head">The cover sheet</h3>
+
+        <p>
+          Every paper prints a full front page: your school's logo, the title, the subject,
+          reading and working time, the general instructions, what each section is worth, and
+          somewhere for a student to write who they are. Section I starts overleaf.
+        </p>
+
+        <p>
+          Set it up once. On the Papers tab click <strong>Set up your cover sheet</strong> and
+          fill in your school's name, choose your logo, and add what a student fills in, such as
+          a name, a class and a teacher. Klunk copies the logo into your folder and saves the
+          rest as <code>school.json</code>, so every paper in the folder gets the same front
+          page. If your school number goes on every sheet rather than only the first, tick{' '}
+          <strong>Print this at the top of every page</strong>.
+        </p>
+
+        <p>
+          The things that change paper by paper are on the paper itself, under{' '}
+          <strong>Cover</strong>: the subject, the year group and the date. Klunk fills in the
+          first two when you create the paper, from the syllabus your profile names, so usually
+          you only add the date.
+        </p>
+
+        <p>
+          Reading and working time come from your profile and print on their own, so you do not
+          need a line for them in the instructions. If one kind of paper needs a different set
+          of boxes, such as a trial that prints a student number grid where your other exams
+          print a name, set that on the profile rather than on the folder.
+        </p>
+
         <p class="muted">
           If a picture prints as a grey box with a filename in it, that image is missing
           from your folder. Klunk prints the box on purpose, so you catch it on the proof
@@ -300,6 +339,21 @@ export function Help({ onClose }: { onClose: () => void }) {
             from time to time. Your folders are all still there. Click the one you want,
             then confirm once when the browser asks. It is one click per folder, once a
             session.
+          </dd>
+
+          <dt>The date, the page title and a web address print on every page</dt>
+          <dd>
+            That is your browser, not the paper. In the print dialog open{' '}
+            <strong>More settings</strong> and untick <strong>Headers and footers</strong>.
+            Chrome remembers it, so you only do it once.
+          </dd>
+
+          <dt>The student number box prints on top of the questions</dt>
+          <dd>
+            Check the print dialog is set to A4 and that <strong>Margins</strong> is on{' '}
+            <strong>Default</strong> rather than <strong>None</strong>. Klunk asks for a deeper
+            top margin on any paper that repeats something on every page, and setting margins to
+            None throws that away.
           </dd>
 
           <dt>"… is no longer on this computer"</dt>

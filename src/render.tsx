@@ -11,6 +11,7 @@
  * letters.
  */
 
+import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
   rowAnswers,
@@ -31,10 +32,13 @@ export function PrintablePaper({
   mode: PrintMode
 }) {
   const { paper, profile } = resolved
+  const cover = coverModel(resolved, mode === 'guide')
 
-  return (
-    <article class={`sheet sheet--${mode}`}>
-      <Cover resolved={resolved} mode={mode} />
+  const running = cover.everyPage.length > 0
+
+  const body = (
+    <>
+      <Cover cover={cover} />
 
       {resolved.sections.map((section, i) => (
         <section class="sheet__section" key={i}>
@@ -72,62 +76,222 @@ export function PrintablePaper({
           <p>{paper.notes}</p>
         </section>
       )}
+    </>
+  )
+
+  return (
+    <article class={`sheet sheet--${mode}`}>
+      {running ? (
+        // A table, purely so its header repeats.
+        //
+        // Browsers have no running headers in print. `position: fixed` does
+        // repeat on every page in Chrome, and it was tried first, but it cannot
+        // reserve the space it occupies: a fixed element's containing block is
+        // the page *area*, so it sits exactly where the questions start, and it
+        // cannot be lifted into the page margin because Chrome throws any
+        // negative vertical offset to the bottom of the page. Measured off three
+        // printed PDFs: `top: 0` lands at the top and `bottom: 0` at the bottom,
+        // both correctly, while `top: 0` with `margin-top: -18mm` lands at the
+        // bottom.
+        //
+        // A repeated `thead` is in flow, so it both repeats and pushes the
+        // content down on every page, which is the whole problem.
+        <table class="runhead">
+          <thead>
+            <tr>
+              <th>
+                <RunningIdentification fields={cover.everyPage} />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{body}</td>
+            </tr>
+          </tbody>
+        </table>
+      ) : (
+        body
+      )}
     </article>
   )
 }
 
-function Cover({ resolved, mode }: { resolved: ResolvedPaper; mode: PrintMode }) {
-  const { paper, profile } = resolved
-  const school = paper.school
-
+/**
+ * The front page.
+ *
+ * A full page rather than a header block, because that is what a school exam
+ * is: both documents this was built from open with a page carrying the logo, the
+ * title, the timing, the general instructions, the marks breakdown and somewhere
+ * for a student to write who they are, and start the first section overleaf.
+ *
+ * Every decision about what belongs here is in `cover.ts`. This draws what it is
+ * given and picks nothing.
+ */
+function Cover({ cover }: { cover: CoverModel }) {
   return (
     <header class="cover">
-      {school?.name && <p class="cover__school">{school.name}</p>}
-      <h1 class="cover__title">{paper.title}</h1>
-      {paper.subtitle && <p class="cover__subtitle">{paper.subtitle}</p>}
-      {mode === 'guide' && <p class="cover__guide">Marking guide</p>}
+      <div class="cover__top">
+        <div class="cover__brand">
+          {cover.logoPath ? (
+            cover.logoSrc ? (
+              <img
+                class="cover__logo"
+                src={cover.logoSrc}
+                alt={cover.schoolName ?? ''}
+                style={{ width: `${cover.logoWidthMm}mm` }}
+              />
+            ) : (
+              // Named and not in the folder. A placeholder for the same reason a
+              // missing stimulus gets one: caught on the proof rather than in
+              // the exam room.
+              <div class="cover__logomissing" style={{ width: `${cover.logoWidthMm}mm` }}>
+                Missing logo: {cover.logoPath}
+              </div>
+            )
+          ) : null}
+          {cover.schoolName && <p class="cover__school">{cover.schoolName}</p>}
+        </div>
+
+        {cover.identification.length > 0 && (
+          <IdentificationBlock fields={cover.identification} />
+        )}
+      </div>
+
+      <h1 class="cover__title">{cover.title}</h1>
+      {cover.course && <p class="cover__course">{cover.course}</p>}
+      {cover.subtitle && <p class="cover__subtitle">{cover.subtitle}</p>}
+      {cover.guide && <p class="cover__guide">Marking guide</p>}
+
+      {/* Reading and working time print from the numbers the profile already
+          holds. They used to reach the page only by being typed a second time
+          into the instructions, so the same two facts were stored twice and only
+          the typed copy was printed. */}
+      {(cover.readingMinutes !== undefined || cover.workingMinutes !== undefined) && (
+        <p class="cover__timing">
+          {cover.readingMinutes !== undefined && (
+            <span>Reading time: {minutes(cover.readingMinutes)}</span>
+          )}
+          {cover.workingMinutes !== undefined && (
+            <span>Working time: {minutes(cover.workingMinutes)}</span>
+          )}
+        </p>
+      )}
 
       <div class="cover__grid">
         <div class="cover__block">
           <h3>General instructions</h3>
           <ul>
-            {(paper.instructions ?? profile?.paper.instructions ?? []).map((line, i) => (
+            {cover.instructions.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
         </div>
 
         <div class="cover__block">
-          <h3>Total marks: {resolved.totalMarks}</h3>
-          <ul class="cover__sections">
-            {resolved.sections.map((s, i) => (
-              <li key={i}>
-                <strong>
-                  {s.title} - {s.marks} mark{s.marks === 1 ? '' : 's'}
-                </strong>
-                {s.questions.length > 0 && (
-                  <span>
-                    {' '}
-                    (Question{s.questions.length === 1 ? ' ' : 's '}
-                    {s.questions[0]?.number}
-                    {s.questions.length > 1
-                      ? `-${s.questions[s.questions.length - 1]?.number}`
-                      : ''}
-                    )
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <h3>Total marks: {cover.totalMarks}</h3>
+          {cover.marksAwardedColumn ? (
+            <MarksTable cover={cover} />
+          ) : (
+            <ul class="cover__sections">
+              {cover.sections.map((s, i) => (
+                <li key={i}>
+                  <strong>
+                    {s.title} - {s.marks} mark{s.marks === 1 ? '' : 's'}
+                  </strong>
+                  {s.questions && <span> ({s.questions})</span>}
+                  {s.suggestedMinutes !== undefined && (
+                    <span class="cover__allow">
+                      Allow about {minutes(s.suggestedMinutes)} for this section
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      {(school?.yearGroup || school?.date) && (
-        <p class="cover__meta">
-          {[school?.course, school?.yearGroup, school?.date].filter(Boolean).join(' · ')}
-        </p>
+      {(cover.yearGroup || cover.date) && (
+        <p class="cover__meta">{[cover.yearGroup, cover.date].filter(Boolean).join(' · ')}</p>
       )}
     </header>
+  )
+}
+
+/**
+ * The marks breakdown as a table the marker fills in.
+ *
+ * The third column is what makes this worth having as a separate shape: an
+ * internal school exam prints `/ 30` per section for a marker to write against,
+ * and a public examination prints nothing of the kind.
+ */
+function MarksTable({ cover }: { cover: CoverModel }) {
+  return (
+    <table class="cover__marks">
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>Marks available</th>
+          <th>Marks awarded</th>
+        </tr>
+      </thead>
+      <tbody>
+        {cover.sections.map((s, i) => (
+          <tr key={i}>
+            <td>{s.title}</td>
+            <td>{s.marks}</td>
+            <td class="cover__awarded">/ {s.marks}</td>
+          </tr>
+        ))}
+        <tr class="cover__total">
+          <td>Total</td>
+          <td>{cover.totalMarks}</td>
+          <td class="cover__awarded">/ {cover.totalMarks}</td>
+        </tr>
+      </tbody>
+    </table>
+  )
+}
+
+/** Where a student writes who they are: a bordered box on the cover. */
+function IdentificationBlock({ fields }: { fields: CoverField[] }) {
+  return (
+    <div class="ident">
+      {fields.map((field, i) => (
+        <div class="ident__field" key={i}>
+          <span class="ident__label">{field.label}</span>
+          {field.kind === 'boxes' ? (
+            <span class="ident__boxes">
+              {Array.from({ length: field.boxes }, (_, j) => (
+                <span class="ident__box" key={j} />
+              ))}
+            </span>
+          ) : (
+            <span class="ident__write" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The identification fields that repeat on every printed page.
+ *
+ * A paper is split into piles for marking, so every sheet has to say whose it
+ * is, which is why the 2025 Visual Arts trial draws its student number grid on
+ * all nineteen pages. Browsers have no running headers in print; what does work
+ * is `position: fixed`, which Chrome repeats on each page. On screen it sits at
+ * the top of the preview once, with a line saying what it is, because a fixed
+ * element in a scrolling preview would follow the window rather than the paper.
+ */
+function RunningIdentification({ fields }: { fields: CoverField[] }) {
+  return (
+    <div class="runid">
+      <IdentificationBlock fields={fields} />
+      <p class="runid__note">Printed at the top of every page.</p>
+    </div>
   )
 }
 

@@ -238,6 +238,96 @@ describe('scanFolder image loading', () => {
     expect(revoked).toEqual([])
   })
 
+  /**
+   * The cover logo is loaded and released on exactly the same terms as a
+   * stimulus image, which is what lets it survive `build:single` on a shared
+   * drive without being bundled and without touching the CSP.
+   */
+  it("loads the logo school.json names, relative to school.json", async () => {
+    const dir = dirHandle(
+      tree({
+        'school.json': JSON.stringify({
+          formatVersion: '1',
+          type: 'klunk_school',
+          name: 'Redlands',
+          logoFile: 'brand/logo.png',
+        }),
+        'brand/logo.png': 'not really a png',
+      }),
+    )
+
+    const index = await scanFolder(dir)
+    expect(index.schools).toHaveLength(1)
+    expect([...index.images.keys()]).toEqual(['brand/logo.png'])
+    expect(index.problems).toHaveLength(0)
+    expect(live()).toHaveLength(1)
+  })
+
+  it("loads a paper's own logo relative to the paper file, not to the root", async () => {
+    const paper: Paper = {
+      formatVersion: '1',
+      type: 'klunk_paper',
+      id: 'trial',
+      title: 'Trial',
+      school: { logoFile: 'logo.png' },
+      sections: [{ refs: [] }],
+    }
+    const index = await scanFolder(
+      dirHandle(
+        tree({ 'papers/trial.json': JSON.stringify(paper), 'papers/logo.png': 'not really a png' }),
+      ),
+    )
+    expect([...index.images.keys()]).toEqual(['papers/logo.png'])
+  })
+
+  it('names a missing logo as a logo, not as a question stimulus', async () => {
+    const index = await scanFolder(
+      dirHandle(
+        tree({
+          'school.json': JSON.stringify({
+            formatVersion: '1',
+            type: 'klunk_school',
+            name: 'Redlands',
+            logoFile: 'logo.png',
+          }),
+        }),
+      ),
+    )
+    expect(index.problems).toEqual([
+      { path: 'logo.png', message: 'logo named by school.json is missing' },
+    ])
+  })
+
+  it('releases the logo on a rescan, the way it releases a stimulus image', async () => {
+    const dir = dirHandle(
+      tree({
+        'school.json': JSON.stringify({
+          formatVersion: '1',
+          type: 'klunk_school',
+          name: 'Redlands',
+          logoFile: 'logo.png',
+        }),
+        'logo.png': 'not really a png',
+      }),
+    )
+
+    const first = await scanFolder(dir)
+    const url = first.images.get('logo.png')
+    const second = await scanFolder(dir, first)
+
+    expect(revoked).toEqual([url])
+    expect(live()).toEqual([second.images.get('logo.png')])
+  })
+
+  it('reports two school files rather than quietly picking one', async () => {
+    const school = (name: string) =>
+      JSON.stringify({ formatVersion: '1', type: 'klunk_school', name })
+    const index = await scanFolder(
+      dirHandle(tree({ 'school.json': school('Redlands'), 'old/school.json': school('Another') })),
+    )
+    expect(index.schools.map((s) => s.path)).toEqual(['old/school.json', 'school.json'])
+  })
+
   it('keeps the previous index usable when the rescan fails', async () => {
     const first = await scanFolder(folderWithImage())
 

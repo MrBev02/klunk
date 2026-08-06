@@ -21,6 +21,7 @@ import type {
   Question,
   QuestionRef,
   QuestionType,
+  School,
   TableRow,
 } from './types'
 import { parseRef, refKey } from './types'
@@ -51,6 +52,25 @@ export interface ResolvedSection {
 export interface ResolvedPaper {
   paper: Paper
   profile?: Profile | undefined
+  /**
+   * The folder's branding, for the cover. Absent is ordinary: Klunk writes no
+   * `school.json` until a teacher fills one in, and a paper prints without one.
+   */
+  school?: School | undefined
+  /**
+   * Where that `school.json` sits, because its `logoFile` is relative to it.
+   *
+   * Carried rather than assumed to be the folder root: `scanFolder` classifies
+   * every file by its `type` and not by where it is, so a teacher who tidies
+   * theirs into a subfolder must still get their logo.
+   */
+  schoolPath?: string | undefined
+  /**
+   * Where this paper's own file sits, because `school.logoFile` on a paper is
+   * relative to it. A paper not yet saved has none and falls back to the path
+   * `savePaper` would write it to.
+   */
+  paperPath?: string | undefined
   sections: ResolvedSection[]
   totalMarks: number
   /** References that pointed at nothing. Shown, never silently dropped. */
@@ -188,9 +208,17 @@ export function resolvePaper(
     }
   })
 
+  // The first, deliberately, rather than a merge. Two school files in one folder
+  // is a fault the folder listing reports by name; picking one here and printing
+  // it is better than printing no branding at all while the notice explains why.
+  const school = index.schools[0]
+
   return {
     paper,
     profile,
+    school: school?.data,
+    schoolPath: school?.path,
+    paperPath: index.papers.find((p) => p.data.id === paper.id)?.path,
     sections,
     totalMarks: sections.reduce((sum, s) => sum + s.marks, 0),
     missing,

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/school.schema.json",
+  "title": "Klunk school",
+  "description": "The branding on the cover of every paper in one folder: the school's name, its logo, and how a student identifies themselves. Held once per folder rather than per profile, because a logo is one file and a school is one school, while a teacher across four year groups has four profiles.",
+  "type": "object",
+  "required": ["formatVersion", "type", "name"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_school" },
+
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Printed on the cover where there is no logo, and used to name this file on screen."
+    },
+
+    "logoFile": {
+      "type": "string",
+      "description": "Path relative to this file, so a folder copied elsewhere carries its logo. Read through the folder handle at print time exactly as a stimulus image is, which is why it survives build:single without being bundled."
+    },
+
+    "logoWidthMm": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 85,
+      "description": "Printed width. The two example covers place their logos at 85 mm and at roughly 110 mm, so this is the one dimension worth holding; the height follows the aspect ratio."
+    },
+
+    "identification": {
+      "type": "array",
+      "description": "Where a student writes who they are. The folder's default, which a profile may override: a NESA-style trial prints an 8-cell student number grid and an internal Year 10 exam prints Name, Class and Teacher with room to write.",
+      "items": { "$ref": "#/$defs/identificationField" }
+    }
+  },
+
+  "$defs": {
+    "identificationField": {
+      "type": "object",
+      "required": ["label", "kind"],
+      "additionalProperties": false,
+      "description": "Duplicated verbatim in profile.schema.json, because a profile may override the folder's default and JSON Schema cross-file references would need a registry the validation script does not build.",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["write", "boxes"],
+          "description": "'write' is a label with writing space under it. 'boxes' is a grid of single-character cells, which is what a student number is printed as."
+        },
+        "boxes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 8,
+          "description": "How many cells, for kind 'boxes'. The 2025 Visual Arts HSC trial prints eight."
+        },
+        "onEveryPage": {
+          "type": "boolean",
+          "default": false,
+          "description": "Repeat this field at the top of every printed page rather than on the cover alone. That is what makes the Visual Arts student number grid page furniture: a paper is separated into piles for marking, so every sheet has to say whose it is."
+        }
+      }
+    }
+  }
+}

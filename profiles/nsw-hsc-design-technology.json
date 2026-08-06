@@ -9,11 +9,7 @@
     "totalMarks": 40,
     "readingMinutes": 5,
     "workingMinutes": 90,
-    "instructions": [
-      "Reading time - 5 minutes",
-      "Working time - 1 hour and 30 minutes",
-      "Write using black pen"
-    ],
+    "instructions": ["Write using black pen"],
     "sections": [
       {
         "id": "I",

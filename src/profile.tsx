@@ -21,6 +21,7 @@
  */
 
 import { useMemo, useState } from 'preact/hooks'
+import { IdentificationFields } from './coversheet'
 import { Field, NumField, patched, type Patch } from './fields'
 import { saveProfile, type ContentIndex } from './storage'
 import {
@@ -76,6 +77,15 @@ export function ProfileEditor({
   const set = (patch: Patch<Profile>) => setDraft((d) => patched(d, patch))
   const setPaper = (patch: Patch<Profile['paper']>) =>
     setDraft((d) => ({ ...d, paper: patched(d.paper, patch) }))
+  const setCover = (patch: Patch<NonNullable<Profile['paper']['cover']>>) =>
+    setDraft((d) => {
+      const cover = patched(d.paper.cover ?? {}, patch)
+      // Dropped once nothing is left in it, so a profile that overrides nothing
+      // does not carry an empty `cover: {}` saying so.
+      return { ...d, paper: patched(d.paper, { cover: Object.keys(cover).length ? cover : undefined }) }
+    })
+  /** Whether this profile says anything about identification, rather than deferring. */
+  const overriding = draft.paper.cover?.identification !== undefined
   const setSection = (i: number, patch: Patch<ProfileSection>) =>
     setPaperSections((sections) => sections.map((s, j) => (i === j ? patched(s, patch) : s)))
   const setPaperSections = (fn: (s: ProfileSection[]) => ProfileSection[]) =>
@@ -263,14 +273,14 @@ export function ProfileEditor({
         <Field
           label="Instructions on the cover"
           for="pe-instructions"
-          hint="One per line, printed on the front page"
+          hint="One per line. Reading and working time print on their own, so they do not need a line here."
         >
           <textarea
             id="pe-instructions"
             class="input"
             rows={3}
             value={(draft.paper.instructions ?? []).join('\n')}
-            placeholder={'Reading time: 5 minutes\nWrite using black pen'}
+            placeholder={'Write using black pen\nDraw diagrams using pencil'}
             onInput={(e) =>
               setPaper({
                 instructions: (e.target as HTMLTextAreaElement).value.split('\n'),
@@ -278,7 +288,57 @@ export function ProfileEditor({
             }
           />
         </Field>
+
+        <label class="checkline">
+          <input
+            type="checkbox"
+            checked={draft.paper.cover?.marksAwardedColumn ?? false}
+            onChange={(e) =>
+              setCover({
+                marksAwardedColumn: (e.target as HTMLInputElement).checked || undefined,
+              })
+            }
+          />
+          <span>
+            Give the marks breakdown a Marks awarded column for the marker to fill in
+          </span>
+        </label>
       </section>
+
+      {/* The one thing an external-style trial and an internal exam genuinely
+          differ on beyond the checkbox above. Left alone, the folder's cover
+          sheet decides for every paper, which is right until one of them is a
+          trial that has to look like the real thing. */}
+      {overriding ? (
+        <>
+          <IdentificationFields
+            fields={draft.paper.cover?.identification ?? []}
+            setFields={(fn) => setCover({ identification: fn(draft.paper.cover?.identification ?? []) })}
+            hint="This replaces what your cover sheet asks for, on papers built to this structure only."
+          />
+          <button
+            class="btn btn--small"
+            onClick={() => setCover({ identification: undefined })}
+          >
+            Go back to the folder's cover sheet
+          </button>
+        </>
+      ) : (
+        <section class="panel">
+          <p class="panel__title">What a student fills in</p>
+          <p class="hint">
+            Papers built to this structure ask for whatever your cover sheet asks for. Change that
+            here if this kind of paper is different, such as a trial that prints a student number
+            grid where your other exams print a name and a class.
+          </p>
+          <button
+            class="btn"
+            onClick={() => setCover({ identification: [{ label: '', kind: 'write' }] })}
+          >
+            Ask for something different on this paper
+          </button>
+        </section>
+      )}
 
       <section class="panel">
         <div class="panel__head">

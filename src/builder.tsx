@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks'
+import { Field, patched, type Patch } from './fields'
 import {
   addRef,
   checkPaper,
@@ -22,6 +23,7 @@ import {
   refKey,
   type Paper,
   type Profile,
+  type School,
 } from './types'
 
 /**
@@ -44,6 +46,7 @@ export function Builder({
   setPaper,
   onBuildProfile,
   onEditProfile,
+  onEditCover,
   dirty,
   onClose,
   onSaved,
@@ -55,6 +58,8 @@ export function Builder({
   /** Open the profile editor on a new profile, or on one already in the folder. */
   onBuildProfile: () => void
   onEditProfile: (profile: Profile, path: string) => void
+  /** Open the folder's cover sheet, which every paper in it prints. */
+  onEditCover: () => void
   /** Whether the paper on screen differs from the one in the folder. */
   dirty: boolean
   /** Routed through the app's guard, because Close discards as much as Forget does. */
@@ -85,6 +90,7 @@ export function Builder({
         onStart={setPaper}
         onBuildProfile={onBuildProfile}
         onEditProfile={onEditProfile}
+        onEditCover={onEditCover}
         onInstalled={onSaved}
       />
     )
@@ -142,11 +148,20 @@ export function Builder({
             >
               Show {preview === 'paper' ? 'marking guide' : 'student paper'}
             </button>
-            <button class="btn btn--primary" onClick={() => window.print()}>
+            <button class="btn btn--primary" onClick={() => printPaper(paper.title, preview)}>
               Print / Save as PDF
             </button>
           </div>
         </div>
+        {/* Chrome prints the date, the page title and the address across the
+            top and bottom of every page unless this is unticked, and it reads
+            as something Klunk put there. No page can turn it off: it is the
+            browser's own setting and it is remembered once it is changed. */}
+        <p class="preview__tip">
+          In the print dialog, open <strong>More settings</strong> and untick{' '}
+          <strong>Headers and footers</strong>. That stops your browser printing the date and
+          the web address on every page. You only have to do it once.
+        </p>
         <PrintablePaper resolved={resolved} mode={preview} />
       </div>
     )
@@ -231,6 +246,13 @@ export function Builder({
                 : 'Mark a paper as sat and Klunk warns when another paper reuses its questions.'}
             </span>
           </div>
+
+          <CoverFields
+            paper={paper}
+            setPaper={setPaper}
+            school={index.schools[0]?.data}
+            onEditCover={onEditCover}
+          />
 
           <div class="rowbtns" style={{ marginTop: '0.8rem' }}>
             {/* The button says which of the two states the paper is in, because
@@ -368,6 +390,123 @@ export function Builder({
         onLinkSyllabus={linkSyllabus}
         linkCourse={linkCourse}
       />
+    </div>
+  )
+}
+
+/**
+ * The half of the cover that belongs to this paper and not to the school.
+ *
+ * `course` and `yearGroup` are filled in when the paper is created, from the
+ * syllabus and the course the profile names, so this is usually a matter of
+ * reading them rather than typing them. They are still boxes, because a profile
+ * cannot know that this particular paper is the half-yearly rather than the
+ * trial, and because until now nothing in the app could correct a prefill.
+ *
+ * `date` has never been writable anywhere and every paper wants one.
+ */
+function CoverFields({
+  paper,
+  setPaper,
+  school,
+  onEditCover,
+}: {
+  paper: Paper
+  setPaper: (p: Paper) => void
+  school: School | undefined
+  onEditCover: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  const setSchool = (patch: Patch<NonNullable<Paper['school']>>) => {
+    const next = patched(paper.school ?? {}, patch)
+    // An empty block is dropped rather than left as `school: {}`. It would be a
+    // difference against a paper on disk that has none, and the unsaved-changes
+    // notice would report a change nobody made.
+    const { school: _was, ...rest } = paper
+    setPaper(Object.keys(next).length > 0 ? { ...rest, school: next } : rest)
+  }
+
+  const filled = [paper.school?.course, paper.school?.yearGroup, paper.school?.date].filter(Boolean)
+
+  return (
+    <div class="papercover">
+      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+        {open ? 'Hide the cover' : 'Cover'}
+      </button>
+      {!open && (
+        <span class="muted paperstatus__note">
+          {school?.name ?? 'No school name yet'}
+          {filled.length > 0 ? ` · ${filled.join(' · ')}` : ' · no date yet'}
+        </span>
+      )}
+
+      {open && (
+        <div class="papercover__body">
+          <p class="hint">
+            Your school's name, logo and the boxes a student fills in are the same on every paper
+            in this folder.{' '}
+            <button class="btn btn--small" onClick={onEditCover}>
+              Edit the cover sheet
+            </button>
+          </p>
+
+          <div class="fieldrow">
+            <Field label="Subject" for="pc-course" hint="Printed under the title, in capitals">
+              <input
+                id="pc-course"
+                class="input"
+                value={paper.school?.course ?? ''}
+                placeholder="Design and Technology"
+                onInput={(e) => setSchool({ course: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+
+            <Field label="Year group" for="pc-year" hint="Or the level, for an IB paper">
+              <input
+                id="pc-year"
+                class="input"
+                value={paper.school?.yearGroup ?? ''}
+                placeholder="Year 12"
+                onInput={(e) => setSchool({ yearGroup: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+
+            <Field label="Date" for="pc-date" hint="The day students sit it">
+              <input
+                id="pc-date"
+                class="input"
+                type="date"
+                value={paper.school?.date ?? ''}
+                onInput={(e) => setSchool({ date: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+          </div>
+
+          {/* These were copied from the profile when the paper was created and
+              nothing could change them afterwards, so a paper needing one extra
+              line meant editing the file by hand. */}
+          <Field
+            label="General instructions"
+            for="pc-instructions"
+            hint="One per line. Reading and working time print on their own, so they do not need a line here."
+          >
+            <textarea
+              id="pc-instructions"
+              class="input"
+              rows={3}
+              value={(paper.instructions ?? []).join('\n')}
+              placeholder={'Write using black pen\nDraw diagrams using pencil'}
+              onInput={(e) =>
+                setPaper({
+                  ...paper,
+                  instructions: (e.target as HTMLTextAreaElement).value.split('\n'),
+                })
+              }
+            />
+          </Field>
+        </div>
+      )}
     </div>
   )
 }
@@ -559,6 +698,7 @@ function StartPaper({
   onStart,
   onBuildProfile,
   onEditProfile,
+  onEditCover,
   onInstalled,
 }: {
   index: ContentIndex
@@ -568,10 +708,12 @@ function StartPaper({
   onStart: (p: Paper) => void
   onBuildProfile: () => void
   onEditProfile: (profile: Profile, path: string) => void
+  onEditCover: () => void
   onInstalled: () => void
 }) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
   const [title, setTitle] = useState('Trial HSC Examination')
+  const school = index.schools[0]
   const slug = useMemo(
     () =>
       title
@@ -705,6 +847,37 @@ function StartPaper({
             onInstalled={onInstalled}
           />
         </section>
+
+        {/* One folder has one of these, so it is a panel rather than a list.
+            Every paper in the folder prints it, which is the whole reason it is
+            here and not on the profile. */}
+        <section class="panel">
+          <p class="panel__title">Cover sheet</p>
+          {school ? (
+            <>
+              <p class="muted setup__meta">
+                <strong>{school.data.name}</strong>
+                <br />
+                {school.data.logoFile ? `Logo: ${school.data.logoFile}` : 'No logo'}
+                {' · '}
+                {identificationSummary(school.data.identification?.length ?? 0)}
+              </p>
+              <button class="btn btn--small" onClick={onEditCover}>
+                Edit the cover sheet
+              </button>
+            </>
+          ) : (
+            <>
+              <p class="hint">
+                Add your school's name and logo, and the boxes a student fills in. Every paper you
+                print from this folder uses them.
+              </p>
+              <button class="btn" onClick={onEditCover}>
+                Set up your cover sheet
+              </button>
+            </>
+          )}
+        </section>
       </aside>
 
       <main>
@@ -752,6 +925,35 @@ function StartPaper({
 }
 
 /* --------------------------------------------------------------------- utils */
+
+/**
+ * Print, having first told the browser what the paper is called.
+ *
+ * Chrome names a saved PDF after the page title, so every paper a teacher
+ * printed arrived in Downloads as `Klunk.pdf` and the second one overwrote the
+ * first. The title is also what Chrome prints in its own page header, so this
+ * fixes both at once.
+ *
+ * Restored afterwards rather than left set, because the title is the browser tab
+ * and the tab is not showing one paper for the rest of the session. `afterprint`
+ * fires whether the dialog was used or cancelled.
+ */
+function printPaper(title: string, mode: PrintMode): void {
+  const was = document.title
+  document.title = mode === 'guide' ? `${title} marking guide` : title
+
+  const restore = () => {
+    document.title = was
+    window.removeEventListener('afterprint', restore)
+  }
+  window.addEventListener('afterprint', restore)
+  window.print()
+}
+
+function identificationSummary(n: number): string {
+  if (n === 0) return 'nothing for a student to fill in'
+  return `${n} thing${n === 1 ? '' : 's'} for a student to fill in`
+}
 
 function countRule(
   spec: { questionCount?: number; minQuestions?: number; maxQuestions?: number } | undefined,

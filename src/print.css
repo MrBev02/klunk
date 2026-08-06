@@ -14,11 +14,39 @@
   margin: 16mm 15mm 18mm 15mm;
 }
 
+/*
+ * The table that carries a running header.
+ *
+ * It holds the whole paper in one cell and exists only so that its `thead`
+ * repeats. Everything about it has to be neutral, or wrapping the paper in it
+ * would change the paper.
+ */
+.runhead {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.runhead > thead > tr > th,
+.runhead > tbody > tr > td {
+  padding: 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+}
+
 .sheet {
   /* Fixed A4 content width so the on-screen preview wraps exactly as the print
      will. Without this, a wide window flows text differently from the page and
-     the preview stops being a preview. */
-  width: 180mm;
+     the preview stops being a preview.
+
+     200mm and not 180mm, because the global `box-sizing: border-box` takes the
+     20mm of side padding out of the width: at 180mm the preview laid out to
+     160mm while the print laid out to 180mm, so it had never actually been
+     wrapping as the print does. Found by a logo and an identification box that
+     fitted side by side on paper and were squeezed on screen. The printed page
+     is unchanged by this; only the preview moves, onto what the page was always
+     doing. */
+  width: 200mm;
   margin: 0 auto;
   padding: 12mm 10mm;
   background: #fff;
@@ -33,30 +61,158 @@
   box-sizing: border-box;
 }
 
-/* --------------------------------------------------------------------- cover */
+/* --------------------------------------------------------------------- cover
+ *
+ * A whole page, the way a real school exam opens, rather than a header block
+ * with Section I under it. Both documents this was built from end their cover
+ * with an explicit page break and start the first section overleaf.
+ */
 
 .cover {
-  border-bottom: 2px solid #000;
+  break-after: page;
   padding-bottom: 6mm;
+  /* The visible edge of the page in the on-screen preview, where there are no
+     page boundaries to show where the cover stops. Removed for print, where the
+     break does that job and a rule across the foot of the page is furniture. */
+  border-bottom: 2px solid #000;
   margin-bottom: 8mm;
 }
 
+/* The logo on one side and the student's own details on the other, which is the
+   arrangement both example covers use. */
+.cover__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-bottom: 6mm;
+  min-height: 20mm;
+}
+
+/* Held at its 76 mm rather than shrunk as a flex item, so it lines up with the
+   every-page block above it instead of being 3 mm narrower. */
+.cover__top .ident {
+  flex: none;
+}
+
+.cover__logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.cover__logomissing {
+  border: 0.8pt dashed #000;
+  padding: 4mm 2mm;
+  font-size: 9.5pt;
+  font-style: italic;
+  text-align: center;
+  max-width: 100%;
+}
+
 .cover__school {
-  margin: 0;
+  margin: 2mm 0 0;
   font-size: 10pt;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .cover__title {
-  margin: 2mm 0 0;
+  margin: 0;
   font-size: 20pt;
   line-height: 1.15;
+  text-align: center;
+}
+
+.cover__course {
+  margin: 2mm 0 0;
+  font-size: 16pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 .cover__subtitle {
   margin: 1mm 0 0;
   font-size: 12pt;
+  text-align: center;
+}
+
+.cover__timing {
+  margin: 6mm 0 0;
+  display: flex;
+  justify-content: center;
+  gap: 10mm;
+  font-size: 11pt;
+}
+
+/* ------------------------------------------------------------ identification */
+
+/* 76 mm, which is what the Year 10 cover's box measures, and fixed rather than
+   a minimum so the block above the cover and the block inside it line up on the
+   same right-hand edge. */
+.ident {
+  border: 0.75pt solid #000;
+  padding: 3mm;
+  width: 76mm;
+}
+
+.ident__field + .ident__field {
+  margin-top: 3mm;
+}
+
+.ident__label {
+  display: block;
+  font-size: 9.5pt;
+}
+
+/* Writing space, ruled underneath rather than as a box, which is what the Year
+   10 cover prints. */
+.ident__write {
+  display: block;
+  border-bottom: 0.5pt solid #000;
+  height: 6mm;
+}
+
+.ident__boxes {
+  display: flex;
+  margin-top: 1mm;
+}
+
+.ident__box {
+  width: 6mm;
+  height: 8mm;
+  border: 0.5pt solid #000;
+  /* Shared edges, so the grid reads as one row of cells rather than as a line of
+     separate boxes. That is how a student number grid is printed. */
+  margin-right: -0.5pt;
+}
+
+/* The block that repeats on every page, sitting in the table header that makes
+   it repeat. See the note in render.tsx for why it is a table. */
+.runid {
+  padding-bottom: 5mm;
+  /* Pushed right, which is where both example papers put it. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* No box around it. The cover's block is bordered because it is a form a student
+   fills in once; this one is a label and a grid that sits in the page margin,
+   and a rule around it reads as a second box on every page. */
+.runid .ident {
+  border: none;
+  /* The sides keep the bordered block's padding so the label starts on the same
+     line as `Name` below it. Only the rule and the vertical padding go. */
+  padding: 0 3mm;
+}
+
+.runid__note {
+  margin: 1mm 0 0;
+  font-size: 9pt;
+  font-style: italic;
 }
 
 .cover__guide {
@@ -96,9 +252,43 @@
   margin-bottom: 1.5mm;
 }
 
+.cover__allow {
+  display: block;
+  font-size: 10pt;
+  font-style: italic;
+}
+
+.cover__marks {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10pt;
+}
+
+.cover__marks th,
+.cover__marks td {
+  border: 0.5pt solid #000;
+  padding: 1.5mm 2mm;
+  text-align: left;
+}
+
+.cover__marks th {
+  font-size: 9.5pt;
+}
+
+/* Room for the marker to write the number in, beside the total it is out of. */
+.cover__awarded {
+  width: 22mm;
+  white-space: nowrap;
+}
+
+.cover__total td {
+  font-weight: 700;
+}
+
 .cover__meta {
   margin: 5mm 0 0;
   font-size: 10pt;
+  text-align: center;
 }
 
 /* ------------------------------------------------------------------ sections */
@@ -420,6 +610,25 @@
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* The cover is its own page now, so the rule across its foot is furniture:
+     on screen it shows where the cover ends, and on paper the break does. */
+  .cover {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  /* What actually makes it repeat. `table-header-group` is the default for
+     thead, and it is restated here because this one line is the entire
+     mechanism and is worth being able to find. */
+  .runhead > thead {
+    display: table-header-group;
+  }
+
+  .runid__note {
+    display: none;
   }
 }
 

@@ -10,14 +10,23 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { Profile, Question, QuestionConfig, QuestionType, Syllabus } from './types'
+import type {
+  Profile,
+  Question,
+  QuestionConfig,
+  QuestionType,
+  School,
+  Syllabus,
+} from './types'
 import {
   cleanProfile,
   cleanQuestion,
+  cleanSchool,
   emptyIdContext,
   suggestQuestionId,
   validateProfile,
   validateQuestion,
+  validateSchool,
   type IdContext,
 } from './validate'
 
@@ -794,6 +803,164 @@ describe('cleanProfile', () => {
     expect(cleaned.print?.linesPerMark).toBe(3)
     expect(cleaned.paper.sections[0]?.suggestedMinutes).toBe(45)
     expect(cleaned.paper.sections[0]?.questionTypes).toEqual(['extended_response'])
+  })
+})
+
+/* --------------------------------------------------------------------- school */
+
+function school(over: Partial<School> = {}): School {
+  return { formatVersion: '1', type: 'klunk_school', name: 'Redlands', ...over }
+}
+
+function errorsIn(checks: ReturnType<typeof validateSchool>): string[] {
+  return checks.filter((c) => c.severity === 'error').map((c) => c.message)
+}
+
+describe('validateSchool', () => {
+  it('accepts the branding both example covers describe', () => {
+    expect(
+      validateSchool(
+        school({
+          logoFile: 'logo.png',
+          logoWidthMm: 85,
+          identification: [
+            { label: 'Name', kind: 'write' },
+            { label: 'Student number', kind: 'boxes', boxes: 8, onEveryPage: true },
+          ],
+        }),
+      ),
+    ).toEqual([])
+  })
+
+  it('needs a name', () => {
+    expect(errorsIn(validateSchool(school({ name: '   ' })))).toEqual(['The school needs a name'])
+  })
+
+  it('rejects a logo width of nothing, which prints a logo of nothing', () => {
+    expect(errorsIn(validateSchool(school({ logoWidthMm: 0 })))).toHaveLength(1)
+  })
+
+  it('rejects a logo wider than the printable width of A4', () => {
+    expect(errorsIn(validateSchool(school({ logoWidthMm: 200 })))[0]).toContain('180 mm')
+  })
+
+  it('needs a label on every field, because the label is what prints', () => {
+    const checks = validateSchool(school({ identification: [{ label: '', kind: 'write' }] }))
+    expect(errorsIn(checks)).toHaveLength(1)
+    // Named by position, since there is no label to name it by.
+    expect(checks[0]?.where).toBe('Box 1')
+  })
+
+  it('holds the box count to a whole number within what fits', () => {
+    expect(
+      errorsIn(validateSchool(school({ identification: [{ label: 'N', kind: 'boxes', boxes: 0 }] }))),
+    ).toHaveLength(1)
+    expect(
+      errorsIn(
+        validateSchool(school({ identification: [{ label: 'N', kind: 'boxes', boxes: 21 }] })),
+      ),
+    ).toHaveLength(1)
+    expect(
+      errorsIn(
+        validateSchool(school({ identification: [{ label: 'N', kind: 'boxes', boxes: 2.5 }] })),
+      ),
+    ).toHaveLength(1)
+  })
+
+  it('ignores a box count on writing space, which never reads it', () => {
+    expect(
+      validateSchool(school({ identification: [{ label: 'Name', kind: 'write', boxes: 99 }] })),
+    ).toEqual([])
+  })
+
+  it('warns rather than blocks on two fields with the same label', () => {
+    const checks = validateSchool(
+      school({
+        identification: [
+          { label: 'Name', kind: 'write' },
+          { label: 'Name', kind: 'write' },
+        ],
+      }),
+    )
+    expect(errorsIn(checks)).toEqual([])
+    expect(checks.filter((c) => c.severity === 'warning')).toHaveLength(1)
+  })
+})
+
+describe('cleanSchool', () => {
+  it('drops the empty fields a half-filled form leaves behind', () => {
+    const cleaned = cleanSchool(
+      school({
+        name: '  Redlands  ',
+        logoFile: '   ',
+        identification: [
+          { label: '  Name  ', kind: 'write' },
+          { label: '   ', kind: 'write' },
+        ],
+      }),
+    )
+    expect(cleaned).toEqual({
+      formatVersion: '1',
+      type: 'klunk_school',
+      name: 'Redlands',
+      identification: [{ label: 'Name', kind: 'write' }],
+    })
+  })
+
+  it('drops a logo width left behind after the logo was removed', () => {
+    const cleaned = cleanSchool(school({ logoWidthMm: 85 }))
+    expect(cleaned.logoWidthMm).toBeUndefined()
+    expect(cleanSchool(school({ logoFile: 'logo.png', logoWidthMm: 85 })).logoWidthMm).toBe(85)
+  })
+
+  it('drops a box count from a field switched to writing space', () => {
+    const cleaned = cleanSchool(
+      school({ identification: [{ label: 'Name', kind: 'write', boxes: 8 }] }),
+    )
+    expect(cleaned.identification?.[0]).toEqual({ label: 'Name', kind: 'write' })
+  })
+
+  it('writes onEveryPage only when it is on, so an off one is not a line in the file', () => {
+    expect(
+      cleanSchool(school({ identification: [{ label: 'N', kind: 'write', onEveryPage: false }] }))
+        .identification?.[0],
+    ).toEqual({ label: 'N', kind: 'write' })
+  })
+
+  it('leaves an already-clean school untouched, so opening one does not edit it', () => {
+    const tidy = school({
+      logoFile: 'logo.png',
+      logoWidthMm: 85,
+      identification: [{ label: 'Student number', kind: 'boxes', boxes: 8, onEveryPage: true }],
+    })
+    expect(cleanSchool(tidy)).toEqual(tidy)
+  })
+})
+
+describe('a profile that overrides the identification fields', () => {
+  it('is held to the same rules as school.json, not to looser ones', () => {
+    const p = profile({
+      paper: {
+        totalMarks: 10,
+        cover: { identification: [{ label: '', kind: 'write' }] },
+        sections: [{ id: 'I', name: 'Section I', marks: 10 }],
+      },
+    })
+    expect(validateProfile(p, new Set()).some((c) => c.severity === 'error')).toBe(true)
+  })
+
+  it('survives cleaning with the column flag only where it is on', () => {
+    const base = {
+      totalMarks: 10,
+      sections: [{ id: 'I', name: 'Section I', marks: 10 }],
+    }
+    expect(
+      cleanProfile(profile({ paper: { ...base, cover: { marksAwardedColumn: false } } })).paper
+        .cover,
+    ).toBeUndefined()
+    expect(
+      cleanProfile(profile({ paper: { ...base, cover: { marksAwardedColumn: true } } })).paper.cover,
+    ).toEqual({ marksAwardedColumn: true })
   })
 })
 

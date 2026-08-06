@@ -10,17 +10,12 @@
     "name": "Example High School",
     "course": "Design and Technology",
     "yearGroup": "Year 12",
-    "assessmentName": "Trial HSC Examination",
     "date": "2026-08-10"
   },
 
   "readingMinutes": 5,
   "workingMinutes": 90,
-  "instructions": [
-    "Reading time - 5 minutes",
-    "Working time - 1 hour and 30 minutes",
-    "Write using black pen"
-  ],
+  "instructions": ["Write using black pen"],
 
   "status": "draft",
 

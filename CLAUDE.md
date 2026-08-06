@@ -51,7 +51,7 @@ has to be a deliberate decision that revisits the privacy claim at the same time
 
 ```
 klunk/                     this repo - app and tools only, public
-  schemas/                 the four JSON formats
+  schemas/                 the five JSON formats
   profiles/                paper rules per course (these DO ship)
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
@@ -63,6 +63,9 @@ klunk/                     this repo - app and tools only, public
     formats.ts             picks the reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
     modelcheck.ts          tags that name nothing, and two models of one document
+    cover.ts               the cover sheet's three layers resolved, no JSX
+    coversheet.tsx         the form over school.json (named apart from cover.ts
+                           so `import './cover'` cannot mean either one)
     fixtures/              fictional sample data for development
 ../klunk-content/          NOT in git - the teacher's content folder equivalent
   source/                  downloaded syllabus docs and past papers
@@ -91,7 +94,7 @@ does not already use, or that rewrites a file wholesale, copy what it will touch
 The question is never "is this folder precious" — it is "if this code is wrong, is
 the content still recoverable".
 
-## The four formats
+## The five formats
 
 All defined in `schemas/`, all validated with real data.
 
@@ -101,6 +104,7 @@ All defined in `schemas/`, all validated with real data.
 | `profile.schema.json` | Paper structure and rules per course | Everything the old toolchain hardcoded lives here as data |
 | `bank.schema.json` | Questions | References syllabus by **stable id**, not a `A > B > C` path string; carries provenance |
 | `paper.schema.json` | An exam as a selection of questions | By reference, never by copy |
+| `school.schema.json` | Cover branding: name, logo, what a student fills in | One per folder, because a logo is one file and a school is one school |
 
 Question types are D&T-relevant only: `multiple_choice`, `true_false`, `short_answer`,
 `extended_response`, `table`, `drawing`. No `sql`, `spreadsheet` or `python`.
@@ -152,6 +156,40 @@ Do not re-derive these, and do not contradict them without new evidence.
   with zero `securitypolicyviolation`, so pictures cost nothing of the
   no-network claim. `getDocument` detaches the bytes it is given, so the text and
   the pictures must share one open document.
+
+**Printing from Chrome, established by measuring four printed PDFs rather than
+the preview.** The preview has no page boundaries, so nothing below can be seen
+in it. Positions were read back with `pagesFromDocument` on the saved PDF, which
+is far more reliable than looking.
+
+- **A `position: fixed` element repeats on every printed page**, which is the
+  only way any engine gives a running header. Its containing block is the page
+  *area*, inside the margins.
+- **Chrome throws any negative vertical offset on such an element to the bottom
+  of the page.** Measured on A4 with a 34/15/18/15 mm page: `top: 0` landed at
+  37 mm and `bottom: 0` at 278 mm, both correct, while `top: 0` with
+  `margin-top: -18mm` landed at 264 mm and `top: -16mm` at 267 mm. So a fixed
+  element **cannot be lifted into the page margin**, and therefore cannot
+  reserve the space it occupies: at `top: 0` it prints on top of the questions.
+- **So a repeating header is a `<thead>`, not a fixed element.** A repeated
+  `thead` is in flow, so it both repeats and pushes content down on every page.
+  `render.tsx` wraps the whole paper in one cell for this and nothing else.
+  Checked afterwards that it did not cost the pagination: all three section
+  headings still start a fresh page and no question number appears on two pages.
+- **`padding-top` does not reserve space per page.** Padding applies once at the
+  start of a block, not at the top of each page it flows across, so the first
+  attempt cleared page 1 and overlapped every page after it.
+- **Chrome names a saved PDF after `document.title`**, so every paper arrived as
+  `Klunk.pdf` and each one overwrote the last. `printPaper` in `builder.tsx`
+  sets the title, prints, and restores it on `afterprint`.
+- **The date, page title and URL printed on every page are Chrome's own headers
+  and footers**, which no page can turn off. It is a checkbox under More
+  settings in the print dialog, so the preview bar and the help page say so.
+- **The preview was never the width it claimed.** `.sheet` was `width: 180mm`
+  with 10 mm side padding under a global `box-sizing: border-box`, so it laid
+  out at 160 mm while the print laid out at 180 mm, and the comment above it
+  said it wrapped exactly as the print would. It is 200 mm now. The printed page
+  never moved; only the preview did, onto what the page was always doing.
 
 **NESA Stage 6 (2013) syllabuses use two content layouts:**
 - *Wide*: one 3-column table per course, `Outcomes | Students learn about | Students

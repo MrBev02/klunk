@@ -10,7 +10,16 @@
  * survives that, and a convention like "banks live in bank/" does not.
  */
 
-import type { Bank, Loaded, Paper, Profile, Question, QuestionRef, Syllabus } from './types'
+import type {
+  Bank,
+  Loaded,
+  Paper,
+  Profile,
+  Question,
+  QuestionRef,
+  School,
+  Syllabus,
+} from './types'
 // validate.ts has no runtime imports of its own, so this cannot close a cycle
 // back through paper.ts.
 import { suggestQuestionId } from './validate'
@@ -43,6 +52,15 @@ export interface ContentIndex {
   syllabuses: Loaded<Syllabus>[]
   banks: Loaded<Bank>[]
   papers: Loaded<Paper>[]
+  /**
+   * The folder's cover branding, normally exactly one.
+   *
+   * An array rather than a single value so that two of them can be reported
+   * rather than silently resolved. A folder holding two would otherwise print
+   * one school's logo on another's papers depending on which the walk reached
+   * first, and nothing on screen would say why.
+   */
+  schools: Loaded<School>[]
   /** Files that looked like ours but could not be used, kept to be shown rather than swallowed. */
   problems: Problem[]
   /** Total .json files inspected, so "found nothing" can be distinguished from "found nothing of ours". */
@@ -89,6 +107,7 @@ export function emptyIndex(): ContentIndex {
     syllabuses: [],
     banks: [],
     papers: [],
+    schools: [],
     problems: [],
     scanned: 0,
     pdfs: [],
@@ -162,19 +181,41 @@ async function loadImages(
   dir: FileSystemDirectoryHandle,
   index: ContentIndex,
 ): Promise<void> {
-  const wanted = new Set<string>()
+  // Keyed by path so one picture used by two questions is read once, and holding
+  // what referenced it so a missing one can be reported in those terms. A cover
+  // that prints a grey box saying "logo.png" is a different thing to fix from a
+  // question whose stimulus has gone.
+  const wanted = new Map<string, string>()
+  const want = (path: string, what: string) => {
+    if (!wanted.has(path)) wanted.set(path, what)
+  }
+
   for (const bank of index.banks) {
     for (const question of bank.data.questions) {
       for (const s of question.stimulus ?? []) {
-        if (s.kind === 'image' && s.file) wanted.add(joinPath(bank.path, s.file))
+        if (s.kind === 'image' && s.file) {
+          want(joinPath(bank.path, s.file), 'image referenced by a question is missing')
+        }
       }
     }
   }
 
-  for (const path of wanted) {
+  // The cover logo, on the same terms as a stimulus image: read through the
+  // folder handle at print time rather than bundled, which is what lets it work
+  // in the single-file build on a shared drive without touching the CSP.
+  for (const school of index.schools) {
+    const logo = school.data.logoFile?.trim()
+    if (logo) want(joinPath(school.path, logo), 'logo named by school.json is missing')
+  }
+  for (const paper of index.papers) {
+    const logo = paper.data.school?.logoFile?.trim()
+    if (logo) want(joinPath(paper.path, logo), 'logo named by a paper is missing')
+  }
+
+  for (const [path, message] of wanted) {
     const file = await fileAt(dir, path).catch(() => null)
     if (file) index.images.set(path, URL.createObjectURL(file))
-    else index.problems.push({ path, message: 'image referenced by a question is missing' })
+    else index.problems.push({ path, message })
   }
 }
 
@@ -529,6 +570,9 @@ export async function scanFolder(
       case 'klunk_paper':
         pushIf(index.papers, index, path, data as Paper, (d) => Array.isArray(d.sections))
         break
+      case 'klunk_school':
+        pushIf(index.schools, index, path, data as School, (d) => typeof d.name === 'string')
+        break
       default:
         break
     }
@@ -539,6 +583,7 @@ export async function scanFolder(
   index.syllabuses.sort(byPath)
   index.banks.sort(byPath)
   index.papers.sort(byPath)
+  index.schools.sort(byPath)
   index.pdfs.sort((a, b) => a.localeCompare(b))
   index.docx.sort((a, b) => a.localeCompare(b))
   index.workbooks.sort((a, b) => a.localeCompare(b))
@@ -557,7 +602,14 @@ function hasSections(p: Profile): boolean {
 }
 
 function looksLikeContentPath(path: string): boolean {
-  return /(^|\/)(bank|banks|papers|profiles|syllabus)\//i.test(path)
+  // `school.json` by name as well as by directory, because it is the one file
+  // Klunk owns that sits at the top of the folder rather than under bank/ or
+  // papers/. A malformed one would otherwise be skipped in silence and the cover
+  // would print with no branding and no explanation.
+  return (
+    /(^|\/)(bank|banks|papers|profiles|syllabus)\//i.test(path) ||
+    /(^|\/)school\.json$/i.test(path)
+  )
 }
 
 function pushIf<T>(
@@ -830,6 +882,41 @@ export async function saveProfile(
   // An id change leaves the old file behind, holding a profile no longer being
   // edited. Deleting it is not this function's call — a paper may still name it,
   // and papers resolve a profile by id — so the caller is told instead.
+  return { path }
+}
+
+function isSchool(value: unknown): value is School {
+  if (typeof value !== 'object' || value === null) return false
+  const school = value as School
+  return school.type === 'klunk_school' && typeof school.name === 'string'
+}
+
+/**
+ * Write the folder's cover branding.
+ *
+ * `school.json` at the folder root, which is where a teacher will look for it,
+ * unless the scan already found one somewhere else: this rewrites the file it
+ * was read from, so a teacher who tidied theirs into a subfolder does not get a
+ * second one at the root that silently loses to the first.
+ *
+ * Refuses anything at that path that is not a school, the way `saveQuestion`
+ * refuses a bank path holding a paper. Overwriting a school with a school is the
+ * whole point, so unlike `saveProfile` there is no id to guard: a folder has one
+ * of these, and rewriting it is what editing means.
+ */
+export async function saveSchool(
+  dir: FileSystemDirectoryHandle,
+  school: School,
+  options?: { path?: string | undefined },
+): Promise<{ path: string }> {
+  const path = options?.path ?? 'school.json'
+  const existing = await readJson(dir, path).catch(() => null)
+
+  if (existing !== null && !isSchool(existing)) {
+    throw new Error(`${path} is already there and is not a cover sheet, so nothing was written.`)
+  }
+
+  await writeJson(dir, path, school)
   return { path }
 }
 

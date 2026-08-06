@@ -90,6 +90,7 @@ function indexWith(questions: Question[]): ContentIndex {
     pdfs: [],
     docx: [],
     workbooks: [],
+    schools: [],
     images: new Map(),
   }
 }
@@ -386,6 +387,7 @@ function twoSubjects(): ContentIndex {
     pdfs: [],
     docx: [],
     workbooks: [],
+    schools: [],
     images: new Map(),
   }
 }
@@ -446,6 +448,7 @@ function twoYears(): ContentIndex {
     pdfs: [],
     docx: [],
     workbooks: [],
+    schools: [],
     images: new Map(),
   }
 }

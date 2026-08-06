@@ -37,6 +37,24 @@
           "description": "General instructions for the cover page, one per line.",
           "items": { "type": "string" }
         },
+        "cover": {
+          "type": "object",
+          "description": "How this paper's cover sheet differs from the folder's school.json. The two real covers that shaped this share a skeleton and differ in exactly these two ways, so everything else stays in one place.",
+          "additionalProperties": false,
+          "properties": {
+            "identification": {
+              "type": "array",
+              "description": "Overrides the folder's identification fields for this kind of paper. An external-style trial prints a student number grid where an internal exam prints Name and Class.",
+              "items": { "$ref": "#/$defs/identificationField" }
+            },
+            "marksAwardedColumn": {
+              "type": "boolean",
+              "default": false,
+              "description": "Print the marks breakdown as a Section / Marks Available / Marks Awarded table with a '/ N' cell per row for the marker, rather than as a list. Internal school exams do this and public examinations do not."
+            }
+          }
+        },
+
         "sections": {
           "type": "array",
           "minItems": 1,
@@ -94,6 +112,19 @@
   },
 
   "$defs": {
+    "identificationField": {
+      "type": "object",
+      "required": ["label", "kind"],
+      "additionalProperties": false,
+      "description": "Duplicated verbatim from school.schema.json, which is where it is documented. Repeated rather than referenced because a cross-file $ref would need a registry the validation script does not build.",
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["write", "boxes"] },
+        "boxes": { "type": "integer", "minimum": 1, "maximum": 20, "default": 8 },
+        "onEveryPage": { "type": "boolean", "default": false }
+      }
+    },
+
     "questionType": {
       "type": "string",
       "enum": [

@@ -862,6 +862,50 @@ code,
   line-height: 1.5;
 }
 
+/* The per-paper half of the cover, folded away by default. A teacher opens a
+   paper to pick questions, and the date and the year group are read far more
+   often than they are typed, so the summary line carries them and the boxes
+   stay out of the way until they are wanted. */
+.papercover {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.papercover__body {
+  flex: 1 1 100%;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+/* The chosen logo beside the buttons that change it, so the preview and the
+   control that replaces it are never on separate screens. */
+.coverlogo {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.coverlogo__img {
+  max-width: 14rem;
+  max-height: 5rem;
+  /* Logos are drawn for white paper and vanish on a dark background. */
+  background: #fff;
+  padding: 0.35rem;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+}
+
+.coverlogo__missing {
+  flex: 1 1 14rem;
+  font-size: 0.82rem;
+  color: var(--red);
+}
+
 .sec {
   border: 1px solid var(--rule);
   border-radius: var(--r);
@@ -1078,6 +1122,16 @@ code,
   margin-left: auto;
   display: flex;
   gap: 0.45rem;
+}
+
+/* Sits under the bar rather than in it: it is read once, and it must not push
+   Print off the end of the row on a narrow window. */
+.preview__tip {
+  max-width: 46rem;
+  margin: -0.7rem auto 1.1rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
 }
 
 /* ---------------------------------------------------------------- the editor

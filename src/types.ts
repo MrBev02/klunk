@@ -86,6 +86,48 @@ export interface Syllabus {
   courses: SyllabusCourse[]
 }
 
+/* -------------------------------------------------------------------- school */
+
+/**
+ * One place a student writes who they are.
+ *
+ * Two shapes, taken from the two real covers rather than invented: a label with
+ * writing space under it, which is what an internal exam prints for `Name` and
+ * `Class`, and a grid of single-character cells, which is what a student number
+ * is printed as.
+ */
+export interface IdentificationField {
+  label: string
+  kind: 'write' | 'boxes'
+  /** Cells, for `boxes`. Eight is what the 2025 Visual Arts trial prints. */
+  boxes?: number
+  /**
+   * Repeat at the top of every page rather than on the cover alone.
+   *
+   * A paper is split into piles for marking, so every sheet has to say whose it
+   * is. That is why the Visual Arts grid is page furniture and its General
+   * Instructions are not.
+   */
+  onEveryPage?: boolean
+}
+
+/**
+ * The branding shared by every paper in one folder.
+ *
+ * A logo is one file and a school is one school, so this is folder-level rather
+ * than per profile: a teacher across four year groups has four profiles and
+ * would otherwise attach the same logo four times.
+ */
+export interface School {
+  formatVersion: string
+  type: 'klunk_school'
+  name: string
+  /** Relative to this file, so a folder copied elsewhere carries its logo. */
+  logoFile?: string
+  logoWidthMm?: number
+  identification?: IdentificationField[]
+}
+
 /* ------------------------------------------------------------------- profile */
 
 export interface ProfileSection {
@@ -121,6 +163,17 @@ export interface Profile {
     readingMinutes?: number
     workingMinutes?: number
     instructions?: string[]
+    /**
+     * How this kind of paper's cover differs from the folder's `school.json`.
+     *
+     * The two covers this was built from share a skeleton and differ in exactly
+     * these two ways, so everything else stays in one place rather than being
+     * repeated per profile.
+     */
+    cover?: {
+      identification?: IdentificationField[]
+      marksAwardedColumn?: boolean
+    }
     sections: ProfileSection[]
   }
   questionTypes?: QuestionType[]
@@ -277,11 +330,18 @@ export interface Paper {
   title: string
   subtitle?: string
   profileId?: string
+  /**
+   * The per-paper half of the cover.
+   *
+   * `name` and `logoFile` override the folder's `school.json` for this paper
+   * alone; the rest is only ever a fact about this paper. `logoFile` is relative
+   * to the paper file rather than to `school.json`, because that is where it
+   * sits.
+   */
   school?: {
     name?: string
     course?: string
     yearGroup?: string
-    assessmentName?: string
     date?: string
     logoFile?: string
   }

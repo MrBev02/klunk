@@ -22,15 +22,20 @@
 
     "school": {
       "type": "object",
-      "description": "What goes on the cover. Held per paper rather than per profile so one faculty can run the same profile for different year groups or campuses.",
+      "description": "What goes on the cover of this paper in particular. The school's own name and logo live in the folder's school.json; these are the per-paper facts, plus overrides for the two branding fields where one paper genuinely differs.",
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string" },
-        "course": { "type": "string" },
-        "yearGroup": { "type": "string" },
-        "assessmentName": { "type": "string" },
+        "name": {
+          "type": "string",
+          "description": "Overrides school.json for this paper alone, e.g. a campus that prints its own name."
+        },
+        "course": { "type": "string", "description": "The subject, as printed. 'SCIENCE'." },
+        "yearGroup": { "type": "string", "description": "'Year 10', 'Higher level'." },
         "date": { "type": "string" },
-        "logoFile": { "type": "string", "description": "Path relative to the paper file." }
+        "logoFile": {
+          "type": "string",
+          "description": "Overrides school.json's logo for this paper alone. Path relative to the paper file, not to school.json, because that is where it sits."
+        }
       }
     },
 

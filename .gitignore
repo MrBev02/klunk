@@ -33,6 +33,21 @@ sample_exams/
 # the model's source.redistributable flag is the thing to check first.
 syllabus/*.json
 
+# The teacher's own cover branding, and the logo it points at.
+#
+# Belt and braces rather than protection: the content folder is a sibling of this
+# repo, so nothing in it can be committed from here anyway, which is equally true
+# of bank/, papers/ and syllabus/*.json above. The case this actually covers is
+# the one the header names, an accidental save into the repo directory, which is
+# reachable because Klunk's folder picker accepts any folder including this one.
+# A school's logo is its property and its name identifies the school.
+school.json
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
 # Profiles are NOT excluded. A profile records the shape of a paper - 40 marks,
 # three sections at 10/15/15, five minutes reading time - which is fact about a
 # public examination, not NESA's expression of its syllabus. Shipping them is

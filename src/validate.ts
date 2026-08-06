@@ -16,6 +16,7 @@
 
 import type { Check } from './paper'
 import type {
+  IdentificationField,
   MarkCriterion,
   Profile,
   ProfileSection,
@@ -23,6 +24,7 @@ import type {
   QuestionConfig,
   QuestionPart,
   QuestionType,
+  School,
   Stimulus,
   Syllabus,
   TableRow,
@@ -424,6 +426,10 @@ export function validateProfile(
     if (value !== undefined && value < 0) err(`${field} cannot be negative`)
   }
 
+  // Where the profile overrides the folder's identification fields it writes the
+  // same shape, so it is held to the same rules rather than to a looser copy.
+  out.push(...validateCoverOverride(paper.cover?.identification ?? []))
+
   const sections = paper.sections ?? []
   if (sections.length === 0) err('A paper needs at least one section')
 
@@ -575,6 +581,14 @@ export function cleanProfile(draft: Profile): Profile {
   const instructions = list(draft.paper.instructions)
   if (instructions) out.paper.instructions = instructions
 
+  const cover = compact({
+    identification: cleanIdentification(draft.paper.cover?.identification),
+    // Only where it is on. `false` is what the absent case already means, and
+    // writing it would put a line in every profile file saying nothing.
+    marksAwardedColumn: draft.paper.cover?.marksAwardedColumn ? true : undefined,
+  })
+  if (cover) out.paper.cover = cover
+
   const questionTypes = nonEmpty(draft.questionTypes)
   if (questionTypes) out.questionTypes = questionTypes
 
@@ -617,6 +631,145 @@ function cleanSection(draft: ProfileSection): ProfileSection {
   }
 
   return out
+}
+
+/* --------------------------------------------------------------------- school */
+
+/** The largest grid worth printing, and what `school.schema.json` allows. */
+const MAX_BOXES = 20
+
+/**
+ * Checking the folder's cover branding before it is written.
+ *
+ * `schemas/school.schema.json` is the contract, restated here in the order it
+ * states things, as the two validators above are.
+ *
+ * The rules beyond the schema are the ones where a file the schema accepts
+ * produces a cover nobody meant. A field with no label prints an anonymous box
+ * for a student to write their name in, and a logo width of nothing prints a
+ * logo of nothing: both are silent on screen until somebody looks at a printed
+ * page, which is too late.
+ */
+export function validateSchool(school: School): Check[] {
+  const out: Check[] = []
+  const err = (message: string, where?: string) =>
+    out.push({ severity: 'error', message, where })
+  const warn = (message: string, where?: string) =>
+    out.push({ severity: 'warning', message, where })
+
+  if (!school.name?.trim()) err('The school needs a name')
+
+  if (school.logoWidthMm !== undefined && !(school.logoWidthMm > 0)) {
+    err('The logo has to be wider than nothing')
+  }
+  if (school.logoWidthMm !== undefined && school.logoWidthMm > 180) {
+    // Beyond the schema. 180 mm is the printable width of A4 once the margins
+    // in @page are taken out, so a wider logo runs off the edge of the paper.
+    err('A logo wider than 180 mm runs off the edge of an A4 page')
+  }
+
+  const fields = school.identification ?? []
+  fields.forEach((field, i) => {
+    const where = field.label?.trim() || `Box ${i + 1}`
+    validateIdentification(field, where, err)
+  })
+
+  const labels = fields.map((f) => f.label?.trim()).filter(Boolean)
+  const twice = labels.filter((label, i) => labels.indexOf(label) !== i)
+  for (const label of new Set(twice)) {
+    // Beyond the schema. Two boxes both labelled Name is not wrong to print, so
+    // it does not block a save, but it is far more often a half-finished edit
+    // than something a teacher meant.
+    warn(`Two of these are labelled "${label}", so the cover prints it twice`)
+  }
+
+  return out
+}
+
+/**
+ * One identification field, shared by the school form and the profile's
+ * override of it. Both write the same shape and a rule enforced in one place
+ * only is how the second copy quietly loses it.
+ */
+function validateIdentification(
+  field: IdentificationField,
+  where: string,
+  err: Report,
+): void {
+  if (!field.label?.trim()) {
+    err('This needs a label, because it prints as the words above the writing space', where)
+  }
+
+  if (field.kind !== 'write' && field.kind !== 'boxes') {
+    err('Choose whether this is writing space or a row of boxes', where)
+    return
+  }
+
+  if (field.kind === 'boxes' && field.boxes !== undefined) {
+    if (!isWholeAtLeastOne(field.boxes)) {
+      err('A row of boxes has to be a whole number of boxes, one or more', where)
+    } else if (field.boxes > MAX_BOXES) {
+      err(`${field.boxes} boxes is more than fits across the cover. Use ${MAX_BOXES} or fewer.`, where)
+    }
+  }
+}
+
+/** The same beyond-the-schema rules, for the copy a profile may carry. */
+export function validateCoverOverride(fields: IdentificationField[]): Check[] {
+  const out: Check[] = []
+  const err = (message: string, where?: string) =>
+    out.push({ severity: 'error', message, where })
+  fields.forEach((field, i) => {
+    validateIdentification(field, field.label?.trim() || `Box ${i + 1}`, err)
+  })
+  return out
+}
+
+/** Drop the empty strings and empty lists a half-filled form leaves behind. */
+export function cleanSchool(draft: School): School {
+  const out: School = {
+    formatVersion: '1',
+    type: 'klunk_school',
+    name: draft.name.trim(),
+  }
+
+  const logoFile = text(draft.logoFile)
+  if (logoFile !== undefined) out.logoFile = logoFile
+  // Kept only alongside a logo. A width left behind after the picture was
+  // removed is a number that means nothing and would come back into force if a
+  // different logo were chosen later.
+  if (logoFile !== undefined && draft.logoWidthMm !== undefined) {
+    out.logoWidthMm = draft.logoWidthMm
+  }
+
+  const identification = cleanIdentification(draft.identification)
+  if (identification) out.identification = identification
+
+  return out
+}
+
+/**
+ * Tidy a list of identification fields, dropping the ones with nothing in them.
+ *
+ * An unlabelled field is dropped rather than reported, unlike an empty content
+ * point in the syllabus reader: a row added by a stray click on "Add a box" and
+ * never filled in is the ordinary way one of these appears, and there is nothing
+ * in it to lose.
+ */
+export function cleanIdentification(
+  fields: IdentificationField[] | undefined,
+): IdentificationField[] | undefined {
+  const out = (fields ?? [])
+    .filter((f) => f.label?.trim())
+    .map((f): IdentificationField => {
+      const field: IdentificationField = { label: f.label.trim(), kind: f.kind }
+      // Only where it is the shape that has them, so a field switched from
+      // boxes to writing space does not carry a count nothing reads.
+      if (f.kind === 'boxes' && f.boxes !== undefined) field.boxes = f.boxes
+      if (f.onEveryPage) field.onEveryPage = true
+      return field
+    })
+  return out.length > 0 ? out : undefined
 }
 
 /* ------------------------------------------------------------------------ ids */
