@@ -17,6 +17,7 @@ import {
   courseOf,
   focusAreaName,
   NotASyllabusError,
+  parseSyllabusTables,
   parseSyllabusXml,
   suggestSyllabusId,
   summarise,
@@ -37,6 +38,19 @@ const row = (...cells: string[]) => `<w:tr>${cells.join('')}</w:tr>`
 const table = (...rows: string[]) => `<w:tbl>${rows.join('')}</w:tbl>`
 
 const body = (...blocks: string[]) => `<w:document><w:body>${blocks.join('')}</w:body></w:document>`
+
+/**
+ * A cell whose first paragraph is styled as a bullet and sits at the top of a
+ * fresh page, which is what a topic that ran past the bottom of the previous one
+ * looks like in the markup (#43).
+ */
+const tailCell = (...lines: string[]) => {
+  const [first, ...rest] = lines
+  const head =
+    `<w:p><w:pPr><w:pStyle w:val="LISTbull1TAB12pt"/></w:pPr>` +
+    `<w:r><w:lastRenderedPageBreak/><w:t>${first}</w:t></w:r></w:p>`
+  return `<w:tc>${head}${rest.map((l) => para(l)).join('')}</w:tc>`
+}
 
 /** The three-column layout Design and Technology uses. */
 const wideHeader = row(cell('Outcomes'), cell('Students learn about:'), cell('Students learn to:'))
@@ -450,5 +464,51 @@ describe('suggestSyllabusId', () => {
     expect(suggestSyllabusId('design-technology-st6-syl.docx')).toBe('design-technology-st6-syl')
     expect(suggestSyllabusId('Textiles and Design (2013).docx')).toBe('textiles-and-design-2013')
     expect(suggestSyllabusId('!!!.docx')).toBe('syllabus')
+  })
+})
+
+
+describe('a topic that may be the tail of the one above (#43)', () => {
+  const doc = (aboutCell: string) =>
+    body(
+      para('Content: Preliminary Course'),
+      para('P1.1examines design theory'),
+      table(
+        narrowHeader,
+        row(cell('Communication techniques', 'graphical'), cell('use a variety of mediums')),
+        row(aboutCell, cell('develop skills in communicating')),
+      ),
+    )
+
+  it('marks a heading that is a bullet at the top of a fresh page', () => {
+    const { courses, suspects } = parseSyllabusTables(doc(tailCell('verbal', 'criteria')))
+    // Reported, never merged: the topic is still there and the counts are the
+    // parser's own.
+    expect(courses[0]?.topics.map((t) => t.name)).toEqual(['Communication techniques', 'verbal'])
+    expect(suspects).toEqual(['PRE-02'])
+  })
+
+  it('says nothing when the heading is a bullet but no page broke', () => {
+    const noBreak = `<w:tc><w:p><w:pPr><w:pStyle w:val="LISTbull1TAB12pt"/></w:pPr><w:r><w:t>verbal</w:t></w:r></w:p></w:tc>`
+    // Design and Technology styles all forty of its real topic headings as list
+    // items, so the bullet alone has to mean nothing.
+    expect(parseSyllabusTables(doc(noBreak)).suspects).toEqual([])
+  })
+
+  it('says nothing when a page broke but the heading is a heading', () => {
+    const broken = `<w:tc><w:p><w:r><w:lastRenderedPageBreak/><w:t>Fibre structure</w:t></w:r></w:p></w:tc>`
+    expect(parseSyllabusTables(doc(broken)).suspects).toEqual([])
+  })
+
+  it('says nothing about a row the continuation rule already merged', () => {
+    // Nothing was made a topic, so there is nothing to point at.
+    const { courses, suspects } = parseSyllabusTables(doc(tailCell('iv) end use', 'cost')))
+    expect(courses[0]?.topics).toHaveLength(1)
+    expect(suspects).toEqual([])
+  })
+
+  it('leaves parseSyllabusXml returning exactly what it always did', () => {
+    const xml = doc(tailCell('verbal', 'criteria'))
+    expect(parseSyllabusXml(xml)).toEqual(parseSyllabusTables(xml).courses)
   })
 })

@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { readZipMember } from './docx'
-import { parseSyllabusXml, summarise } from './syllabus'
+import { parseSyllabusTables, parseSyllabusXml, summarise } from './syllabus'
 
 const SOURCE = '../klunk-content/source'
 const FIXTURES = '../klunk-content/fixtures'
@@ -90,10 +90,18 @@ const ALSO_PARSES = [
 
 const available = Object.values(EXPECTED).every((e) => existsSync(e.path))
 
-async function coursesOf(path: string) {
+async function xmlOf(path: string) {
   const bytes = readFileSync(path)
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-  return parseSyllabusXml(await readZipMember(buffer as ArrayBuffer, 'word/document.xml'))
+  return readZipMember(buffer as ArrayBuffer, 'word/document.xml')
+}
+
+async function coursesOf(path: string) {
+  return parseSyllabusXml(await xmlOf(path))
+}
+
+async function suspectsOf(path: string) {
+  return parseSyllabusTables(await xmlOf(path)).suspects
 }
 
 describe.skipIf(!available)('the syllabus reader against the real NESA documents', () => {
@@ -146,6 +154,27 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
       expect(names.filter((n) => /\u00a0/.test(n))).toEqual([])
     })
   }
+
+  /*
+   * #43. The reader points at a row that may be the tail of the one above and
+   * never merges it, so these assert both halves: which topics are flagged, and
+   * that the counts above are untouched by the flagging.
+   *
+   * Textiles Preliminary is the one real case in the corpus. Its `PRE-05 verbal`
+   * is a content point of `PRE-04 Communication techniques`, alongside
+   * `graphical` and `written`, split off by a page break. Textiles HSC has the
+   * #26 case, which `CONTINUATION_RE` already merges, so no topic exists to flag.
+   */
+  it('points at the Textiles Preliminary row that is really a content point', async () => {
+    expect(await suspectsOf(EXPECTED['Textiles and Design']!.path)).toEqual(['PRE-05'])
+  })
+
+  it('points at nothing in Design and Technology, whose headings are all bullets', async () => {
+    // The case that rules out merging on the markup. All forty of this
+    // document's real topic headings are list items, so a reader that acted on
+    // that signal would collapse each course to a single topic.
+    expect(await suspectsOf(EXPECTED['Design and Technology']!.path)).toEqual([])
+  })
 
   for (const path of ALSO_PARSES) {
     const name = path.split('/').pop() ?? path

@@ -50,6 +50,8 @@ export function SyllabusReader({
     /** The parse as it came out, so undoing every correction is going back to it. */
     original: SyllabusCourse[]
     format: SyllabusFormat
+    /** Topic ids the reader is unsure about, which the review panel points at. */
+    suspects: string[]
   } | null>(null)
   const [edits, setEdits] = useState<string[]>([])
 
@@ -94,8 +96,8 @@ export function SyllabusReader({
     setEdits([])
     try {
       const file = await fileFrom(folder, path)
-      const { format, courses } = readSyllabusXml(await readDocxXml(file))
-      setFound({ courses, original: courses, format })
+      const { format, courses, suspects } = readSyllabusXml(await readDocxXml(file))
+      setFound({ courses, original: courses, format, suspects })
       const base = path.split('/').pop() ?? path
       setId(suggestSyllabusId(base))
       setName(prettyName(base))
@@ -250,7 +252,7 @@ export function SyllabusReader({
             </p>
           </section>
 
-          <SyllabusReview courses={found.courses} onChange={change} />
+          <SyllabusReview courses={found.courses} suspects={found.suspects} onChange={change} />
 
           {edits.length > 0 && (
             <section class="panel panel--note">

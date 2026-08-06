@@ -132,6 +132,20 @@ export function cellLines(xml: string): string[] {
   return [...xml.matchAll(PARA_RE)].map((m) => paraText(m[0])).filter((t) => t !== '')
 }
 
+/** What the markup says about the first paragraph of a cell that has any text. */
+export function cellNote(xml: string): CellNote {
+  for (const m of xml.matchAll(PARA_RE)) {
+    if (paraText(m[0]) === '') continue
+    const ppr = PPR_RE.exec(m[0])?.[0] ?? ''
+    const style = /<w:pStyle w:val="([^"]+)"/.exec(ppr)?.[1] ?? ''
+    return {
+      listed: /<w:numPr>/.test(ppr) || LIST_STYLE_RE.test(style),
+      afterPageBreak: PAGE_BREAK_RE.test(m[0]),
+    }
+  }
+  return { listed: false, afterPageBreak: false }
+}
+
 /** Whether every run that carries text in this paragraph is bold. */
 function allRunsBold(xml: string): boolean {
   const body = xml.replace(PPR_RE, '')
@@ -163,10 +177,36 @@ export interface Para {
   listed: boolean
 }
 
+// A cell's first paragraph carries two facts that its text does not, and both are
+// needed to spot a row that is really the tail of the one above it (#43).
+//
+// `w:numPr` is not enough on its own. Textiles marks its content points with the
+// style `LISTbull1TAB12pt` and no numbering properties at all, so a reader that
+// looks only for `w:numPr` sees nothing. The style name is Word's own and says
+// what it is.
+const LIST_STYLE_RE = /list|bull/i
+
+// Where Word last laid out a page break. It is a cache rather than a
+// declaration: a document Word has never rendered does not carry any. That
+// asymmetry is why this may only ever raise a question and never decide
+// something, since a missing break costs a warning nobody sees and a wrong one
+// would cost a topic.
+const PAGE_BREAK_RE = /<w:lastRenderedPageBreak\s*\/>/
+
+/** What the markup says about a cell's first paragraph, beyond its text. */
+export interface CellNote {
+  /** Styled or numbered as a list item, which is what a content point is. */
+  listed: boolean
+  /** Word last laid this paragraph out at the top of a fresh page. */
+  afterPageBreak: boolean
+}
+
 /** One table, as rows of cells, each cell a list of its paragraphs. */
 export interface Table {
   kind: 'table'
   rows: string[][][]
+  /** `notes[row][cell]` describes that cell's first paragraph. Same shape as `rows`. */
+  notes: CellNote[][]
 }
 
 export type Block = Para | Table
@@ -180,11 +220,14 @@ export function blocks(xml: string): Block[] {
     const at = m.index
     covered.push([at, at + m[0].length])
     const rows: string[][][] = []
+    const notes: CellNote[][] = []
     for (const r of m[0].matchAll(ROW_RE)) {
-      const cells = [...r[0].matchAll(CELL_RE)].map((c) => cellLines(c[0]))
-      if (cells.length > 0) rows.push(cells)
+      const raw = [...r[0].matchAll(CELL_RE)]
+      if (raw.length === 0) continue
+      rows.push(raw.map((c) => cellLines(c[0])))
+      notes.push(raw.map((c) => cellNote(c[0])))
     }
-    if (rows.length > 0) spans.push({ at, block: { kind: 'table', rows } })
+    if (rows.length > 0) spans.push({ at, block: { kind: 'table', rows, notes } })
   }
 
   for (const m of xml.matchAll(PARA_RE)) {

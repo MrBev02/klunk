@@ -13,7 +13,7 @@
  */
 
 import { parseHeadingsXml, parseProseXml } from './headings'
-import { NotASyllabusError, parseSyllabusXml } from './syllabus'
+import { NotASyllabusError, parseSyllabusTables } from './syllabus'
 import type { SyllabusCourse } from './types'
 
 export type SyllabusFormat = 'tables' | 'headings' | 'prose'
@@ -31,15 +31,23 @@ export const FORMAT_DESCRIPTIONS: Record<SyllabusFormat, string> = {
   prose: 'an older syllabus whose content is written as numbered sections of prose',
 }
 
-const READERS: [SyllabusFormat, (xml: string) => SyllabusCourse[]][] = [
-  ['tables', parseSyllabusXml],
-  ['headings', parseHeadingsXml],
-  ['prose', parseProseXml],
-]
+/**
+ * Only the content-table reader reports anything doubtful, because it is the only
+ * one where a page break can turn a content point into a heading: the other two
+ * read headings that Word itself marks as headings.
+ */
+const READERS: [SyllabusFormat, (xml: string) => { courses: SyllabusCourse[]; suspects: string[] }][] =
+  [
+    ['tables', parseSyllabusTables],
+    ['headings', (xml) => ({ courses: parseHeadingsXml(xml), suspects: [] })],
+    ['prose', (xml) => ({ courses: parseProseXml(xml), suspects: [] })],
+  ]
 
 export interface SyllabusReading {
   format: SyllabusFormat
   courses: SyllabusCourse[]
+  /** Topic ids that may be the tail of the topic above. A question, never a decision. */
+  suspects: string[]
 }
 
 /**
@@ -51,7 +59,7 @@ export interface SyllabusReading {
 export function readSyllabusXml(xml: string): SyllabusReading {
   for (const [format, read] of READERS) {
     try {
-      return { format, courses: read(xml) }
+      return { format, ...read(xml) }
     } catch (err) {
       if (!(err instanceof NotASyllabusError)) throw err
     }

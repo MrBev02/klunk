@@ -317,18 +317,50 @@ while the content was wrong**, which is the whole lesson of this section — so 
 corpus test now also asserts that no topic name opens with a list marker and that
 none carries a non-breaking space.
 
-**Textiles Preliminary has the same fault and its 18 / 104 / 11 encodes it** (#43),
-found by driving the review panel over it. `PRE-05 verbal` is a content point of
-`PRE-04 Communication techniques`, sitting alongside `graphical` and `written`,
-which continues in a fresh table row after a page break. This one opens `verbal`
-rather than `iv)`, so `CONTINUATION_RE` does not catch it, and **nothing
-structural separates it from a real topic**: it carries its own skills, the same
-six outcomes and the same focus area as the topics either side. The lowercase
-heading is the only tell, and that cannot be the rule, because all forty of Design
-and Technology's topic headings are lowercase and all forty are real. Corrected it
-is 17 / 105 / 11. Do not change the corpus counts without settling #43 one way or
-the other: this may be a document a teacher corrects by hand rather than one the
-parser can get right.
+**Textiles Preliminary has the same fault and its 18 / 104 / 11 encodes it**
+(#43), found by driving the review panel over it. `PRE-05 verbal` is a content
+point of `PRE-04 Communication techniques`, sitting alongside `graphical` and
+`written`, which continues in a fresh table row after a page break. It opens
+`verbal` rather than `iv)`, so `CONTINUATION_RE` does not catch it. Corrected it
+is 17 / 105 / 11.
+
+**#43 is settled: the counts stay as the parser's output, and the reader points
+at the row instead of merging it.** That is a decision with evidence behind it,
+so do not reopen it without new documents.
+
+The markup does carry a signal. In Textiles every real topic heading is styled as
+a heading (`Heading5`, `hd3`, `Header`) or is bold, while content points carry
+`LISTbull1TAB12pt`, and both continuation rows carry the content-point style at
+the top of a fresh page. Conjoining those two facts, a **list-styled first
+paragraph carrying `w:lastRenderedPageBreak`**, picks out exactly the two known
+faults in Textiles and nothing else in it.
+
+It does not generalise, and the counter-example is decisive:
+
+| document | rows | list-styled headings | flagged by list style alone |
+|---|---|---|---|
+| Design and Technology | 40 | **40** | 40 |
+| Textiles and Design | 34 | 2 | 2 |
+| Food Technology | 26 | 6 | 6 |
+| Industrial Technology | 163 | 48 | 48 |
+
+**All forty of Design and Technology's topic headings are list items**, so acting
+on the style alone collapses each course to a single topic. Adding the page break
+saves D&T and Food Technology, both of which drop to zero, but Industrial
+Technology still flags eight, and there it is plainly wrong: `framing joints` and
+`carcase joints` are the same kind of thing in the same list, and the rule keeps
+one and swallows the other purely because of where the page happened to break.
+Restricting further, to documents that do not otherwise use list-styled headings,
+gets all four right and is three conditions fitted to two positive examples in one
+document. That is not a rule, it is the shape of one document.
+
+So `parseSyllabusTables` returns `suspects` beside the courses and the review
+panel marks them **check this one**. `lastRenderedPageBreak` is a cache of Word's
+last layout rather than a declaration, and a document Word has never rendered
+carries none: a missing break costs a warning nobody sees, a wrong merge would
+cost a topic silently. That asymmetry is the whole argument for reporting.
+`parseSyllabusXml` still returns the courses alone, so the corpus comparison
+against the Python tool is untouched.
 
 Groups are part of that check, because they were wrong for a long time without
 changing any count. Design and Technology must have **no group on any topic**: it

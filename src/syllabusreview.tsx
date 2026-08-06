@@ -62,9 +62,15 @@ function linesFor(text: string): number {
 
 export function SyllabusReview({
   courses,
+  suspects = [],
   onChange,
 }: {
   courses: SyllabusCourse[]
+  /**
+   * Topic ids the reader is unsure about. Marked rather than merged, because the
+   * markup that says so is reliable in one document and misleading in another.
+   */
+  suspects?: string[]
   /** The corrected courses, with what was done to them for the list of changes. */
   onChange: (courses: SyllabusCourse[], what: string) => void
 }) {
@@ -91,7 +97,7 @@ export function SyllabusReview({
       )}
 
       {courses.map((course) => (
-        <CourseReview key={course.id} course={course} apply={apply} />
+        <CourseReview key={course.id} course={course} suspects={suspects} apply={apply} />
       ))}
     </>
   )
@@ -99,9 +105,11 @@ export function SyllabusReview({
 
 function CourseReview({
   course,
+  suspects,
   apply,
 }: {
   course: SyllabusCourse
+  suspects: string[]
   apply: (fn: Apply, what: string) => void
 }) {
   const [open, setOpen] = useState<string[]>([])
@@ -230,6 +238,7 @@ function CourseReview({
             course={course}
             topic={topic}
             at={at}
+            suspect={suspects.includes(topic.id)}
             open={open.includes(topic.id)}
             onToggle={() => toggle(topic.id)}
             apply={apply}
@@ -244,6 +253,7 @@ function TopicRow({
   course,
   topic,
   at,
+  suspect,
   open,
   onToggle,
   apply,
@@ -251,6 +261,8 @@ function TopicRow({
   course: SyllabusCourse
   topic: SyllabusTopic
   at: number
+  /** The reader thinks this heading may be a content point of the topic above. */
+  suspect: boolean
   open: boolean
   onToggle: () => void
   apply: (fn: Apply, what: string) => void
@@ -271,6 +283,7 @@ function TopicRow({
           {topic.name.trim() || <span class="muted">This topic has no name</span>}
         </span>
         <span class="qrow__tail">
+          {suspect && <span class="chip chip--flag">check this one</span>}
           <span class="muted review__meta">
             {points.length} point{points.length === 1 ? '' : 's'}
           </span>
@@ -285,6 +298,17 @@ function TopicRow({
             {topic.group && ` · ${topic.group}`}
             {(topic.outcomes ?? []).length > 0 && ` · ${(topic.outcomes ?? []).join(', ')}`}
           </p>
+
+          {suspect && (
+            <p class="review__suspect">
+              In the document this line is set as a bullet, not as a heading, and it starts a
+                 fresh page. That is what a topic looks like when it runs past the bottom of a
+                 page and carries on overleaf, so this may belong to{' '}
+              {at > 0 ? `"${course.topics[at - 1]?.name}"` : 'the topic above'} rather than
+                 standing on its own. Read it against the document, and use Join to the topic
+                 above if it does.
+            </p>
+          )}
 
           {verbatim && (
             <p class="review__verbatim">

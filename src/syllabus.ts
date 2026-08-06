@@ -21,7 +21,7 @@
  * count are the group heading (#14) and course membership.
  */
 
-import { blocks, tidyHeading } from './ooxml'
+import { blocks, tidyHeading, type CellNote, type Table } from './ooxml'
 import type { Syllabus, SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
 
 /* ----------------------------------------------------------------- the rules */
@@ -179,9 +179,9 @@ function addTopic(
   skills: string[],
   outcomes: string[],
   group: string,
-): void {
+): SyllabusTopic | null {
   const [heading, ...points] = about
-  if (heading === undefined) return
+  if (heading === undefined) return null
 
   // A continuation of the topic above, not a topic. Everything in the cell is
   // content, the heading line included, and the "learn to" cell belongs to the
@@ -199,7 +199,7 @@ function addTopic(
       })),
     ]
     parent.skills = [...(parent.skills ?? []), ...skills]
-    return
+    return null
   }
 
   const id = `${course.id.toUpperCase()}-${String(course.topics.length + 1).padStart(2, '0')}`
@@ -220,13 +220,26 @@ function addTopic(
   if (group) topic.group = group
 
   course.topics.push(topic)
+  return topic
+}
+
+/**
+ * Whether a row's content cell looks like the tail of the topic above it.
+ *
+ * A heading styled as a list item, at the top of a fresh page, is what a topic
+ * that ran past the bottom of the previous one looks like in the markup. Both
+ * halves are needed and neither is sufficient. See `suspects` on the reading for
+ * why this only ever raises a question.
+ */
+function looksLikeATail(note: CellNote | undefined): boolean {
+  return note !== undefined && note.listed && note.afterPageBreak
 }
 
 /** A three-column table, where each row may carry its own outcome. */
-function addWideTable(course: Building, rows: string[][][], group: string): void {
+function addWideTable(course: Building, table: Table, group: string, doubtful: string[]): void {
   let current: string[] = []
 
-  for (const row of rows.slice(1)) {
+  for (const [at, row] of table.rows.slice(1).entries()) {
     if (row.length < 3) continue
 
     const cell = (row[0] ?? []).join(' ').trim()
@@ -239,38 +252,67 @@ function addWideTable(course: Building, rows: string[][][], group: string): void
       }
     }
 
-    addTopic(course, row[1] ?? [], row[2] ?? [], current, group)
+    const made = addTopic(course, row[1] ?? [], row[2] ?? [], current, group)
+    if (made && looksLikeATail(table.notes[at + 1]?.[1])) doubtful.push(made.id)
   }
 }
 
 /** A two-column table, where every row is a topic and the outcomes came from above it. */
 function addNarrowTable(
   course: Building,
-  rows: string[][][],
+  table: Table,
   outcomes: string[],
   group: string,
+  doubtful: string[],
 ): void {
-  for (const row of rows.slice(1)) {
+  for (const [at, row] of table.rows.slice(1).entries()) {
     if (row.length < 2) continue
-    addTopic(course, row[0] ?? [], row[1] ?? [], outcomes, group)
+    const made = addTopic(course, row[0] ?? [], row[1] ?? [], outcomes, group)
+    if (made && looksLikeATail(table.notes[at + 1]?.[0])) doubtful.push(made.id)
   }
 }
 
 export class NotASyllabusError extends Error {}
 
 /**
+ * A reading of the tables, with what it is unsure about.
+ *
+ * `suspects` holds topic ids that may be the tail of the topic above rather than
+ * topics of their own. It is deliberately **a question and never a decision**,
+ * because the evidence does not support deciding.
+ *
+ * The markup does distinguish the two in Textiles and Design, where every real
+ * heading is styled as a heading or bold and the two continuation rows are
+ * styled as list items. It does not distinguish them anywhere else. All forty of
+ * Design and Technology's topic headings are list items, so merging on that
+ * signal would collapse the course to a single topic. Industrial Technology is
+ * worse than useless: it uses list-styled headings routinely, so `framing joints`
+ * and `carcase joints` are the same kind of thing and a page break falling
+ * between them would keep one and swallow the other.
+ *
+ * So the signal is real, and it is real about *one document*. Reporting it costs
+ * a teacher a moment's reading when it is wrong. Acting on it would silently cost
+ * a topic, which is the #26 and #43 fault reproduced by its own fix.
+ */
+export interface TableReading {
+  courses: SyllabusCourse[]
+  /** Topic ids worth a second look, in the order they were read. */
+  suspects: string[]
+}
+
+/**
  * Read the document body and return its courses in published order.
  *
- * @throws NotASyllabusError when no content table is present, which means the
- *   document is not a 2013-era NESA Stage 6 syllabus.
+ * @throws NotASyllabusError when no content table is present.
  */
-export function parseSyllabusXml(xml: string): SyllabusCourse[] {
+export function parseSyllabusTables(xml: string): TableReading {
   const courses = new Map<string, Building>()
   let hint: string | null = null
   // Outcomes stated as plain paragraphs since the last content table. In the
   // narrow layout this is the only place they appear.
   let pending = new Map<string, string>()
   let group = ''
+  const suspects: string[] = []
 
   for (const block of blocks(xml)) {
     if (block.kind === 'para') {
@@ -306,12 +348,12 @@ export function parseSyllabusXml(xml: string): SyllabusCourse[] {
     }
 
     if (layout === 'wide') {
-      addWideTable(course, block.rows, group)
+      addWideTable(course, block, group, suspects)
     } else {
       for (const [code, text] of pending) {
         if (!course.outcomes.has(code)) course.outcomes.set(code, text)
       }
-      addNarrowTable(course, block.rows, codes, group)
+      addNarrowTable(course, block, codes, group, suspects)
     }
 
     pending = new Map()
@@ -327,16 +369,33 @@ export function parseSyllabusXml(xml: string): SyllabusCourse[] {
   // Preliminary before HSC, then anything unrecognised, so the output order is
   // stable regardless of how the document happened to be laid out.
   const order: Record<string, number> = { pre: 0, hsc: 1 }
-  return [...courses.values()]
-    .sort((a, b) => (order[a.id] ?? 9) - (order[b.id] ?? 9))
-    .map(
-      (c): SyllabusCourse => ({
-        id: c.id,
-        name: c.name,
-        outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
-        topics: c.topics,
-      }),
-    )
+  return {
+    courses: [...courses.values()]
+      .sort((a, b) => (order[a.id] ?? 9) - (order[b.id] ?? 9))
+      .map(
+        (c): SyllabusCourse => ({
+          id: c.id,
+          name: c.name,
+          outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
+          topics: c.topics,
+        }),
+      ),
+    suspects,
+  }
+}
+
+/**
+ * The courses alone.
+ *
+ * Kept because `syllabus.corpus.test.ts` compares this against
+ * `tools/nesa_stage6_syllabus.py` output for output on all four documents, and
+ * that comparison is what makes the port trustworthy rather than plausible.
+ *
+ * @throws NotASyllabusError when no content table is present, which means the
+ *   document is not a 2013-era NESA Stage 6 syllabus.
+ */
+export function parseSyllabusXml(xml: string): SyllabusCourse[] {
+  return parseSyllabusTables(xml).courses
 }
 
 /* -------------------------------------------------------------------- model */
