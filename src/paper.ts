@@ -11,6 +11,7 @@
 import type {
   ContentIndex,
 } from './storage'
+import { knownIds, unresolvedTags } from './modelcheck'
 import { allQuestions, findQuestion, inSyllabus } from './storage'
 import type {
   Paper,
@@ -66,6 +67,15 @@ export interface ResolvedPaper {
    * ordinary and falls back to the id.
    */
   syllabusNames: Map<string, string>
+  /**
+   * What each syllabus model in the folder defines, so a tag that names nothing
+   * can be reported rather than printed as though it were live (#44).
+   *
+   * Keyed the same way as `syllabusNames` and missing for the same reason: the
+   * model is the teacher's to generate and a bank may name one they have not
+   * made yet.
+   */
+  syllabusTags: Map<string, Set<string>>
 }
 
 export type Severity = 'error' | 'warning'
@@ -177,6 +187,7 @@ export function resolvePaper(
     relocated,
     images: index.images,
     syllabusNames: new Map(index.syllabuses.map(({ data }) => [data.id, data.name])),
+    syllabusTags: knownIds(index.syllabuses),
   }
 }
 
@@ -354,6 +365,21 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
           severity: 'warning',
           where: section.title,
           message: `Question ${q.number} is not tagged to the syllabus, so it will not show in coverage`,
+        })
+      }
+      // A tag that names nothing is worse than no tag: the question looks
+      // covered and is not. It happens when a syllabus model is re-read over one
+      // that had been corrected by hand, which takes ids away (#44).
+      const dead = unresolvedTags(
+        { question: q.question, file: q.file, syllabusId: q.syllabusId },
+        resolved.syllabusTags,
+      )
+      if (dead.length > 0) {
+        const subject = resolved.syllabusNames.get(q.syllabusId ?? '') ?? q.syllabusId
+        checks.push({
+          severity: 'warning',
+          where: section.title,
+          message: `Question ${q.number} is tagged ${dead.join(', ')}, which is not in ${subject} any more, so it will not show in coverage`,
         })
       }
     }

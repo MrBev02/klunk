@@ -464,6 +464,23 @@ code,
   color: var(--blue);
 }
 
+/* A tag that names nothing in the syllabus any more. Struck through as well as
+   coloured, because the difference between a live tag and a dead one has to
+   survive being read by someone who cannot tell the two colours apart. */
+.chip--dead {
+  border-style: dashed;
+  border-color: var(--red);
+  color: var(--red);
+  text-decoration: line-through;
+}
+
+.tagrow__dead {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--red);
+}
+
 /* ------------------------------------------------------------- two-pane grid */
 
 .split {

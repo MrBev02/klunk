@@ -21,6 +21,7 @@
  * That is why nothing here is derived from an array index.
  */
 
+import { taggedIds } from './modelcheck'
 import { inSyllabus, syllabusIdsOf } from './storage'
 import type { QuestionRef, SyllabusCourse, SyllabusOutcome, SyllabusPoint, SyllabusTopic } from './types'
 
@@ -454,23 +455,6 @@ export function tidyCourses(courses: SyllabusCourse[]): SyllabusCourse[] {
 }
 
 /* ------------------------------------------------------ replacing a model */
-
-/**
- * Everything a question can tag itself with: topic ids, content point ids and
- * outcome codes. All three can be edited or deleted on the way in, and a question
- * cites all three.
- */
-function taggedIds(courses: SyllabusCourse[]): Set<string> {
-  const out = new Set<string>()
-  for (const course of courses) {
-    for (const outcome of course.outcomes ?? []) out.add(outcome.code)
-    for (const topic of course.topics) {
-      out.add(topic.id)
-      for (const point of topic.points ?? []) out.add(point.id)
-    }
-  }
-  return out
-}
 
 export interface Replacing {
   /** Ids the model in the folder has and the one on screen does not. */

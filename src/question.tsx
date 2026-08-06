@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'preact/hooks'
+import { unresolvedAgainst } from './modelcheck'
 import { rowAnswers, shuffledChoices } from './paper'
 import { markRange } from './render'
 import { joinPath } from './storage'
@@ -25,12 +26,18 @@ export function QuestionRow({
   index = 0,
   action,
   images,
+  known,
 }: {
   item: QuestionRef
   index?: number
   action?: preact.ComponentChildren
   /** Stimulus images by folder path, so a question can show its picture. */
   images?: Map<string, string> | undefined
+  /**
+   * Every id the syllabus this question names defines, when that model is in the
+   * folder. Absent means Klunk cannot tell, and nothing is marked.
+   */
+  known?: Set<string> | undefined
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
@@ -69,7 +76,13 @@ export function QuestionRow({
         <div class="qrow__detail">
           {/* The collapsed row above already shows the stem, so repeating it
               here just pushed the answers further down the screen. */}
-          <QuestionDetail question={q} showStem={false} bankFile={item.file} images={images} />
+          <QuestionDetail
+            question={q}
+            showStem={false}
+            bankFile={item.file}
+            images={images}
+            known={known}
+          />
           <p class="det__label" style={{ marginTop: '0.9rem' }}>
             <span class="mono">{item.file}</span> · <span class="mono">{q.id}</span>
           </p>
@@ -85,12 +98,18 @@ export function QuestionDetail({
   showStem = true,
   bankFile,
   images,
+  known,
 }: {
   question: Question
   showStem?: boolean
   /** Where the question lives, since a stimulus path is relative to its bank. */
   bankFile?: string | undefined
   images?: Map<string, string> | undefined
+  /**
+   * Every id the syllabus this question names defines, when that model is in the
+   * folder. Absent means Klunk cannot tell, and nothing is marked.
+   */
+  known?: Set<string> | undefined
 }) {
   return (
     <>
@@ -123,7 +142,7 @@ export function QuestionDetail({
 
       <Body question={q} />
       <Guide question={q} />
-      <Tags question={q} />
+      <Tags question={q} known={known} />
     </>
   )
 }
@@ -340,11 +359,17 @@ function Guide({ question: q }: { question: Question }) {
   )
 }
 
-function Tags({ question: q }: { question: Question }) {
+function Tags({ question: q, known }: { question: Question; known?: Set<string> | undefined }) {
   const topics = q.syllabus?.topicIds ?? []
   const points = q.syllabus?.pointIds ?? []
   const outcomes = q.outcomes ?? []
   const tags = q.tags ?? []
+
+  // Only where the model this question names is actually in the folder. Klunk
+  // ships none, so a bank naming one the teacher has not generated is ordinary
+  // and every chip would otherwise read as broken (#44).
+  const dead = known ? unresolvedAgainst(q, known) : []
+  const chip = (id: string) => (dead.includes(id) ? 'chip chip--dead' : 'chip')
 
   return (
     <div class="det">
@@ -352,12 +377,12 @@ function Tags({ question: q }: { question: Question }) {
         <span class="chip">{QUESTION_TYPE_LABELS[q.questionType]}</span>
         {q.difficulty && <span class="chip">difficulty {q.difficulty}</span>}
         {topics.concat(points).map((id) => (
-          <span key={id} class="chip">
+          <span key={id} class={chip(id)}>
             {id}
           </span>
         ))}
         {outcomes.map((o) => (
-          <span key={o} class="chip">
+          <span key={o} class={chip(o)}>
             {o}
           </span>
         ))}
@@ -370,6 +395,13 @@ function Tags({ question: q }: { question: Question }) {
           <span class="chip chip--flag">not tagged to the syllabus</span>
         )}
       </div>
+      {dead.length > 0 && (
+        <p class="tagrow__dead">
+          {dead.length === 1 ? 'The struck-through tag is' : 'The struck-through tags are'} not in
+             this syllabus any more, so this question will not show as covering anything under
+             {dead.length === 1 ? ' it' : ' them'}. Open the question and tag it again.
+        </p>
+      )}
       {q.source?.origin && q.source.origin !== 'authored' && (
         <p class="muted" style={{ marginTop: '0.4rem', fontSize: '0.85rem' }}>
           {sourceLabel(q)}

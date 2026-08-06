@@ -5,6 +5,7 @@ import { QuestionEditor, type Editing } from './editor'
 import { Extractor } from './extractor'
 import { Factory } from './factory'
 import { Help } from './help'
+import { duplicateModels, knownIds } from './modelcheck'
 import { paperIsDirty, paperIsSaved } from './paper'
 import { ProfileEditor, type EditingProfile } from './profile'
 import { SyllabusReader } from './syllabusreader'
@@ -847,6 +848,10 @@ function Library({
   onReload: () => void
 }) {
   const questions = useMemo(() => allQuestions(index), [index])
+  // What each model in the folder defines, so a tag naming nothing is marked
+  // rather than printed as though it were live (#44).
+  const known = useMemo(() => knownIds(index.syllabuses), [index.syllabuses])
+  const duplicates = useMemo(() => duplicateModels(index.syllabuses), [index.syllabuses])
 
   const [type, setType] = useState('')
   const [topic, setTopic] = useState('')
@@ -1061,6 +1066,23 @@ function Library({
           </section>
         )}
 
+        {duplicates.map((d) => (
+          <section key={d.source} class="panel panel--note">
+            <p class="panel__title">Two syllabus models from one document</p>
+            <p>
+              {d.models.map((m) => m.path).join(' and ')} were both built from{' '}
+              <span class="mono">{d.source}</span>. Questions tagged against one of them do not
+                 count towards the other, so a paper built from the wrong one looks uncovered.
+            </p>
+            <p>
+              Keep the one your questions are tagged against and delete the other from this
+                 folder. If you meant to keep two because Year 11 and Year 12 are on different
+                 editions of this syllabus, build the second one from that edition's own
+                 document rather than from this one.
+            </p>
+          </section>
+        ))}
+
         {questions.length === 0 ? (
           <section class="panel">
             <p class="panel__title">No questions found</p>
@@ -1088,6 +1110,7 @@ function Library({
                 item={ref}
                 index={i}
                 images={index.images}
+                known={ref.syllabusId === undefined ? undefined : known.get(ref.syllabusId)}
                 action={
                   <button class="btn btn--small" onClick={() => onEdit(ref)}>
                     Edit this question

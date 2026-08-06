@@ -332,9 +332,28 @@ const written15 = designProfile.paper.sections[1]
  * naming none must stay visible: all that is known about it is a bare topic id.
  */
 function twoSubjects(): ContentIndex {
+  // The topics the fixture questions are actually tagged against. An empty
+  // course list would be simpler and would now mean something else: every tag in
+  // the folder resolving to nothing, which is its own warning (#44).
   const syllabus = (id: string, name: string): { path: string; data: Syllabus } => ({
     path: `syllabus/${id}.json`,
-    data: { formatVersion: '1', type: 'klunk_syllabus', id, name, framework: 'nsw', courses: [] },
+    data: {
+      formatVersion: '1',
+      type: 'klunk_syllabus',
+      id,
+      name,
+      framework: 'nsw',
+      courses: [
+        {
+          id: 'hsc',
+          name: 'HSC course',
+          topics: [
+            { id: 'HSC-01', name: 'One', points: [] },
+            { id: 'HSC-02', name: 'Two', points: [] },
+          ],
+        },
+      ],
+    },
   })
   const bank = (name: string, syllabusId: string | undefined, questions: Question[]) => ({
     path: `bank/${name}.json`,
@@ -450,6 +469,34 @@ describe('checkPaper against another subject', () => {
       c.message.includes('belongs to'),
     )
     expect(warning?.message).toContain('nsw-hsc-textiles-and-design')
+  })
+
+  it('warns when a tag names nothing in the syllabus any more', () => {
+    const index = twoSubjects()
+    // What a re-read over a corrected model does: the id the question was tagged
+    // with is not in the new one.
+    const dt = index.syllabuses[0]!.data.courses[0]!
+    dt.topics = dt.topics.filter((t) => t.id !== 'HSC-01')
+
+    let paper = newPaper(designProfile, 'p1', 'Test')
+    paper = addRef(paper, 0, 'bank/design.json#dt-mc')
+    const warning = checkPaper(resolvePaper(index, paper, designProfile)).find((c) =>
+      c.message.includes('not in'),
+    )
+
+    expect(warning?.severity).toBe('warning')
+    expect(warning?.message).toBe(
+      'Question 1 is tagged HSC-01, which is not in Design and Technology any more, so it will not show in coverage',
+    )
+  })
+
+  it('says nothing about a tag when that model is not in the folder', () => {
+    const index = twoSubjects()
+    index.syllabuses = []
+    let paper = newPaper(designProfile, 'p1', 'Test')
+    paper = addRef(paper, 0, 'bank/design.json#dt-mc')
+    const checks = checkPaper(resolvePaper(index, paper, designProfile))
+    expect(checks.find((c) => c.message.includes('not in'))).toBeUndefined()
   })
 
   it('says nothing when the profile names no syllabus', () => {

@@ -331,7 +331,9 @@ describe('what replacing the model in the folder would cost', () => {
   const asked = (
     id: string,
     tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[] },
-    syllabusId: string | undefined = 'textiles',
+    // `null`, not `undefined`: an explicit undefined falls back to the default
+    // parameter, so "names no syllabus" would quietly test the default instead.
+    syllabusId: string | null = 'textiles',
   ): QuestionRef => {
     const question: Question = {
       id,
@@ -341,7 +343,7 @@ describe('what replacing the model in the folder would cost', () => {
       syllabus: { topicIds: tags.topicIds ?? [], pointIds: tags.pointIds ?? [] },
       ...(tags.outcomes ? { outcomes: tags.outcomes } : {}),
     }
-    return { question, file: 'bank/b.json', syllabusId }
+    return { question, file: 'bank/b.json', syllabusId: syllabusId ?? undefined }
   }
 
   it('says nothing is lost when the document is simply read again', () => {
@@ -408,7 +410,7 @@ describe('what replacing the model in the folder would cost', () => {
       merged,
       [
         asked('q1', { topicIds: ['HSC-02'] }, 'design-technology'),
-        asked('q2', { topicIds: ['HSC-02'] }, undefined),
+        asked('q2', { topicIds: ['HSC-02'] }, null),
       ],
       'textiles',
     )

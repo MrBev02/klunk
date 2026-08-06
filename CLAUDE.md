@@ -60,6 +60,7 @@ klunk/                     this repo - app and tools only, public
     headings.ts            the Outcomes/Content reader and the prose reader
     formats.ts             picks the reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
+    modelcheck.ts          tags that name nothing, and two models of one document
     fixtures/              fictional sample data for development
 ../klunk-content/          NOT in git - the teacher's content folder equivalent
   source/                  downloaded syllabus docs and past papers
@@ -633,6 +634,40 @@ points in about half a second. Drama and the outcome list both needed boxes that
 grow to their content: those documents write content and outcomes as whole
 paragraphs, and a two-row box clips them mid-sentence, which is useless for the
 one job the panel has.
+
+**A syllabus tag that names nothing is now reported, and so are two models of one
+document** (#44). Both were silent, and both are what a re-read over a corrected
+model produces. `src/modelcheck.ts` holds all of it, taking loaded models rather
+than a folder so it tests without one.
+
+Three things it will not do, and each is a case where firing would make the
+warning noise a teacher learns to ignore. **A question naming no syllabus is left
+alone**, because all that is known is the bare id and it could belong to any model
+in the folder, which is the reading `inSyllabus` already takes. **A model that is
+not in the folder is left alone**, because Klunk ships none and a bank naming one
+the teacher has not generated is ordinary. And **two editions of one subject are
+left alone**, which is #29 and is normal: two editions are two different
+documents, so they do not share a `source.title`, and `source.title` is the key.
+
+Before saving, the reader says what replacing would cost, counted rather than
+promised: which ids the model in the folder has that the one on screen lacks, and
+how many questions cite them. Only an id the folder's model has and the new one
+lacks counts, since an id neither has changes nothing by being replaced. **Replace
+it stays enabled**, because a teacher re-reading an amended syllabus may accept
+losing tags and retag afterwards, and the count is what lets them choose.
+
+Driven end to end on `../klunk-content`, including the destructive half with the
+model backed up first and restored after: deleting HSC-01 from D&T predicted five
+questions and named five ids, saving it struck those chips through in the question
+detail and left `H1.1` live, and the paper checker flagged all five on the trial
+paper in both sections. The duplicate notice caught a real one already in the
+folder without being told to look.
+
+One test bug worth not repeating, found because a case failed for the right
+reason: a helper with `syllabusId: string | undefined = 'dt'` swallows an explicit
+`undefined` argument and falls back to the default, so a test named "names no
+syllabus" was quietly checking the default instead. Both helpers now take `null`
+for that.
 
 **`syllabusVersion` no longer defaults to `Stage 6 (2013)`.** That was true of the
 only two documents Klunk could read when it was written and is false of the four
