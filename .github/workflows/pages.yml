@@ -29,11 +29,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -42,9 +42,12 @@ jobs:
       # deploy rather than shipping.
       - run: npm run build
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      # v4 stopped putting dotfiles in the artifact. dist/ is index.html and
+      # four files under assets/, so there is nothing to lose by it, but a
+      # build that starts emitting one would lose it silently.
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -56,4 +59,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+        with:
+          # The action polls until Pages accepts the deployment, and its default
+          # is ten minutes. Over one morning the same 580 kB artifact went from
+          # 28 seconds to 8 and a half minutes to accept, and then past ten, so
+          # the deploy that failed had not been rejected — it was still
+          # in_progress when the action stopped waiting. Twenty minutes buys the
+          # room, and costs runner time only on a day the backend is already
+          # slow. If this ever fires, the deployment genuinely is stuck.
+          timeout: 1200000
