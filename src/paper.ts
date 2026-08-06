@@ -11,7 +11,7 @@
 import type {
   ContentIndex,
 } from './storage'
-import { knownIds, unresolvedTags } from './modelcheck'
+import { knownIds, unresolvedTags, type ModelIds } from './modelcheck'
 import { allQuestions, findQuestion, inSyllabus } from './storage'
 import type {
   Paper,
@@ -75,7 +75,7 @@ export interface ResolvedPaper {
    * model is the teacher's to generate and a bank may name one they have not
    * made yet.
    */
-  syllabusTags: Map<string, Set<string>>
+  syllabusTags: Map<string, ModelIds>
 }
 
 export type Severity = 'error' | 'warning'

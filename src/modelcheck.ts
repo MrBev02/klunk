@@ -22,25 +22,73 @@
 import type { Loaded, Question, QuestionRef, Syllabus, SyllabusCourse } from './types'
 
 /**
- * Every id a question can legitimately tag itself with.
+ * What a model defines, per course and in total.
+ *
+ * Both, because a question may or may not say which course it belongs to and the
+ * two cases have different right answers. See `idsFor`.
+ */
+export interface ModelIds {
+  /** Every id in the model, whichever course holds it. */
+  all: Set<string>
+  /** What each course holds, by course id. */
+  byCourse: Map<string, Set<string>>
+}
+
+/**
+ * Every id a question can legitimately tag itself with, kept per course.
  *
  * All three kinds together, because a question cites all three and they cannot
  * collide: an outcome code is `H1.1` and a topic id is `HSC-01`.
+ *
+ * Per course rather than in one heap, because an id is only unique within a
+ * course (#47). Every NESA model mints topic ids from the course id, so `PRE-01`
+ * and `HSC-01` cannot collide however much content the two courses share, and
+ * flattening them was harmless. The IB model uses the code the guide prints, so
+ * Standard level and Higher level both hold `A1-1`, and flattening hid the
+ * removal of a point from one course behind its survival in the other.
  */
-export function taggedIds(courses: SyllabusCourse[]): Set<string> {
-  const out = new Set<string>()
+export function taggedIds(courses: SyllabusCourse[]): ModelIds {
+  const all = new Set<string>()
+  const byCourse = new Map<string, Set<string>>()
+
   for (const course of courses) {
-    for (const outcome of course.outcomes ?? []) out.add(outcome.code)
-    for (const topic of course.topics) {
-      out.add(topic.id)
-      for (const point of topic.points ?? []) out.add(point.id)
+    const mine = byCourse.get(course.id) ?? new Set<string>()
+    const add = (id: string) => {
+      mine.add(id)
+      all.add(id)
     }
+    for (const outcome of course.outcomes ?? []) add(outcome.code)
+    for (const topic of course.topics) {
+      add(topic.id)
+      for (const point of topic.points ?? []) add(point.id)
+    }
+    byCourse.set(course.id, mine)
   }
-  return out
+
+  return { all, byCourse }
+}
+
+/**
+ * The ids a question is entitled to cite, given the course it names.
+ *
+ * A question naming a course is held to that course. One naming none is held to
+ * the whole model, because all that is known is the bare id and it could belong
+ * to any course in it. That is the reading `inSyllabus` already takes one level
+ * up, and the same argument: a warning raised on a guess is noise a teacher
+ * learns to ignore.
+ *
+ * A course the model does not have falls back to the whole model for the same
+ * reason. It is a fault in the question, but reporting it by marking every one
+ * of that question's tags dead would say something false and loud about ids that
+ * are perfectly real.
+ */
+export function idsFor(model: ModelIds, courseId: string | undefined): Set<string> {
+  if (courseId === undefined) return model.all
+  return model.byCourse.get(courseId) ?? model.all
 }
 
 /** What each syllabus model in the folder defines, by its id. */
-export function knownIds(syllabuses: Loaded<Syllabus>[]): Map<string, Set<string>> {
+export function knownIds(syllabuses: Loaded<Syllabus>[]): Map<string, ModelIds> {
   return new Map(syllabuses.map(({ data }) => [data.id, taggedIds(data.courses)]))
 }
 
@@ -66,15 +114,16 @@ function citedBy(question: Question): string[] {
  *   bank may name one the teacher has not generated yet, so a missing model is
  *   ordinary rather than a fault in the question.
  */
-export function unresolvedTags(ref: QuestionRef, known: Map<string, Set<string>>): string[] {
+export function unresolvedTags(ref: QuestionRef, known: Map<string, ModelIds>): string[] {
   if (ref.syllabusId === undefined) return []
-  const ids = known.get(ref.syllabusId)
-  if (ids === undefined) return []
-  return citedBy(ref.question).filter((id) => !ids.has(id))
+  const model = known.get(ref.syllabusId)
+  if (model === undefined) return []
+  return unresolvedAgainst(ref.question, model)
 }
 
 /** The same check for a question whose model is already in hand. */
-export function unresolvedAgainst(question: Question, ids: Set<string>): string[] {
+export function unresolvedAgainst(question: Question, model: ModelIds): string[] {
+  const ids = idsFor(model, question.syllabus?.courseId)
   return citedBy(question).filter((id) => !ids.has(id))
 }
 

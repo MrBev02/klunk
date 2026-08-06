@@ -478,9 +478,18 @@ export interface Replacing {
  * neither has changes nothing by being replaced, so counting it would raise a
  * false alarm about a question that was already tagged against something else.
  *
+ * **Counted per course, not across the model** (#47). Where two courses share an
+ * id, taking the model as one heap means a point deleted from Standard level
+ * still looks present because Higher level kept it, and the screen tells a
+ * teacher their questions are safe when the ones tagged against Standard level
+ * are about to break. That is this function's own failure mode, so it is the one
+ * place it may not be approximated.
+ *
  * `inSyllabus` decides which questions are in scope, rather than a rule invented
  * here, because it is the reading the rest of the app already takes: a question
  * naming a different syllabus is out, and one naming none cannot be ruled out.
+ * The same applies a level down to the course, which is why a question naming no
+ * course is measured against what the model lost everywhere.
  */
 export function costOfReplacing(
   inFolder: SyllabusCourse[],
@@ -488,15 +497,37 @@ export function costOfReplacing(
   questions: QuestionRef[],
   syllabusId: string,
 ): Replacing {
-  const kept = taggedIds(onScreen)
-  const lost = new Set([...taggedIds(inFolder)].filter((id) => !kept.has(id)))
+  const before = taggedIds(inFolder)
+  const after = taggedIds(onScreen)
+
+  // Every course the folder's model had gets an entry, empty ones included, so
+  // "this course lost nothing" is distinguishable from "there is no such course".
+  const lostByCourse = new Map<string, Set<string>>()
+  for (const [courseId, had] of before.byCourse) {
+    const kept = after.byCourse.get(courseId) ?? new Set<string>()
+    lostByCourse.set(courseId, new Set([...had].filter((id) => !kept.has(id))))
+  }
+
+  // What a question naming no course is measured against: an id still somewhere
+  // in the model has not been taken away from a question that never said where
+  // it was looking.
+  const lostEverywhere = new Set([...before.all].filter((id) => !after.all.has(id)))
 
   const inUse = new Set<string>()
+  const lost = new Set<string>()
+  for (const gone of lostByCourse.values()) for (const id of gone) lost.add(id)
+
   let count = 0
   for (const ref of questions) {
     if (!inSyllabus(ref, syllabusId)) continue
+    const courseId = ref.question.syllabus?.courseId
+    const gone =
+      courseId !== undefined && lostByCourse.has(courseId)
+        ? lostByCourse.get(courseId)!
+        : lostEverywhere
+
     const cited = [...syllabusIdsOf(ref.question), ...(ref.question.outcomes ?? [])].filter((id) =>
-      lost.has(id),
+      gone.has(id),
     )
     if (cited.length === 0) continue
     count += 1

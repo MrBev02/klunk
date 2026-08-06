@@ -330,7 +330,7 @@ describe('tidying on the way to the file', () => {
 describe('what replacing the model in the folder would cost', () => {
   const asked = (
     id: string,
-    tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[] },
+    tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[]; courseId?: string },
     // `null`, not `undefined`: an explicit undefined falls back to the default
     // parameter, so "names no syllabus" would quietly test the default instead.
     syllabusId: string | null = 'textiles',
@@ -340,7 +340,11 @@ describe('what replacing the model in the folder would cost', () => {
       questionType: 'short_answer',
       questionText: 'Explain one thing',
       marks: 3,
-      syllabus: { topicIds: tags.topicIds ?? [], pointIds: tags.pointIds ?? [] },
+      syllabus: {
+        topicIds: tags.topicIds ?? [],
+        pointIds: tags.pointIds ?? [],
+        ...(tags.courseId ? { courseId: tags.courseId } : {}),
+      },
       ...(tags.outcomes ? { outcomes: tags.outcomes } : {}),
     }
     return { question, file: 'bank/b.json', syllabusId: syllabusId ?? undefined }
@@ -349,6 +353,87 @@ describe('what replacing the model in the folder would cost', () => {
   it('says nothing is lost when the document is simply read again', () => {
     expect(costOfReplacing(courses(), courses(), [asked('q1', { topicIds: ['HSC-02'] })], 'textiles'))
       .toEqual({ lost: [], questions: 0, inUse: [] })
+  })
+
+  /**
+   * The IB arrangement (#47): Higher level is the whole syllabus, so both
+   * courses hold `A1-1`. Taking the model as one heap made a point deleted from
+   * Standard level look present, because Higher level still had it, and the
+   * screen told a teacher their questions were safe while they were not.
+   */
+  describe('when two courses share an id', () => {
+    const shared = (): SyllabusCourse[] => [
+      {
+        id: 'sl',
+        name: 'Standard level',
+        topics: [
+          { id: 'A1-1', name: 'Ergonomics', points: [{ id: 'A1-1.1', text: 'percentiles' }] },
+        ],
+      },
+      {
+        id: 'hl',
+        name: 'Higher level',
+        topics: [
+          { id: 'A1-1', name: 'Ergonomics', points: [{ id: 'A1-1.1', text: 'percentiles' }] },
+        ],
+      },
+    ]
+
+    /** The same model with `A1-1.1` deleted from Standard level only. */
+    const goneFromSl = (): SyllabusCourse[] => {
+      const after = shared()
+      after[0]!.topics[0]!.points = []
+      return after
+    }
+
+    it('counts a point deleted from one course against that course', () => {
+      const cost = costOfReplacing(
+        shared(),
+        goneFromSl(),
+        [asked('q1', { pointIds: ['A1-1.1'], courseId: 'sl' }, 'ib')],
+        'ib',
+      )
+
+      expect(cost.lost).toEqual(['A1-1.1'])
+      expect(cost.questions).toBe(1)
+      expect(cost.inUse).toEqual(['A1-1.1'])
+    })
+
+    it('leaves the other course alone', () => {
+      const cost = costOfReplacing(
+        shared(),
+        goneFromSl(),
+        [asked('q1', { pointIds: ['A1-1.1'], courseId: 'hl' }, 'ib')],
+        'ib',
+      )
+
+      expect(cost.questions).toBe(0)
+    })
+
+    it('spares a question that names no course while the id survives somewhere', () => {
+      // It never said which course it was looking at, so nothing has been taken
+      // away from it that it can be shown to have been relying on.
+      const cost = costOfReplacing(
+        shared(),
+        goneFromSl(),
+        [asked('q1', { pointIds: ['A1-1.1'] }, 'ib')],
+        'ib',
+      )
+
+      expect(cost.questions).toBe(0)
+    })
+
+    it('counts a question naming no course once the id is gone from every course', () => {
+      const nowhere = shared().map((c) => ({ ...c, topics: [{ ...c.topics[0]!, points: [] }] }))
+      const cost = costOfReplacing(
+        shared(),
+        nowhere,
+        [asked('q1', { pointIds: ['A1-1.1'] }, 'ib')],
+        'ib',
+      )
+
+      expect(cost.questions).toBe(1)
+    })
   })
 
   it('counts the questions a merge would leave pointing at nothing', () => {

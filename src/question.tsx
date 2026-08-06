@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'preact/hooks'
-import { unresolvedAgainst } from './modelcheck'
+import { unresolvedAgainst, type ModelIds } from './modelcheck'
 import { rowAnswers, shuffledChoices } from './paper'
 import { markRange } from './render'
 import { joinPath } from './storage'
@@ -37,7 +37,7 @@ export function QuestionRow({
    * Every id the syllabus this question names defines, when that model is in the
    * folder. Absent means Klunk cannot tell, and nothing is marked.
    */
-  known?: Set<string> | undefined
+  known?: ModelIds | undefined
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
@@ -109,7 +109,7 @@ export function QuestionDetail({
    * Every id the syllabus this question names defines, when that model is in the
    * folder. Absent means Klunk cannot tell, and nothing is marked.
    */
-  known?: Set<string> | undefined
+  known?: ModelIds | undefined
 }) {
   return (
     <>
@@ -359,7 +359,7 @@ function Guide({ question: q }: { question: Question }) {
   )
 }
 
-function Tags({ question: q, known }: { question: Question; known?: Set<string> | undefined }) {
+function Tags({ question: q, known }: { question: Question; known?: ModelIds | undefined }) {
   const topics = q.syllabus?.topicIds ?? []
   const points = q.syllabus?.pointIds ?? []
   const outcomes = q.outcomes ?? []

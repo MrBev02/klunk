@@ -872,6 +872,12 @@ function Library({
       if (chosenTopic) {
         if (!(q.syllabus?.topicIds ?? []).includes(chosenTopic.topicId)) return false
         if (!inSyllabus(ref, chosenTopic.syllabusId)) return false
+        // A question that names a course has to name this one. One that names
+        // none cannot be ruled out, which is the reading `inSyllabus` takes a
+        // level up and the reason both IB courses hold `A1-1` without the
+        // filter having to guess which was meant.
+        const courseId = q.syllabus?.courseId
+        if (courseId !== undefined && courseId !== chosenTopic.courseId) return false
       }
       if (untaggedOnly && (q.syllabus?.topicIds?.length || q.syllabus?.pointIds?.length)) {
         return false
@@ -1127,12 +1133,20 @@ function Library({
 
 interface TopicChoice {
   /**
-   * `syllabusId::topicId`, not the bare topic id. Both NSW models number their
-   * topics `PRE-01`/`HSC-01` upwards, so the bare id names two different topics
-   * in a folder holding both and cannot be what the filter is keyed on.
+   * `syllabusId::courseId::topicId`, not the bare topic id. Both NSW models
+   * number their topics `PRE-01`/`HSC-01` upwards, so the bare id names two
+   * different topics in a folder holding both and cannot be what the filter is
+   * keyed on.
+   *
+   * The course is in the key because a topic id is only unique within a course
+   * (#47). The IB model uses the code its guide prints, so Standard level and
+   * Higher level both hold `A1-1`, and two options carrying one value made a
+   * `<select>` snap to the first: choosing Higher level left the box reading
+   * Standard level.
    */
   key: string
   syllabusId: string
+  courseId: string
   topicId: string
   label: string
 }
@@ -1163,8 +1177,9 @@ function topicOptions(index: ContentIndex): TopicGroup[] {
       for (const topic of course.topics) {
         const group = topic.group ? `${topic.group} · ` : ''
         topics.push({
-          key: `${syllabus.id}::${topic.id}`,
+          key: `${syllabus.id}::${course.id}::${topic.id}`,
           syllabusId: syllabus.id,
+          courseId: course.id,
           topicId: topic.id,
           label: `${course.name}: ${group}${topic.name}`,
         })

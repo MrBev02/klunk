@@ -51,7 +51,7 @@ const model = (over: Partial<Syllabus> = {}, path = 'syllabus/dt.json'): Loaded<
  * names. This one did, until it failed for the right reason.
  */
 const asked = (
-  tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[] },
+  tags: { topicIds?: string[]; pointIds?: string[]; outcomes?: string[]; courseId?: string },
   syllabusId: string | null = 'dt',
 ): QuestionRef => {
   const question: Question = {
@@ -59,20 +59,80 @@ const asked = (
     questionType: 'short_answer',
     questionText: 'Explain one thing',
     marks: 3,
-    syllabus: { topicIds: tags.topicIds ?? [], pointIds: tags.pointIds ?? [] },
+    syllabus: {
+      topicIds: tags.topicIds ?? [],
+      pointIds: tags.pointIds ?? [],
+      ...(tags.courseId ? { courseId: tags.courseId } : {}),
+    },
     ...(tags.outcomes ? { outcomes: tags.outcomes } : {}),
   }
   return { question, file: 'bank/b.json', syllabusId: syllabusId ?? undefined }
 }
 
+/**
+ * Two courses holding one id, which is the IB arrangement (#47).
+ *
+ * Higher level is the whole syllabus rather than the extra topics, so `A1-1` is
+ * in both. Every NESA model mints its ids from the course id and cannot produce
+ * this, which is why it went unnoticed until an IB model existed.
+ */
+const shared: SyllabusCourse[] = [
+  {
+    id: 'sl',
+    name: 'Standard level',
+    topics: [{ id: 'A1-1', name: 'Ergonomics', points: [{ id: 'A1-1.1', text: 'percentiles' }] }],
+  },
+  {
+    id: 'hl',
+    name: 'Higher level',
+    topics: [
+      { id: 'A1-1', name: 'Ergonomics', points: [{ id: 'A1-1.1', text: 'percentiles' }] },
+      { id: 'A3-2', name: 'Structures', points: [{ id: 'A3-2.1', text: 'beams' }] },
+    ],
+  },
+]
+
 describe('what a model defines', () => {
   it('is its topics, its content points and its outcome codes', () => {
-    expect([...taggedIds(courses)].sort()).toEqual([
+    expect([...taggedIds(courses).all].sort()).toEqual([
       'H1.1',
       'HSC-01',
       'HSC-01.01',
       'HSC-01.02',
     ])
+  })
+
+  it('keeps each course separately, so a shared id is not one id', () => {
+    const ids = taggedIds(shared)
+
+    expect([...ids.byCourse.get('sl')!].sort()).toEqual(['A1-1', 'A1-1.1'])
+    expect([...ids.byCourse.get('hl')!].sort()).toEqual(['A1-1', 'A1-1.1', 'A3-2', 'A3-2.1'])
+    expect([...ids.all].sort()).toEqual(['A1-1', 'A1-1.1', 'A3-2', 'A3-2.1'])
+  })
+})
+
+describe('which ids a question may cite', () => {
+  const ids = taggedIds(shared)
+
+  it('holds a question naming a course to that course', () => {
+    expect(unresolvedAgainst(asked({ topicIds: ['A3-2'], courseId: 'sl' }).question, ids)).toEqual([
+      'A3-2',
+    ])
+    expect(unresolvedAgainst(asked({ topicIds: ['A3-2'], courseId: 'hl' }).question, ids)).toEqual(
+      [],
+    )
+  })
+
+  it('holds a question naming no course to the whole model', () => {
+    // The bare id could belong to any course in it, so ruling it out would be a
+    // guess, and a warning raised on a guess is noise.
+    expect(unresolvedAgainst(asked({ topicIds: ['A3-2'] }).question, ids)).toEqual([])
+  })
+
+  it('falls back to the whole model when the course named is not in it', () => {
+    expect(
+      unresolvedAgainst(asked({ topicIds: ['A3-2'], courseId: 'diploma' }).question, ids),
+    ).toEqual([])
   })
 })
 
@@ -111,6 +171,15 @@ describe('tags that name nothing', () => {
     expect(unresolvedAgainst(asked({ topicIds: ['HSC-01', 'HSC-02'] }).question, ids)).toEqual([
       'HSC-02',
     ])
+  })
+
+  it('marks a tag dead when the course it names does not have it', () => {
+    // The id is real and is in the other course, which is exactly the case a
+    // flattened model could not see (#47).
+    const known = knownIds([model({ id: 'ib', courses: shared }, 'syllabus/ib.json')])
+    expect(
+      unresolvedTags(asked({ topicIds: ['A3-2'], courseId: 'sl' }, 'ib'), known),
+    ).toEqual(['A3-2'])
   })
 })
 

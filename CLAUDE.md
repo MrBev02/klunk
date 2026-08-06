@@ -717,6 +717,27 @@ under Standard level. The guide's Overview table names the same twenty-four
 topics with the same eleven HL markers, and A1.1 and A2.1 hold exactly the seven
 and five understandings the model gives them.
 
+**A tag is resolved against its course, not against the whole model** (#47). An
+id is only unique within a course, and the app had assumed it was unique within a
+syllabus. Every NESA model mints topic ids from the course id, so `PRE-01` and
+`HSC-01` cannot collide however much content two courses share, which is why
+Visual Arts holding the same 132 points in both courses never showed it. The IB
+model uses the code its guide prints, so Standard level and Higher level both
+hold `A1-1`, and three things broke at once: the topic filter offered every SL
+topic twice under one value, so a `<select>` snapped to the first and choosing
+Higher level left the box reading Standard level; Preact reported the duplicate
+key; and `costOfReplacing` said a point deleted from Standard level cost nothing,
+because Higher level still had it. That last one is #44's own failure mode coming
+back through a door #44 could not see.
+
+`taggedIds` now returns `{ all, byCourse }` and `idsFor` picks between them. The
+rule everywhere is the one `inSyllabus` already took a level up: **a question
+naming a course is held to that course, and one naming none is held to the whole
+model**, because all that is known then is a bare id that could belong to any
+course in it. A course the model does not have falls back to the whole model too,
+for the same reason: it is a fault, but marking every one of that question's tags
+dead would say something false and loud about ids that are perfectly real.
+
 **A syllabus can be read topic by topic and corrected before it is written**
 (#42). "Check what was found" was four numbers and a list of focus areas, which is
 everything #26 says is not enough: the count was right while the content was
