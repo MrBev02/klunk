@@ -493,17 +493,37 @@ machine:
 ```
 git config --local user.name MrBev02
 git config --local user.email 261693983+MrBev02@users.noreply.github.com
+git config --local credential.helper ""
 git config --local credential.https://github.com.helper '!gh auth git-credential'
 ```
 
 Without the first two, commits land under the machine's global identity, which is
-a different account. Without the third, see the first item below.
+a different account. Without the last two, see the first item below.
 
-- **Git pushes hang.** Two credential helpers are configured and Git Credential Manager
-  blocks forever on a GUI prompt in a non-interactive shell. This repo is pinned to
-  `gh auth git-credential` locally, so pushes work here. Other repos on this machine
-  are not. GCM is chiefly a Windows component, so expect this sooner rather than
-  later on a Windows machine.
+**The empty `credential.helper` is load-bearing and was missing from this list
+until a push failed on it.** A url-scoped helper *adds* to the helper list rather
+than replacing it, so Git Credential Manager, configured in the system gitconfig,
+still ran first and answered. The empty value resets the list, and it has to be
+set before the scoped one or it wipes that too. Order in `.git/config` matters.
+
+The symptom is not a hang and not a prompt: the push is refused outright with
+`Permission to MrBev02/klunk.git denied to <other account>`. Check with
+
+```
+printf 'protocol=https\nhost=github.com\n\n' | git credential fill
+```
+
+which prints the username Git would actually send. `gh auth status` is not enough
+on its own: it can show MrBev02 as the active account while Git sends the other,
+because Git never asks `gh`.
+
+- **Git pushes hang, or are refused.** Two credential helpers are configured. On the
+  Mac, Git Credential Manager blocked forever on a GUI prompt in a non-interactive
+  shell. On the Windows machine it does not hang: it answers, with the wrong
+  account, and the push is refused with a 403. Both are the same cause and both
+  are fixed by the reset plus the pin above. GCM lives in the system gitconfig
+  (`C:/Program Files/Git/etc/gitconfig` on Windows), so every fresh clone starts
+  with it and only this repo is pinned.
 - **Git identity is set locally** to MrBev02, because the machine's global identity is
   a different account.
 - **`../klunk-content` is not in git and does not come with the repo, deliberately.**
