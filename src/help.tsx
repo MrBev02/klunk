@@ -130,9 +130,9 @@ export function Help({ onClose }: { onClose: () => void }) {
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
           points. <strong>Klunk does not come with any, and that is on purpose.</strong> A
           syllabus is copyright, so Klunk cannot hand you one. You build your own from your
-          own copy. Save the syllabus <code>.docx</code> into your folder and open the{' '}
-          <strong>From a syllabus</strong> tab. It shows you every course, topic and content
-          point it found before it writes anything.
+          own copy. Open the <strong>From a syllabus</strong> tab and choose the syllabus{' '}
+          <code>.docx</code>, either from your folder or straight off this computer. It shows
+          you every course, topic and content point it found before it writes anything.
         </p>
 
         <p class="muted">

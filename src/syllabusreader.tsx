@@ -18,6 +18,14 @@
  * changing any count. But #26 is the case that decided the shape of this screen:
  * the count was right while the content was wrong, so the content is on screen
  * and can be corrected before anything is written.
+ *
+ * The document comes from the folder or from anywhere on the computer (#57). It
+ * used to come only from the folder, and a folder holding none was told to go and
+ * put one there, which is an instruction rather than a control: a syllabus is
+ * downloaded to Downloads, and nothing about building a model requires it to be
+ * moved first. So a picked document is read where it lies and is not copied in.
+ * The model is the artefact this screen exists to write, it records the
+ * document's filename as its source, and it goes into the folder either way.
  */
 
 import { useMemo, useState } from 'preact/hooks'
@@ -60,6 +68,19 @@ function isWorkbook(path: string): boolean {
   return path.toLowerCase().endsWith('.xlsx')
 }
 
+/** The two extensions Klunk has a reader for, which is what a drop is checked against. */
+const READABLE = /\.(docx|xlsx)$/i
+
+/**
+ * The document to read.
+ *
+ * `file` is null when it is one of the folder's own, in which case `path` is
+ * folder-relative and the bytes are fetched when Read it is pressed. A file
+ * picked or dropped brings its bytes with it and has only a filename, because
+ * that is all the browser will say about where it came from.
+ */
+type Chosen = { path: string; file: File | null }
+
 export function SyllabusReader({
   index,
   folder,
@@ -72,7 +93,8 @@ export function SyllabusReader({
   today: string
   onSaved: (message: string) => void
 }) {
-  const [path, setPath] = useState('')
+  const [chosen, setChosen] = useState<Chosen | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
   const [found, setFound] = useState<{
@@ -82,6 +104,9 @@ export function SyllabusReader({
     format: SyllabusFormat
     /** Topic ids the reader is unsure about, which the review panel points at. */
     suspects: string[]
+    /** The filename as read, which the model records. Held here rather than read
+     * back off the selection, because it belongs to what was parsed. */
+    source: string
   } | null>(null)
   const [edits, setEdits] = useState<string[]>([])
 
@@ -126,19 +151,69 @@ export function SyllabusReader({
     setEdits((was) => (was[was.length - 1] === what ? was : [...was, what]))
   }
 
+  /** A document from anywhere: the picker and a drop both land here. */
+  const take = (file: File) => {
+    setChosen({ path: file.name, file })
+    setFound(null)
+    setFailed('')
+  }
+
+  const pick = async () => {
+    setFailed('')
+    try {
+      const handles = await window.showOpenFilePicker({
+        id: 'klunk-syllabus',
+        multiple: false,
+        types: [
+          {
+            description: 'Syllabus documents',
+            accept: {
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            },
+          },
+        ],
+      })
+      const handle = handles[0]
+      if (!handle) return
+      take(await handle.getFile())
+    } catch (err) {
+      // Closing the dialog is not a fault.
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      setFailed((err as Error).message)
+    }
+  }
+
+  const drop = (e: DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    const dropped = [...(e.dataTransfer?.files ?? [])]
+    const file = dropped.find((f) => READABLE.test(f.name))
+    if (file) {
+      take(file)
+      return
+    }
+    const first = dropped[0]
+    setFailed(
+      first
+        ? `Klunk reads a syllabus as a .docx or a .xlsx, and ${first.name} is neither.`
+        : 'That was not a file Klunk could take. Drop the syllabus document itself, not a link to it.',
+    )
+  }
+
   const read = async () => {
-    if (!path) return
+    if (!chosen) return
     setReading(true)
     setFailed('')
     setFound(null)
     setEdits([])
     try {
-      const file = await fileFrom(folder, path)
-      const { format, courses, suspects } = isWorkbook(path)
+      const file = chosen.file ?? (await fileFrom(folder, chosen.path))
+      const { format, courses, suspects } = isWorkbook(chosen.path)
         ? readSyllabusWorkbook(await readWorkbook(file))
         : readSyllabusXml(await readDocxXml(file))
-      setFound({ courses, original: courses, format, suspects })
-      const base = path.split('/').pop() ?? path
+      const base = chosen.path.split('/').pop() ?? chosen.path
+      setFound({ courses, original: courses, format, suspects, source: base })
       setId(format === 'workbook' ? 'ib-dp-design-technology' : suggestSyllabusId(base))
       setName(format === 'workbook' ? 'Design Technology' : prettyName(base))
       // Filled in only where the format settles it: the content-table layout is
@@ -150,7 +225,7 @@ export function SyllabusReader({
       setFailed(
         err instanceof NotADocxError || err instanceof NotASyllabusError
           ? err.message
-          : `Could not read ${path}: ${(err as Error).message}`,
+          : `Could not read ${chosen.path}: ${(err as Error).message}`,
       )
     } finally {
       setReading(false)
@@ -166,7 +241,7 @@ export function SyllabusReader({
         id,
         name: name.trim() || id,
         syllabusVersion: edition,
-        sourceTitle: path.split('/').pop() ?? path,
+        sourceTitle: found.source,
         retrieved: today,
         ...(found.format === 'workbook' ? IB : {}),
       })
@@ -177,32 +252,6 @@ export function SyllabusReader({
     } finally {
       setSaving(false)
     }
-  }
-
-  if (documents.length === 0) {
-    return (
-      <section class="panel">
-        <p class="panel__title">No syllabus document in this folder</p>
-        <p>
-          Save your syllabus anywhere in this folder, then reload. Klunk reads it here, and
-             the model it writes stays in your folder.
-        </p>
-        <p>
-          For a NESA syllabus, download it as a <code>.docx</code>. On{' '}
-          <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF. Choose
-             Word. Klunk cannot read the PDF.
-        </p>
-        <p>
-          For IB Design Technology, use the old-to-new syllabus map, which is the{' '}
-          <code>.xlsx</code> published alongside the new course. The IB guide itself comes as
-             a PDF, and Klunk cannot read it.
-        </p>
-        <p class="hint">
-          Klunk does not come with any syllabus model, and that is on purpose. A syllabus is
-             copyright, so you build your own from your own copy.
-        </p>
-      </section>
-    )
   }
 
   return (
@@ -218,28 +267,81 @@ export function SyllabusReader({
              document here in the browser, and nothing leaves your computer.
         </p>
 
-        <Field label="Document" for="sr-docx">
-          <select
-            id="sr-docx"
-            class="input"
-            value={path}
-            onChange={(e) => {
-              setPath((e.target as HTMLSelectElement).value)
-              setFound(null)
-              setFailed('')
-            }}
-          >
-            <option value="">Choose a file…</option>
-            {documents.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {documents.length > 0 && (
+          <Field label="In this folder" for="sr-docx">
+            <select
+              id="sr-docx"
+              class="input"
+              value={chosen && chosen.file === null ? chosen.path : ''}
+              onChange={(e) => {
+                const picked = (e.target as HTMLSelectElement).value
+                setChosen(picked ? { path: picked, file: null } : null)
+                setFound(null)
+                setFailed('')
+              }}
+            >
+              <option value="">Choose a file…</option>
+              {documents.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        <div
+          class={`pickfile${dragging ? ' pickfile--over' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+            if (!dragging) setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={drop}
+        >
+          <button class="btn" onClick={() => void pick()}>
+            Choose a file on this computer
+          </button>
+          <p class="hint">
+            Or drag the syllabus onto this box. Klunk reads it where it is and does not copy
+               it into your folder. The model it builds is written into your folder.
+          </p>
+        </div>
+
+        {chosen?.file && <p class="pickfile__chosen">Ready to read: {chosen.path}</p>}
+
+        {documents.length === 0 && (
+          <>
+            <p class="hint">
+              This folder has no syllabus document in it. You can read one straight off this
+                 computer with the button above. If you would rather keep it with your
+                 questions, save it anywhere in your folder and reload, and Klunk will offer
+                 it here as well.
+            </p>
+            <p class="hint">
+              For a NESA syllabus, download it as a <code>.docx</code>. On{' '}
+              <code>curriculum.nsw.edu.au</code> the Download button offers Word and PDF.
+                 Choose Word. Klunk cannot read the PDF.
+            </p>
+            <p class="hint">
+              For IB Design Technology, use the old-to-new syllabus map, which is the{' '}
+              <code>.xlsx</code> published alongside the new course. The IB guide itself comes
+                 as a PDF, and Klunk cannot read it.
+            </p>
+            <p class="hint">
+              Klunk does not come with any syllabus model, and that is on purpose. A syllabus
+                 is copyright, so you build your own from your own copy.
+            </p>
+          </>
+        )}
 
         <div class="rowbtns">
-          <button class="btn btn--primary" disabled={!path || reading} onClick={() => void read()}>
+          <button
+            class="btn btn--primary"
+            disabled={!chosen || reading}
+            onClick={() => void read()}
+          >
             {reading ? 'Reading…' : 'Read it'}
           </button>
         </div>

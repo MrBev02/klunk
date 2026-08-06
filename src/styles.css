@@ -874,6 +874,33 @@ textarea.input {
   margin-top: 0.2rem;
 }
 
+/* The second way into the syllabus reader: a file from anywhere on the computer.
+   Dashed and its own block, because it has to read as somewhere a document can
+   be dropped, which is what a select offering only the folder's own files could
+   never say (#57). */
+.pickfile {
+  margin-top: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--r);
+}
+
+.pickfile--over {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.pickfile .hint {
+  margin: 0.5rem 0 0;
+}
+
+.pickfile__chosen {
+  margin: 0.6rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
 .stim-note {
   border: 1px dashed var(--rule-strong);
   border-radius: var(--r);

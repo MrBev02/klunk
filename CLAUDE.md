@@ -808,6 +808,17 @@ is the parser and takes XML and no file. `src/syllabus.corpus.test.ts` checks it
 against the Python tool on all four documents and they agree exactly, which is
 what makes the port trustworthy rather than merely plausible.
 
+**The document does not have to be in the folder** (#57). It was offered only
+from a scan of the folder, and a folder holding none got a panel saying to go
+and put one there, which is an instruction where a control belongs: a syllabus
+is downloaded to Downloads, and nothing about building a model requires it to be
+moved first. So `syllabusreader.tsx` takes one from anywhere, by picker or by
+drop, and reads it where it lies **without copying it in**. The model is the
+artefact this screen writes, it records the filename as its source, and it goes
+into the folder either way. Driven on a brand new empty folder: Drama read from
+`~/Downloads` to 3 / 15 / 18 and 3 / 20 / 19, saved and validating, and the same
+file read through the folder select afterwards gave the identical parse.
+
 **All three shapes of NESA syllabus now read** (#28, #34). `src/ooxml.ts` reports
 what the markup says about each paragraph — text, heading level, bold, list — and
 decides nothing; `src/headings.ts` holds the two new readers; `src/formats.ts`
