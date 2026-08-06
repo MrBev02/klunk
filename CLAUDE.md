@@ -157,6 +157,36 @@ Do not re-derive these, and do not contradict them without new evidence.
   no-network claim. `getDocument` detaches the bytes it is given, so the text and
   the pictures must share one open document.
 
+**A section can be a set of alternatives, and until #52 Klunk could not say so.**
+Established from the 2025 Visual Arts HSC Trial (Redlands), the same document
+#51's cover work came from:
+- Its Section II prints six questions worth 25 each and says **Attempt ONE
+  question from Questions 4–9**. The section is worth 25 and the paper 50.
+  Klunk read the paper as **175 marks**, because `resolvePaper` summed every
+  question in a section.
+- So `ProfileSection.chooseCount` is how many a student answers, and
+  `ResolvedSection.marks` is what a student can *earn* while `offeredMarks` is
+  what is printed. The guide needs the second; the cover, the section heading and
+  the checker all need the first.
+- **Every alternative has to be worth the same**, or the marks depend on which
+  one a student picks. `checkPaper` enforces it rather than assuming it.
+- **`OR` closes the question above and does not open the group below.** The
+  examination prints `Question 5 … / OR / Conceptual Framework / Question 6`, so
+  the separator comes before the heading. Printed the other way round it reads as
+  an alternative to the heading.
+- The three headings (`Practice`, `Conceptual Framework`, `Frames`) are the
+  content areas, and they live on the **paper's ref** rather than on the
+  question, because the same question sits under a different heading elsewhere.
+- **The cover carries only the first line of a section's instruction.** That line
+  is the `Attempt …` one; the rest is the preamble the section heading prints,
+  which on this paper runs to six lines including the list a response is assessed
+  against.
+- Not built, and separable: the detached **Plates Booklet** (Klunk prints
+  stimulus inline), per-question suggested times, and the `Question N continues
+  on page X` footers. This paper also prints `(HSC 2021)` beside each Section II
+  question, which is the source showing on the student's paper; Klunk keeps
+  provenance to the guide deliberately.
+
 **Printing from Chrome, established by measuring four printed PDFs rather than
 the preview.** The preview has no page boundaries, so nothing below can be seen
 in it. Positions were read back with `pagesFromDocument` on the saved PDF, which

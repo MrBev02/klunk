@@ -187,6 +187,102 @@ describe('checkPaper', () => {
     expect(checks.some((c) => c.message.includes('at most 3'))).toBe(true)
   })
 
+  /*
+   * A section of alternatives, taken from the 2025 Visual Arts trial: six
+   * questions worth 25 each, of which a student answers one, in a 25-mark
+   * section of a 50-mark paper. Before this the paper read 175 marks.
+   */
+  describe('a section a student chooses from', () => {
+    const choiceProfile: Profile = {
+      formatVersion: '1',
+      type: 'klunk_profile',
+      id: 'va',
+      name: 'Visual Arts trial',
+      paper: {
+        totalMarks: 50,
+        sections: [
+          { id: 'I', name: 'Section I', marks: 25 },
+          {
+            id: 'II',
+            name: 'Section II',
+            marks: 25,
+            questionCount: 6,
+            chooseCount: 1,
+            marksPerQuestion: 25,
+          },
+        ],
+      },
+    }
+
+    const alternatives = ['q4', 'q5', 'q6', 'q7', 'q8', 'q9']
+
+    function choicePaper(marksEach: Record<string, number> = {}) {
+      const index = indexWith([
+        written('s1', 25),
+        ...alternatives.map((id) => written(id, marksEach[id] ?? 25)),
+      ])
+      let paper = newPaper(choiceProfile, 'va', 'VA')
+      paper = addRef(paper, 0, 'bank/test.json#s1')
+      for (const id of alternatives) paper = addRef(paper, 1, `bank/test.json#${id}`)
+      return { index, paper }
+    }
+
+    it('counts what a student can earn, not what is printed', () => {
+      const { index, paper } = choicePaper()
+      const resolved = resolvePaper(index, paper, choiceProfile)
+
+      expect(resolved.sections[1]?.marks).toBe(25)
+      // The printed total is kept, because it is what a marking guide covers.
+      expect(resolved.sections[1]?.offeredMarks).toBe(150)
+      expect(resolved.totalMarks).toBe(50)
+      expect(checkPaper(resolved).filter((c) => c.severity === 'error')).toEqual([])
+    })
+
+    it('still counts every question against the offered count', () => {
+      const { index, paper } = choicePaper()
+      const short = removeRef(paper, 1, 0)
+      const checks = checkPaper(resolvePaper(index, short, choiceProfile))
+      expect(checks.some((c) => c.message.includes('expects exactly 6'))).toBe(true)
+    })
+
+    it('rejects alternatives that are not worth the same', () => {
+      const { index, paper } = choicePaper({ q7: 20 })
+      const checks = checkPaper(resolvePaper(index, paper, choiceProfile))
+      expect(checks.some((c) => c.message.includes('have to be worth the same'))).toBe(true)
+    })
+
+    it('rejects a section holding fewer questions than a student answers', () => {
+      const profile3: Profile = {
+        ...choiceProfile,
+        paper: {
+          ...choiceProfile.paper,
+          sections: [
+            { id: 'I', name: 'Section I', marks: 25 },
+            { id: 'II', name: 'Section II', marks: 25, chooseCount: 3, marksPerQuestion: 25 },
+          ],
+        },
+      }
+      const index = indexWith([written('s1', 25), written('q4', 25)])
+      let paper = newPaper(profile3, 'va', 'VA')
+      paper = addRef(paper, 0, 'bank/test.json#s1')
+      paper = addRef(paper, 1, 'bank/test.json#q4')
+      const checks = checkPaper(resolvePaper(index, paper, profile3))
+      expect(checks.some((c) => c.message.includes('there is only 1'))).toBe(true)
+    })
+
+    it('leaves a section that is not a choice counting every question', () => {
+      // The regression this whole change has to not cause: absent chooseCount
+      // means answer everything, which is what every profile written before it
+      // meant.
+      const { index, paper } = goodPaper()
+      const resolved = resolvePaper(index, paper, profile)
+      expect(resolved.sections[0]?.marks).toBe(5)
+      expect(resolved.sections[0]?.offeredMarks).toBe(5)
+      expect(resolved.sections[0]?.chooseCount).toBeUndefined()
+      expect(resolved.totalMarks).toBe(20)
+    })
+  })
+
   it('catches the same question used twice', () => {
     const { index, paper } = goodPaper()
     const dupe = addRef(paper, 1, 'bank/test.json#a')

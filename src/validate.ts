@@ -457,7 +457,30 @@ export function validateProfile(
       total += section.marks
     }
 
-    const { questionCount, minQuestions, maxQuestions, marksPerQuestion } = section
+    const { questionCount, minQuestions, maxQuestions, marksPerQuestion, chooseCount } = section
+
+    if (chooseCount !== undefined) {
+      if (!isWholeAtLeastOne(chooseCount)) {
+        err('How many a student answers has to be a whole number, one or more', where)
+      } else {
+        // Beyond the schema, and each of these produces a section that looks
+        // fine and cannot be filled.
+        const offered = questionCount ?? maxQuestions
+        if (offered !== undefined && chooseCount > offered) {
+          err(
+            `A student answers ${chooseCount} of these and only ${offered} are printed`,
+            where,
+          )
+        }
+        if (offered !== undefined && chooseCount === offered) {
+          warn(
+            'A student answers every question in this section, so there is no choice to make. ' +
+              'Leave the choice off unless some of these are alternatives.',
+            where,
+          )
+        }
+      }
+    }
 
     if (questionCount !== undefined && !isWholeAtLeastOne(questionCount)) {
       err('A number of questions has to be a whole number, one or more', where)
@@ -496,11 +519,18 @@ export function validateProfile(
         // Beyond the schema. Both are facts about the same section, so if they
         // disagree the section can never be filled: HSC Section I is 10
         // questions at 1 mark and is worth 10.
-        const implied = questionCount * marksPerQuestion
+        //
+        // Counted against what a student answers rather than what is printed.
+        // The Visual Arts trial offers six 25-mark questions and is worth 25,
+        // because a student answers one of them, and reading the printed count
+        // here would reject a section that is perfectly correct.
+        const answered = chooseCount ?? questionCount
+        const implied = answered * marksPerQuestion
         if (implied !== section.marks) {
           err(
-            `${questionCount} questions at ${marksPerQuestion} mark${marksPerQuestion === 1 ? '' : 's'} ` +
-              `is ${implied}, but this section is worth ${section.marks}`,
+            `${answered} question${answered === 1 ? '' : 's'} at ${marksPerQuestion} ` +
+              `mark${marksPerQuestion === 1 ? '' : 's'} is ${implied}, but this section is ` +
+              `worth ${section.marks}`,
             where,
           )
         }
@@ -625,6 +655,7 @@ function cleanSection(draft: ProfileSection): ProfileSection {
     'minQuestions',
     'maxQuestions',
     'marksPerQuestion',
+    'chooseCount',
   ] as const) {
     const value = draft[key]
     if (value !== undefined) out[key] = value

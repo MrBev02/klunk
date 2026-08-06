@@ -556,6 +556,43 @@ function SectionFields({
         </Field>
       </div>
 
+      {/* A section of alternatives. Ordinary in most subjects and absent from
+          Design and Technology, which is why it took until a Visual Arts trial
+          to come up. */}
+      <Field label="Do students answer all of these?">
+        <div class="rowbtns">
+          <label class="checkline">
+            <input
+              type="radio"
+              checked={section.chooseCount === undefined}
+              onChange={() => onChange({ chooseCount: undefined })}
+            />
+            <span>Yes, every question</span>
+          </label>
+          <label class="checkline">
+            <input
+              type="radio"
+              checked={section.chooseCount !== undefined}
+              onChange={() => onChange({ chooseCount: 1 })}
+            />
+            <span>No, they choose from them</span>
+          </label>
+        </div>
+      </Field>
+
+      {section.chooseCount !== undefined && (
+        <Field
+          label="How many they answer"
+          hint="Every question here has to be worth the same, because a student picks one and the marks cannot depend on which."
+        >
+          <NumField
+            value={section.chooseCount}
+            min={1}
+            onChange={(n) => onChange({ chooseCount: n })}
+          />
+        </Field>
+      )}
+
       <Field label="Kinds of question that belong here">
         <div class="tagrow">
           {QUESTION_TYPES.map((type) => {

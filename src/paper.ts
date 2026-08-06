@@ -32,6 +32,8 @@ export interface ResolvedQuestion {
   /** Number printed on the paper. Continuous across sections, as in a real paper. */
   number: number
   marks: number
+  /** A heading printed above this question, where the paper starts a new group. */
+  group?: string | undefined
   note?: string | undefined
   /** Titles of other papers marked as already sat that also use this question. */
   usedIn?: string[] | undefined
@@ -46,7 +48,24 @@ export interface ResolvedSection {
   subtitle?: string | undefined
   instructions?: string | undefined
   questions: ResolvedQuestion[]
+  /**
+   * What a student can earn here, which is not always what is printed here.
+   *
+   * In a section of alternatives it is the `chooseCount` best of them, because
+   * six 25-mark questions of which one is answered is a 25-mark section. This is
+   * the number the cover prints, the section heading prints, and the checker
+   * holds against the profile, all of which are the student's view.
+   */
   marks: number
+  /**
+   * Every question's marks added up, which in a choice section is larger.
+   *
+   * Kept apart rather than dropped because it is what a marking guide covers and
+   * what a teacher building the section is looking at.
+   */
+  offeredMarks: number
+  /** How many of these a student answers, where they are alternatives. */
+  chooseCount?: number | undefined
 }
 
 export interface ResolvedPaper {
@@ -155,6 +174,25 @@ function satQuestionIds(index: ContentIndex, exceptPaperId: string): Map<string,
   return out
 }
 
+/**
+ * The most a student can earn from a section.
+ *
+ * Every question, unless the section is a set of alternatives, in which case the
+ * best `chooseCount` of them. Taking the best rather than the first means the
+ * number is right when the alternatives are equal, which every real examination
+ * makes them, and is still defensible when a hand-edited paper has made them
+ * unequal: a student would pick the one worth most. `checkPaper` reports that
+ * inequality separately rather than this quietly papering over it.
+ */
+function earnableMarks(questions: ResolvedQuestion[], chooseCount?: number): number {
+  const all = questions.map((q) => q.marks)
+  if (chooseCount === undefined) return all.reduce((sum, m) => sum + m, 0)
+  return [...all]
+    .sort((a, b) => b - a)
+    .slice(0, chooseCount)
+    .reduce((sum, m) => sum + m, 0)
+}
+
 export function resolvePaper(
   index: ContentIndex,
   paper: Paper,
@@ -192,19 +230,23 @@ export function resolvePaper(
         file: found.file,
         number,
         marks: override ?? found.question.marks,
+        group: typeof ref === 'object' ? ref.group : undefined,
         note: typeof ref === 'object' ? ref.note : undefined,
         usedIn: sat.get(found.question.id),
         syllabusId: found.syllabusId,
       })
     }
 
+    const chooseCount = profileSection?.chooseCount
     return {
       profileSection,
       title: section.title ?? profileSection?.name ?? 'Section',
       subtitle: section.subtitle,
       instructions: section.instructions ?? profileSection?.instructions,
       questions,
-      marks: questions.reduce((sum, q) => sum + q.marks, 0),
+      marks: earnableMarks(questions, chooseCount),
+      offeredMarks: questions.reduce((sum, q) => sum + q.marks, 0),
+      chooseCount,
     }
   })
 
@@ -307,6 +349,32 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
         where,
         message: `${section.marks} marks, profile expects ${spec.marks}`,
       })
+    }
+
+    // Alternatives have to be worth the same, or what a student can earn depends
+    // on which one they pick. No examination does that, and a paper built by
+    // hand is where it would come from. Reported against the section rather than
+    // the odd question, because which one is wrong is the teacher's call.
+    if (spec.chooseCount !== undefined && section.questions.length > 0) {
+      const values = [...new Set(section.questions.map((q) => q.marks))].sort((a, b) => a - b)
+      if (values.length > 1) {
+        checks.push({
+          severity: 'error',
+          where,
+          message:
+            `A student answers ${spec.chooseCount} of these, so they all have to be worth the ` +
+            `same. These are worth ${values.join(', ')}.`,
+        })
+      }
+      if (section.questions.length < spec.chooseCount) {
+        checks.push({
+          severity: 'error',
+          where,
+          message:
+            `A student answers ${spec.chooseCount} of these, and there ` +
+            `${section.questions.length === 1 ? 'is' : 'are'} only ${section.questions.length}.`,
+        })
+      }
     }
 
     if (spec.questionCount !== undefined && n !== spec.questionCount) {

@@ -137,10 +137,24 @@ export interface ProfileSection {
   suggestedMinutes?: number
   instructions?: string
   questionTypes?: QuestionType[]
+  /** How many questions the section prints. In a choice section, how many are offered. */
   questionCount?: number
   minQuestions?: number
   maxQuestions?: number
   marksPerQuestion?: number
+  /**
+   * How many of this section's questions a student answers, where they are
+   * alternatives.
+   *
+   * Absent means every one, which is what every section written before this
+   * field meant and has to keep meaning. `Attempt ONE question from Questions
+   * 4–9` is `chooseCount: 1` over six offered.
+   *
+   * Every alternative must be worth the same, or the marks a student can earn
+   * would depend on which one they picked. `checkPaper` enforces it rather than
+   * assuming it.
+   */
+  chooseCount?: number
 }
 
 export interface Profile {
@@ -310,6 +324,15 @@ export interface PaperRefObject {
   file: string
   questionId: string
   marksOverride?: number
+  /**
+   * A heading printed above this question, and above every one after it until
+   * another group is named.
+   *
+   * On the paper rather than on the question, because the same question can sit
+   * under a different heading on another paper. The Visual Arts trial heads its
+   * alternatives `Practice`, `Conceptual Framework` and `Frames`.
+   */
+  group?: string
   note?: string
 }
 

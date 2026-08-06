@@ -20,6 +20,7 @@ function section(title: string, marks: number, numbers: number[]): ResolvedSecti
   return {
     title,
     marks,
+    offeredMarks: marks,
     questions: numbers.map((n) => ({
       question: {
         id: `q${n}`,
@@ -303,10 +304,35 @@ describe('the marks breakdown', () => {
       }),
     )
     expect(model.sections).toEqual([
-      { title: 'Section I', marks: 10, questions: 'Questions 1–3', suggestedMinutes: 15 },
-      { title: 'Section II', marks: 20, questions: 'Questions 4–5', suggestedMinutes: undefined },
+      {
+        title: 'Section I',
+        marks: 10,
+        questions: 'Questions 1–3',
+        attempt: undefined,
+        suggestedMinutes: 15,
+      },
+      {
+        title: 'Section II',
+        marks: 20,
+        questions: 'Questions 4–5',
+        attempt: undefined,
+        suggestedMinutes: undefined,
+      },
     ])
     expect(model.totalMarks).toBe(30)
+  })
+
+  it('carries only the first line of a section instruction, which is the attempt line', () => {
+    // The rest is the section's preamble, which a real paper prints over the
+    // questions rather than on the cover: on the Visual Arts trial it runs to
+    // six lines including the list a response is assessed against.
+    const s = section('Section II', 25, [4, 5])
+    s.instructions =
+      'Attempt ONE question from Questions 4–9\n' +
+      'Answer the question in the Section II Writing Booklet.\n' +
+      'Your answer will be assessed on how well you:'
+    const model = coverModel(resolved({ sections: [s], totalMarks: 25 }))
+    expect(model.sections[0]?.attempt).toBe('Attempt ONE question from Questions 4–9')
   })
 })
 

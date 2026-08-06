@@ -704,6 +704,70 @@ describe('validateProfile', () => {
    * thing to debug from the far end, which is the same argument as the sections
    * adding up.
    */
+  describe('a section a student chooses from', () => {
+    const choice = (over: Partial<Profile['paper']['sections'][number]> = {}) =>
+      profile({
+        paper: {
+          totalMarks: 25,
+          sections: [
+            {
+              id: 'II',
+              name: 'Section II',
+              marks: 25,
+              questionCount: 6,
+              chooseCount: 1,
+              marksPerQuestion: 25,
+              ...over,
+            },
+          ],
+        },
+      })
+
+    it('accepts the Visual Arts shape: six offered, one answered, worth 25', () => {
+      expect(errorsOf(choice())).toEqual([])
+    })
+
+    it('counts the implied marks against what is answered, not what is printed', () => {
+      // Before this the rule read the printed count and made the section 150,
+      // rejecting a section that is exactly what the examination prints.
+      expect(messages(choice()).some((m) => m.includes('150'))).toBe(false)
+      expect(
+        messages(choice({ chooseCount: 2 })).some((m) => m.includes('2 questions at 25 marks is 50')),
+      ).toBe(true)
+    })
+
+    it('rejects answering more than are printed', () => {
+      expect(
+        errorsOf(choice({ chooseCount: 7 })).some((c) => c.message.includes('only 6 are printed')),
+      ).toBe(true)
+    })
+
+    it('warns when the choice is not a choice', () => {
+      const checks = validateProfile(choice({ chooseCount: 6, marks: 150 }), new Set())
+      expect(checks.some((c) => c.severity === 'warning' && c.message.includes('no choice'))).toBe(
+        true,
+      )
+    })
+
+    it('rejects a fractional or zero count', () => {
+      for (const n of [0, 1.5]) {
+        expect(errorsOf(choice({ chooseCount: n })).length).toBeGreaterThan(0)
+      }
+    })
+
+    it('keeps the old rule for a section that is not a choice', () => {
+      const p = profile({
+        paper: {
+          totalMarks: 10,
+          sections: [
+            { id: 'I', name: 'Section I', marks: 10, questionCount: 6, marksPerQuestion: 25 },
+          ],
+        },
+      })
+      expect(messages(p).some((m) => m.includes('6 questions at 25 marks is 150'))).toBe(true)
+    })
+  })
+
   describe('the course a profile names', () => {
     const model: Syllabus = {
       formatVersion: '1',

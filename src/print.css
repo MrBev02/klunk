@@ -323,6 +323,28 @@
   margin: 1mm 0 0;
   font-size: 10pt;
   font-style: italic;
+  /* Newlines a teacher typed are kept. A section's preamble is genuinely several
+     lines on a real paper: the Visual Arts trial prints a per-question time
+     breakdown and then the list its answers are assessed against. */
+  white-space: pre-line;
+}
+
+/* A heading over a group of alternatives, such as the content area a Section II
+   question belongs to. Not a section heading, so it does not start a page. */
+.sheet__group {
+  margin: 6mm 0 3mm;
+  font-size: 12pt;
+  border-bottom: 0.5pt solid #000;
+  padding-bottom: 1mm;
+  break-after: avoid;
+}
+
+/* Between alternatives. Centred and spaced, as the examinations print it. */
+.sheet__or {
+  margin: 5mm 0;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .sheet__end {

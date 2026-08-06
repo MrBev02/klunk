@@ -99,6 +99,10 @@
               "exclusiveMinimum": 0,
               "description": "Use the question but score it differently here. Recorded on the paper, never written back to the bank."
             },
+            "group": {
+              "type": "string",
+              "description": "A heading printed above this question, and above every one after it until another group is named. The 2025 Visual Arts trial heads the pairs of alternatives in its Section II 'Practice', 'Conceptual Framework' and 'Frames', which is how a student choosing one finds it. Held on the paper rather than on the question, because the same question can be filed under a different heading on another paper."
+            },
             "note": { "type": "string", "description": "Teacher-facing. Never printed." }
           }
         }

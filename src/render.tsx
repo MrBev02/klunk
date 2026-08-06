@@ -11,6 +11,7 @@
  * letters.
  */
 
+import { Fragment } from 'preact'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
@@ -56,14 +57,32 @@ export function PrintablePaper({
             {section.subtitle && <p class="sheet__hint">{section.subtitle}</p>}
           </header>
 
-          {section.questions.map((q) => (
-            <QuestionBlock
-              key={`${q.file}#${q.question.id}`}
-              item={q}
-              mode={mode}
-              profile={profile}
-              images={resolved.images}
-            />
+          {section.questions.map((q, qi) => (
+            <Fragment key={`${q.file}#${q.question.id}`}>
+              {/* Between alternatives, never before the first. This is what a
+                  choice section prints, and without it six questions read as
+                  six questions to answer.
+
+                  Before the group heading and not after it: the OR closes the
+                  question above, and the heading opens the pair below. Printed
+                  the other way round it reads as an alternative to the heading,
+                  which is how the examination does not print it. */}
+              {section.chooseCount !== undefined && qi > 0 && <p class="sheet__or">OR</p>}
+
+              {/* A heading only where the paper starts a new group, so the
+                  three pairs of alternatives print under Practice, Conceptual
+                  Framework and Frames rather than as a run of six. */}
+              {q.group && q.group !== section.questions[qi - 1]?.group && (
+                <h3 class="sheet__group">{q.group}</h3>
+              )}
+
+              <QuestionBlock
+                item={q}
+                mode={mode}
+                profile={profile}
+                images={resolved.images}
+              />
+            </Fragment>
           ))}
         </section>
       ))}
@@ -200,6 +219,7 @@ function Cover({ cover }: { cover: CoverModel }) {
                     {s.title} - {s.marks} mark{s.marks === 1 ? '' : 's'}
                   </strong>
                   {s.questions && <span> ({s.questions})</span>}
+                  {s.attempt && <span class="cover__allow">{s.attempt}</span>}
                   {s.suggestedMinutes !== undefined && (
                     <span class="cover__allow">
                       Allow about {minutes(s.suggestedMinutes)} for this section

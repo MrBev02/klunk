@@ -39,6 +39,17 @@ export interface CoverSectionRow {
   marks: number
   /** `Questions 1–10`, or empty where the section holds none yet. */
   questions: string
+  /**
+   * The first line of the section's instruction, and only the first.
+   *
+   * That line is what tells a student the section is a choice, at the point they
+   * are budgeting their time: the Visual Arts cover prints `Attempt ONE question
+   * from Questions 4–9` under Section II's marks. The rest of the instruction is
+   * the section's preamble, which on the real paper appears over the questions
+   * and not on the cover, and which runs to six lines including the list a
+   * response is assessed against.
+   */
+  attempt?: string | undefined
   suggestedMinutes?: number | undefined
 }
 
@@ -128,6 +139,7 @@ export function coverModel(resolved: ResolvedPaper, guide = false): CoverModel {
       title: s.title,
       marks: s.marks,
       questions: questionRange(s.questions.map((q) => q.number)),
+      attempt: text(s.instructions?.split('\n')[0]),
       suggestedMinutes: s.profileSection?.suggestedMinutes,
     })),
     marksAwardedColumn: profile?.paper.cover?.marksAwardedColumn ?? false,

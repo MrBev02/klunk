@@ -155,10 +155,17 @@
           "items": { "$ref": "#/$defs/questionType" }
         },
 
+        "chooseCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many of this section's questions a student actually answers, where they are alternatives. The 2025 Visual Arts trial prints six 25-mark questions and says 'Attempt ONE question from Questions 4-9', so its Section II is chooseCount 1 of questionCount 6 and is worth 25. Absent means a student answers every question, which is what every section written before this field meant. Every alternative has to be worth the same, or the marks a student can earn would depend on which one they picked.",
+          "default": null
+        },
+
         "questionCount": {
           "type": "integer",
           "minimum": 1,
-          "description": "Exact number of questions, where the section always has the same count. HSC Design and Technology Section I is always 10; Section III is always 1."
+          "description": "Exact number of questions the section prints, where it always prints the same number. HSC Design and Technology Section I is always 10; Section III is always 1. In a choice section this is how many are offered, not how many are answered: see chooseCount."
         },
         "minQuestions": {
           "type": "integer",
