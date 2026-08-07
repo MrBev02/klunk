@@ -905,7 +905,7 @@ function StimulusFields({
       <p class="panel__title">Stimulus</p>
       <p class="hint">
         Images are copied into <span class="mono">{directory}</span> when the question is
-        saved, so the bank and its pictures travel together.
+        saved.
       </p>
 
       {stimuli.length > 0 && (
@@ -1415,17 +1415,15 @@ function DestinationFields({
     <section class="panel">
       <p class="panel__title">Where it is kept</p>
 
+      {/* Only where the question lands: the id field below already says why it
+          is fixed, and saying it twice is what made this panel a paragraph. */}
       {editing?.fresh ? (
         <p class="hint">
-          Saving writes this question into <span class="mono">{editing.file}</span>. Klunk
-             worked out the id when it read the answer in, against everything already in your
-             folder, so it is fixed here.
+          Saving writes this question into <span class="mono">{editing.file}</span>.
         </p>
       ) : editing ? (
         <p class="hint">
-          Saving replaces this question in <span class="mono">{editing.file}</span>. Papers
-             refer to a question by its id, so the id cannot be changed here. Changing it would
-             break every paper already using it.
+          Saving replaces this question in <span class="mono">{editing.file}</span>.
         </p>
       ) : (
         <>

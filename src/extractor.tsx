@@ -418,11 +418,11 @@ export function Extractor({
       {read && (
         <section class="panel">
           <p class="panel__title">
-            <span class="step">2</span> Check every question before it is kept
+            <span class="step">2</span> Review every question before saving
           </p>
           <p class="hint">
-            Klunk has flagged what it is unsure about. Read each question against the paper
-               before you save it, because a question read wrongly is found in the exam room.
+            Check each question against the paper. Anything Klunk was unsure about is
+               flagged below.
           </p>
 
           {read.notes.length > 0 && (

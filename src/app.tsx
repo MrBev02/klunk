@@ -473,8 +473,7 @@ export function App() {
               {paperIsSaved(index, paper) ? (
                 <>
                   will discard everything you have changed since you last saved. The
-                  version already in this folder's <code>papers/</code> is safe and will be
-                  there when you come back.
+                  version in <code>papers/</code> is unchanged.
                 </>
               ) : (
                 <>

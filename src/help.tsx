@@ -13,13 +13,15 @@
  * as broken by somebody, and none of the reasons were anywhere a teacher could
  * find them.
  *
- * The prose here is deliberately plainer than the rest of this codebase. Short
- * sentences, no dashes holding clauses together, nothing inverted for emphasis.
- * A teacher reading this is stuck and wants an answer, not a style.
+ * The prose here is governed by `.claude/skills/teacher-material-voice`, which
+ * is deliberately terser than the rest of this codebase: the action first, no
+ * arguing for an instruction, no reassurance nobody asked for, nothing
+ * figurative. A teacher reading this is stuck and wants an answer.
  *
- * The troubleshooting section is keyed to the exact words on screen, so it can
- * be scanned for what the teacher is actually looking at rather than for what
- * they would call it.
+ * The troubleshooting section is the one place on screen where a long answer
+ * beats a short one, because each entry has to answer a whole question. It is
+ * keyed to the exact words on screen, so it can be scanned for what the teacher
+ * is actually looking at rather than for what they would call it.
  */
 
 /**
@@ -58,10 +60,10 @@ export function Help({ onClose }: { onClose: () => void }) {
       </div>
 
       <p class="help__lede">
-        Klunk builds exam papers out of questions you already have. It runs in this browser
-        tab. There is no account to make, no server, and nothing is uploaded. Your questions
-        and papers are ordinary files in a folder you choose, usually the subject's OneDrive
-        or Teams folder, and Klunk reads and writes them there.
+        Klunk builds exam papers out of questions you already have. Everything runs
+        locally. No server, nothing uploaded, no account required. Your questions and
+        papers are ordinary files in a folder you choose, usually the subject's OneDrive or
+        Teams folder.
       </p>
 
       <nav class="help__contents" aria-label="On this page">
@@ -83,8 +85,8 @@ export function Help({ onClose }: { onClose: () => void }) {
           </li>
           <li>
             <strong>Put two things in that folder.</strong> A <em>paper profile</em>, which
-            is the shape of the real exam. And a <em>syllabus model</em>, which is the
-            outcomes, topics and content points you tag your questions against.
+            is the exam structure, and a <em>syllabus model</em>, which is the outcomes,
+            topics and content points you tag questions against.
           </li>
           <li>
             <strong>Add your questions.</strong> Write them yourself, draft them with your
@@ -106,33 +108,30 @@ export function Help({ onClose }: { onClose: () => void }) {
 
         <p>
           <strong>Use Chrome or Edge.</strong> They are the only browsers that can open a
-          folder on your computer and write to it. Safari and Firefox cannot do it at all,
-          so Klunk tells you instead of half working.
+          folder on your computer and write to it. Safari and Firefox cannot.
         </p>
 
         <p>
-          <strong>Use one folder per subject.</strong> The access you give Klunk then covers
-          only the subject you are working on, and swapping to another one later takes a
-          single click in the header. Most people use a folder on OneDrive or Teams. It is
+          <strong>Use one folder per subject.</strong> Swapping to another one takes a
+          single click in the header. Most people use a folder on OneDrive or Teams: it is
           already backed up, and colleagues teaching the same course can share it.
         </p>
 
         <p>
-          <strong>A paper profile</strong> is the shape of the real exam: total marks, how
-          many sections, what each section is worth, which question types go where, and how
-          long students get. The checker compares your paper against it. Klunk comes with
-          the profile for NSW HSC Design and Technology. For any other exam, use{' '}
-          <strong>Describe your own paper</strong> on the Papers tab. You fill it in on
-          screen like any other form, and it takes an afternoon once for a whole faculty.
+          <strong>A paper profile</strong> is the exam structure: total marks, how many
+          sections, what each section is worth, which question types go where, and how long
+          students get. The checker compares your paper against it. Klunk comes with the
+          profile for NSW HSC Design and Technology. For any other exam, use{' '}
+          <strong>Describe your own paper</strong> on the Papers tab.
         </p>
 
         <p>
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
-          points. <strong>Klunk does not come with any, and that is on purpose.</strong> A
-          syllabus is copyright, so Klunk cannot hand you one. You build your own from your
-          own copy. Open the <strong>From a syllabus</strong> tab and choose the syllabus
-          document, either from your folder or straight off this computer. It shows you every
-          course, topic and content point it found before it writes anything.
+          points. <strong>Klunk comes with none, because a syllabus is copyright.</strong>{' '}
+          Build your own from your own copy: open the <strong>From a syllabus</strong> tab
+          and choose the syllabus document, either from your folder or straight off this
+          computer. It shows you every course, topic and content point it found before it
+          writes anything.
         </p>
 
         <p class="muted">
@@ -140,15 +139,14 @@ export function Help({ onClose }: { onClose: () => void }) {
           <code>.docx</code>. That covers the Stage 6 syllabuses, which set their content out
           in a table, and the newer Year 11 and 12 ones, which use headings and bullet
           points. On <code>curriculum.nsw.edu.au</code> the Download button offers Word and
-          PDF, so choose Word: Klunk cannot read a NESA syllabus as a PDF, and the Word
-          export is the better document anyway.
+          PDF. Choose Word: Klunk cannot read a NESA syllabus as a PDF.
         </p>
 
         <p class="muted">
           For IB Design Technology, use the <strong>subject guide</strong>, the PDF from the
           Programme Resource Centre. Klunk also reads the old-to-new syllabus map, the
-          spreadsheet from ManageBac, but the guide is the IB's own document and the map is
-          not — where the two disagree, Klunk has found the map to be the one that is wrong.
+          spreadsheet from ManageBac. Where the two disagree, the map is the one that is
+          wrong.
         </p>
 
         <p class="muted">
@@ -189,7 +187,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dt>
             <code>profiles/</code>
           </dt>
-          <dd>The exam shapes described above.</dd>
+          <dd>The exam structures described above.</dd>
 
           <dt>
             <code>school.json</code>
@@ -239,14 +237,13 @@ export function Help({ onClose }: { onClose: () => void }) {
 
         <p>
           <strong>Draft with AI.</strong> Klunk has no AI key and never contacts an AI
-          service. The tab works in three steps instead. You choose the topics and content
-          points. Klunk writes a prompt for you, with the topic ids, what a mark is worth in
+          service, so the tab works in three steps instead. You choose the topics and
+          content points. Klunk writes a prompt with the topic ids, what a mark is worth in
           this subject, and where that question type sits on the real paper already filled
-          in. You copy that prompt into whatever your school pays for. Paste the reply back
-          and Klunk reads it: it repairs what it safely can and tells you what it repaired,
-          and it refuses anything it cannot trust. You can read the whole prompt before you
-          copy it, so you always know exactly what you are sending. Everything that comes
-          back is tagged <code>ai-drafted</code>.
+          in. You copy it into whatever your school pays for, then paste the reply back.
+          Klunk repairs what it safely can, tells you what it repaired, and refuses anything
+          it cannot trust. Read the whole prompt before you copy it: nothing else is sent.
+          Everything that comes back is tagged <code>ai-drafted</code>.
         </p>
 
         <p>
@@ -283,12 +280,12 @@ export function Help({ onClose }: { onClose: () => void }) {
           <strong>Student paper</strong> and <strong>Marking guide</strong> show you the
           real thing, on A4. From either one, <strong>Print / Save as PDF</strong> opens
           your browser's print dialog. Choose "Save as PDF" there if you want a file. Only
-          the paper prints, and none of Klunk's own screen goes with it.
+          the paper prints.
         </p>
 
         <p>
           <strong>Save changes</strong> writes the paper into <code>papers/</code>. Klunk
-          tells you when a paper has changes you have not saved, and it asks first before
+          tells you when a paper has changes you have not saved, and asks first before
           anything throws them away.
         </p>
 
@@ -325,8 +322,8 @@ export function Help({ onClose }: { onClose: () => void }) {
 
         <p class="muted">
           If a picture prints as a grey box with a filename in it, that image is missing
-          from your folder. Klunk prints the box on purpose, so you catch it on the proof
-          and not in the exam room.
+          from your folder. Klunk prints the box on purpose, so a missing picture shows up
+          on the proof.
         </p>
       </section>
 
@@ -339,9 +336,9 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
         <p>
           Klunk writes whole files. If two people save into the same bank at the same
-          moment, the second save can wipe out the first. Working in separate banks, such as{' '}
-          <code>bank/year11.json</code> and <code>bank/trials.json</code>, avoids this
-          completely.
+          moment, the second save can wipe out the first. Work in separate banks, such as{' '}
+          <code>bank/year11.json</code> and <code>bank/trials.json</code>, and it cannot
+          happen.
         </p>
         <p>
           <strong>Reload</strong> in the header re-reads the folder. Klunk reads it when you
@@ -355,17 +352,15 @@ export function Help({ onClose }: { onClose: () => void }) {
         <dl class="help__trouble">
           <dt>"Klunk needs Chrome or Edge"</dt>
           <dd>
-            Open the same link in Chrome or Edge. You lose nothing by switching. Your
-            content is ordinary files in your own folder, so the other browser reads exactly
-            the same ones.
+            Open the same link in Chrome or Edge. Your content is ordinary files in your own
+            folder, so the other browser reads exactly the same ones.
           </dd>
 
           <dt>"Welcome back", and it asks you to confirm access again</dt>
           <dd>
             Your browser is asking you to confirm access to your folder again, which it does
-            from time to time. Your folders are all still there. Click the one you want,
-            then confirm once when the browser asks. It is one click per folder, once a
-            session.
+            from time to time. Click the folder you want, then confirm once when the browser
+            asks. It is one click per folder, once a session.
           </dd>
 
           <dt>The date, the page title and a web address print on every page</dt>
@@ -386,8 +381,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dt>"… is no longer on this computer"</dt>
           <dd>
             That folder has been renamed, moved or deleted since Klunk last opened it. Click{' '}
-            <strong>Forget</strong>. That only stops Klunk offering it to you, and it
-            deletes nothing.
+            <strong>Forget</strong> to stop offering it.
           </dd>
 
           <dt>The topic list is empty, or you cannot tag a question</dt>
@@ -398,7 +392,7 @@ export function Help({ onClose }: { onClose: () => void }) {
 
           <dt>"No profile in this folder yet"</dt>
           <dd>
-            A paper needs an exam shape to be built against. Add the stock profile if it
+            A paper needs an exam structure to be built against. Add the stock profile if it
             matches your subject, or describe your own on the Papers tab.
           </dd>
 
@@ -435,9 +429,8 @@ export function Help({ onClose }: { onClose: () => void }) {
         <h3 class="setup__head">What leaves your computer</h3>
         <p>
           <strong>Nothing, unless you copy it out yourself.</strong> Klunk makes no network
-          requests once the page has loaded. The page's own security policy blocks them, so
-          it cannot make one even by accident. There is no account, no server and no
-          database.
+          requests once the page has loaded, and the page's own security policy blocks them,
+          so it cannot make one by accident. No account, no server, no database.
         </p>
         <p>
           Klunk never contacts an AI service. That is why the AI step is copy and paste. The
@@ -456,7 +449,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         <ul>
           <li>
             <strong>No Word export.</strong> Papers print to PDF. Merging them into a
-            school's own <code>.docx</code> template is possible, and it is not built yet.
+            school's own <code>.docx</code> template is not built yet.
           </li>
           <li>
             <strong>Two editions of one syllabus in the same folder</strong> is not handled
@@ -473,9 +466,8 @@ export function Help({ onClose }: { onClose: () => void }) {
       <section id="help-report" class="help__sec">
         <h3 class="setup__head">Reporting something wrong</h3>
         <p>
-          Tell whoever gave you this link first. It helps a great deal if you say what you
-          were looking at, what you did, and what you expected to happen instead. That is
-          usually enough to find the fault straight away.
+          Tell whoever gave you this link first. Say what you were looking at, what you did,
+          and what you expected to happen instead.
         </p>
         <p>
           If there is nobody to ask, or it looks like a fault in Klunk rather than something
@@ -483,8 +475,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <a href={ISSUES_URL} target="_blank" rel="noreferrer">
             github.com/MrBev02/klunk/issues
           </a>
-          . That is where faults in Klunk are tracked and fixed, and you do not need to know
-          anything about code to describe one.
+          . That is where faults in Klunk are tracked and fixed.
         </p>
         <p class="muted">
           That link is the one thing on this page that leaves Klunk, and it opens in a new

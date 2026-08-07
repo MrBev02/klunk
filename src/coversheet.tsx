@@ -199,7 +199,7 @@ export function CoverEditor({
         {pending && (
           <p class="hint">
             <span class="mono">{safeFilename(pending.name)}</span> is copied into this folder when
-            you save, so the folder and its logo travel together.
+            you save.
           </p>
         )}
       </section>
