@@ -33,10 +33,12 @@ import { readDocxXml, NotADocxError } from './docx'
 import { Field } from './fields'
 import {
   FORMAT_DESCRIPTIONS,
+  readSyllabusPdf,
   readSyllabusWorkbook,
   readSyllabusXml,
   type SyllabusFormat,
 } from './formats'
+import { readPdf } from './pdftext'
 import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
 import { costOfReplacing, problemsWith, tidyCourses } from './syllabusedit'
 import { SyllabusReview } from './syllabusreview'
@@ -47,10 +49,10 @@ import { readWorkbook } from './xlsx'
 /**
  * Who publishes what Klunk just read, so the model says so.
  *
- * Only the workbook settles it, because it is one document rather than a shape:
- * the three Word readers each cover several NESA syllabuses and none of them
- * covers anything else. `toSyllabus` defaults to NESA, which is right for all
- * three of those and wrong for the IB map.
+ * Only the two IB readers settle it, because each is one document rather than a
+ * shape: the three Word readers each cover several NESA syllabuses and none of
+ * them covers anything else. `toSyllabus` defaults to NESA, which is right for
+ * all three of those and wrong for either reading of the IB syllabus.
  */
 const IB: { framework: string; authority: string; licence: string } = {
   framework: 'IB',
@@ -58,18 +60,34 @@ const IB: { framework: string; authority: string; licence: string } = {
   licence: 'International Baccalaureate Organization. Not redistributable.',
 }
 
+/**
+ * Two documents of one syllabus: the subject guide and the old-to-new map.
+ *
+ * They are the same course and must produce the same model, so everything the
+ * shape of the document settles — the id, the name, the publisher, the edition —
+ * is settled the same way whichever of the two a teacher brought (#58).
+ */
+function isIbDesignTechnology(format: SyllabusFormat): boolean {
+  return format === 'guide' || format === 'workbook'
+}
+
 /** Prefilled only where the shape of the document settles which edition it is. */
 const EDITIONS: Partial<Record<SyllabusFormat, string>> = {
   tables: 'Stage 6 (2013)',
   workbook: 'First assessment 2027',
+  guide: 'First assessment 2027',
 }
 
 function isWorkbook(path: string): boolean {
   return path.toLowerCase().endsWith('.xlsx')
 }
 
-/** The two extensions Klunk has a reader for, which is what a drop is checked against. */
-const READABLE = /\.(docx|xlsx)$/i
+function isPdf(path: string): boolean {
+  return path.toLowerCase().endsWith('.pdf')
+}
+
+/** The three extensions Klunk has a reader for, which is what a drop is checked against. */
+const READABLE = /\.(docx|xlsx|pdf)$/i
 
 /**
  * The document to read.
@@ -118,9 +136,14 @@ export function SyllabusReader({
   // Both kinds in one list, sorted together, because a teacher picks the
   // document they downloaded and should not first have to know which reader
   // Klunk will use on it.
+  // Every PDF too, since #58, and that changes the character of this list: a
+  // teacher's folder holds past papers, so most of what is offered here is now
+  // something the syllabus readers will refuse. That is the right way round —
+  // refusing by name is a sentence on screen, and not offering the guide at all
+  // was the whole fault.
   const documents = useMemo(
-    () => [...index.docx, ...index.workbooks].sort((a, b) => a.localeCompare(b)),
-    [index.docx, index.workbooks],
+    () => [...index.docx, ...index.workbooks, ...index.pdfs].sort((a, b) => a.localeCompare(b)),
+    [index.docx, index.workbooks, index.pdfs],
   )
 
   // A rescan can take away the document chosen out of the folder: it can be
@@ -181,6 +204,7 @@ export function SyllabusReader({
             accept: {
               'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              'application/pdf': ['.pdf'],
             },
           },
         ],
@@ -207,7 +231,7 @@ export function SyllabusReader({
     const first = dropped[0]
     setFailed(
       first
-        ? `Klunk reads a syllabus as a .docx or a .xlsx, and ${first.name} is neither.`
+        ? `Klunk reads a syllabus as a .docx, a .xlsx or a .pdf, and ${first.name} is none of those.`
         : 'That was not a file Klunk could take. Drop the syllabus document itself, not a link to it.',
     )
   }
@@ -220,15 +244,20 @@ export function SyllabusReader({
     setEdits([])
     try {
       const file = chosen.file ?? (await fileFrom(folder, chosen.path))
-      const { format, courses, suspects } = isWorkbook(chosen.path)
-        ? readSyllabusWorkbook(await readWorkbook(file))
-        : readSyllabusXml(await readDocxXml(file))
+      // Three kinds of document, told apart by extension long before any reader
+      // sees them, because the three take different things: markup, rows and
+      // pages of positioned text.
+      const { format, courses, suspects } = isPdf(chosen.path)
+        ? readSyllabusPdf(await readPdf(new Uint8Array(await file.arrayBuffer())))
+        : isWorkbook(chosen.path)
+          ? readSyllabusWorkbook(await readWorkbook(file))
+          : readSyllabusXml(await readDocxXml(file))
       const base = chosen.path.split('/').pop() ?? chosen.path
       setFound({ courses, original: courses, format, suspects, source: base })
-      setId(format === 'workbook' ? 'ib-dp-design-technology' : suggestSyllabusId(base))
-      setName(format === 'workbook' ? 'Design Technology' : prettyName(base))
+      setId(isIbDesignTechnology(format) ? 'ib-dp-design-technology' : suggestSyllabusId(base))
+      setName(isIbDesignTechnology(format) ? 'Design Technology' : prettyName(base))
       // Filled in only where the format settles it: the content-table layout is
-      // the 2013 one and nothing else uses it, and the syllabus map is the one
+      // the 2013 one and nothing else uses it, and both IB readers are the one
       // course whose first assessment year is the whole reason it exists. Every
       // other shape covers more than one edition, so the teacher says which.
       setEdition(EDITIONS[format] ?? '')
@@ -254,7 +283,7 @@ export function SyllabusReader({
         syllabusVersion: edition,
         sourceTitle: found.source,
         retrieved: today,
-        ...(found.format === 'workbook' ? IB : {}),
+        ...(isIbDesignTechnology(found.format) ? IB : {}),
       })
       await writeJson(folder, outPath, model)
       onSaved(`Saved ${outPath}. Its topics are now offered wherever a question is tagged.`)
@@ -272,8 +301,9 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          Klunk reads a syllabus as a Word document, and the IB Design Technology syllabus
-             map as a spreadsheet. It works out which kind you have given it.
+          Klunk reads a NESA syllabus as a Word document, and the IB Design Technology
+             subject guide as a PDF or its old-to-new syllabus map as a spreadsheet. It works
+             out which kind you have given it.
         </p>
 
         {documents.length > 0 && (

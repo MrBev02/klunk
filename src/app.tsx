@@ -71,6 +71,9 @@ export function App() {
   const [view, setView] = useState<View>('library')
   const [paper, setPaper] = useState<Paper | null>(null)
   const dirty = paper !== null && paperIsDirty(index, paper)
+
+  /** What the syllabus reader offers, which is every document it has a reader for. */
+  const documents = index.docx.length + index.workbooks.length + index.pdfs.length
   /** 'new' to write one, an Editing to change one, null when the editor is shut. */
   const [editor, setEditor] = useState<'new' | Editing | null>(null)
   /** 'new' to describe a paper structure, an EditingProfile to change one, null when shut. */
@@ -634,10 +637,15 @@ export function App() {
               <button
                 class={`tab ${view === 'syllabus' ? 'tab--on' : ''}`}
                 onClick={() => setView('syllabus')}
-                title="Build a syllabus model from the NESA document in this folder"
+                title="Build a syllabus model from a syllabus document in this folder"
               >
                 From a syllabus
-                {index.docx.length > 0 && <span class="tab__n">{index.docx.length}</span>}
+                {/* Every document the tab offers, which since #58 includes the PDFs.
+                    Most of a teacher's PDFs are past papers and are counted on the tab
+                    to the left as well, so this number reads large. That is the lesser
+                    fault: a badge saying 9 over a list of 36 is a badge that is wrong,
+                    and Klunk cannot tell which PDF is a syllabus without opening it. */}
+                {documents > 0 && <span class="tab__n">{documents}</span>}
               </button>
             </nav>
 

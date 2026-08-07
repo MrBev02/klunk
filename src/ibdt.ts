@@ -2,7 +2,7 @@
  * Reading the IB DP Design Technology syllabus map into a model (#4).
  *
  * The IB publishes its guide through the Programme Resource Centre, licensed,
- * and there is no Word export of it. What a teacher can actually hold is the
+ * and there is no Word export of it. What a teacher can also hold is the
  * old-vs-new syllabus map published alongside the change: a spreadsheet whose
  * first sheet is the whole new syllabus, one row per understanding, with the
  * theme, the level of organization, the topic, the understanding, what students
@@ -11,6 +11,13 @@
  * So this reads that sheet. The same posture as every other reader: the
  * document is the teacher's own copy, the model is written into the teacher's
  * own folder, and Klunk ships neither.
+ *
+ * **This is the second-best document, and was once the only one** (#58). The map
+ * is a third party's transcription rather than the IB's, a teacher may not have
+ * it, and it carries errors the guide does not — twenty-three of its cells drop
+ * the closing full stop and one repeats the wrong paragraph entirely. The guide
+ * itself now reads, in `src/ibguide.ts`. This stays because two readings of one
+ * syllabus can be compared, and neither would be trustworthy alone.
  *
  * **Why the columns and not the coordinates.** The sheet is found by its header
  * row — six headings that name what each column holds — and everything after is
@@ -90,52 +97,70 @@ export function readIbDesignTechnology(sheets: { name: string; rows: string[][] 
     )
   }
 
-  // The split is by topic, so a topic whose understandings disagree cannot be
-  // put in either course without losing some of them. Checked rather than
-  // assumed: it holds in the published map, but it is a fact about that
-  // document and not about the format, and the failure would be silent.
-  const mixed = topics.filter((t) => t.points.some((p) => p.hlOnly !== isHlOnly(t)))
-  if (mixed.length > 0) {
-    throw new NotASyllabusError(
-      `${mixed.map((t) => t.name).join(', ')} has some content marked HL only and some ` +
-        'marked SL and HL. Klunk sorts this syllabus into a Standard level course and a ' +
-        'Higher level course one whole topic at a time, so it cannot place a topic that is ' +
-        'both. Correct the SL and HL or HL only column for that topic and read it again.',
-    )
-  }
-
-  return {
-    courses: [
-      {
-        id: 'sl',
-        name: 'Standard level',
-        topics: topics.filter((t) => !isHlOnly(t)).map(toTopic),
-      },
-      { id: 'hl', name: 'Higher level', topics: topics.map(toTopic) },
-    ],
-  }
+  return { courses: ibCourses(topics, 'SL and HL or HL only column') }
 }
 
-/* ------------------------------------------------------------------- reading */
+/* --------------------------------------------------- the model, shared (#58) */
 
-interface Read {
+/**
+ * A topic as either document gives it, before it is sorted into a course.
+ *
+ * Exported because the guide PDF is a second reading of the same syllabus
+ * (`src/ibguide.ts`), and the part that turns topics into an SL course and an HL
+ * course has to be **one piece of code**. Two copies would drift, and the whole
+ * value of having both routes is that the models they produce can be compared:
+ * a difference then means one of the readers is wrong, rather than meaning the
+ * two readers were written on different days.
+ */
+export interface IbTopicRead {
   /** `A1-1`, from the published `A1.1`. */
   id: string
   /** `A1.1 People: Ergonomics`. */
   name: string
-  /** The topic heading as the sheet writes it, for checking against the guide. */
+  /** The topic heading as the document writes it, for checking against the guide. */
   text: string
   /** The theme, e.g. `A. Design in theory`. */
   group: string
   points: { text: string; hlOnly: boolean }[]
 }
 
-/** Every understanding in the topic is HL only, which `readTopics` guarantees. */
-function isHlOnly(read: Read): boolean {
+/** Every understanding in the topic is HL only, which both readers guarantee. */
+function isHlOnly(read: IbTopicRead): boolean {
   return read.points[0]?.hlOnly ?? false
 }
 
-function toTopic(read: Read): SyllabusTopic {
+/**
+ * Sort the topics into a Standard level course and a Higher level course.
+ *
+ * @param where What the caller should correct if a topic is split, named as its
+ *   own document names it — a spreadsheet column in one, a printed heading in
+ *   the other.
+ * @throws NotASyllabusError when a topic is partly HL only.
+ */
+export function ibCourses(topics: IbTopicRead[], where: string): SyllabusCourse[] {
+  // The split is by topic, so a topic whose understandings disagree cannot be
+  // put in either course without losing some of them. Checked rather than
+  // assumed: it holds in the published syllabus, but it is a fact about that
+  // syllabus and not about either format, and the failure would be silent.
+  const mixed = topics.filter((t) => t.points.some((p) => p.hlOnly !== isHlOnly(t)))
+  if (mixed.length > 0) {
+    throw new NotASyllabusError(
+      `${mixed.map((t) => t.name).join(', ')} has some content marked HL only and some ` +
+        'marked SL and HL. Klunk sorts this syllabus into a Standard level course and a ' +
+        'Higher level course one whole topic at a time, so it cannot place a topic that is ' +
+        `both. Correct the ${where} for that topic and read it again.`,
+    )
+  }
+
+  return [
+    { id: 'sl', name: 'Standard level', topics: topics.filter((t) => !isHlOnly(t)).map(toTopic) },
+    { id: 'hl', name: 'Higher level', topics: topics.map(toTopic) },
+  ]
+}
+
+/* ------------------------------------------------------------------- reading */
+
+function toTopic(read: IbTopicRead): SyllabusTopic {
   const points: SyllabusPoint[] = read.points.map((p, i) => ({
     id: `${read.id}.${i + 1}`,
     text: p.text,
@@ -179,8 +204,8 @@ function columnsIn(row: string[]): Record<Column, number> | null {
   return at
 }
 
-function readTopics(rows: string[][], at: Record<Column, number>): Read[] {
-  const topics: Read[] = []
+function readTopics(rows: string[][], at: Record<Column, number>): IbTopicRead[] {
+  const topics: IbTopicRead[] = []
 
   // Theme and level are merged down the block they cover, so all but the first
   // row of each is blank in the markup rather than blank in the syllabus.
@@ -232,7 +257,7 @@ function numberOf(heading: string): string | null {
  * put it on screen twice — and inside the SL course it can never appear at all,
  * so a name that carried it would be wrong there rather than merely redundant.
  */
-function nameFor(number: string, level: string, heading: string): string {
+export function nameFor(number: string, level: string, heading: string): string {
   const title = heading
     .slice(number.length)
     .replace(/\s*\(HL only\)\s*$/i, '')
@@ -251,7 +276,7 @@ function nameFor(number: string, level: string, heading: string): string {
  * writing a question, so dropping it to keep the point short would drop the
  * reason for reading the sheet.
  */
-function pointText(understanding: string, content: string): string {
+export function pointText(understanding: string, content: string): string {
   const opening = understanding.trim()
   if (!content) return opening
 

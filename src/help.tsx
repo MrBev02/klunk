@@ -130,23 +130,25 @@ export function Help({ onClose }: { onClose: () => void }) {
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
           points. <strong>Klunk does not come with any, and that is on purpose.</strong> A
           syllabus is copyright, so Klunk cannot hand you one. You build your own from your
-          own copy. Open the <strong>From a syllabus</strong> tab and choose the syllabus{' '}
-          <code>.docx</code>, either from your folder or straight off this computer. It shows
-          you every course, topic and content point it found before it writes anything.
+          own copy. Open the <strong>From a syllabus</strong> tab and choose the syllabus
+          document, either from your folder or straight off this computer. It shows you every
+          course, topic and content point it found before it writes anything.
         </p>
 
         <p class="muted">
-          <strong>Which document to use.</strong> Klunk reads a syllabus as a Word{' '}
-          <code>.docx</code>. That covers the NESA Stage 6 syllabuses, which set their
-          content out in a table, and the newer Year 11 and 12 ones, which use headings and
-          bullet points. On <code>curriculum.nsw.edu.au</code> the Download button offers
-          Word and PDF, so choose Word. Klunk cannot read a syllabus as a PDF.
+          <strong>Which document to use.</strong> For a NESA syllabus, Klunk reads a Word{' '}
+          <code>.docx</code>. That covers the Stage 6 syllabuses, which set their content out
+          in a table, and the newer Year 11 and 12 ones, which use headings and bullet
+          points. On <code>curriculum.nsw.edu.au</code> the Download button offers Word and
+          PDF, so choose Word: Klunk cannot read a NESA syllabus as a PDF, and the Word
+          export is the better document anyway.
         </p>
 
         <p class="muted">
-          For IB Design Technology, the document is the old-to-new syllabus map, a
-          spreadsheet you can download from ManageBac. The IB subject guide itself is a PDF,
-          and Klunk cannot read it.
+          For IB Design Technology, use the <strong>subject guide</strong>, the PDF from the
+          Programme Resource Centre. Klunk also reads the old-to-new syllabus map, the
+          spreadsheet from ManageBac, but the guide is the IB's own document and the map is
+          not — where the two disagree, Klunk has found the map to be the one that is wrong.
         </p>
 
         <p class="muted">

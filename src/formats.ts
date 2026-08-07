@@ -18,13 +18,15 @@
  * lives in one file.
  */
 
+import type { PageText } from './extract'
 import { parseHeadingsXml, parseProseXml } from './headings'
 import { readIbDesignTechnology } from './ibdt'
+import { readIbGuide } from './ibguide'
 import { NotASyllabusError, parseSyllabusTables } from './syllabus'
 import type { SyllabusCourse } from './types'
 import type { Sheet } from './xlsx'
 
-export type SyllabusFormat = 'tables' | 'headings' | 'prose' | 'workbook'
+export type SyllabusFormat = 'tables' | 'headings' | 'prose' | 'workbook' | 'guide'
 
 /**
  * What to tell a teacher the document was read as.
@@ -38,6 +40,7 @@ export const FORMAT_DESCRIPTIONS: Record<SyllabusFormat, string> = {
   headings: 'a syllabus that sets out each topic under Outcomes and Content headings',
   prose: 'an older syllabus whose content is written as numbered sections of prose',
   workbook: 'the IB Design Technology syllabus map, one row per understanding',
+  guide: 'the IB Design Technology subject guide, a topic at a time',
 }
 
 /**
@@ -97,4 +100,19 @@ export function readSyllabusXml(xml: string): SyllabusReading {
  */
 export function readSyllabusWorkbook(sheets: Sheet[]): SyllabusReading {
   return { format: 'workbook', ...readIbDesignTechnology(sheets), suspects: [] }
+}
+
+/**
+ * Read a PDF as a syllabus.
+ *
+ * One reader again, and separate again for the same reason: it takes pages of
+ * positioned text where the others take markup or rows. It is the IB subject
+ * guide, because the IB publishes no Word export of it (#58) — a PDF is a poor
+ * input and the only one there is.
+ *
+ * @throws NotASyllabusError when the PDF is not the guide. A teacher's folder
+ *   holds past papers too, and they are offered from the same list.
+ */
+export function readSyllabusPdf(pages: PageText[]): SyllabusReading {
+  return { format: 'guide', ...readIbGuide(pages), suspects: [] }
 }

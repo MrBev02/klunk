@@ -59,7 +59,9 @@ klunk/                     this repo - app and tools only, public
     xlsx.ts                spreadsheet to rows of text, deciding nothing
     syllabus.ts            the 2013 content-table reader, and the model
     headings.ts            the Outcomes/Content reader and the prose reader
-    ibdt.ts                the IB DP Design Technology syllabus map reader
+    ibdt.ts                the IB DP Design Technology syllabus map reader, and
+                           the SL/HL split both IB readers share
+    ibguide.ts             the IB DP Design Technology subject guide reader
     formats.ts             picks the reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
     modelcheck.ts          tags that name nothing, and two models of one document
@@ -321,10 +323,11 @@ not inferred:
   `C. Design in context` across `1. People`, `2. Process`, `3. Product`,
   `4. Production`. Twenty-four topics, numbered `A1.1` … `C4.1`, of which
   **eleven are marked `(HL only)`**, so SL is the other thirteen.
-- **A topic is never half HL.** The marker sits on the understanding in the
-  syllabus map, but it agrees across every understanding of a topic, which is
-  what makes splitting SL from HL a whole topic at a time safe. `ibdt.ts` checks
-  it rather than assuming it.
+- **A topic is never half HL.** The guide says so per topic, in the heading and
+  again in the hours line under it; the syllabus map says it per understanding
+  and every understanding of a topic agrees. Either way it is what makes
+  splitting SL from HL a whole topic at a time safe, and both readers check it
+  rather than assuming it.
 - **Each topic is a run of numbered understandings**, and each understanding is
   two things: the statement (`1.1.5 In design, consideration must be given to
   work envelopes…`) and, under it, `Students must be able to …`. The second is
@@ -332,14 +335,63 @@ not inferred:
   **Nineteen of the 161 statements are published with no full stop**, which is
   why the two are joined with one added rather than a bare space.
 - **The guide is a PDF and the IB publishes no Word export of it**, unlike
-  `curriculum.nsw.edu.au`. What a teacher can hold in a machine-readable shape is
-  the ManageBac old-to-new **syllabus map `.xlsx`**, and it is a faithful
-  transcription: A1.1's seven understandings and A2.1's five match the guide word
-  for word. So `ibdt.ts` reads the workbook, and the guide is what it was checked
-  against.
+  `curriculum.nsw.edu.au`. It is read anyway (`ibguide.ts`, #58), because it is
+  the IB's own document. The ManageBac old-to-new **syllabus map `.xlsx`** is
+  read too (`ibdt.ts`, #4) and is a near-faithful transcription, but it is a
+  third party's and a teacher may not have it, so **the guide is the source of
+  truth and the map is the second opinion**, not the other way round.
+- **The two readings agree on all 24 topics and all 161 point ids, and differ in
+  26 of the 161 texts.** Every difference is the map's: 23 cells drop the
+  closing full stop, two join a word broken at a line-end hyphen by deleting the
+  hyphen (`multimeters`, `decisionmaking`), and **C4.1's 4.1.5 carries 4.1.4's
+  paragraph instead of its own** — the wrong command term and the wrong content
+  for that understanding entirely. That single cell is the case for #58 in one
+  place. `ibguide.corpus.test.ts` pins the count at 23 and the list at those
+  three, so a fourth difference is a finding rather than a surprise.
 - **The map sets the new syllabus beside the 2020 one it replaces**, and four of
   its six column headings repeat on the old side. `SL and HL or HL only` heads
   two columns. The new course is the left-hand set throughout.
+
+**How the guide prints its syllabus**, established by running it through Klunk's
+own pdf.js path — `pagesFromDocument` then `toLines` — rather than `pdftotext`,
+so nothing here depends on a tool the app does not have. 85 pages, 3061 lines:
+
+- **A topic heading is one that is followed by `Guiding question`.** The pattern
+  `^[A-C][1-4]\.\d+ ` matches **36** lines and exactly **24** are the syllabus;
+  the other twelve are the Overview table, whose three columns interleave into
+  lines like `B2.2 Modelling and C2.2 Design for a circular`, and three
+  sentences of planning prose. `Guiding question` appears 24 times in the whole
+  document and under nothing else, so the contract holds in both directions.
+  This is the NESA lesson again: a heading is known by what closes and opens
+  around it, not by looking like one — and it needs no font metric, which
+  matters because pdf.js discards them.
+- **HL status is printed twice and the two agree.** Each topic carries an hours
+  line, `Standard level (SL) and higher level (HL): 10 hours` or
+  `Higher level (HL): 6 hours`, and eleven say the second — the same eleven
+  whose headings carry `(HL only)`. Checked rather than assumed.
+- **Understanding numbers drop the theme letter**, so `1.1.1` opens A1.1, B1.1
+  and C1.1 alike and numbering has to be scoped to the open topic.
+- **The delimiter is `Students must`, not `Students must be able to`.** There are
+  161 understandings and 160 of the longer phrase: C1.1's 1.1.1 reads
+  `Students must outline how…` and A4.1's 4.1.2 `Students must be aware of…`.
+- **A page break reprints the open statement**, and continues the paragraph under
+  it mid-sentence. B1.1's 1.1.2 is the one case. Deduplicating by number gives
+  the right total of 161 and a content point that stops at "…to establish
+  users'", so the repeat is **merged**: the reprint is dropped and what follows
+  appended. #26 and #43 in a third document — the count was right while the
+  content was wrong.
+- **The running head and foot land inside a content point** that spans a break,
+  so `Syllabus content` and `Design technology guide` are dropped before
+  anything is read, as `extract.ts` drops the papers' furniture.
+- **A line ending in a hyphen joins the next with no space.** Five lines in the
+  syllabus section end that way and all five are hyphens inside a word; without
+  the rule two points read `multi- meters` and `decision- making`. A suspended
+  compound (`compare open- and closed-loop`) would be welded wrongly, and none
+  falls at a line end in this document.
+- **The four levels of organization are read from the Overview table**, whose
+  rows print `1. People A1.1 Ergonomics B1.1 …`. The conjunction with a topic
+  code is what makes it safe: the guide has five other runs of `1.` to `4.` and
+  none is followed by one.
 
 **The IB assessment model, from the guide's own outline** (pages 60 to 62). Nothing
 here is in the syllabus map, which gets two of these numbers wrong:
@@ -416,8 +468,10 @@ by hand off the documents rather than inherited:
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
 
-The IB map, in `src/ibdt.corpus.test.ts`, counted off the guide's Overview table
-and its numbered understandings rather than off the parser:
+The IB syllabus, counted off the guide's Overview table and its numbered
+understandings rather than off either parser. **Both documents must give these**,
+the guide in `src/ibguide.corpus.test.ts` and the map in
+`src/ibdt.corpus.test.ts`:
 
 | | first course | second course |
 |---|---|---|
@@ -558,7 +612,7 @@ because Git never asks `gh`.
   a different account.
 - **`../klunk-content` is not in git and does not come with the repo, deliberately.**
   Without it, `extract.corpus`, `syllabus.corpus`, `headings.corpus` and
-  `ibdt.corpus` all `describe.skipIf(!available)` themselves, and the port
+  `ibdt.corpus` and `ibguide.corpus` all `describe.skipIf(!available)` themselves, and the port
   comparison against the Python generator needs `python3` besides. So `npm test`
   goes **green while testing far less**, and `npm run build` gates on that same
   green. Nothing on screen says a suite skipped. On a machine without the content
@@ -853,6 +907,36 @@ with AI tab, and all eleven HL-only topics appear under Higher level and none
 under Standard level. The guide's Overview table names the same twenty-four
 topics with the same eleven HL markers, and A1.1 and A2.1 hold exactly the seven
 and five understandings the model gives them.
+
+**And now from the guide itself, which is what should have been read first**
+(#58). The spreadsheet is not the IB's: it is a third party's transcription, a
+teacher may not have it, and nothing obliges one to exist for the next revision.
+`src/ibguide.ts` takes positioned text and no PDF, the way `src/extract.ts`
+does, so every rule in it is testable without one and `src/pdftext.ts` stays the
+only place pdf.js is named. `src/ibdt.ts` now also holds the SL/HL split both
+readers use, because two copies of it would drift and the agreement between the
+two models is the whole point.
+
+The guide reader carries no more than the map does — not the guiding question,
+the teaching hours or the linking questions, all of which the guide prints. That
+is deliberate and is a schema question rather than a parsing one: one identical
+model out of two unrelated documents is what makes either trustworthy, and a
+field on one side only spends that check.
+
+Verified by driving it on `../klunk-content`: the guide read to 13 / 79 and
+24 / 161 with the three themes as focus areas and `A1.1 People: Ergonomics` as
+the first topic name, the replace-cost panel said no question loses a tag
+because every id matches, the model saved over the map-derived one and validates,
+and B1.1's 1.1.2 is whole, C4.1's 4.1.5 carries its own paragraph, `multi-meters`
+is one word and no content point holds a running head. A past paper and the
+Biology PDF were both offered in the same list and both refused by name, the
+second being told to use the Word download.
+
+**The cost is that the syllabus tab now offers every PDF in the folder**, which
+is 36 documents where it was 9, most of them past papers already counted on the
+tab beside it. Klunk cannot tell which PDF is a syllabus without opening it, and
+a badge reading 9 over a list of 36 is the worse fault, so the badge counts what
+the list holds.
 
 **A tag is resolved against its course, not against the whole model** (#47). An
 id is only unique within a course, and the app had assumed it was unique within a
