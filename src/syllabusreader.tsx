@@ -352,8 +352,8 @@ export function SyllabusReader({
                  the button above.
             </p>
             <p class="hint">
-              If you are offered Word or PDF, choose Word. Klunk cannot read a syllabus as a
-                 PDF, and <strong>Help</strong> says which document each syllabus needs.
+              When NESA offers you Word or PDF, choose Word. Klunk reads a NESA syllabus only
+                 as a Word document.
             </p>
           </>
         )}
