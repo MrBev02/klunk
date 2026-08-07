@@ -686,6 +686,32 @@ export async function copyFileInto(
   return chosen
 }
 
+/**
+ * Copy a file in, unless that same file is already there.
+ *
+ * `copyFileInto` never overwrites, which is right for a stimulus image: two
+ * photographs called `handle.png` are two different pictures. A past paper
+ * chosen from Downloads is the opposite case. A teacher comes back to the same
+ * download to take the marking guide with it, or to fill a second bank, and
+ * numbering every time would leave `2019-paper-3.pdf` in `source/` by the third
+ * visit.
+ *
+ * Same name and same length is taken as the same file. Comparing the bytes
+ * would mean reading a megabyte off disk to answer a question the name and the
+ * size already answer, and two different papers filed under one name at exactly
+ * one length is not a case worth paying for.
+ */
+export async function copyFileIntoUnlessThere(
+  dir: FileSystemDirectoryHandle,
+  directory: string,
+  file: File,
+): Promise<{ name: string; wrote: boolean }> {
+  const safe = safeFilename(file.name)
+  const there = await fileAt(dir, joinDir(directory, safe))
+  if (there && there.size === file.size) return { name: safe, wrote: false }
+  return { name: await copyFileInto(dir, directory, safe, file), wrote: true }
+}
+
 function joinDir(directory: string, name: string): string {
   return directory ? `${directory}/${name}` : name
 }

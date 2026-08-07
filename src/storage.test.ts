@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   allQuestions,
   copyFileInto,
+  copyFileIntoUnlessThere,
   emptyIndex,
   folderIsMissing,
   inCourse,
@@ -667,6 +668,44 @@ describe('copyFileInto', () => {
       'handle-2.png',
     )
     expect(read(dir, 'bank/stimulus/handle.png')).toBe('the first one')
+  })
+})
+
+describe('copyFileIntoUnlessThere', () => {
+  it('copies a paper in and says it wrote one', async () => {
+    const files = tree({})
+    const written = await copyFileIntoUnlessThere(
+      dirHandle(files),
+      'source',
+      new File(['the 2019 paper'], '2019 hsc paper.pdf'),
+    )
+
+    // The space is gone because a filename becomes part of a path.
+    expect(written).toEqual({ name: '2019-hsc-paper.pdf', wrote: true })
+    expect(read(files, 'source/2019-hsc-paper.pdf')).toBeInstanceOf(Blob)
+  })
+
+  it('leaves the same download alone the second time', async () => {
+    // The case this exists for: a teacher comes back to the paper they already
+    // read, to take its marking guide. `copyFileInto` would leave 2019-1.pdf.
+    const files = tree({ 'source/2019.pdf': 'the 2019 paper' })
+    const handle = dirHandle(files)
+
+    expect(await copyFileIntoUnlessThere(handle, 'source', new File(['the 2019 paper'], '2019.pdf')))
+      .toEqual({ name: '2019.pdf', wrote: false })
+    expect(read(files, 'source/2019.pdf')).toBe('the 2019 paper')
+    expect([...(read(files, 'source') as Map<string, unknown>).keys()]).toEqual(['2019.pdf'])
+  })
+
+  it('keeps both when the name is shared but the file is not', async () => {
+    // Two subjects each downloading `paper.pdf` is the case `copyFileInto`
+    // refuses to overwrite for, and that refusal still has to hold here.
+    const files = tree({ 'source/paper.pdf': 'design and technology' })
+    const handle = dirHandle(files)
+
+    expect(await copyFileIntoUnlessThere(handle, 'source', new File(['textiles'], 'paper.pdf')))
+      .toEqual({ name: 'paper-1.pdf', wrote: true })
+    expect(read(files, 'source/paper.pdf')).toBe('design and technology')
   })
 })
 

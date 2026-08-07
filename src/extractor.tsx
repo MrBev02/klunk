@@ -9,10 +9,22 @@
  * saved from here at all — it goes to the question editor, exactly as a bad AI
  * draft does.
  *
- * The papers are offered from the teacher's own folder rather than through a
- * file dialog. Past papers are downloaded into the content folder alongside the
- * banks they will fill, so the ones already there are the ones wanted, and it
- * saves a trip through a native picker for a file the app can already see.
+ * The papers are offered from the teacher's own folder, and since #61 from
+ * anywhere on this computer as well. Only the first was true before, on the
+ * argument that a paper is downloaded into the content folder anyway, which
+ * holds for a paper already there and says nothing about one that is not: a
+ * folder with no PDFs in it was told to go to Finder, move the file and reload,
+ * which is an instruction standing where a control belongs. That is #57's
+ * lesson arriving on the tab beside the one #57 fixed.
+ *
+ * A paper chosen from this computer is **copied into `source/`**, and this is
+ * where the two screens part company. The syllabus reader reads a picked
+ * document where it lies and does not copy it in, because the model is the
+ * artefact it writes and the document is done with afterwards. A past paper is
+ * never done with: a teacher comes back to it for the marking guide, for a
+ * second bank, or to check a question against the page it was read from. So it
+ * becomes an ordinary file of the folder at the moment it is chosen, and
+ * everything after that point treats it as one.
  */
 
 import { useMemo, useState } from 'preact/hooks'
@@ -27,6 +39,7 @@ import { openPdf, pagesFromDocument, readPdf } from './pdftext'
 import { QuestionDetail } from './question'
 import {
   copyFileInto,
+  copyFileIntoUnlessThere,
   joinPath,
   questionIds,
   readBytes,
@@ -48,6 +61,12 @@ function copyrightFor(year: number | undefined): string {
   return 'NSW Education Standards Authority'
 }
 
+/** Where a paper chosen from this computer is put, which is where papers already live. */
+const SOURCE_DIRECTORY = 'source'
+
+/** Which of the two slots a chosen file fills. */
+type Slot = 'paper' | 'guide'
+
 export function Extractor({
   index,
   folder,
@@ -57,6 +76,7 @@ export function Extractor({
   index: ContentIndex
   folder: FileSystemDirectoryHandle
   onEdit: (editing: Editing) => void
+  /** Something landed in the folder, so the folder wants rescanning. */
   onSaved: () => void
 }) {
   const courses = useMemo(() => courseChoices(index), [index])
@@ -64,6 +84,13 @@ export function Extractor({
 
   const [paperPath, setPaperPath] = useState('')
   const [guidePath, setGuidePath] = useState('')
+  // Copied in this session. Merged with the scan's own list so a paper is
+  // selectable the moment it is copied, rather than after the rescan it starts
+  // has come back.
+  const [added, setAdded] = useState<string[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [taking, setTaking] = useState(false)
+  const [took, setTook] = useState('')
   const [courseKey, setCourseKey] = useState(courses[0]?.key ?? '')
   const [bankPath, setBankPath] = useState(banks[0]?.path ?? '')
   const [paperName, setPaperName] = useState('NSW HSC Design and Technology')
@@ -78,6 +105,74 @@ export function Extractor({
   const [saving, setSaving] = useState(false)
 
   const chosen = courses.find((c) => c.key === courseKey)
+
+  const pdfs = useMemo(
+    () => [...new Set([...index.pdfs, ...added])].sort((a, b) => a.localeCompare(b)),
+    [index.pdfs, added],
+  )
+
+  /** A PDF from this computer: the pickers and a drop both land here. */
+  const take = async (file: File, slot: Slot) => {
+    setTaking(true)
+    setFailed('')
+    try {
+      const { name, wrote } = await copyFileIntoUnlessThere(folder, SOURCE_DIRECTORY, file)
+      const path = `${SOURCE_DIRECTORY}/${name}`
+      setAdded((a) => (a.includes(path) ? a : [...a, path]))
+      if (slot === 'paper') setPaperPath(path)
+      else setGuidePath(path)
+      setTook(
+        wrote
+          ? `${file.name} is now in your folder, as ${path}.`
+          : `${path} was already in your folder, so nothing was written.`,
+      )
+      onSaved()
+    } catch (err) {
+      setFailed(`${file.name} could not be copied into your folder: ${(err as Error).message}`)
+    } finally {
+      setTaking(false)
+    }
+  }
+
+  const pick = async (slot: Slot) => {
+    setFailed('')
+    try {
+      const handles = await window.showOpenFilePicker({
+        id: 'klunk-paper',
+        multiple: false,
+        types: [{ description: 'Past papers', accept: { 'application/pdf': ['.pdf'] } }],
+      })
+      const handle = handles[0]
+      if (!handle) return
+      await take(await handle.getFile(), slot)
+    } catch (err) {
+      // Closing the dialog is not a fault.
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      setFailed((err as Error).message)
+    }
+  }
+
+  const drop = async (e: DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    const dropped = [...(e.dataTransfer?.files ?? [])].filter((f) => /\.pdf$/i.test(f.name))
+    if (dropped.length === 0) {
+      const first = [...(e.dataTransfer?.files ?? [])][0]
+      setFailed(
+        first
+          ? `Klunk reads a past paper as a .pdf, and ${first.name} is not one.`
+          : 'That was not a file Klunk could take. Drop the paper itself, not a link to it.',
+      )
+      return
+    }
+    // The first fills the paper and the second the marking guide, in the order
+    // the two fields are in. The slot is decided here rather than from whichever
+    // is empty, because a rule that reads off state a teacher cannot see is a
+    // rule they cannot predict, and either field can be changed afterwards.
+    for (const [at, file] of dropped.slice(0, 2).entries()) {
+      await take(file, at === 0 ? 'paper' : 'guide')
+    }
+  }
 
   const readPaper = async () => {
     if (!paperPath) return
@@ -208,19 +303,6 @@ export function Extractor({
     }
   }
 
-  if (index.pdfs.length === 0) {
-    return (
-      <section class="panel">
-        <p class="panel__title">No PDFs in this folder</p>
-        <p>
-          Klunk fills a bank from the past papers already in your folder. Put the paper, and
-             its marking guide if you have one, anywhere in the folder you opened. Most people
-             use <span class="mono">source/</span>. They appear here once you reload.
-        </p>
-      </section>
-    )
-  }
-
   return (
     <div class="factory">
       <section class="panel">
@@ -232,6 +314,13 @@ export function Extractor({
              nothing anywhere.
         </p>
 
+        {pdfs.length === 0 && (
+          <p class="hint">
+            This folder has no PDF in it. Choose the paper from this computer with the button
+               below, and Klunk puts it in your folder as it reads it.
+          </p>
+        )}
+
         <div class="grid2">
           <Field label="Past paper" for="ex-paper">
             <select
@@ -240,12 +329,15 @@ export function Extractor({
               onChange={(e) => setPaperPath((e.target as HTMLSelectElement).value)}
             >
               <option value="">Choose a PDF…</option>
-              {index.pdfs.map((p) => (
+              {pdfs.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
               ))}
             </select>
+            <button class="btn btn--small" disabled={taking} onClick={() => void pick('paper')}>
+              Choose one on this computer
+            </button>
           </Field>
 
           <Field
@@ -259,7 +351,7 @@ export function Extractor({
               onChange={(e) => setGuidePath((e.target as HTMLSelectElement).value)}
             >
               <option value="">None</option>
-              {index.pdfs
+              {pdfs
                 .filter((p) => p !== paperPath)
                 .map((p) => (
                   <option key={p} value={p}>
@@ -267,6 +359,9 @@ export function Extractor({
                   </option>
                 ))}
             </select>
+            <button class="btn btn--small" disabled={taking} onClick={() => void pick('guide')}>
+              Choose one on this computer
+            </button>
           </Field>
 
           <Field label="Tag against" for="ex-course">
@@ -297,6 +392,24 @@ export function Extractor({
             />
           </Field>
         </div>
+
+        <div
+          class={`pickfile${dragging ? ' pickfile--over' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+            if (!dragging) setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => void drop(e)}
+        >
+          <p class="hint">
+            Or drag the paper onto this box. Drag both at once and the first goes in as the
+               paper and the second as the marking guide.
+          </p>
+        </div>
+
+        {took && <p class="hint">{took}</p>}
 
         <div class="rowbtns">
           <button

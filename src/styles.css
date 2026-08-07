@@ -894,6 +894,12 @@ textarea.input {
   margin: 0.5rem 0 0;
 }
 
+/* The extractor's box holds the instruction alone, because its two pickers sit
+   with the two fields they fill rather than in here. */
+.pickfile .hint:first-child {
+  margin-top: 0;
+}
+
 /* The document about to be read. Prominent because it is the one thing on this
    panel a teacher has to be sure of: two routes lead here and the wrong document
    reads as a syllabus that has quietly changed. */

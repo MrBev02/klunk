@@ -203,6 +203,15 @@ export function Help({ onClose }: { onClose: () => void }) {
             <code>syllabus/</code>
           </dt>
           <dd>The syllabus models you have built.</dd>
+
+          <dt>
+            <code>source/</code>
+          </dt>
+          <dd>
+            Past papers. Klunk puts one here when you choose it from this computer on the
+            From a past paper tab, and you can put your own here too. Nothing else in Klunk
+            depends on this folder, so you can tidy it whenever you like.
+          </dd>
         </dl>
 
         <p>
@@ -241,9 +250,11 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p>
-          <strong>Read a past paper.</strong> Put the exam PDF in your folder, along with
-          the marking guide if you have it. The <strong>From a past paper</strong> tab lists
-          what it found. It reads out the questions and their marks, takes the outcome codes
+          <strong>Read a past paper.</strong> Open the <strong>From a past paper</strong> tab
+          and choose the exam PDF, either from your folder or straight off this computer,
+          along with the marking guide if you have it. A paper you choose from this computer
+          is copied into <code>source/</code> in your folder, so it is there the next time you
+          want it. It reads out the questions and their marks, takes the outcome codes
           from the marking guide's mapping grid, and offers you any pictures it can cut out.
           Nothing is written until you have looked at every question, and anything with a
           problem goes to the editor instead of into a bank. This was built and tested on
