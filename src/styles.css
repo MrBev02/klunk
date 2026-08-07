@@ -894,10 +894,64 @@ textarea.input {
   margin: 0.5rem 0 0;
 }
 
-/* The extractor's box holds the instruction alone, because its two pickers sit
-   with the two fields they fill rather than in here. */
-.pickfile .hint:first-child {
-  margin-top: 0;
+/* The past paper and its marking guide, side by side because they are the same
+   kind of thing, chosen the same way, and read together. They wrap rather than
+   shrink, so neither ends up too narrow to show a filename. */
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 0.9rem 0;
+}
+
+/* Dashed while it is empty, because that is what says a file can be dropped on
+   it, and solid once it holds one: the border is doing the same work as the
+   text and should stop asking for a document it has. */
+.slot {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+
+.slot--filled {
+  border-style: solid;
+  background: var(--paper-raised);
+  cursor: default;
+}
+
+.slot--over {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.slot .rail__label {
+  margin: 0 0 0.5rem;
+}
+
+.slot .hint:last-child {
+  margin-bottom: 0;
+}
+
+/* The chosen file, which is the one thing on this panel a teacher has to be
+   sure of before pressing Read. */
+.slot__file {
+  margin: 0 0 0.6rem;
+  overflow-wrap: anywhere;
+}
+
+/* The folder's own PDFs, offered under the two routes from outside it. A block
+   because the label sits above the select rather than beside it. */
+.slot__inside {
+  display: block;
+  margin: 0.7rem 0 0;
+}
+
+.slot__inside .hint {
+  display: block;
+  margin: 0 0 0.25rem;
 }
 
 /* The document about to be read. Prominent because it is the one thing on this

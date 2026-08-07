@@ -17,6 +17,18 @@
  * which is an instruction standing where a control belongs. That is #57's
  * lesson arriving on the tab beside the one #57 fixed.
  *
+ * The paper and the marking guide are one box each, and every route in is on
+ * the box: drag it on, click it to open the picker, or take one of the folder's
+ * own from the list underneath. Three things were wrong with the pair of selects
+ * that came before. The controls carried no `input` class and sat in a `grid2`
+ * that is in no stylesheet, so the panel had never been laid out at all and the
+ * examination name was cut off in its box. One drop target covered both slots
+ * and filled them in the order the files happened to arrive, which decides which
+ * document is the paper by something a teacher cannot see before letting go. And
+ * the list stayed on screen reading "Choose a PDF…" beside a paper that was
+ * already loaded, where the filename is the only thing that says what will be
+ * read.
+ *
  * A paper chosen from this computer is **copied into `source/`**, and this is
  * where the two screens part company. The syllabus reader reads a picked
  * document where it lies and does not copy it in, because the model is the
@@ -88,7 +100,8 @@ export function Extractor({
   // selectable the moment it is copied, rather than after the rescan it starts
   // has come back.
   const [added, setAdded] = useState<string[]>([])
-  const [dragging, setDragging] = useState(false)
+  // Which slot is being dragged over, so only that one lights up.
+  const [dragging, setDragging] = useState<Slot | null>(null)
   const [taking, setTaking] = useState(false)
   const [took, setTook] = useState('')
   const [courseKey, setCourseKey] = useState(courses[0]?.key ?? '')
@@ -152,12 +165,21 @@ export function Extractor({
     }
   }
 
-  const drop = async (e: DragEvent) => {
+  /**
+   * A drop fills the box it landed on, and takes one file.
+   *
+   * It used to take two at once, the first as the paper and the second as the
+   * marking guide, off one box covering both. Which file a drag holds first is
+   * not something a teacher can see before letting go, so that rule decided
+   * which document was the paper by an order nobody chose.
+   */
+  const drop = async (e: DragEvent, slot: Slot) => {
     e.preventDefault()
-    setDragging(false)
-    const dropped = [...(e.dataTransfer?.files ?? [])].filter((f) => /\.pdf$/i.test(f.name))
-    if (dropped.length === 0) {
-      const first = [...(e.dataTransfer?.files ?? [])][0]
+    setDragging(null)
+    const dropped = [...(e.dataTransfer?.files ?? [])]
+    const file = dropped.find((f) => /\.pdf$/i.test(f.name))
+    if (!file) {
+      const first = dropped[0]
       setFailed(
         first
           ? `Klunk reads a past paper as a .pdf, and ${first.name} is not one.`
@@ -165,13 +187,7 @@ export function Extractor({
       )
       return
     }
-    // The first fills the paper and the second the marking guide, in the order
-    // the two fields are in. The slot is decided here rather than from whichever
-    // is empty, because a rule that reads off state a teacher cannot see is a
-    // rule they cannot predict, and either field can be changed afterwards.
-    for (const [at, file] of dropped.slice(0, 2).entries()) {
-      await take(file, at === 0 ? 'paper' : 'guide')
-    }
+    await take(file, slot)
   }
 
   const readPaper = async () => {
@@ -314,59 +330,47 @@ export function Extractor({
              nothing anywhere.
         </p>
 
-        {pdfs.length === 0 && (
-          <p class="hint">
-            This folder has no PDF in it. Choose the paper from this computer with the button
-               below, and Klunk puts it in your folder as it reads it.
-          </p>
-        )}
+        <div class="slots">
+          <PdfSlot
+            label="Past paper"
+            id="ex-paper"
+            what="the paper"
+            path={paperPath}
+            inFolder={pdfs}
+            busy={taking}
+            over={dragging === 'paper'}
+            onOver={(on) => setDragging(on ? 'paper' : null)}
+            onChoose={setPaperPath}
+            onPick={() => void pick('paper')}
+            onDrop={(e) => void drop(e, 'paper')}
+          />
 
-        <div class="grid2">
-          <Field label="Past paper" for="ex-paper">
-            <select
-              id="ex-paper"
-              value={paperPath}
-              onChange={(e) => setPaperPath((e.target as HTMLSelectElement).value)}
-            >
-              <option value="">Choose a PDF…</option>
-              {pdfs.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-            <button class="btn btn--small" disabled={taking} onClick={() => void pick('paper')}>
-              Choose one on this computer
-            </button>
-          </Field>
-
-          <Field
-            label="Marking guide (optional)"
-            for="ex-guide"
+          <PdfSlot
+            label="Marking guide"
+            id="ex-guide"
+            what="the marking guide"
+            optional
             hint="Brings the answers, the criteria and the syllabus outcomes with it."
-          >
-            <select
-              id="ex-guide"
-              value={guidePath}
-              onChange={(e) => setGuidePath((e.target as HTMLSelectElement).value)}
-            >
-              <option value="">None</option>
-              {pdfs
-                .filter((p) => p !== paperPath)
-                .map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-            </select>
-            <button class="btn btn--small" disabled={taking} onClick={() => void pick('guide')}>
-              Choose one on this computer
-            </button>
-          </Field>
+            path={guidePath}
+            // Never the paper itself, which was the one thing the old pair of
+            // selects got right.
+            inFolder={pdfs.filter((p) => p !== paperPath)}
+            busy={taking}
+            over={dragging === 'guide'}
+            onOver={(on) => setDragging(on ? 'guide' : null)}
+            onChoose={setGuidePath}
+            onPick={() => void pick('guide')}
+            onDrop={(e) => void drop(e, 'guide')}
+          />
+        </div>
 
+        {took && <p class="hint">{took}</p>}
+
+        <div class="fieldrow">
           <Field label="Tag against" for="ex-course">
             <select
               id="ex-course"
+              class="input"
               value={courseKey}
               onChange={(e) => setCourseKey((e.target as HTMLSelectElement).value)}
             >
@@ -387,29 +391,12 @@ export function Extractor({
             <input
               id="ex-name"
               type="text"
+              class="input"
               value={paperName}
               onInput={(e) => setPaperName((e.target as HTMLInputElement).value)}
             />
           </Field>
         </div>
-
-        <div
-          class={`pickfile${dragging ? ' pickfile--over' : ''}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
-            if (!dragging) setDragging(true)
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => void drop(e)}
-        >
-          <p class="hint">
-            Or drag the paper onto this box. Drag both at once and the first goes in as the
-               paper and the second as the marking guide.
-          </p>
-        </div>
-
-        {took && <p class="hint">{took}</p>}
 
         <div class="rowbtns">
           <button
@@ -449,22 +436,21 @@ export function Extractor({
             </div>
           )}
 
-          <div class="grid2">
-            <Field label="Bank to save into" for="ex-bank">
-              <select
-                id="ex-bank"
-                value={bankPath}
-                onChange={(e) => setBankPath((e.target as HTMLSelectElement).value)}
-              >
-                {banks.length === 0 && <option value="">No bank in this folder</option>}
-                {banks.map((b) => (
-                  <option key={b.path} value={b.path}>
-                    {b.path}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <Field label="Bank to save into" for="ex-bank">
+            <select
+              id="ex-bank"
+              class="input"
+              value={bankPath}
+              onChange={(e) => setBankPath((e.target as HTMLSelectElement).value)}
+            >
+              {banks.length === 0 && <option value="">No bank in this folder</option>}
+              {banks.map((b) => (
+                <option key={b.path} value={b.path}>
+                  {b.path}
+                </option>
+              ))}
+            </select>
+          </Field>
 
           <p class="det__label" style={{ marginTop: '0.6rem' }}>
             {read.adopted.length} question{read.adopted.length === 1 ? '' : 's'} read
@@ -513,6 +499,118 @@ export function Extractor({
           )}
         </section>
       )}
+    </div>
+  )
+}
+
+/**
+ * One document, chosen however the teacher has it to hand.
+ *
+ * The paper and its marking guide are the same kind of thing and are chosen the
+ * same way, so they are one component and sit side by side. Both routes in are
+ * on the box: drag it on, or click anywhere to open the picker, and a folder
+ * that already holds PDFs offers those underneath as well. A paper downloaded
+ * this morning and a paper filed last year are both one action away.
+ *
+ * **The list goes once the document is chosen.** A select still reading "Choose
+ * a PDF…" beside a paper that is already loaded says nothing true about what
+ * will be read; the filename does. Choose a different one puts the box back to
+ * empty, which is where all three routes are again, and for the marking guide
+ * is also how it goes back to none.
+ */
+function PdfSlot({
+  label,
+  id,
+  what,
+  hint,
+  optional,
+  path,
+  inFolder,
+  busy,
+  over,
+  onOver,
+  onChoose,
+  onPick,
+  onDrop,
+}: {
+  label: string
+  id: string
+  /** Named in the instruction, so each box says which document it wants. */
+  what: string
+  hint?: string
+  optional?: boolean
+  path: string
+  inFolder: string[]
+  busy: boolean
+  over: boolean
+  onOver: (on: boolean) => void
+  onChoose: (path: string) => void
+  onPick: () => void
+  onDrop: (e: DragEvent) => void
+}) {
+  const filled = path !== ''
+  return (
+    <div
+      class={`slot${filled ? ' slot--filled' : ''}${over ? ' slot--over' : ''}`}
+      onDragOver={(e) => {
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+        if (!over) onOver(true)
+      }}
+      onDragLeave={() => onOver(false)}
+      onDrop={onDrop}
+      // The whole box is the target, so the button inside it carries no handler
+      // of its own: a click on the button bubbles to here and picks once. That
+      // is also what makes the box reachable from the keyboard, without a
+      // role on a div that holds a select.
+      onClick={(e) => {
+        if (filled || busy) return
+        if ((e.target as HTMLElement).closest('select')) return
+        onPick()
+      }}
+    >
+      <p class="rail__label">
+        {label}
+        {optional && <span class="muted"> (optional)</span>}
+      </p>
+
+      {filled ? (
+        <>
+          <p class="slot__file mono">{path}</p>
+          <button class="btn btn--small" disabled={busy} onClick={() => onChoose('')}>
+            Choose a different one
+          </button>
+        </>
+      ) : (
+        <>
+          <button class="btn btn--small" disabled={busy}>
+            {busy ? 'Copying…' : `Choose ${what} on this computer`}
+          </button>
+          <p class="hint">Or drag it onto this box.</p>
+          {inFolder.length > 0 && (
+            <p class="slot__inside">
+              <label class="hint" for={id}>
+                Or one already in your folder:
+              </label>
+              <select
+                id={id}
+                class="input"
+                value={path}
+                onChange={(e) => onChoose((e.target as HTMLSelectElement).value)}
+              >
+                <option value="">{optional ? 'None' : 'Choose a PDF…'}</option>
+                {inFolder.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </p>
+          )}
+        </>
+      )}
+
+      {hint && <p class="hint">{hint}</p>}
     </div>
   )
 }

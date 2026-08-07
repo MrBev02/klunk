@@ -58,6 +58,9 @@ export function App() {
 
   const [phase, setPhase] = useState<Phase>('starting')
   const [folder, setFolder] = useState<FileSystemDirectoryHandle | null>(null)
+  /** Bumped when a different folder opens, and the key the tabs hang off. */
+  const [folderKey, setFolderKey] = useState(0)
+  const opened = useRef<FileSystemDirectoryHandle | null>(null)
   const [index, setIndex] = useState<ContentIndex>(emptyIndex)
   const [error, setError] = useState<FolderProblem | null>(null)
   /**
@@ -137,6 +140,14 @@ export function App() {
       setGone(null)
       try {
         replaceIndex(await scanFolder(handle, indexRef.current))
+        // Which folder is open, for the key the tabs hang off. Held in a ref and
+        // compared by identity: `folder` cannot be a dependency of `load`
+        // without recreating it on every open, and two folders can be called the
+        // same thing, so the name would not do.
+        if (opened.current !== handle) {
+          opened.current = handle
+          setFolderKey((n) => n + 1)
+        }
         setFolder(handle)
         setPhase('ready')
         // Opening is what makes a folder the most recent one, not adding it.
@@ -599,7 +610,15 @@ export function App() {
             separates a reload from the very first scan, which has nothing worth
             keeping and should show the message on its own. */}
         {(phase === 'ready' || (phase === 'scanning' && folder)) && (
-          <div hidden={editor !== null || profileEditor !== null || coverEditor}>
+          /* Keyed on the open folder, so everything a tab remembers goes when
+             the folder does. `switchTo` already clears the paper for this
+             reason — a paper is a selection of questions from the folder it was
+             built in — and every tab is the same case. Switching to an empty
+             folder left the extractor showing the other folder's paper by name,
+             and under it the fourteen questions read out of it, none of which
+             exist here. The key changes on the handle rather than on a rescan,
+             which hands `load` the folder it already has. */
+          <div key={folderKey} hidden={editor !== null || profileEditor !== null || coverEditor}>
             {notice && (
               <section class="panel panel--ok">
                 <p>{notice}</p>
