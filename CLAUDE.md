@@ -1360,11 +1360,27 @@ bank/manifest-check.json on 2026-08-08.` under the paper slot on the next visit,
 and the schema validates the real file and rejects an unknown purpose, a missing
 path, a wrong `formatVersion` and a repeated refusal.
 
-**What it does not fix is the cold start**, which is #73's remaining half. A
-manifest knows only what has been touched: on a teacher's first open of a fresh
-folder it labels nothing, and that is the case #68's detection exists for. The
-two are not competing — the manifest is where a detection result would persist,
-so a scan would be paid once per document rather than once per folder open.
+**The cold start is a corner case, and the first reading of this overstated it.**
+A manifest knows only what has been touched, which sounds like it leaves a fresh
+folder unlabelled on the day the list is longest. It does not, because of how
+documents get into a folder in the first place: a past paper picked from the
+computer is **copied into `source/` by Klunk** and read on the same screen, so
+entering the folder and being labelled happen in one visit, and a syllabus
+document is read where it lies and **never copied in at all** (#57). So the
+folder's PDFs are, in normal use, exactly the set the paper tab put there and
+read, and the manifest fills in step with them.
+
+Two things narrow it further. A shared or inherited folder **arrives with its
+manifest**, since the file lives in the folder rather than in one teacher's
+browser, which is what that decision buys. And an unlabelled document only stays
+unlabelled until somebody opens it once.
+
+What is left is a teacher who copies documents in by hand through Explorer or
+OneDrive rather than through Klunk. That is real and it is narrow.
+`../klunk-content` is exactly that case — assembled by hand, and therefore the
+worst folder in existence for judging this, which is how the first reading went
+wrong. It makes #68's detection a convenience rather than the thing #73 depends
+on.
 
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.
