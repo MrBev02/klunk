@@ -30,7 +30,8 @@
 
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from './docx'
-import { Field } from './fields'
+import { DocumentOptions, Field } from './fields'
+import { historyOf, type DocumentNote } from './manifest'
 import {
   FORMAT_DESCRIPTIONS,
   readSyllabusPdf,
@@ -42,7 +43,7 @@ import { readPdf } from './pdftext'
 import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
 import { costOfReplacing, problemsWith, tidyCourses } from './syllabusedit'
 import { SyllabusReview } from './syllabusreview'
-import { allQuestions, writeJson, type ContentIndex } from './storage'
+import { allQuestions, rememberDocument, writeJson, type ContentIndex } from './storage'
 import type { Syllabus, SyllabusCourse } from './types'
 import { readWorkbook } from './xlsx'
 
@@ -112,6 +113,14 @@ export function SyllabusReader({
   onSaved: (message: string) => void
 }) {
   const [chosen, setChosen] = useState<Chosen | null>(null)
+  // Bumped when a note lands, so the list regroups without waiting for a rescan.
+  // Only saving reloads the folder, and the interesting case here is a refusal,
+  // which never does: three past papers refused in a row should sink to the
+  // bottom of the list as it happens rather than at the next reload.
+  const [, noted] = useState(0)
+  const remember = (entry: DocumentNote) => {
+    void rememberDocument(folder, index, entry).then(() => noted((n) => n + 1))
+  }
   const [dragging, setDragging] = useState(false)
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
@@ -164,6 +173,12 @@ export function SyllabusReader({
   // Recomputed from the courses rather than kept beside them, so a correction
   // moves the counts on screen. A count that went stale the moment a topic was
   // merged would be worse than no count at all.
+  // What came of this document last time, for the teacher about to read it
+  // again. Only ever about one of the folder's own: a picked file has a filename
+  // and nothing else, so a match on it would be a coincidence.
+  const history =
+    chosen && chosen.file === null ? historyOf(index.manifest, chosen.path) : ''
+
   const summary = useMemo(() => (found ? summarise(found.courses) : []), [found])
   const problems = useMemo(() => (found ? problemsWith(found.courses) : []), [found])
 
@@ -253,6 +268,13 @@ export function SyllabusReader({
           ? readSyllabusWorkbook(await readWorkbook(file))
           : readSyllabusXml(await readDocxXml(file))
       const base = chosen.path.split('/').pop() ?? chosen.path
+      // Only the folder's own documents (#74). A file picked from Downloads is
+      // read where it lies and is never copied in, so all Klunk has is its
+      // filename, and an entry keyed on that would claim something about a path
+      // in the folder that may hold a different document or none at all.
+      if (chosen.file === null) {
+        remember({ path: chosen.path, read: 'syllabus', when: today })
+      }
       setFound({ courses, original: courses, format, suspects, source: base })
       setId(isIbDesignTechnology(format) ? 'ib-dp-design-technology' : suggestSyllabusId(base))
       setName(isIbDesignTechnology(format) ? 'Design Technology' : prettyName(base))
@@ -262,9 +284,18 @@ export function SyllabusReader({
       // other shape covers more than one edition, so the teacher says which.
       setEdition(EDITIONS[format] ?? '')
     } catch (err) {
+      // A refusal is a fact about the document worth keeping: it is what stops
+      // the same past paper being offered at the top of this list tomorrow, and
+      // it costs nothing to establish twice only because nobody wrote it down.
+      // Only a refusal, though. A document that broke on the way to a reader
+      // says nothing about what it is.
+      const refused = err instanceof NotADocxError || err instanceof NotASyllabusError
+      if (refused && chosen.file === null) {
+        remember({ path: chosen.path, refused: 'syllabus', when: today })
+      }
       setFailed(
-        err instanceof NotADocxError || err instanceof NotASyllabusError
-          ? err.message
+        refused
+          ? (err as Error).message
           : `Could not read ${chosen.path}: ${(err as Error).message}`,
       )
     } finally {
@@ -286,6 +317,9 @@ export function SyllabusReader({
         ...(isIbDesignTechnology(found.format) ? IB : {}),
       })
       await writeJson(folder, outPath, model)
+      if (chosen?.file === null) {
+        remember({ path: chosen.path, read: 'syllabus', into: outPath, when: today })
+      }
       onSaved(`Saved ${outPath}. Its topics are now offered wherever a question is tagged.`)
     } catch (err) {
       setFailed((err as Error).message)
@@ -320,11 +354,7 @@ export function SyllabusReader({
               }}
             >
               <option value="">Choose a file…</option>
-              {documents.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
+              <DocumentOptions paths={documents} manifest={index.manifest} want="syllabus" />
             </select>
           </Field>
         )}
@@ -366,6 +396,7 @@ export function SyllabusReader({
                 ? 'From this computer. Klunk reads it where it is and does not copy it into your folder.'
                 : 'From this folder.'}
             </p>
+            {history && <p class="chosen__where">{history}</p>}
           </div>
         )}
 

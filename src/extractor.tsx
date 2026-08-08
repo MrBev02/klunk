@@ -42,10 +42,11 @@
 import { useMemo, useState } from 'preact/hooks'
 import { adoptPaper, type Adopted } from './adopt'
 import type { Editing } from './editor'
-import { stampSource, type ExtractedQuestion } from './extract'
+import { NotAPaperError, stampSource, type ExtractedQuestion } from './extract'
 import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
 import { courseChoices } from './factory'
-import { bankPathFault, CheckList, Field, normaliseBankPath } from './fields'
+import { bankPathFault, CheckList, DocumentOptions, Field, normaliseBankPath } from './fields'
+import { historyOf, type DocumentNote } from './manifest'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
@@ -57,10 +58,17 @@ import {
   joinPath,
   questionIds,
   readBytes,
+  rememberDocument,
   saveQuestion,
   type ContentIndex,
 } from './storage'
-import { QUESTION_TYPE_LABELS, questionLabel, type Question } from './types'
+import {
+  QUESTION_TYPE_LABELS,
+  questionLabel,
+  type DocumentPurpose,
+  type Manifest,
+  type Question,
+} from './types'
 import { cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
 
 /**
@@ -93,17 +101,28 @@ type Slot = 'paper' | 'guide'
 export function Extractor({
   index,
   folder,
+  today,
   onEdit,
   onSaved,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
+  /** ISO date, passed in so the clock is not reached for here, as the syllabus reader does. */
+  today: string
   onEdit: (editing: Editing) => void
   /** Something landed in the folder, so the folder wants rescanning. */
   onSaved: () => void
 }) {
   const courses = useMemo(() => courseChoices(index), [index])
   const banks = index.banks
+
+  // Bumped when a note lands, so the two lists regroup as documents are read.
+  // Only saving reloads the folder, and a paper read but not yet saved is
+  // exactly what the list should already know about.
+  const [, noted] = useState(0)
+  const remember = (entry: DocumentNote) => {
+    void rememberDocument(folder, index, entry).then(() => noted((n) => n + 1))
+  }
 
   const [paperPath, setPaperPath] = useState('')
   const [guidePath, setGuidePath] = useState('')
@@ -252,6 +271,7 @@ export function Extractor({
       const doc = await openPdf(await readBytes(folder, paperPath))
       const pages = await pagesFromDocument(doc)
       const { format, paper: readAs } = readPastPaper(pages)
+      remember({ path: paperPath, read: 'paper', when: today })
       let paper = readAs
       let guideFormat: GuideFormat | undefined
       let guideFailed = ''
@@ -265,9 +285,11 @@ export function Extractor({
           const reading = readMarkingGuide(await readPdf(await readBytes(folder, guidePath)))
           guideFormat = reading.format
           paper = applyGuide(paper, reading.guide)
+          remember({ path: guidePath, read: 'marking guide', when: today })
         } catch (err) {
           if (!(err instanceof NotAGuideError)) throw err
           guideFailed = `${guidePath}: ${err.message}`
+          remember({ path: guidePath, refused: 'marking guide', when: today })
         }
       }
       const year = paper.year
@@ -327,6 +349,12 @@ export function Extractor({
         ...(year === undefined ? {} : { year }),
       })
     } catch (err) {
+      // Both readers refused it, which is worth writing down: it is what keeps
+      // the subject guide out of the top of this list next time. Anything else
+      // that threw says nothing about what the document is.
+      if (err instanceof NotAPaperError) {
+        remember({ path: paperPath, refused: 'paper', when: today })
+      }
       setFailed((err as Error).message)
     } finally {
       setReading(false)
@@ -488,6 +516,12 @@ export function Extractor({
         if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
       }
       setRenamed((r) => ({ ...r, ...moved }))
+      // Where this paper's questions ended up, which nothing has recorded until
+      // now: a bank holds the examination and the year, and never the file they
+      // were read out of.
+      if (ready.length > 0) {
+        remember({ path: paperPath, read: 'paper', into: bankPath, when: today })
+      }
       onSaved()
     } catch (err) {
       setFailed((err as Error).message)
@@ -514,6 +548,8 @@ export function Extractor({
             what="the paper"
             path={paperPath}
             inFolder={pdfs}
+            manifest={index.manifest}
+            want="paper"
             busy={taking}
             over={dragging === 'paper'}
             onOver={(on) => setDragging(on ? 'paper' : null)}
@@ -532,6 +568,8 @@ export function Extractor({
             // Never the paper itself, which was the one thing the old pair of
             // selects got right.
             inFolder={pdfs.filter((p) => p !== paperPath)}
+            manifest={index.manifest}
+            want="marking guide"
             busy={taking}
             over={dragging === 'guide'}
             onOver={(on) => setDragging(on ? 'guide' : null)}
@@ -760,6 +798,8 @@ function PdfSlot({
   optional,
   path,
   inFolder,
+  manifest,
+  want,
   busy,
   over,
   onOver,
@@ -775,12 +815,16 @@ function PdfSlot({
   optional?: boolean
   path: string
   inFolder: string[]
+  /** What the folder already knows its documents are, which orders the list (#74). */
+  manifest: Manifest
+  /** Which slot this is, so the list is ordered for what this box wants. */
+  want: DocumentPurpose
   busy: boolean
   over: boolean
   onOver: (on: boolean) => void
   onChoose: (path: string) => void
-  onPick: () => void
   onDrop: (e: DragEvent) => void
+  onPick: () => void
 }) {
   const filled = path !== ''
   return (
@@ -811,6 +855,10 @@ function PdfSlot({
       {filled ? (
         <>
           <p class="slot__file mono">{path}</p>
+          {/* Reading the same paper into a second bank is a real mistake and had
+              no warning until the folder remembered where a document's questions
+              went (#74). */}
+          {historyOf(manifest, path) && <p class="hint">{historyOf(manifest, path)}</p>}
           <button class="btn btn--small" disabled={busy} onClick={() => onChoose('')}>
             Choose a different one
           </button>
@@ -833,11 +881,7 @@ function PdfSlot({
                 onChange={(e) => onChoose((e.target as HTMLSelectElement).value)}
               >
                 <option value="">{optional ? 'None' : 'Choose a PDF…'}</option>
-                {inFolder.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
+                <DocumentOptions paths={inFolder} manifest={manifest} want={want} />
               </select>
             </p>
           )}

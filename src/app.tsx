@@ -714,6 +714,7 @@ export function App() {
               <Extractor
                 index={index}
                 folder={folder}
+                today={today}
                 onEdit={(editing) => openEditor(editing)}
                 onSaved={() => void load(folder)}
               />

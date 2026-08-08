@@ -8,7 +8,9 @@
  */
 
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { groupFor } from './manifest'
 import type { Check } from './paper'
+import type { DocumentPurpose, Manifest } from './types'
 
 export function Field({
   label,
@@ -100,6 +102,63 @@ export function NumField({
 }
 
 /** A bare list of checks, for wherever a whole panel would be too much. */
+/** What each group of documents is called, per slot. */
+const GROUP_LABELS: Record<DocumentPurpose, { matching: string; other: string }> = {
+  syllabus: { matching: 'Syllabus documents', other: 'Not a syllabus' },
+  paper: { matching: 'Past papers', other: 'Not a past paper' },
+  'marking guide': { matching: 'Marking guides', other: 'Not a marking guide' },
+}
+
+/**
+ * The folder's documents, sorted by what Klunk already knows they are (#73, #74).
+ *
+ * A teacher's folder holds eleven years of past papers and their marking
+ * guides, so the syllabus tab was offering 37 documents of which 24 were
+ * neither. What the manifest knows sorts them: what this slot wants first, then
+ * what nobody has opened, then what is known to be something else.
+ *
+ * **Nothing is dropped.** Before the subject guide was offered on the syllabus
+ * tab at all it could not be read at all (#58), and a list that hides a real
+ * syllabus would be that fault again.
+ *
+ * A folder Klunk has opened nothing in gets a plain list, because a single
+ * heading reading "Not opened yet" over the whole thing is decoration.
+ */
+export function DocumentOptions({
+  paths,
+  manifest,
+  want,
+}: {
+  paths: string[]
+  manifest: Manifest
+  want: DocumentPurpose
+}) {
+  const grouped = groupFor(paths, manifest, want)
+  const labels = GROUP_LABELS[want]
+  const options = (group: string[]) =>
+    group.map((p) => (
+      <option key={p} value={p}>
+        {p}
+      </option>
+    ))
+
+  if (grouped.matching.length === 0 && grouped.other.length === 0) {
+    return <>{options(grouped.unknown)}</>
+  }
+
+  return (
+    <>
+      {grouped.matching.length > 0 && (
+        <optgroup label={labels.matching}>{options(grouped.matching)}</optgroup>
+      )}
+      {grouped.unknown.length > 0 && (
+        <optgroup label="Not opened yet">{options(grouped.unknown)}</optgroup>
+      )}
+      {grouped.other.length > 0 && <optgroup label={labels.other}>{options(grouped.other)}</optgroup>}
+    </>
+  )
+}
+
 export function CheckList({ checks }: { checks: Check[] }) {
   return (
     <ul class="plain">

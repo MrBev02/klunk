@@ -22,6 +22,7 @@ import {
   rowAnswers,
   shuffledChoices,
 } from './paper'
+import { emptyManifest } from './manifest'
 import type { ContentIndex } from './storage'
 import type { Bank, Paper, Profile, Question, Syllabus } from './types'
 
@@ -91,6 +92,7 @@ function indexWith(questions: Question[]): ContentIndex {
     docx: [],
     workbooks: [],
     schools: [],
+    manifest: emptyManifest(),
     images: new Map(),
   }
 }
@@ -484,6 +486,7 @@ function twoSubjects(): ContentIndex {
     docx: [],
     workbooks: [],
     schools: [],
+    manifest: emptyManifest(),
     images: new Map(),
   }
 }
@@ -545,6 +548,7 @@ function twoYears(): ContentIndex {
     docx: [],
     workbooks: [],
     schools: [],
+    manifest: emptyManifest(),
     images: new Map(),
   }
 }

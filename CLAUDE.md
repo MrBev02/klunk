@@ -51,7 +51,7 @@ has to be a deliberate decision that revisits the privacy claim at the same time
 
 ```
 klunk/                     this repo - app and tools only, public
-  schemas/                 the five JSON formats
+  schemas/                 the six JSON formats
   profiles/                paper rules per course (these DO ship)
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
@@ -70,6 +70,7 @@ klunk/                     this repo - app and tools only, public
     answerkey.ts           the grid-of-answers markscheme reader
     guideformats.ts        picks the guide reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
+    manifest.ts            what each document in the folder turned out to be, pure
     modelcheck.ts          tags that name nothing, and two models of one document
     cover.ts               the cover sheet's three layers resolved, no JSX
     coversheet.tsx         the form over school.json (named apart from cover.ts
@@ -102,7 +103,7 @@ does not already use, or that rewrites a file wholesale, copy what it will touch
 The question is never "is this folder precious" — it is "if this code is wrong, is
 the content still recoverable".
 
-## The five formats
+## The six formats
 
 All defined in `schemas/`, all validated with real data.
 
@@ -113,6 +114,7 @@ All defined in `schemas/`, all validated with real data.
 | `bank.schema.json` | Questions | References syllabus by **stable id**, not a `A > B > C` path string; carries provenance |
 | `paper.schema.json` | An exam as a selection of questions | By reference, never by copy |
 | `school.schema.json` | Cover branding: name, logo, what a student fills in | One per folder, because a logo is one file and a school is one school |
+| `manifest.schema.json` | What each document in the folder turned out to be | A cache, not a record: delete it and Klunk refills it as it reads |
 
 Question types are D&T-relevant only: `multiple_choice`, `true_false`, `short_answer`,
 `extended_response`, `table`, `drawing`. No `sql`, `spreadsheet` or `python`.
@@ -1308,6 +1310,61 @@ the eight remembered places for good. Now `folderIsMissing` tells a
 it returns the teacher to the folder they were in rather than to the welcome
 screen. The check cannot come earlier: reading a folder needs the grant, so the
 permission click is always spent before the folder can be found to be gone.
+
+**The folder remembers what each document turned out to be** (#74), which is what
+#73 wanted: "From a syllabus" was offering 37 documents of which 24 were past
+papers and marking guides. `src/manifest.ts` is pure over plain values,
+`manifest.json` is the one file Klunk owns that is found by **path rather than by
+`type`**, and `DocumentOptions` in `fields.tsx` sorts every list of documents into
+what this slot wants, what nobody has opened, and what is known to be something
+else.
+
+Four decisions worth not reversing:
+
+- **It is a cache and is treated as one everywhere.** It holds no content and
+  decides nothing: a reader still refuses what it does not recognise, and an
+  entry only orders a list or adds a line. A manifest that will not parse is
+  **ignored in silence rather than reported**, because a derived file the teacher
+  never wrote has no business putting a fault on their screen. Driven with
+  `{ this is not json at all ]]` in it: the app was unaffected, said nothing, and
+  the next refusal rebuilt the file.
+- **A refusal is recorded, and it is the half that fills fastest.** A successful
+  read needs a teacher to get all the way through; a refusal costs seconds and
+  answers exactly the question the list is asking. It is also the only knowledge
+  the folder had been throwing away entirely: a bank records the examination and
+  the year and **never the filename**, so nothing linked fourteen questions to
+  `dt-2019-paper.pdf` until now.
+- **Nothing is ever dropped from a list.** Before the subject guide was offered
+  on the syllabus tab at all it could not be read at all (#58), and a confident
+  filter puts Klunk straight back there. `groupFor` reorders and a test asserts
+  every path comes out the other side.
+- **Reading a slot successfully clears that slot's refusal**, because a file
+  replaced under the same name is the case that matters. Refusals otherwise
+  accumulate: the subject guide reads as a syllabus and is refused as a
+  markscheme, and both are true at once.
+
+**The write path had a lost update, and only driving it showed the fault.**
+Reading a paper with its marking guide files two notes in the same tick.
+Re-reading the manifest from disk before merging is what makes two teachers on
+one OneDrive folder safe, and it does nothing at all for one tab racing itself:
+both notes read the file before either wrote, so the guide was recorded and **the
+paper silently was not**. Manifest writes are serialised through one promise
+chain in `storage.ts` now. The test suite was green throughout, and the manifest
+on disk looked entirely reasonable — it was simply missing a row.
+
+Verified by driving it on `../klunk-content`: a past paper refused on the syllabus
+tab sank to *Not a syllabus* without a reload, Drama read to *Syllabus documents*,
+the 2019 paper and its guide read to *Past papers* and *Not a past paper*, saving
+fourteen questions recorded `into` and put `Already read into
+bank/manifest-check.json on 2026-08-08.` under the paper slot on the next visit,
+and the schema validates the real file and rejects an unknown purpose, a missing
+path, a wrong `formatVersion` and a repeated refusal.
+
+**What it does not fix is the cold start**, which is #73's remaining half. A
+manifest knows only what has been touched: on a teacher's first open of a fresh
+folder it labels nothing, and that is the case #68's detection exists for. The
+two are not competing — the manifest is where a detection result would persist,
+so a scan would be paid once per document rather than once per folder open.
 
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.

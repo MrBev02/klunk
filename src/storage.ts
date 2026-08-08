@@ -10,9 +10,18 @@
  * survives that, and a convention like "banks live in bank/" does not.
  */
 
+import {
+  emptyManifest,
+  MANIFEST_PATH,
+  note as noteInManifest,
+  prune,
+  readManifest,
+  type DocumentNote,
+} from './manifest'
 import type {
   Bank,
   Loaded,
+  Manifest,
   Paper,
   Profile,
   Question,
@@ -92,6 +101,15 @@ export interface ContentIndex {
    */
   workbooks: string[]
   /**
+   * What each document in the folder turned out to be, as far as Klunk knows.
+   *
+   * Always present, empty when the folder holds no manifest or an unreadable
+   * one, so nothing has to ask whether there is one. It is a cache (#74): it
+   * orders the lists of documents and adds a line under a chosen file, and no
+   * reader consults it before refusing.
+   */
+  manifest: Manifest
+  /**
    * Stimulus images, keyed by folder-relative path, as object URLs.
    *
    * Loaded eagerly for the images questions actually reference, rather than
@@ -113,8 +131,14 @@ export function emptyIndex(): ContentIndex {
     pdfs: [],
     docx: [],
     workbooks: [],
+    manifest: emptyManifest(),
     images: new Map(),
   }
+}
+
+/** Every document in the folder Klunk has a reader for, which is what a manifest is about. */
+export function documentPaths(index: ContentIndex): string[] {
+  return [...index.pdfs, ...index.docx, ...index.workbooks]
 }
 
 /**
@@ -555,6 +579,22 @@ export async function scanFolder(
     }
 
     if (typeof data !== 'object' || data === null) continue
+
+    // Klunk's own note of what each document turned out to be, and the one file
+    // it owns that is found by path rather than by `type`. There is nothing for
+    // a teacher to organise in it, and a second copy of it somewhere in the
+    // folder should be ignored rather than merged into the first.
+    //
+    // A manifest that will not parse never reaches here at all: `JSON.parse`
+    // above throws, `looksLikeContentPath` says this is not a file worth
+    // complaining about, and the scan moves on with an empty one. That is the
+    // intended handling and not an oversight — it is a cache, and the next write
+    // replaces it whole.
+    if (path === MANIFEST_PATH) {
+      index.manifest = readManifest(data)
+      continue
+    }
+
     const type = (data as { type?: unknown }).type
 
     switch (type) {
@@ -655,6 +695,76 @@ export async function writeFile(
   const writable = await file.createWritable()
   await writable.write(data)
   await writable.close()
+}
+
+/**
+ * Write down what a document turned out to be, and never fail doing it (#74).
+ *
+ * Two properties, and both are deliberate.
+ *
+ * **It re-reads the manifest from disk before merging**, exactly as
+ * `saveQuestion` re-reads a bank, and for the same reason: the index is a
+ * snapshot from the last scan, and two teachers on one OneDrive folder is the
+ * ordinary case rather than the exotic one. A write from the in-memory copy
+ * would drop whatever the other teacher had learned since. Merging by path makes
+ * that safe in a way overwriting never could be.
+ *
+ * **It never rejects.** Reading a paper must not fail because a note about it
+ * could not be filed — the questions are the point and the manifest is a
+ * convenience. Callers therefore need no `catch`, which is what stops one being
+ * forgotten at the fifth call site.
+ */
+export async function rememberDocument(
+  dir: FileSystemDirectoryHandle,
+  index: ContentIndex,
+  entry: DocumentNote,
+): Promise<void> {
+  // Queued behind whatever is already being written. Reading a paper with its
+  // marking guide files two notes in the same tick, and without this the second
+  // re-read the manifest off disk before the first had written to it and put
+  // back a copy with the paper's own entry missing. Re-reading before writing
+  // handles another teacher on the same OneDrive folder; it cannot handle this
+  // tab racing itself, because both reads happen before either write.
+  //
+  // Found by driving it, not by reading it: the guide was recorded and the paper
+  // silently was not.
+  writing = writing.then(() => writeNote(dir, index, entry))
+  return writing
+}
+
+/** Serialises manifest writes within this tab. See `rememberDocument`. */
+let writing: Promise<void> = Promise.resolve()
+
+async function writeNote(
+  dir: FileSystemDirectoryHandle,
+  index: ContentIndex,
+  entry: DocumentNote,
+): Promise<void> {
+  try {
+    let manifest = emptyManifest()
+    const there = await fileAt(dir, MANIFEST_PATH).catch(() => null)
+    if (there) {
+      try {
+        manifest = readManifest(JSON.parse(await there.text()))
+      } catch {
+        // Unreadable is the same as absent here. The whole file is derived, so
+        // starting again costs a stale sort order until it refills.
+      }
+    }
+
+    manifest = noteInManifest(manifest, entry)
+    // The document just written about may have been copied in this session and
+    // so be missing from the last scan's listing, which would prune the very
+    // entry being added.
+    manifest = prune(manifest, [...documentPaths(index), entry.path])
+    await writeJson(dir, MANIFEST_PATH, manifest)
+    // Kept in step with the disk so the next note in the same session starts
+    // from what this one wrote. A rescan replaces the index outright, and until
+    // one happens this is the truth about the folder.
+    index.manifest = manifest
+  } catch {
+    // See above: a note that cannot be filed is not worth a teacher's attention.
+  }
 }
 
 /**

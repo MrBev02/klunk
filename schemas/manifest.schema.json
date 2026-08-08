@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/manifest.schema.json",
+  "title": "Klunk document manifest",
+  "description": "What each document in this folder turned out to be, written as Klunk reads them. A cache and nothing more: it holds no content, it decides nothing, and every fact in it can be worked out again by opening the document. Delete it and the folder still holds everything; Klunk fills a new one as it goes. That is why nothing here is validated strictly at read time and why an entry pointing at a file that has gone is dropped rather than reported.",
+  "type": "object",
+  "required": ["formatVersion", "type", "documents"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_manifest" },
+
+    "documents": {
+      "type": "array",
+      "description": "One entry per document Klunk has opened. Keyed by folder-relative path, which means a renamed file loses its entry and starts again as unknown. That is the right cost: the alternative is hashing the bytes, which is the expense this file exists to avoid.",
+      "items": { "$ref": "#/$defs/document" }
+    }
+  },
+
+  "$defs": {
+    "document": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Folder-relative, as the scan reports it."
+        },
+        "readAs": {
+          "type": "string",
+          "enum": ["syllabus", "paper", "marking guide"],
+          "description": "What a reader successfully made of it. Set only on success, so this is a record of what happened rather than a guess about what the file looks like."
+        },
+        "refusedAs": {
+          "type": "array",
+          "description": "The slots that have refused it. Knowledge in the negative, and the fastest-filling kind: a refusal costs a few seconds and answers exactly the question 'is this worth offering here'. Reading it successfully as one of these removes that entry, because the earlier refusal is then either wrong or about a file that has since changed.",
+          "items": { "type": "string", "enum": ["syllabus", "paper", "marking guide"] },
+          "uniqueItems": true
+        },
+        "into": {
+          "type": "string",
+          "description": "Where its content ended up: a bank path, or a syllabus model path. The most recent one only. A paper read into two banks names the second, which is still true and still enough to say 'you have had this one before'."
+        },
+        "when": {
+          "type": "string",
+          "description": "ISO date of the last thing that happened to this document. Printed back to the teacher, so it is the local date rather than UTC."
+        }
+      }
+    }
+  }
+}

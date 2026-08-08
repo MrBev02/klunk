@@ -390,6 +390,46 @@ export interface Paper {
   notes?: string
 }
 
+/* ------------------------------------------------------------------ manifest */
+
+/**
+ * What a document turned out to be.
+ *
+ * Deliberately the three things a teacher hands Klunk, and not a taxonomy of
+ * documents. `marking guide` covers a NESA marking guide and a grid-of-answers
+ * markscheme alike, because the two are one slot on screen.
+ */
+export type DocumentPurpose = 'syllabus' | 'paper' | 'marking guide'
+
+/** One document Klunk has opened, and what came of it. */
+export interface DocumentEntry {
+  /** Folder-relative, as the scan reports it. */
+  path: string
+  /** What a reader made of it. Set only on success. */
+  readAs?: DocumentPurpose
+  /** The slots that have refused it, which is knowledge too. */
+  refusedAs?: DocumentPurpose[]
+  /** The bank or model its content ended up in, most recent only. */
+  into?: string
+  /** ISO date, local, of the last thing that happened to it. */
+  when?: string
+}
+
+/**
+ * A cache of what each document in the folder is, and nothing more.
+ *
+ * It holds no content, decides nothing, and every fact in it can be worked out
+ * again by opening the document. Deleting it costs a stale sort order until it
+ * refills. That is what licenses the loose handling everywhere else in this
+ * file's neighbourhood: a manifest that will not parse is ignored rather than
+ * reported, and an entry whose file has gone is dropped rather than mourned.
+ */
+export interface Manifest {
+  formatVersion: string
+  type: 'klunk_manifest'
+  documents: DocumentEntry[]
+}
+
 /* ------------------------------------------------------------------ in-memory */
 
 /** A loaded file, kept with its path so it can be written back to the same place. */
