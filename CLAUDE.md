@@ -310,6 +310,45 @@ and Mathematics Advanced 11–12 (2024), all in `../klunk-content/source/`:
 - Every page of the Biology PDF has a text layer and **zero rotated runs**,
   unlike the past papers.
 
+**A junior syllabus is the reform contract again, organised by stage.**
+Established from Computing Technology 7–10 (2022), the first Years 7–10 document
+ever read, which settled #50:
+- **A junior course is a stage, not a year.** The document heads its course
+  sections `Outcomes and content for Stage 4` and `… Stage 5`, and there is
+  nothing in it organised by year. So for #49 a "Year 9 mid-year exam" is a
+  paper against **Stage 5**, and the year group is a label on the paper rather
+  than a level in the model.
+- Structurally it is the reform contract heading for heading — styled levels,
+  bullets, `[topic heading, "Outcomes", "Content"]`, the code closing the line —
+  so it needed no new reader. It was refused all the same, by two narrow rules,
+  and **the second was the dangerous one because it survived the first**.
+- **`courseNamed` did not know a stage**, which #50 predicted off the regex.
+- **The outcome code carries the stage inside its prefix**, `CT4-ADJ-01`,
+  `CT5-SAF-01`, which the code pattern refused: `[A-Z]{1,4}` takes `CT` and then
+  neither branch can start at `4`. Silently, and **only for the stage courses** —
+  `CTLS-SAF-01` matched, its prefix being all letters. Fixing only the first
+  fault would have built Stage 4 and Stage 5 with **zero outcomes**: a model that
+  validates, counts plausibly, and has lost what a question is tagged against.
+- **`Stage 6` is never a course**, and neither is a plural. It names the syllabus
+  — `Drama Stage 6`, `Visual Arts Stage 6` — while the senior courses inside it
+  are Preliminary/HSC or Year 11/Year 12. Visual Arts opens with a K–12 continuum
+  table headed `Stages 1–3 | Stages 4–5 | Stage 6 | Post-school`, and a stage
+  rule that did not say this minted a third, empty course on that syllabus. The
+  corpus test caught it; the rule is stages **1 to 5, singular**.
+- **A `Related … outcomes:` line closing an `Outcomes` block is a
+  cross-reference, not an outcome.** Twelve in the document. `CODE_LAST_RE`
+  matches the last code on such a line, handing the topic an outcome from another
+  course with the whole sentence as its text. It was invisible until the code
+  pattern was fixed: the two faults hid each other.
+- **Life Skills is a third course section and Klunk does not model it** (#71).
+  It is a course in its own right — its own enrolment numbers, its own `CTLS-`
+  codes, 24 / 201 / 10 of its own content, of which exactly **1** of 195 distinct
+  point texts also appears in Stage 5. It is kept out by `COURSE_SECTION_RE`
+  being anchored and by `courseNamed` refusing anything naming Life Skills. That
+  is a decision, and the reform Stage 6 exports are in the same position, so
+  English Advanced's and Mathematics Advanced's counts are of their Year 11 and
+  Year 12 sections alone.
+
 **Two editions of one subject are live at the same time.** The Biology document
 states it: 2027 Term 1 starts the new syllabus for Year 11 *while Year 12
 continues on the 2017 one*, and the first HSC examination for the new course is
@@ -473,6 +512,25 @@ by hand off the documents rather than inherited:
 | English Advanced 11–12 (2024) | y11 **9 / 30 / 6** | y12 **12 / 43 / 6** |
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
+| Computing Technology 7–10 (2022) | s4 **24 / 246 / 1** | s5 **24 / 246 / 10** |
+
+Six groups per course in Computing Technology, the focus areas, and each holds
+the same four topics — `Identifying and defining`, `Researching and planning`,
+`Producing and implementing`, `Testing and evaluating`. No lead topic anywhere,
+unlike English Advanced: every `Content` block opens straight onto a
+sub-heading, so there is no third topic per focus area.
+
+Two of those numbers are the ones a rewrite would get wrong. **Stage 4's single
+outcome is not an outcome**: `CT4-ADJ-01` reads "in Stage 4 teachers may adjust
+the Stage 5 outcomes as appropriate to the needs of students in Years 7 and 8".
+NESA has given an instruction a code and put it in the outcome column, and it is
+the whole of Stage 4's outcome set; filtering it out would be deciding something
+the document does not. And **the two stages hold the same 246 points**, which
+the syllabus states — "The content available for Stage 4 is identical to Stage
+5" — and which was checked rather than taken on trust: identical strings in
+identical order under identical headings. That is the Visual Arts arrangement
+arriving from a second direction, and the ids stay distinct because `prefixOf`
+mints them per course, `S4-01` against `S5-01`.
 
 The IB syllabus, counted off the guide's Overview table and its numbered
 understandings rather than off either parser. **Both documents must give these**,
@@ -628,11 +686,14 @@ because Git never asks `gh`.
   wrong, arriving from a new direction.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
 - **Two Chrome browsers are connected to this account, and the wrong one is the
-  default.** `list_connected_browsers` returns a macOS one (`isLocal: true`) and a
-  Windows one on another machine. Only the macOS one can reach `localhost:5173` or
-  the `klunk-content` folder handle. Landing on the Windows one has wasted a session
+  default.** `list_connected_browsers` returns a macOS one and a Windows one, and
+  **which is local depends on which machine you are on** — this was first written
+  on the Mac, where the macOS one was `isLocal: true`; on the Windows machine it
+  is the Windows one. Only the local one can reach `localhost:5173` or the
+  `klunk-content` folder handle. Landing on the remote one has wasted a session
   more than once: tabs report `visibilityState: hidden`, saves hang with no error,
-  and the tab group disappears from under you.
+  and the tab group disappears from under you. So read `isLocal` each session
+  rather than remembering an answer.
   **Check `list_connected_browsers` before driving anything, and select by
   `deviceId`.** Which deviceId is right is a per-machine fact and is deliberately
   not written down here: this repo is public and an installation id is not
@@ -985,6 +1046,24 @@ Verified in the browser against `../klunk-content`, not just reasoned about:
 Drama, English Advanced and Visual Arts each read to the counts above, Visual Arts
 written to `syllabus/nsw-hsc-visual-arts.json` and validating, and its seventeen
 HSC topics then offered by name on the Draft with AI tab.
+
+**And a junior syllabus reads, which no document had ever tested** (#50). A 7–10
+syllabus is the same shape and needed no fourth reader; it was refused by
+`courseNamed` not knowing a stage and by the code pattern not admitting the digit
+in `CT4-`/`CT5-`. Both are fixed, along with the cross-reference line the second
+fix would have switched on. The findings are in the section above; the decision
+that matters downstream is that **a junior course is a stage**, which #49 branches
+on.
+
+Verified in the browser against `../klunk-content`, not just by the corpus test:
+Computing Technology 7–10 read to 24 / 246 / 1 (Stage 4) and 24 / 246 / 10
+(Stage 5) with the line *Klunk read this as a syllabus that sets out each topic
+under Outcomes and Content headings*, the six focus areas as groups, all ten
+Stage 5 outcomes `CT5-` with their wording and no `CTLS-` anywhere, `S5-24` tagged
+with eight of them, 246 point ids running `S5-01.01` to `S5-24.06`, written to
+`syllabus/nsw-computing-technology-7-10.json` and validating against
+`syllabus.schema.json`, and both courses then offered by name on the Draft with AI
+tab.
 
 **IB DP Design Technology reads too, from a spreadsheet** (#4). `src/xlsx.ts` is
 the workbook half of what `ooxml.ts` does for Word: shared strings, merged cells

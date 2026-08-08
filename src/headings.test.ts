@@ -67,6 +67,57 @@ const REFORM = body(
   bullet('A point with no sub-heading above it'),
 )
 
+/**
+ * The 7–10 shape: the reform contract again, but by stage, and with a Life
+ * Skills course section Klunk deliberately does not model.
+ *
+ * Every line here is one the real Computing Technology 7–10 (2022) document
+ * caused: the digit inside the outcome prefix, the cross-reference line closing
+ * an `Outcomes` block, and the third course section (#50).
+ */
+const STAGES = body(
+  heading('Heading1', 'Example Technology 7–10 (2022)'),
+  heading('Heading2', 'Table of outcomes'),
+  table(
+    row(cell('Focus area'), cell('Stage 4'), cell('Stage 5'), cell('Related Life Skills for Stages 4/5')),
+    row(
+      cell('First focus area'),
+      cell('teachers may adjust the Stage 5 outcomes EX4-ADJ-01'),
+      cell('does the first thing EX5-SAF-01'),
+      cell('does the accessible thing EXLS-SAF-01'),
+    ),
+  ),
+  heading('Heading2', 'Outcomes and content for Stage 4'),
+  heading('Heading3', 'First focus area'),
+  heading('Heading4', 'Outcomes'),
+  para('A student:'),
+  bullet('teachers may adjust the Stage 5 outcomes EX4-ADJ-01'),
+  heading('Heading4', 'Content'),
+  heading('Heading5', 'Identifying and defining'),
+  bullet('The first thing identified'),
+  heading('Heading2', 'Outcomes and content for Stage 5'),
+  heading('Heading3', 'First focus area'),
+  heading('Heading4', 'Outcomes'),
+  para('A student:'),
+  bullet('does the first thing EX5-SAF-01'),
+  // The line that is not an outcome. Without the cross-reference rule this
+  // hands the Stage 5 topic an outcome belonging to a course Klunk is not even
+  // modelling, with the whole sentence as its text.
+  para('Related Life Skills outcomes: EXLS-COL-01, EXLS-DAT-01, EXLS-SAF-01'),
+  heading('Heading4', 'Content'),
+  heading('Heading5', 'Identifying and defining'),
+  bullet('The first thing identified'),
+  bullet('The second thing identified'),
+  heading('Heading2', 'Life Skills for Stages 4/5'),
+  heading('Heading2', 'Life Skills outcomes and content for Stage 4/5'),
+  heading('Heading3', 'First focus area'),
+  heading('Heading4', 'Outcomes'),
+  bullet('does the accessible thing EXLS-SAF-01'),
+  heading('Heading4', 'Content'),
+  heading('Heading5', 'Identifying and defining'),
+  bullet('A Life Skills point that must not reach any course'),
+)
+
 /** Drama's shape: the course in a numbered heading, code first, content in prose. */
 const DRAMA = body(
   heading('Heading1', '8 Content: Example Stage 6 Preliminary and HSC Courses'),
@@ -131,6 +182,31 @@ describe('courseNamed', () => {
     expect(courseNamed('Rationale')).toBeNull()
     expect(courseNamed('Table of outcomes')).toBeNull()
   })
+
+  it('reads a junior course as a stage, because that is how 7–10 is organised', () => {
+    expect(courseNamed('Outcomes and content for Stage 4')).toEqual({ id: 's4', name: 'Stage 4' })
+    expect(courseNamed('Outcomes and content for Stage 5')).toEqual({ id: 's5', name: 'Stage 5' })
+  })
+
+  it('refuses Stage 6, which names a syllabus and never a course', () => {
+    // The senior courses are Preliminary and HSC, or Year 11 and Year 12. Visual
+    // Arts opens with a K–12 continuum table whose third column is `Stage 6`,
+    // and taking it for a course gives that syllabus a third, empty one.
+    expect(courseNamed('Stage 6')).toBeNull()
+    expect(courseNamed('Visual Arts Stage 6')).toBeNull()
+    // The same table's other columns. A band of schooling is not a course.
+    expect(courseNamed('Stages 1–3')).toBeNull()
+    expect(courseNamed('Stages 4–5')).toBeNull()
+  })
+
+  it('refuses Life Skills, which is a course Klunk does not model', () => {
+    // Both must be null, or the outcome column and the course section each get
+    // filed under a stage they are only related to.
+    expect(courseNamed('Related Life Skills for Stages 4/5')).toBeNull()
+    expect(courseNamed('Life Skills outcomes and content for Stage 4/5')).toBeNull()
+    // Even where it names a level outright, which the reform Stage 6 exports do.
+    expect(courseNamed('Life Skills outcomes and content for Year 11')).toBeNull()
+  })
 })
 
 /* ---------------------------------------------------------- parseHeadingsXml */
@@ -178,6 +254,54 @@ describe('parseHeadingsXml on the reform shape', () => {
       ['EXV-11-01', 'EXV-11-02'],
       ['EXV-11-01', 'EXV-11-02'],
     ])
+  })
+})
+
+describe('parseHeadingsXml on the 7–10 shape', () => {
+  const courses = parseHeadingsXml(STAGES)
+
+  it('takes a course per stage, and none for Life Skills', () => {
+    expect(courses.map((c) => [c.id, c.name])).toEqual([
+      ['s4', 'Stage 4'],
+      ['s5', 'Stage 5'],
+    ])
+  })
+
+  it('reads an outcome code that carries the stage inside its prefix', () => {
+    // `EX5-SAF-01` against the reform's `EXV-11-01`: the digit before the first
+    // hyphen is what the code pattern used to refuse, and it refused silently —
+    // the course still built, with no outcomes at all.
+    expect(courses[1]?.outcomes).toEqual([{ code: 'EX5-SAF-01', text: 'does the first thing' }])
+  })
+
+  it('keeps an instruction NESA gave a code, because the document calls it an outcome', () => {
+    expect(courses[0]?.outcomes).toEqual([
+      { code: 'EX4-ADJ-01', text: 'teachers may adjust the Stage 5 outcomes' },
+    ])
+  })
+
+  it('does not take a cross-reference line for an outcome of the topic', () => {
+    const codes = courses.flatMap((c) => (c.outcomes ?? []).map((o) => o.code))
+    expect(codes).not.toContain('EXLS-SAF-01')
+    expect(courses[1]?.topics.flatMap((t) => t.outcomes ?? [])).toEqual(['EX5-SAF-01'])
+  })
+
+  it('lets no Life Skills content reach a stage', () => {
+    const points = courses.flatMap((c) => c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)))
+    expect(points).not.toContain('A Life Skills point that must not reach any course')
+  })
+
+  it('makes the focus area the group and the sub-heading the topic', () => {
+    expect(courses[1]?.topics.map((t) => [t.id, t.name, t.group])).toEqual([
+      ['S5-01', 'Identifying and defining', 'First focus area'],
+    ])
+  })
+
+  it('keeps the two stages apart even though their content is identical', () => {
+    // The syllabus states that Stage 4's content is identical to Stage 5's, so
+    // the topic ids are the only thing telling a question's tag apart (#47).
+    expect(courses[0]?.topics[0]?.id).toBe('S4-01')
+    expect(courses[1]?.topics[0]?.id).toBe('S5-01')
   })
 })
 

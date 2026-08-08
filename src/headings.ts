@@ -6,18 +6,26 @@
  * other NESA documents on disk have no content table at all, and they divide
  * into two shapes:
  *
- * **Outcomes and Content blocks.** Drama Stage 6 (2009) and the NSW Curriculum
+ * **Outcomes and Content blocks.** Drama Stage 6 (2009), the NSW Curriculum
  * Reform exports — English Advanced 11–12 (2024), Mathematics Advanced 11–12
- * (2024) — each state a course section holding a repeating `[topic heading,
- * "Outcomes", "Content"]`. They disagree about almost everything else, and the
+ * (2024) — and the 7–10 syllabuses — Computing Technology 7–10 (2022) — each
+ * state a course section holding a repeating `[topic heading, "Outcomes",
+ * "Content"]`. They disagree about almost everything else, and the
  * disagreements are what the rules below are mostly about:
  *
- * | | Drama 2009 | Curriculum Reform 2024 |
- * |---|---|---|
- * | course said by | `8.1 Content: Drama Stage 6 Preliminary Course` | `Outcomes and content for Year 11` |
- * | outcome code | opens the line, `P1.1 develops…` | closes it, `…shapes meaning EAV-11-01` |
- * | content points | paragraphs | bullets |
- * | inside `Content` | nothing further | a further level of sub-heading |
+ * | | Drama 2009 | Curriculum Reform 2024 | 7–10 2022 |
+ * |---|---|---|---|
+ * | course said by | `8.1 Content: Drama Stage 6 Preliminary Course` | `Outcomes and content for Year 11` | `Outcomes and content for Stage 4` |
+ * | outcome code | opens the line, `P1.1 develops…` | closes it, `…shapes meaning EAV-11-01` | closes it, `…responsibly CT5-SAF-01` |
+ * | content points | paragraphs | bullets | bullets |
+ * | inside `Content` | nothing further | a further level of sub-heading | a further level of sub-heading |
+ *
+ * The 7–10 shape is the reform contract with two differences, and both were
+ * enough to make the document unreadable rather than merely imperfect (#50).
+ * **A junior course is a stage, not a year**, so `courseNamed` has to know one.
+ * And **the outcome code carries the stage inside its prefix**, `CT4-ADJ-01`
+ * against `EAV-11-01`, which the code pattern refused — silently, and only for
+ * the stage courses, since the Life Skills codes are all letters.
  *
  * **Prose under numbered headings.** Visual Arts Stage 6 (2016) has no
  * `Outcomes`/`Content` blocks and no paragraph styles whatever. Its content is
@@ -52,13 +60,20 @@ import type { SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
 /* ----------------------------------------------------------------- the rules */
 
 /**
- * An outcome code, in every shape NESA has printed across the five documents.
+ * An outcome code, in every shape NESA has printed across the six documents.
  *
  * `P1` and `H10` in Visual Arts, `P1.1` and `H3.5` in Drama and the 2013
  * syllabuses, `EAV-11-01` and `MAV-12-08` in the reform exports, `MAO-WM-01`
  * for a Working Mathematically outcome and `BI-11WS-01` in Biology.
+ *
+ * The `\d?` is Computing Technology 7–10 (#50), which puts the stage inside the
+ * prefix: `CT4-ADJ-01`, `CT5-SAF-01`. Without it `[A-Z]{1,4}` takes `CT` and
+ * then neither branch can start at `4`, so the code does not match at all —
+ * while `CTLS-SAF-01` does, its prefix being all letters. That asymmetry is what
+ * made the fault dangerous rather than obvious: the Life Skills outcomes read
+ * and the Stage 4 and Stage 5 ones silently did not.
  */
-const CODE = String.raw`[A-Z]{1,4}(?:\d+(?:\.\d+)?|(?:-[A-Z0-9]{1,6})+-\d{2})`
+const CODE = String.raw`[A-Z]{1,4}(?:\d+(?:\.\d+)?|\d?(?:-[A-Z0-9]{1,6})+-\d{2})`
 
 /** A cell or bullet that is nothing but the code, its text on the next line. */
 const CODE_ONLY_RE = new RegExp(`^(${CODE})$`)
@@ -101,12 +116,46 @@ export function courseNamed(text: string): { id: string; name: string } | null {
   if (preliminary && hsc) return null
   if (preliminary) return { id: 'pre', name: 'Preliminary course' }
   if (hsc) return { id: 'hsc', name: 'HSC course' }
-  // The reform syllabuses run Year 11 and Year 12 where the older ones run
-  // Preliminary and HSC. Keeping the document's own words matters: a folder
-  // holding a model of each edition of one subject is the normal state for a
-  // year (#29), and the course names are what tells them apart on screen.
-  const year = /\byear\s*(\d+)\b/.exec(low)
+  // Life Skills is a course in its own right — its own enrolment numbers, its
+  // own outcome codes, its own content, and a syllabus that says its outcomes
+  // cannot be combined with the others — and Klunk does not model it. Saying so
+  // here, before the level rule below, is what keeps it out: Computing
+  // Technology 7–10 heads an outcome column `Related Life Skills for Stages
+  // 4/5` and a section `Life Skills outcomes and content for Stage 4/5`, and
+  // both would otherwise be filed under a stage. Stated rather than left to the
+  // plural failing to match, because that would be an accident (#50).
+  if (/\blife skills\b/.test(low)) return null
+
+  // A course the document states as a word and a number. The reform Stage 6
+  // syllabuses run Year 11 and Year 12 where the older ones run Preliminary and
+  // HSC; the 7–10 syllabuses run Stage 4 and Stage 5, and a junior course is a
+  // stage rather than a year — Computing Technology 7–10 is organised that way
+  // throughout and its outcome codes carry the stage, `CT4-`, `CT5-`, the way
+  // the reform codes carry the year. So a year group is a label on the paper
+  // rather than a level in the model (#50).
+  //
+  // Keeping the document's own words matters: a folder holding a model of each
+  // edition of one subject is the normal state for a year (#29), and the course
+  // names are what tells them apart on screen.
+  //
+  // Two restrictions on the stage half, both established from the corpus rather
+  // than reasoned:
+  //
+  // **Stages 1 to 5 only.** `Stage 6` is never a course. It names the syllabus
+  // — `Drama Stage 6`, `Visual Arts Stage 6` — and the senior courses inside it
+  // are Preliminary and HSC, or Year 11 and Year 12. Visual Arts opens with a
+  // K–12 continuum table headed `Stages 1–3 | Stages 4–5 | Stage 6 |
+  // Post-school`, and without this the third column mints a course `s6` and the
+  // model gains a third, empty one. The corpus test caught exactly that.
+  //
+  // **Singular only.** The same table's other columns are `Stages 1–3` and
+  // `Stages 4–5`, which are bands of schooling and not courses either. The
+  // plural is rejected out loud rather than left to `\s*` failing to consume the
+  // `s`, which is what happened to work and would not have survived an edit.
+  const year = low.match(/\byear\s*(\d+)\b/)
   if (year) return { id: `y${year[1]}`, name: `Year ${year[1]}` }
+  const stage = low.match(/\bstage(?!s)\s*([1-5])\b/)
+  if (stage) return { id: `s${stage[1]}`, name: `Stage ${stage[1]}` }
   return null
 }
 
@@ -198,12 +247,28 @@ function finish(courses: Map<string, Building>): SyllabusCourse[] {
 
 /* ------------------------------------------------------------------ outcomes */
 
+/**
+ * A line that points at another course's outcomes rather than stating one.
+ *
+ * Computing Technology 7–10 closes each `Outcomes` block with one: `Related
+ * Life Skills outcomes: CTLS-COL-01, CTLS-DAT-01, …` under a Stage 5 topic, and
+ * `Related Stage 4/5 outcomes: CT5-COL-01, …` under a Life Skills one. Twelve
+ * in the document.
+ *
+ * Without this `CODE_LAST_RE` matches the *last* code on the line, so the topic
+ * gains one outcome belonging to a different course with the whole
+ * cross-reference sentence as its text. It was invisible until the `CODE` fix
+ * above, which is the point worth keeping: the two faults hid each other (#50).
+ */
+const CROSS_REFERENCE_RE = /^related\b.*\boutcomes\s*:/i
+
 /** Every outcome code in a run of lines, however the lines carry it. */
 function codesIn(lines: string[]): [string, string][] {
   const found: [string, string][] = []
   for (let i = 0; i < lines.length; i++) {
     const line = (lines[i] ?? '').trim()
     if (!line) continue
+    if (CROSS_REFERENCE_RE.test(line)) continue
 
     // "EAV-11-01" on its own line, its text on the next. Only the reform
     // exports' table of outcomes does this, and only inside a cell.

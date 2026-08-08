@@ -34,6 +34,18 @@ interface Expected {
   courses: Record<string, { topics: number; points: number; outcomes: number; groups: string[] }>
 }
 
+// Computing Technology's six focus areas, which are the groups of all three of
+// its course sections. Named once because both courses have the same six and a
+// second copy would drift.
+const FOCUS_AREAS = [
+  'Enterprise information systems: Modelling networks and social connections',
+  'Enterprise information systems: Designing for user experience',
+  'Enterprise information systems: Analysing data',
+  'Software development: Building mechatronic and automated systems',
+  'Software development: Creating games and simulations',
+  'Software development: Developing apps and web software',
+]
+
 const EXPECTED: Record<string, Expected> = {
   // Drama styles its headings inconsistently — the first topic of 8.1 is
   // `Head5` and the next two are `Heading3` — so this is the document that
@@ -119,6 +131,35 @@ const EXPECTED: Record<string, Expected> = {
           'Financial mathematics',
         ],
       },
+    },
+  },
+  // The first junior document, and the one that settled #50: a 7–10 syllabus is
+  // organised by stage, not by year. Structurally it is the Curriculum Reform
+  // contract above — styled heading levels, bullets, the code closing the line —
+  // and it was refused only because `courseNamed` did not know a stage and
+  // `CODE` did not admit the digit in `CT4-`/`CT5-`.
+  'Computing Technology 7–10 (2022)': {
+    path: `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`,
+    format: 'headings',
+    courses: {
+      // One outcome, and it is not an outcome: `CT4-ADJ-01` reads "in Stage 4
+      // teachers may adjust the Stage 5 outcomes as appropriate to the needs of
+      // students in Years 7 and 8". NESA has given an instruction a code and put
+      // it in the outcome column, and it is the whole of Stage 4's outcome set.
+      // Filtering it out would be deciding something the document does not.
+      s4: { topics: 24, points: 246, outcomes: 1, groups: FOCUS_AREAS },
+      // The same 246 points as Stage 4, because the syllabus says so: "The
+      // content available for Stage 4 is identical to Stage 5." Checked rather
+      // than taken on trust — the points are identical strings in identical
+      // order under identical headings. This is the Visual Arts arrangement
+      // arriving from a second direction, and the ids stay distinct because
+      // `prefixOf` mints them per course: `S4-01` against `S5-01`.
+      s5: { topics: 24, points: 246, outcomes: 10, groups: FOCUS_AREAS },
+      // No `ls`. Life Skills for Stages 4/5 is a third course section in this
+      // document — its own enrolment numbers, its own `CTLS-` codes, its own 201
+      // points — and Klunk does not model it. `COURSE_SECTION_RE` is anchored so
+      // the section never opens a course, and `courseNamed` returns null for a
+      // Life Skills outcome column. That is a decision, not an oversight (#71).
     },
   },
   'Visual Arts Stage 6 (2016)': {
