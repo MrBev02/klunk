@@ -968,8 +968,8 @@ function Library({
           <>
             <h3 class="setup__head">{both && '1 · '}A paper profile</h3>
             <p>
-              A profile is the shape of the real exam: how many sections, what each is worth,
-                 which question types belong where. The checker compares your paper against it.
+              A profile is the exam structure: how many sections, what each is worth, which
+                 question types belong where. The checker compares your paper against it.
             </p>
             <ProfileInstaller
               index={index}

@@ -131,9 +131,8 @@ export function SyllabusNote() {
     <>
       <p>
         A syllabus model is the list of outcomes, topics and content points that you tag
-           your questions against. <strong>Klunk does not come with any, and that is on
-           purpose.</strong> A syllabus is copyright, so you build your own from your own
-           copy, into your own folder.
+           your questions against. <strong>Klunk comes with none, because a syllabus is
+           copyright.</strong> Build your own from your own copy, into your own folder.
       </p>
       <p class="muted">
         For a NSW Stage 6 syllabus, open the <strong>From a syllabus</strong> tab and choose

@@ -140,9 +140,9 @@ export function ProfileEditor({
 
       {!editing && (
         <p class="hint">
-          A profile is the shape of the exam you are building towards: how many sections,
-             what each is worth, which kinds of question belong where. Klunk checks every paper
-             against it, and it tells the AI prompt where a question sits on the real paper.
+          A profile is the exam structure: how many sections, what each is worth, which kinds
+             of question belong where. Klunk checks every paper against it, and tells the AI
+             prompt where a question sits on the real paper.
         </p>
       )}
 
