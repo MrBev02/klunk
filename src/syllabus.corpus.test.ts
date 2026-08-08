@@ -137,6 +137,22 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
     expect(groups.filter((g) => / /.test(g))).toEqual([])
   })
 
+  it('keeps the non-breaking spaces NESA published inside the content', async () => {
+    // The other half of the two cases above, and the one nothing asserted until
+    // #72. A label is tidied and a non-breaking space in one is a fault; the
+    // content itself is quoted and a non-breaking space in it is punctuation the
+    // publisher chose, so it stays exactly where NESA put it. Both
+    // implementations say so in a comment and neither was checked.
+    //
+    // Counts rather than text, as everywhere in this file: a count is a fact
+    // about the document, and the document cannot enter this repo.
+    const courses = await coursesOf(EXPECTED['Textiles and Design']!.path)
+    const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+    const skills = courses.flatMap((c) => c.topics.flatMap((t) => t.skills ?? []))
+    expect(points.filter((p) => / /.test(p.text)).length).toBe(18)
+    expect(skills.filter((s) => / /.test(s)).length).toBe(14)
+  })
+
   // #26, and the two checks a count cannot make: a count says how many topics
   // there are, never whether they are topics.
   for (const subject of Object.keys(EXPECTED)) {
@@ -191,6 +207,18 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
  *
  * Skipped when python3 is not on the path, since it is not a dependency of the
  * app — only of this comparison.
+ *
+ * **The comparison goes through the tool's stdout, so it depends on the tool's
+ * output encoding, and that cost a while to find** (#72). Both documents failed
+ * here for weeks over a non-breaking space, which reads in a diff as one space
+ * against another. The port had it right: `sys.stdout` on Windows is the console
+ * codepage, cp1252 here, where U+00A0 encodes as the single byte 0xA0 — not
+ * valid UTF-8 — so `encoding: 'utf8'` below turned it into U+FFFD before
+ * anything was compared. The tool writes UTF-8 on its own buffer now.
+ *
+ * `PYTHONIOENCODING` is deliberately not set here. It would make this suite pass
+ * over a tool that still writes the console codepage to anyone who runs it by
+ * hand, which is the whole of its documented use.
  */
 const havePython = (() => {
   try {

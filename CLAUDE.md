@@ -689,6 +689,16 @@ because Git never asks `gh`.
   which is this repo's own lesson about the count being right while the content is
   wrong, arriving from a new direction.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
+- **Python's stdout is not UTF-8 on the Windows machine, and that broke the port
+  comparison for weeks** (#72). `sys.stdout.encoding` is `cp1252` there, the
+  console codepage, and it stays `cp1252` when stdout is a pipe. So a tool that
+  writes a model to stdout writes it in cp1252, and `src/syllabus.corpus.test.ts`
+  reads that back with `encoding: 'utf8'`. A non-breaking space is one byte
+  `0xA0` in cp1252 and not valid UTF-8 at all, so it arrived as U+FFFD and both
+  documents failed on a diff of one space against another. The port was right the
+  whole time. `tools/nesa_stage6_syllabus.py` writes UTF-8 on `sys.stdout.buffer`
+  now, matching what `--out` always did; **any Python tool added here has to do
+  the same**, and this would not have shown up on the Mac.
 - **Two Chrome browsers are connected to this account, and the wrong one is the
   default.** `list_connected_browsers` returns a macOS one and a Windows one, and
   **which is local depends on which machine you are on** — this was first written

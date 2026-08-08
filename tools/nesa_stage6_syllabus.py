@@ -618,7 +618,21 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(f"wrote {args.out}", file=sys.stderr)
     else:
-        sys.stdout.write(text)
+        # UTF-8 explicitly, because `sys.stdout` is not. On Windows it is the
+        # console codepage — cp1252 on the machine this was found on — and a
+        # model goes out through here as bytes nothing downstream expects
+        # (#72). A non-breaking space is one byte 0xA0 in cp1252, which is not
+        # valid UTF-8 at all, so `src/syllabus.corpus.test.ts` read it back as
+        # U+FFFD and reported the port as having lost a character the port had
+        # read perfectly well. Anything outside cp1252 would not survive the
+        # trip either, and a syllabus is full of dashes and curly quotes.
+        #
+        # `--out` has always written UTF-8, so this is the two paths agreeing
+        # rather than a new decision. Written on the buffer rather than by
+        # reconfiguring the stream, so it cannot depend on when it runs.
+        sys.stdout.flush()
+        sys.stdout.buffer.write(text.encode("utf8"))
+        sys.stdout.buffer.flush()
 
     return 0
 
