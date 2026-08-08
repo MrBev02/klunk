@@ -148,9 +148,21 @@ export interface ExtractedPaper {
 export interface QuestionSource {
   origin: 'authored' | 'extracted' | 'adapted'
   paper: string
-  year: number
   questionNumber: string
-  copyright: string
+  /**
+   * Absent when the paper does not print one, which is ordinary rather than a
+   * failure: a practice paper is from no year at all.
+   */
+  year?: number
+  /**
+   * Absent unless Klunk knows who owns the paper, which it only does for NESA.
+   *
+   * `bank.schema.json` says this "constrains where the paper holding the
+   * question may go", so a wrong one is not cosmetic. Guessing NESA for a
+   * document read by any other reader would put a false owner on every question
+   * of it (#70).
+   */
+  copyright?: string
 }
 
 /* ------------------------------------------------------------------ into lines */

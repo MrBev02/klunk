@@ -45,7 +45,7 @@ import type { Editing } from './editor'
 import { stampSource, type ExtractedQuestion } from './extract'
 import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
 import { courseChoices } from './factory'
-import { CheckList, Field } from './fields'
+import { bankPathFault, CheckList, Field, normaliseBankPath } from './fields'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
@@ -60,8 +60,8 @@ import {
   saveQuestion,
   type ContentIndex,
 } from './storage'
-import { QUESTION_TYPE_LABELS, questionLabel } from './types'
-import { cleanQuestion } from './validate'
+import { QUESTION_TYPE_LABELS, questionLabel, type Question } from './types'
+import { cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
 
 /**
  * NESA was BOSTES until the end of 2016, and a copyright line naming the wrong
@@ -73,6 +73,15 @@ function copyrightFor(year: number | undefined): string {
     return 'Board of Studies, Teaching and Educational Standards NSW'
   }
   return 'NSW Education Standards Authority'
+}
+
+/** What a screen reader is told a cut-out picture is. */
+function altFor(question: Question): string {
+  const which = question.source?.questionNumber ?? question.id
+  const year = question.source?.year
+  return year === undefined
+    ? `Picture from question ${which} of the paper`
+    : `Picture from question ${which} of the ${year} paper`
 }
 
 /** Where a paper chosen from this computer is put, which is where papers already live. */
@@ -107,11 +116,41 @@ export function Extractor({
   const [taking, setTaking] = useState(false)
   const [took, setTook] = useState('')
   const [courseKey, setCourseKey] = useState(courses[0]?.key ?? '')
-  const [bankPath, setBankPath] = useState(banks[0]?.path ?? '')
-  const [paperName, setPaperName] = useState('NSW HSC Design and Technology')
+  /**
+   * The bank to write into, or `null` for one that does not exist yet.
+   *
+   * Named apart from `bankPath` below, which is where the questions actually go
+   * and is either this or the new path. The same pair the question editor and
+   * the factory already keep: this screen was the only one of the three with no
+   * way to make a bank at all (#69), while `saveQuestion` had been able to
+   * create one from the start.
+   */
+  const [bank, setBank] = useState<string | null>(banks[0]?.path ?? null)
+  const [newBankPath, setNewBankPath] = useState('bank/questions.json')
+  const [newBankName, setNewBankName] = useState('')
+  /**
+   * The examination every question says it came from.
+   *
+   * Empty until a paper is read, then filled from what the reader made of it.
+   * It used to default to `NSW HSC Design and Technology` and sit above the Read
+   * button, which was right while NESA was the only reader and became a lie the
+   * moment a second one arrived: reading the IB practice paper stamped all
+   * thirty questions as NESA's because nobody had thought to retype a field that
+   * already looked filled in.
+   */
+  const [paperName, setPaperName] = useState('')
 
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
+  /**
+   * The year every question carries, as typed.
+   *
+   * Kept as text rather than a number so a half-typed `20` is not read as a
+   * year, and held here rather than per question because one paper is one year
+   * and #70's teacher was otherwise being sent into thirty editors to type the
+   * same four digits.
+   */
+  const [yearText, setYearText] = useState('')
   const [read, setRead] = useState<{
     adopted: Adopted[]
     notes: string[]
@@ -126,6 +165,8 @@ export function Extractor({
   const [saving, setSaving] = useState(false)
 
   const chosen = courses.find((c) => c.key === courseKey)
+  const bankPath = bank === null ? normaliseBankPath(newBankPath) : bank
+  const pathFault = bank === null ? bankPathFault(newBankPath) : null
 
   const pdfs = useMemo(
     () => [...new Set([...index.pdfs, ...added])].sort((a, b) => a.localeCompare(b)),
@@ -230,13 +271,23 @@ export function Extractor({
         }
       }
       const year = paper.year
-      if (year !== undefined) {
-        paper = stampSource(paper, {
-          paper: paperName.trim() || 'Past paper',
-          year,
-          copyright: copyrightFor(year),
-        })
-      }
+      // Stamped whether or not a year was found. The examination, the origin and
+      // the question number are known either way, and #70 was that a paper with
+      // no year got no source at all — which left the origin defaulting to
+      // `authored` and so hid the editor's own Year field behind the very
+      // condition that told the teacher to go and use it.
+      // `Past paper` is vague, and vague is the point: it is true of anything,
+      // where a named examination Klunk guessed would not be.
+      const examination =
+        paperName.trim() || (format === 'nesa' ? 'NSW HSC Design and Technology' : 'Past paper')
+      paper = stampSource(paper, {
+        paper: examination,
+        ...(year === undefined ? {} : { year }),
+        // NESA's alone. Klunk does not know who owns a paper read by any other
+        // reader, and `bank.schema.json` says copyright is what constrains where
+        // the paper holding the question may go, so guessing is not cosmetic.
+        ...(format === 'nesa' ? { copyright: copyrightFor(year) } : {}),
+      })
 
       // Where the text is not, on the pages a question covers.
       const wanted = new Map<ExtractedQuestion, ReturnType<typeof picturesFor>>()
@@ -263,11 +314,11 @@ export function Extractor({
 
       const notes = [...paper.notes]
       if (guideFailed) notes.push(guideFailed)
-      if (year === undefined) {
-        notes.push(
-          'Klunk could not find a year on the front of this paper, so these questions do not say where they came from. Add the year in the editor before you save them.',
-        )
-      }
+      // A missing year is no longer a note. It used to say "add the year in the
+      // editor", which named the wrong screen and a hidden field; it is a box on
+      // the review panel now, so the panel says it rather than the notes list.
+      setYearText(year === undefined ? '' : String(year))
+      setPaperName(examination)
       setRead({
         adopted,
         notes,
@@ -290,6 +341,96 @@ export function Extractor({
   const unsaved = live.filter((a) => !alreadySaved.has(savedAs(a)))
   const ready = unsaved.filter((a) => !a.faults.some((f) => f.severity === 'error'))
   const stuck = unsaved.length - ready.length
+
+  /**
+   * Put the typed year on every question read, or take it off them all.
+   *
+   * Applied to the adopted questions rather than re-read, because re-reading
+   * would throw away every picture the teacher has already dropped and every
+   * question they have discarded.
+   */
+  const applyYear = (text: string) => {
+    setYearText(text)
+    const trimmed = text.trim()
+    const year = /^\d{4}$/.test(trimmed) ? Number(trimmed) : undefined
+    setRead((r) => {
+      if (r === null) return r
+      return {
+        ...r,
+        adopted: r.adopted.map((a) => {
+          const source = { ...(a.question.source ?? {}) }
+          if (year === undefined) delete source.year
+          else source.year = year
+          return { ...a, question: { ...a.question, source } }
+        }),
+      }
+    })
+  }
+
+  /**
+   * Re-mint the ids when the bank changes, because an id is named after its bank.
+   *
+   * `adoptPaper` hands out ids at read time against whichever bank was selected
+   * then, so switching afterwards used to leave thirty questions called
+   * `example-bank-mc-22` sitting in `ib-dt-p1-practice.json`. The id is derived
+   * from the filename by design, so one naming a different bank is not untidy,
+   * it is wrong.
+   *
+   * Anything already written is left alone: a saved question's id is what a
+   * paper points at, and #64's sibling lesson is that renaming those silently
+   * would break every paper using them. The faults are recomputed with the ids,
+   * because a clash inside the target bank is one of the things they report.
+   */
+  const retargetIds = (path: string) => {
+    const inFolder = questionIds(index)
+    const inBank = new Set(
+      (banks.find((b) => b.path === path)?.data.questions ?? []).map((q) => q.id),
+    )
+    setRead((r) => {
+      if (r === null) return r
+      const taken = new Set(inFolder)
+      return {
+        ...r,
+        adopted: r.adopted.map((a) => {
+          if (alreadySaved.has(a.question.id)) {
+            taken.add(a.question.id)
+            return a
+          }
+          const id = suggestQuestionId(path, a.question.questionType, taken)
+          taken.add(id)
+          const question = { ...a.question, id }
+          return { ...a, question, faults: validateQuestion(question, { inBank, inFolder }) }
+        }),
+      }
+    })
+  }
+
+  const chooseBank = (value: string) => {
+    setBank(value || null)
+    retargetIds(value || normaliseBankPath(newBankPath))
+  }
+
+  const chooseNewBankPath = (value: string) => {
+    setNewBankPath(value)
+    if (bankPathFault(value) === null) retargetIds(normaliseBankPath(value))
+  }
+
+  /** The examination name on every question read, the way `applyYear` does the year. */
+  const applyExamination = (text: string) => {
+    setPaperName(text)
+    const name = text.trim() || 'Past paper'
+    setRead((r) =>
+      r === null
+        ? r
+        : {
+            ...r,
+            adopted: r.adopted.map((a) => ({
+              ...a,
+              question: { ...a.question, source: { ...(a.question.source ?? {}), paper: name } },
+            })),
+          },
+    )
+  }
 
   const togglePicture = (id: string, at: number) => {
     setRead((r) =>
@@ -328,7 +469,10 @@ export function Extractor({
             // Stored relative to the bank, which is how every other stimulus is
             // stored and what lets the whole folder be moved.
             file: relativeToBank(bankPath, imageDirectory(bankPath), written),
-            alt: `Picture from question ${item.question.source?.questionNumber ?? item.question.id} of the ${item.question.source?.year ?? ''} paper`.trim(),
+            // Built in two pieces rather than interpolating a possibly-absent
+            // year, which left "of the  paper" with a hole in it once a paper
+            // without one could be read at all.
+            alt: altFor(item.question),
           })
         }
 
@@ -337,6 +481,9 @@ export function Extractor({
           : item.question
         const written = await saveQuestion(folder, bankPath, cleanQuestion(question), {
           syllabusId: chosen?.syllabus.id,
+          // Only used when the bank does not exist yet; `saveQuestion` creates it
+          // on the first question and ignores this on every one after.
+          ...(bank === null && newBankName.trim() ? { name: newBankName.trim() } : {}),
         })
         if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
       }
@@ -413,19 +560,6 @@ export function Extractor({
             </select>
           </Field>
 
-          <Field
-            label="Examination"
-            for="ex-name"
-            hint="Recorded on every question, with the year read off the paper itself."
-          >
-            <input
-              id="ex-name"
-              type="text"
-              class="input"
-              value={paperName}
-              onInput={(e) => setPaperName((e.target as HTMLInputElement).value)}
-            />
-          </Field>
         </div>
 
         <div class="rowbtns">
@@ -466,25 +600,80 @@ export function Extractor({
             </div>
           )}
 
-          <Field label="Bank to save into" for="ex-bank">
-            <select
-              id="ex-bank"
+          <div class="fieldrow">
+            <Field label="Bank to save into" for="ex-bank">
+              <select
+                id="ex-bank"
+                class="input"
+                value={bank ?? ''}
+                onChange={(e) => chooseBank((e.target as HTMLSelectElement).value)}
+              >
+                {banks.map((b) => (
+                  <option key={b.path} value={b.path}>
+                    {b.data.name ? `${b.data.name} (${b.path})` : b.path}
+                  </option>
+                ))}
+                <option value="">A new bank…</option>
+              </select>
+            </Field>
+
+            <Field label="Year" for="ex-year" hint="So Klunk can warn that students may have seen one">
+              <input
+                id="ex-year"
+                class="input"
+                inputMode="numeric"
+                placeholder="2025"
+                value={yearText}
+                onInput={(e) => applyYear((e.target as HTMLInputElement).value)}
+              />
+            </Field>
+          </div>
+
+          {/* Provenance is confirmed here rather than on the panel above,
+              because here the teacher can see what was actually read. Both
+              fields write to every question at once, which is the whole reason
+              they are not left to the editor: one paper is one examination and
+              one year. */}
+          <Field
+            label="Examination"
+            for="ex-name"
+            hint="Recorded on every question, as the paper it came from"
+          >
+            <input
+              id="ex-name"
+              type="text"
               class="input"
-              value={bankPath}
-              onChange={(e) => setBankPath((e.target as HTMLSelectElement).value)}
-            >
-              {banks.length === 0 && <option value="">No bank in this folder</option>}
-              {banks.map((b) => (
-                <option key={b.path} value={b.path}>
-                  {b.path}
-                </option>
-              ))}
-            </select>
+              value={paperName}
+              onInput={(e) => applyExamination((e.target as HTMLInputElement).value)}
+            />
           </Field>
+
+          {bank === null && (
+            <div class="fieldrow">
+              <Field label="File" for="ex-path">
+                <input
+                  id="ex-path"
+                  class="input mono"
+                  value={newBankPath}
+                  onInput={(e) => chooseNewBankPath((e.target as HTMLInputElement).value)}
+                />
+              </Field>
+              <Field label="Bank name" for="ex-bankname" hint="Shown in Klunk, optional">
+                <input
+                  id="ex-bankname"
+                  class="input"
+                  placeholder="IB Design Technology Paper 1"
+                  value={newBankName}
+                  onInput={(e) => setNewBankName((e.target as HTMLInputElement).value)}
+                />
+              </Field>
+            </div>
+          )}
+          {pathFault && <p class="missing">{pathFault}</p>}
 
           <p class="det__label" style={{ marginTop: '0.6rem' }}>
             {read.adopted.length} question{read.adopted.length === 1 ? '' : 's'} read
-            {read.year !== undefined && ` from the ${read.year} paper`} ·{' '}
+            {/^\d{4}$/.test(yearText.trim()) && ` from the ${yearText.trim()} paper`} ·{' '}
             {read.adopted.reduce((sum, a) => sum + a.question.marks, 0)} marks
           </p>
           {/* Which reader claimed the document, for the reason the syllabus tab
@@ -527,7 +716,7 @@ export function Extractor({
             <div class="rowbtns">
               <button
                 class="btn btn--primary"
-                disabled={ready.length === 0 || saving || !bankPath}
+                disabled={ready.length === 0 || saving || !bankPath || pathFault !== null}
                 onClick={() => void saveReady()}
               >
                 {saving
