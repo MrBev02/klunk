@@ -11,7 +11,7 @@ import { paperIsDirty, paperIsSaved } from './paper'
 import { ProfileEditor, type EditingProfile } from './profile'
 import { SyllabusReader } from './syllabusreader'
 import { QuestionRow } from './question'
-import { ProfileInstaller, SyllabusNote } from './setup'
+import { ProfileInstaller, profilesOnOffer, SyllabusNote } from './setup'
 import {
   allQuestions,
   emptyIndex,
@@ -951,16 +951,24 @@ function Library({
 
   if (questions.length === 0 && (needsProfile || needsSyllabus)) {
     const both = needsProfile && needsSyllabus
+    const canGiveProfile = profilesOnOffer(index).offered.length > 0
     return (
       <section class="panel setup">
         <p class="panel__title">
           {both ? 'A new subject. Two things to set up.' : 'One thing still to set up.'}
         </p>
+        {/* "Klunk can give you one of the two things it needs" is only true when
+            Klunk has a stock profile that fits this folder, which for every
+            subject but Design and Technology it does not (#48). */}
         <p class="muted">
           {both
-            ? 'This folder is empty. Klunk can give you one of the two things it needs, and you build the other yourself.'
+            ? canGiveProfile
+              ? 'This folder is empty. Klunk can give you one of the two things it needs, and you build the other yourself.'
+              : 'This folder is empty. It needs a paper profile and a syllabus model, and you build both yourself.'
                : needsProfile
-                 ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
+                 ? canGiveProfile
+                   ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
+                   : 'The syllabus model is in place. This folder still needs a paper profile, which you describe yourself.'
                  : 'The profile is in place. The syllabus model is the one you build yourself.'}
         </p>
 

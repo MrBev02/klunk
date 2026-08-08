@@ -17,6 +17,62 @@ import { useMemo, useState } from 'preact/hooks'
 import { installProfile, SHIPPED_PROFILES, type ShippedProfile } from './shipped'
 import type { ContentIndex } from './storage'
 
+/**
+ * Why a folder is being offered no stock profile, or `null` if it is being
+ * offered some.
+ *
+ * Two different absences, and a teacher can act on the difference. Klunk having
+ * nothing for this subject is permanent until #8, #33 and #45 land. Klunk not
+ * knowing which subject is a fact about this folder holding several syllabuses,
+ * which #29 says is the ordinary state for a year.
+ */
+export type NoOffer = 'no-profile-for-subject' | 'several-syllabuses'
+
+export interface ProfileOffer {
+  offered: ShippedProfile[]
+  /** Null when something is offered. */
+  why: NoOffer | null
+}
+
+/**
+ * What Klunk can honestly offer a folder.
+ *
+ * Setup used to pass no `syllabusId` at all and so offer everything, on the
+ * reasoning that a new folder does not yet say what it is for. That holds for a
+ * genuinely empty folder and stops holding the moment the folder has a syllabus
+ * model — which is the ordinary case, because a teacher generates the model
+ * first and comes to the Papers tab afterwards. An IB folder was being offered
+ * **NSW HSC Design and Technology** in the heading position (#48).
+ *
+ * So the folder is asked what it is for, and the answer is only trusted when it
+ * is unambiguous. Several models means Klunk cannot tell which exam a stock
+ * profile would be for, and offering one of them would be the same wrong guess
+ * in a new costume, so it offers none and says why.
+ *
+ * An explicit `syllabusId` still wins: the prompt factory is drafting a
+ * particular subject and knows better than the folder does.
+ */
+export function profilesOnOffer(index: ContentIndex, syllabusId?: string): ProfileOffer {
+  const here = new Set(index.profiles.map((p) => p.data.id))
+  const notHere = SHIPPED_PROFILES.filter((s) => !here.has(s.profile.id))
+
+  const ids = [...new Set(index.syllabuses.map((s) => s.data.id))]
+  const wanted = syllabusId ?? (ids.length === 1 ? ids[0] : undefined)
+
+  // Only when the folder itself was ambiguous. A caller naming a syllabus has
+  // said which one, however many models are in the folder.
+  if (wanted === undefined && ids.length > 1) {
+    return { offered: [], why: 'several-syllabuses' }
+  }
+
+  // An empty folder does not say what it is for, so everything Klunk has is a
+  // fair offer. That was the original reasoning and it survives untouched.
+  const offered =
+    wanted === undefined ? notHere : notHere.filter((s) => s.profile.syllabusId === wanted)
+
+  return { offered, why: offered.length === 0 ? 'no-profile-for-subject' : null }
+}
+
 export function ProfileInstaller({
   index,
   folder,
@@ -44,14 +100,9 @@ export function ProfileInstaller({
   const [busy, setBusy] = useState('')
   const [problem, setProblem] = useState('')
 
-  const here = useMemo(
-    () => new Set(index.profiles.map((p) => p.data.id)),
-    [index.profiles],
-  )
-  const offered = SHIPPED_PROFILES.filter(
-    (s) =>
-      !here.has(s.profile.id) &&
-      (syllabusId === undefined || s.profile.syllabusId === syllabusId),
+  const { offered, why } = useMemo(
+    () => profilesOnOffer(index, syllabusId),
+    [index, syllabusId],
   )
 
   // Nothing to show only when there is also nothing to build. This used to
@@ -104,15 +155,31 @@ export function ProfileInstaller({
           </li>
         ))}
       </ul>
-      {onBuild && (
+      {/* With nothing to offer, describing your own paper is not a footnote to
+          an empty list, it is the step. It sat in muted prose under a small
+          button, which put the only offer that meant anything to a teacher of
+          any subject but Design and Technology into the small print (#48). */}
+      {onBuild && offered.length > 0 && (
         <p class="muted">
-          {offered.length > 0
-            ? 'Building towards a different exam? '
-            : 'Klunk has no stock profile for this one. '}
+          Building towards a different exam?{' '}
           <button class="btn btn--small" onClick={onBuild}>
             Describe your own paper
           </button>
         </p>
+      )}
+      {onBuild && offered.length === 0 && (
+        <>
+          <p>
+            {why === 'several-syllabuses'
+              ? 'This folder holds more than one syllabus, so Klunk cannot tell which exam a stock profile would be for.'
+              : 'Klunk has no stock profile for this subject.'}
+          </p>
+          <div class="rowbtns">
+            <button class="btn btn--primary" onClick={onBuild}>
+              Describe your own paper
+            </button>
+          </div>
+        </>
       )}
       {problem && <p class="setup__problem">{problem}</p>}
     </>

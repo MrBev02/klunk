@@ -14,7 +14,7 @@ import {
 } from './paper'
 import { QuestionDetail, shortType } from './question'
 import { PrintablePaper, type PrintMode } from './render'
-import { ProfileInstaller } from './setup'
+import { ProfileInstaller, profilesOnOffer } from './setup'
 import { allQuestions, savePaper, type ContentIndex } from './storage'
 import {
   QUESTION_TYPE_LABELS,
@@ -730,10 +730,15 @@ function StartPaper({
     return (
       <section class="panel setup">
         <p class="panel__title">No profile in this folder yet</p>
+        {/* "Pick the exam you are building towards" is only true when there is
+            something to pick, which for every subject but Design and Technology
+            there is not (#48). */}
         <p>
           A profile says how a paper is built: how many sections, what each is worth, which
-             question types belong where. Pick the exam you are building towards and Klunk
-             writes it into <code>profiles/</code> here.
+             question types belong where.
+          {profilesOnOffer(index).offered.length > 0
+            ? ' Pick the exam you are building towards and Klunk writes it into profiles/ here.'
+            : ''}
         </p>
         {/* This used to end by telling a teacher to copy `schemas/profile.schema.json`
             and change the sections to match, which is the app giving up on its own
