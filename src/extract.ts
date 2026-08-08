@@ -417,11 +417,27 @@ interface Building {
 }
 
 /**
+ * A reader's refusal to claim a document.
+ *
+ * The sibling of `NotASyllabusError`, and it exists for the same reason: with
+ * more than one reader, trying them in order is only safe if each one refuses
+ * what it does not recognise instead of producing half a paper.
+ */
+export class NotAPaperError extends Error {}
+
+/**
  * Read a whole paper.
  *
  * The shape is fixed — Sections I, II and III at 10, 15 and 15 marks — but
  * almost everything else moved between 2015 and 2025, so nothing here counts
  * questions or assumes how many a section holds.
+ *
+ * @throws NotAPaperError when it recognised nothing at all, which is neither the
+ *   same as reading no questions nor as good as it sounds. This returned
+ *   `{ questions: [], notes: [] }` until #64: every `notes.push` below sits
+ *   inside a branch that first requires a question to have been recognised, so a
+ *   document matching none of the rules could not say one word about why, and
+ *   the panel above it then reported a successful run of nothing.
  */
 export function extractPaper(pages: PageText[]): ExtractedPaper {
   const lines: Line[] = []
@@ -575,6 +591,19 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     if (current !== previous + 1) {
       notes.push(`Question ${previous} is followed by Question ${current}. A question may be missing.`)
     }
+  }
+
+  // Nothing read *and* nothing to say, which is not the same as no questions. A
+  // single page carrying `Question 11 (continued)` yields no question and a note
+  // naming the parent it never saw: the reader has recognised the document and
+  // the note is its output. Refusing there would throw away the one useful thing
+  // it found, so the condition is silence rather than emptiness.
+  if (questions.length === 0 && notes.length === 0) {
+    throw new NotAPaperError(
+      'Klunk read no questions in this document. It reads a NSW HSC paper, which ' +
+        'prints Section I, II and III headings and a heading like ' +
+        '"Question 11 (5 marks)" above each question.',
+    )
   }
 
   return year === undefined ? { questions, notes } : { questions, year, notes }

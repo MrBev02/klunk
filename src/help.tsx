@@ -254,8 +254,13 @@ export function Help({ onClose }: { onClose: () => void }) {
           want it. It reads out the questions and their marks, takes the outcome codes
           from the marking guide's mapping grid, and offers you any pictures it can cut out.
           Nothing is written until you have looked at every question, and anything with a
-          problem goes to the editor instead of into a bank. This was built and tested on
-          NSW HSC papers from 2015 onwards.
+          problem goes to the editor instead of into a bank.
+        </p>
+
+        <p class="muted">
+          Klunk reads two shapes of paper: a NSW HSC examination, tested on the papers from
+          2015 onwards, and a paper of numbered multiple-choice questions. It says which one
+          it read, and says so plainly when a document is neither.
         </p>
       </section>
 
@@ -382,6 +387,14 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dd>
             That folder has been renamed, moved or deleted since Klunk last opened it. Click{' '}
             <strong>Forget</strong> to stop offering it.
+          </dd>
+
+          <dt>"Klunk could not read any questions in this document"</dt>
+          <dd>
+            Klunk reads a NSW HSC examination and a paper of numbered multiple-choice
+            questions, and this document is neither. Check you chose the paper rather than
+            the marking guide. If the paper really is a different shape, write the questions
+            on the Questions tab or draft them on the Draft with AI tab.
           </dd>
 
           <dt>The topic list is empty, or you cannot tag a question</dt>

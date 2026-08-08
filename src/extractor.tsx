@@ -42,7 +42,8 @@
 import { useMemo, useState } from 'preact/hooks'
 import { adoptPaper, type Adopted } from './adopt'
 import type { Editing } from './editor'
-import { extractPaper, stampSource, type ExtractedQuestion } from './extract'
+import { stampSource, type ExtractedQuestion } from './extract'
+import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
 import { courseChoices } from './factory'
 import { CheckList, Field } from './fields'
 import { applyGuide, extractGuide } from './guide'
@@ -110,7 +111,12 @@ export function Extractor({
 
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
-  const [read, setRead] = useState<{ adopted: Adopted[]; notes: string[]; year?: number } | null>(
+  const [read, setRead] = useState<{
+    adopted: Adopted[]
+    notes: string[]
+    format: PaperFormat
+    year?: number
+  } | null>(
     null,
   )
   const [discarded, setDiscarded] = useState<string[]>([])
@@ -202,7 +208,8 @@ export function Extractor({
       // detaches the bytes it is given, so opening the same file twice throws.
       const doc = await openPdf(await readBytes(folder, paperPath))
       const pages = await pagesFromDocument(doc)
-      let paper = extractPaper(pages)
+      const { format, paper: readAs } = readPastPaper(pages)
+      let paper = readAs
       if (guidePath) {
         paper = applyGuide(paper, extractGuide(await readPdf(await readBytes(folder, guidePath))))
       }
@@ -244,7 +251,7 @@ export function Extractor({
           'Klunk could not find a year on the front of this paper, so these questions do not say where they came from. Add the year in the editor before you save them.',
         )
       }
-      setRead({ adopted, notes, ...(year === undefined ? {} : { year }) })
+      setRead({ adopted, notes, format, ...(year === undefined ? {} : { year }) })
     } catch (err) {
       setFailed((err as Error).message)
     } finally {
@@ -457,6 +464,10 @@ export function Extractor({
             {read.year !== undefined && ` from the ${read.year} paper`} ·{' '}
             {read.adopted.reduce((sum, a) => sum + a.question.marks, 0)} marks
           </p>
+          {/* Which reader claimed the document, for the reason the syllabus tab
+              says it: if Klunk has taken this for the wrong shape, the questions
+              below are what look wrong, and this line is what says why. */}
+          <p class="hint">Klunk read this as {PAPER_FORMAT_DESCRIPTIONS[read.format]}.</p>
 
           <ol class="drafts">
             {live.map((item, i) => (
@@ -476,7 +487,14 @@ export function Extractor({
             ))}
           </ol>
 
-          {unsaved.length === 0 ? (
+          {/* "Saved or discarded" was said whenever nothing was left to save,
+              which included nothing having been read in the first place. Both
+              readers now refuse a document they cannot read, so this branch
+              should be unreachable — it stays because a line claiming a
+              successful run of nothing is the fault #64 was filed for. */}
+          {read.adopted.length === 0 ? (
+            <p class="hint">No questions were read from this paper.</p>
+          ) : unsaved.length === 0 ? (
             <p class="hint">Everything here has been saved or discarded.</p>
           ) : (
             <div class="rowbtns">

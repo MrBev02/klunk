@@ -62,7 +62,10 @@ klunk/                     this repo - app and tools only, public
     ibdt.ts                the IB DP Design Technology syllabus map reader, and
                            the SL/HL split both IB readers share
     ibguide.ts             the IB DP Design Technology subject guide reader
-    formats.ts             picks the reader that fits the document
+    formats.ts             picks the syllabus reader that fits the document
+    extract.ts             the NESA past paper reader
+    objective.ts           the numbered multiple-choice paper reader
+    paperformats.ts        picks the paper reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
     modelcheck.ts          tags that name nothing, and two models of one document
     cover.ts               the cover sheet's three layers resolved, no JSX
@@ -611,8 +614,9 @@ because Git never asks `gh`.
 - **Git identity is set locally** to MrBev02, because the machine's global identity is
   a different account.
 - **`../klunk-content` is not in git and does not come with the repo, deliberately.**
-  Without it, `extract.corpus`, `syllabus.corpus`, `headings.corpus` and
-  `ibdt.corpus` and `ibguide.corpus` all `describe.skipIf(!available)` themselves, and the port
+  Without it, `extract.corpus`, `objective.corpus`, `syllabus.corpus`,
+  `headings.corpus`, `ibdt.corpus` and `ibguide.corpus` all
+  `describe.skipIf(!available)` themselves, and the port
   comparison against the Python generator needs `python3` besides. So `npm test`
   goes **green while testing far less**, and `npm run build` gates on that same
   green. Nothing on screen says a suite skipped. On a machine without the content
@@ -832,6 +836,54 @@ forty marks, provenance on each, outcomes from the mapping grid, the extended
 response showing all five bands, and all fourteen saved into a bank that still
 validates. `src/extract.corpus.test.ts` runs all eleven years and skips itself
 when the content folder is absent, so CI never sees a NESA paper.
+
+**There are two paper readers now, and a paper that fits neither says so**
+(#64). `extract.ts` is NESA's and every rule in it is: a `Section I` heading has
+to have been seen before a numbered question counts, and anything outside
+Section I needs a `Question 11 (5 marks)` heading. Handed the RevisionDojo
+practice paper it returned `{ questions: [], notes: [] }` — **zero questions and
+zero explanation**, because every `notes.push` in it sits inside a branch that
+first requires a question to have been recognised. The panel then rendered
+"0 questions read · 0 marks" over the line *Everything here has been saved or
+discarded*, which told the teacher the run had succeeded.
+
+- **`src/objective.ts`** reads a paper that is numbered questions and nothing
+  else, and **`src/paperformats.ts`** is `formats.ts` applied to papers: try each
+  reader in order, each refuses what it does not recognise, report on screen
+  which one claimed the document. NESA runs first, because its Section I is ten
+  numbered questions with four options each and the second reader would
+  otherwise claim ten questions of a fourteen-question paper.
+- **The refusal condition is silence, not emptiness.** `extractPaper` throws when
+  it read no questions *and* had nothing to say. A single page carrying
+  `Question 11 (continued)` yields no question and a note naming the parent it
+  never saw: the reader has recognised the document and the note is its output.
+  A test caught this, which is why the condition is not the obvious one.
+- **Repetition alone does not make a line furniture.** The objective reader
+  cannot name its running heads the way `extract.ts` and `ibguide.ts` name
+  theirs, because it serves any paper of the shape rather than one publisher, so
+  it drops what repeats on most pages. That alone would strip `A. Increase` off
+  every question of a paper whose options repeat, leaving the count intact —
+  this repository's oldest fault in a new reader. The rule is the conjunction: a
+  line repeated on most pages that is **neither a numbered stem nor an option**.
+  Found by a test failing, not by reading it.
+- **A multiple-choice question with no answer key silently marked option A
+  correct.** `adopt.ts` has to put something in `correctAnswer` and put the first
+  option there; nothing said so, and a thirty-question paper read without its
+  markscheme is thirty wrong answers on a marking guide. It is a note now, on
+  every reader's questions.
+
+Verified by driving it on `../klunk-content`: the RevisionDojo paper read to 30
+questions and 30 marks with the line *Klunk read this as a paper of numbered
+multiple-choice questions*, every question READY and so valid against
+`bank.schema.json`, pictures cut out, and the missing-answer note on each. The
+85-page IB subject guide fed to the same tab was refused by name. The 2019 NESA
+paper still reads to fourteen questions and forty marks and reports itself as a
+NSW HSC examination.
+
+**This is not IB extraction and must not be described as one.** The document is
+RevisionDojo's practice paper, not the IB's; no IB specimen is in the folder
+(#45). What it demonstrates is that a plainly-numbered multiple-choice paper
+reads, whoever set it.
 
 **Pictures come too** (#24). The page is rendered and the picture cut out of the
 band where the text is not, as a proposal the teacher keeps or drops before
