@@ -7,10 +7,11 @@
  * subtle bug fixed in it is how the second copy quietly gets the bug back.
  */
 
+import { Fragment } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { groupFor } from './manifest'
 import type { Check } from './paper'
-import type { DocumentPurpose, Manifest } from './types'
+import type { DocumentPurpose, Manifest, SyllabusTopic } from './types'
 
 export function Field({
   label,
@@ -156,6 +157,88 @@ export function DocumentOptions({
       )}
       {grouped.other.length > 0 && <optgroup label={labels.other}>{options(grouped.other)}</optgroup>}
     </>
+  )
+}
+
+/**
+ * A course's topics, under a heading per focus area.
+ *
+ * Both editors offer topics from one chosen course, and a course is where a
+ * topic name stops being unique: Computing Technology 7–10 holds the same four
+ * — `Identifying and defining`, `Researching and planning`, `Producing and
+ * implementing`, `Testing and evaluating` — under each of six focus areas, so a
+ * flat list of Stage 5 is 24 options reading as four (#75).
+ *
+ * An `optgroup` rather than a prefix on each option, because this syllabus
+ * writes the strand into the area as well (`Enterprise information systems:
+ * Modelling networks and social connections`) and a prefix puts seventy
+ * characters in front of a topic name in a box that shows one line.
+ *
+ * The library's filter cannot use this: it spans every syllabus in the folder
+ * and spends its one level of grouping on saying which. HTML has no nested
+ * `optgroup`, so there the area stays a prefix.
+ */
+export function TopicOptions({
+  topics,
+  omit = [],
+}: {
+  topics: SyllabusTopic[]
+  /** Topic ids already chosen, which are not offered again. */
+  omit?: string[]
+}) {
+  const left = topics.filter((t) => !omit.includes(t.id))
+  const option = (t: SyllabusTopic) => (
+    <option key={t.id} value={t.id}>
+      {t.name}
+    </option>
+  )
+
+  // Nothing to head, so no headings. A syllabus that divides its course into
+  // nothing — Design and Technology, Drama — would otherwise get one empty
+  // `optgroup` wrapped round the whole list.
+  if (!left.some((t) => t.group)) return <>{left.map(option)}</>
+
+  // Runs rather than a bucket per name, so the published order survives. A
+  // syllabus that returns to an earlier area later on reads as it is printed
+  // instead of being silently reordered into it.
+  const runs: { group: string; topics: SyllabusTopic[] }[] = []
+  for (const topic of left) {
+    const group = topic.group ?? ''
+    const last = runs[runs.length - 1]
+    if (last && last.group === group) last.topics.push(topic)
+    else runs.push({ group, topics: [topic] })
+  }
+
+  return (
+    <>
+      {runs.map((run, at) =>
+        run.group ? (
+          <optgroup key={`${run.group}-${at}`} label={run.group}>
+            {run.topics.map(option)}
+          </optgroup>
+        ) : (
+          // A topic with no area in a course that has them. Left at the top
+          // level rather than filed under an invented heading.
+          <Fragment key={`loose-${at}`}>{run.topics.map(option)}</Fragment>
+        ),
+      )}
+    </>
+  )
+}
+
+/**
+ * A chosen topic, named so it can be told from its namesakes.
+ *
+ * A chip has nowhere to put a heading, so here the area is a prefix. It is set
+ * apart rather than run together with the name, because on Computing Technology
+ * the area is the longer of the two and would otherwise read as the topic.
+ */
+export function TopicChipLabel({ topic }: { topic: SyllabusTopic }) {
+  return (
+    <span class="chip__topic">
+      {topic.group && <span class="chip__where">{topic.group}</span>}
+      {topic.name}
+    </span>
   )
 }
 

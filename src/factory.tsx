@@ -16,7 +16,15 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import type { Editing } from './editor'
-import { bankPathFault, Field, normaliseBankPath, NumField, CheckList } from './fields'
+import {
+  bankPathFault,
+  CheckList,
+  Field,
+  normaliseBankPath,
+  NumField,
+  TopicChipLabel,
+  TopicOptions,
+} from './fields'
 import { ingestQuestions, AI_TAG, type Draft, type Ingest, type IngestContext } from './ingest'
 import { buildPrompt, outcomesFor } from './prompt'
 import { QuestionDetail } from './question'
@@ -189,9 +197,9 @@ export function Factory({
         <p class="panel__title">No syllabus model in this folder</p>
         <p>
           This tab writes a prompt with your syllabus already in it, so it needs a syllabus
-             model first. Put your own copy of the syllabus <span class="mono">.docx</span> in
-             this folder and build one on the
-          <strong> From a syllabus</strong> tab.
+             model first. Build one from your own copy of the syllabus{' '}
+          <span class="mono">.docx</span> on the
+          <strong> Syllabus</strong> tab.
         </p>
       </section>
     )
@@ -286,13 +294,7 @@ export function Factory({
             }}
           >
             <option value="">Add a topic…</option>
-            {(chosen?.course.topics ?? [])
-              .filter((t) => !topicIds.includes(t.id))
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+            <TopicOptions topics={chosen?.course.topics ?? []} omit={topicIds} />
           </select>
         </Field>
 
@@ -301,7 +303,7 @@ export function Factory({
             {topics.map((t) => (
               <button
                 key={t.id}
-                class="chip chip--drop"
+                class="chip chip--drop chip--topic"
                 title="Remove this topic"
                 onClick={() => {
                   setTopicIds(topicIds.filter((x) => x !== t.id))
@@ -309,7 +311,7 @@ export function Factory({
                   setPointIds(pointIds.filter((p) => !theirs.has(p)))
                 }}
               >
-                {t.name} ✕
+                <TopicChipLabel topic={t} /> ✕
               </button>
             ))}
           </div>

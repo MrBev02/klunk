@@ -70,6 +70,8 @@ klunk/                     this repo - app and tools only, public
     answerkey.ts           the grid-of-answers markscheme reader
     guideformats.ts        picks the guide reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
+    syllabusreview.tsx     every topic on screen, to correct or only to read
+    syllabusmodels.tsx     the models already in the folder, read-only
     manifest.ts            what each document in the folder turned out to be, pure
     modelcheck.ts          tags that name nothing, and two models of one document
     cover.ts               the cover sheet's three layers resolved, no JSX
@@ -1381,6 +1383,77 @@ OneDrive rather than through Klunk. That is real and it is narrow.
 worst folder in existence for judging this, which is how the first reading went
 wrong. It makes #68's detection a convenience rather than the thing #73 depends
 on.
+
+**A topic name is unique inside a focus area, not inside a course** (#75), which
+Computing Technology 7–10 is the first document to show. Its six focus areas each
+hold the same four topics — `Identifying and defining`, `Researching and
+planning`, `Producing and implementing`, `Testing and evaluating` — so Stage 5 is
+24 topics with four names between them. The model was right and carried the group
+throughout; three of the five places a topic is offered or shown printed the name
+alone.
+
+- The area is an **`optgroup` in a select scoped to one course** (the question
+  editor's and the prompt factory's, through `TopicOptions` in `fields.tsx`) and
+  a **heading over its topics** in the review panel. A prefix says the same thing
+  and costs seventy characters on every row: this syllabus writes the strand into
+  the area, `Enterprise information systems: Modelling networks and social
+  connections`. The library's filter keeps the prefix, because it spans every
+  model in the folder and spends its one level of grouping on saying which — HTML
+  has no nested `optgroup`.
+- A chip has nowhere to put a heading, so there the area is a second line above
+  the name, smaller and lighter.
+
+**The word for that division is the document's, and is recorded rather than
+inferred.** `group` stays the field name. `unit` was considered and rejected: no
+document Klunk reads calls it one, NSW already uses "unit" for credit weighting
+and again for a teacher's unit of work, and the rename would reject every model
+already in a folder under `additionalProperties: false`. What was actually wrong
+was the word on screen, which was hardcoded `Focus area` for all four vocabularies.
+
+- `Syllabus.groupLabel` is optional and set by the reader that read the document:
+  the 2013 reader captures the literal word its heading used, so Textiles says
+  `Area of study` and Industrial Technology `Focus area`; the reform reader says
+  `Focus area`, the prose reader `Content area`, and both IB readers `Theme`.
+- **Written only where a course actually has a group**, so Design and Technology
+  and Drama carry no word for a division they do not have.
+- The Python generator is untouched, and so is the comparison against it: the
+  field is on the syllabus rather than on a course, and that test compares
+  `courses` alone.
+- A model saved before the field existed falls back to `Focus area`, or to
+  `Theme` when its framework is `IB` — the only evidence such a model carries.
+- **Pluralising it is not `+ 's'`.** Driving the panel over the real Textiles
+  document printed "Area of studys" over the three areas it had just found
+  correctly. English pluralises the head noun of a noun phrase, which is the word
+  before `of`. `pluralLabel` in `syllabusreview.tsx`, with a test, because the
+  fault is invisible in the code and unmissable on screen.
+
+**A syllabus model was write-only, and now it can be read** (#76). `SyllabusReview`
+put every topic on screen with its area, outcomes, content points and ids, and was
+reachable only between reading a document and saving the model. After Save, all a
+teacher could see of their own syllabus was topic *names* in two dropdowns — and
+tagging a question means choosing an id.
+
+- **The same panel, not a second read-only rendering of it.** `onChange` is
+  optional: given, the panel corrects; omitted, it reads. Two components over the
+  same topics is how they stop agreeing about what a topic looks like.
+- Correcting a *saved* model is deliberately not built. It needs the replace-cost
+  count (#44) and a write path, and the reading half is what was blocking a
+  teacher.
+- The tab is **`Syllabus`**, not `From a syllabus`, and its badge counts the
+  models rather than the documents on offer. #74 put the document count there on
+  the principle that a badge counts what the list holds, and the list that tab
+  opened on was the documents; it opens on the models now, and 36 over a folder
+  holding two syllabuses would be that fault the other way up.
+
+Verified by driving it on `../klunk-content`: all five models listed with their
+courses and counts, the IB one reading `Themes:` off the framework fallback;
+Computing Technology opening to 12 area headings over 48 topic rows across its two
+stages, `S4-05` showing its area and its twelve content points with ids, and no
+input or Fix button anywhere in it; the editor and the factory both offering Stage
+5 as six `optgroup`s of four, three same-named topics chosen and told apart on
+their chips; Design and Technology getting a plain list, having no areas; and
+Textiles re-read through the reader to `Areas of study: Design · …`, an
+`AREA OF STUDY` heading over each, and `Clear the area of study on all 18 topics`.
 
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.

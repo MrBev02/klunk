@@ -55,8 +55,13 @@ const COURSE_MARKER_RE = /\((Preliminary|HSC)\)/i
 //
 // Design and Technology has neither, and should not: it is one content table
 // per course, so there is nothing for a group to divide. No label, no group.
+//
+// The word itself is captured as well as the name, because it is the word a
+// teacher reads on the page in front of them: Textiles divides its courses into
+// areas of study and Industrial Technology into focus areas, and a screen that
+// calls both a "focus area" is inventing a vocabulary neither document uses.
 const FOCUS_AREA_RE =
-  /^\s*(?:\d+(?:\.\d+)*\s*)?(?:area\s+of\s+study|focus\s+area)\s*[:–—-]\s*([\s\S]+)$/i
+  /^\s*(?:\d+(?:\.\d+)*\s*)?(area\s+of\s+study|focus\s+area)\s*[:–—-]\s*([\s\S]+)$/i
 
 // "Focus Area: Automotive Technologies (Preliminary)" names the course too, and
 // that belongs to the course, not to the name of the area.
@@ -152,6 +157,19 @@ export function tidyName(heading: string): string {
 export function focusAreaName(captured: string): string {
   const name = captured.replace(COURSE_SUFFIX_RE, '')
   return name.split(/\s+/).join(' ').trim().replace(/[:;.,]+$/, '').trim()
+}
+
+/**
+ * The document's own word for a division, as a label rather than as a heading.
+ *
+ * NESA writes these in title case in the heading itself — `Area of Study:` — and
+ * a form label reading "Area Of Study" is not how the phrase is written in
+ * prose. Only the first letter is kept capital, so the word survives and the
+ * heading's typography does not.
+ */
+function sentenceCase(word: string): string {
+  const tidy = word.split(/\s+/).join(' ').trim().toLowerCase()
+  return tidy ? tidy[0]!.toUpperCase() + tidy.slice(1) : ''
 }
 
 /* ------------------------------------------------------------------ building */
@@ -298,6 +316,12 @@ export interface TableReading {
   courses: SyllabusCourse[]
   /** Topic ids worth a second look, in the order they were read. */
   suspects: string[]
+  /**
+   * What the document calls a group, where it says so: `Area of study` in
+   * Textiles, `Focus area` in Industrial Technology. Empty when the document
+   * divides its courses into nothing, which is Design and Technology.
+   */
+  groupLabel: string
 }
 
 /**
@@ -312,6 +336,9 @@ export function parseSyllabusTables(xml: string): TableReading {
   // narrow layout this is the only place they appear.
   let pending = new Map<string, string>()
   let group = ''
+  // What this document calls the division a group is. Only ever set from a
+  // marker actually seen, so a syllabus with no areas carries no word for them.
+  let groupLabel = ''
   const suspects: string[] = []
 
   for (const block of blocks(xml)) {
@@ -332,7 +359,10 @@ export function parseSyllabusTables(xml: string): TableReading {
       const marker = COURSE_MARKER_RE.exec(block.text)
       if (marker) hint = marker[1] ?? hint
       const area = FOCUS_AREA_RE.exec(block.text)
-      if (area) group = focusAreaName(area[1] ?? '')
+      if (area) {
+        group = focusAreaName(area[2] ?? '')
+        groupLabel = sentenceCase(area[1] ?? '')
+      }
       continue
     }
 
@@ -381,6 +411,7 @@ export function parseSyllabusTables(xml: string): TableReading {
         }),
       ),
     suspects,
+    groupLabel,
   }
 }
 
@@ -406,6 +437,8 @@ export interface SyllabusIdentity {
   framework?: string
   authority?: string
   syllabusVersion?: string
+  /** The document's own word for a division, from the reader that read it. */
+  groupLabel?: string
   sourceTitle: string
   sourceUrl?: string
   /** ISO date. Passed in rather than read from the clock, so a model is reproducible. */
@@ -443,6 +476,12 @@ export function toSyllabus(courses: SyllabusCourse[], who: SyllabusIdentity): Sy
     // editions of one subject are live at the same time (#29), so a confident
     // wrong answer here is worse than none.
     ...(who.syllabusVersion?.trim() ? { syllabusVersion: who.syllabusVersion.trim() } : {}),
+    // Written only where the document said it, and only where there is a group
+    // for the word to name. A syllabus that divides its courses into nothing
+    // gets no vocabulary for a division it does not have.
+    ...(who.groupLabel?.trim() && courses.some((c) => c.topics.some((t) => t.group))
+      ? { groupLabel: who.groupLabel.trim() }
+      : {}),
     source,
     courses,
   }

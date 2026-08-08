@@ -202,7 +202,7 @@ export function SyllabusNote() {
            copyright.</strong> Build your own from your own copy, into your own folder.
       </p>
       <p class="muted">
-        For a NSW Stage 6 syllabus, open the <strong>From a syllabus</strong> tab and choose
+        For a NSW Stage 6 syllabus, open the <strong>Syllabus</strong> tab and choose
            the <code>.docx</code> you downloaded from NESA. Klunk can read it straight out of
            your Downloads, so it does not have to be in this folder first. It shows you the
            courses, topics and content points it found before it writes anything.

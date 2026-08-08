@@ -25,6 +25,7 @@ import {
   tidyName,
   toSyllabus,
 } from './syllabus'
+import type { SyllabusCourse } from './types'
 
 /* ------------------------------------------------- building a document body */
 
@@ -349,6 +350,36 @@ describe('what counts as a group', () => {
   })
 })
 
+describe('what the document calls a group', () => {
+  // The word is captured as well as the name, so a screen showing the model can
+  // use the syllabus's own vocabulary rather than picking one and applying it to
+  // every curriculum authority. NESA itself uses two.
+  it('reports the label the heading used, in sentence case', () => {
+    for (const [heading, want] of [
+      ['Area of Study: Design', 'Area of study'],
+      ['Focus Area: Design', 'Focus area'],
+      ['3.1 Focus Area – Design', 'Focus area'],
+      ['AREA OF STUDY: Design', 'Area of study'],
+    ] as const) {
+      const xml = body(
+        para(heading),
+        table(wideHeader, row(cell('H1.1', 'x'), cell('a topic', 'a point'), cell('y'))),
+      )
+      expect(parseSyllabusTables(xml).groupLabel, heading).toBe(want)
+    }
+  })
+
+  it('reports no label for a document that divides its courses into nothing', () => {
+    // Design and Technology. One content table per course and no area headings,
+    // so there is no word to report and nothing for one to name.
+    const xml = body(
+      para('7.2Key Competencies'),
+      table(wideHeader, row(cell('H1.1', 'x'), cell('a topic', 'a point'), cell('y'))),
+    )
+    expect(parseSyllabusTables(xml).groupLabel).toBe('')
+  })
+})
+
 describe('parseSyllabusXml, the whole document', () => {
   it('puts Preliminary before HSC however the document was laid out', () => {
     // Headings, not codes: in the wide layout the outcomes are inside the
@@ -456,6 +487,28 @@ describe('toSyllabus', () => {
     expect(toSyllabus([], { ...identity, syllabusVersion: ' 11–12 (2024) ' }).syllabusVersion).toBe(
       '11–12 (2024)',
     )
+  })
+
+  it('names a division only where the courses have one', () => {
+    // The reader for a shape reports the same word for every document of that
+    // shape, and Drama and Design and Technology divide their courses into
+    // nothing. A model carrying a word for a division it does not have would
+    // put a heading on a form field that has nothing to head.
+    const flat: SyllabusCourse[] = [
+      { id: 'hsc', name: 'HSC', topics: [{ id: 'HSC-01', name: 'A topic', points: [] }] },
+    ]
+    const divided: SyllabusCourse[] = [
+      {
+        id: 'hsc',
+        name: 'HSC',
+        topics: [{ id: 'HSC-01', name: 'A topic', group: 'Design', points: [] }],
+      },
+    ]
+    expect('groupLabel' in toSyllabus(flat, { ...identity, groupLabel: 'Focus area' })).toBe(false)
+    expect(toSyllabus(divided, { ...identity, groupLabel: 'Focus area' }).groupLabel).toBe(
+      'Focus area',
+    )
+    expect('groupLabel' in toSyllabus(divided, { ...identity, groupLabel: '  ' })).toBe(false)
   })
 })
 

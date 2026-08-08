@@ -250,6 +250,70 @@ code,
   margin-bottom: 0.4rem;
 }
 
+/* One syllabus model in the folder: a heading that opens it, its courses under
+   that, and the whole model under those when it is open (#76). A column rather
+   than the row `.setup__row` lays out, because what is being listed here is
+   nested and a row can only put things beside each other. */
+.model {
+  display: block;
+  padding: 0;
+}
+
+.model__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.model__head:hover {
+  background: var(--blue-soft);
+}
+
+.model__head[aria-expanded='true'] .qrow__caret {
+  transform: rotate(90deg);
+}
+
+.model__courses {
+  margin: 0;
+  padding: 0 0.75rem 0.7rem 1.6rem;
+  line-height: 1.5;
+}
+
+.model__courses > li + li {
+  margin-top: 0.4rem;
+}
+
+/* The panel sits inside the row, so its own panels have to stop looking like
+   cards floating on a card. */
+.model__detail {
+  padding: 0.2rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.model__detail .panel {
+  margin: 0.8rem 0 0;
+  border: none;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: none;
+  padding: 0.8rem 0 0;
+  box-shadow: none;
+}
+
+.model__detail .panel:first-child {
+  border-top: none;
+  padding-top: 0.4rem;
+}
+
 .setup__meta {
   font-size: 0.78rem;
 }
@@ -492,6 +556,31 @@ textarea.input {
   border-radius: var(--r);
   color: var(--ink-soft);
   white-space: nowrap;
+}
+
+/* A chip naming a topic, which on some syllabuses has to carry its focus area
+   to mean anything (#75). `nowrap` is right for a tag and wrong for a sentence,
+   and the area on Computing Technology 7–10 runs to seventy characters. */
+.chip--topic {
+  white-space: normal;
+  text-align: left;
+  align-items: flex-start;
+  max-width: 24rem;
+  line-height: 1.35;
+}
+
+/* The two lines of the label, stacked, with the ✕ still beside them rather than
+   under them: the chip itself stays a row and only its text is a column. */
+.chip__topic {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The area the topic came from. Smaller and lighter than the topic itself: it
+   is what tells two identical names apart, not what the teacher chose. */
+.chip__where {
+  font-size: 0.9em;
+  color: var(--ink-faint);
 }
 
 .chip--marks {
@@ -2211,9 +2300,45 @@ code,
   white-space: nowrap;
 }
 
+/* The course name where it is being read rather than corrected: the same line
+   in the same place, without a box round it inviting a change nothing here can
+   save (#76). */
+.review__course {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.review__readoutcomes > li {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  line-height: 1.5;
+}
+
 .review__meta {
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+/* The focus area, theme or area of study, as a heading over the topics it holds
+   rather than as a prefix repeated on each of them. Computing Technology 7–10
+   is six areas holding the same four topic names, so without this the list of a
+   course is one name four times over, six times over (#75). */
+.review__area {
+  padding: 1rem 0.2rem 0.3rem;
+  border-bottom: none;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.review__area:first-child {
+  padding-top: 0.3rem;
+}
+
+.review__area > .det__label {
+  display: block;
+  margin-bottom: 0.1rem;
 }
 
 /* The heading as the syllabus prints it, shown only where the tidied name has

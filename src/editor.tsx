@@ -22,6 +22,8 @@ import {
   NumField,
   patched,
   type Patch,
+  TopicChipLabel,
+  TopicOptions,
 } from './fields'
 import { QuestionDetail } from './question'
 import {
@@ -1141,9 +1143,8 @@ function TaggingFields({
 
       {courses.length === 0 ? (
         <p class="hint">
-          Put the syllabus <span class="mono">.docx</span> in this folder and build a model
-             on the <strong>From a syllabus</strong> tab. Its topics appear here once you
-             have one.
+          Build a model from the syllabus <span class="mono">.docx</span> on the{' '}
+          <strong>Syllabus</strong> tab. Its topics appear here once you have one.
         </p>
       ) : (
         <>
@@ -1183,14 +1184,7 @@ function TaggingFields({
               }}
             >
               <option value="">Add a topic…</option>
-              {(chosen?.course.topics ?? [])
-                .filter((t) => !topicIds.includes(t.id))
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.group ? `${t.group} · ` : ''}
-                    {t.name}
-                  </option>
-                ))}
+              <TopicOptions topics={chosen?.course.topics ?? []} omit={topicIds} />
             </select>
           </Field>
 
@@ -1201,7 +1195,7 @@ function TaggingFields({
                 return (
                   <button
                     key={id}
-                    class="chip chip--drop"
+                    class="chip chip--drop chip--topic"
                     title="Remove this topic"
                     onClick={() =>
                       setSyllabus({
@@ -1213,7 +1207,7 @@ function TaggingFields({
                       })
                     }
                   >
-                    {topic?.name ?? id} ✕
+                    {topic ? <TopicChipLabel topic={topic} /> : id} ✕
                   </button>
                 )
               })}

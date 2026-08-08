@@ -655,15 +655,23 @@ export function App() {
               <button
                 class={`tab ${view === 'syllabus' ? 'tab--on' : ''}`}
                 onClick={() => setView('syllabus')}
-                title="Build a syllabus model from a syllabus document in this folder"
+                title="Read the syllabus models in this folder, or build another from a document"
               >
-                From a syllabus
-                {/* Every document the tab offers, which since #58 includes the PDFs.
-                    Most of a teacher's PDFs are past papers and are counted on the tab
-                    to the left as well, so this number reads large. That is the lesser
-                    fault: a badge saying 9 over a list of 36 is a badge that is wrong,
-                    and Klunk cannot tell which PDF is a syllabus without opening it. */}
-                {documents > 0 && <span class="tab__n">{documents}</span>}
+                {/* "From a syllabus" until #76, which is what the tab did rather
+                    than what it is about. The models in the folder are the first
+                    thing on it now, and a teacher looking for their own syllabus
+                    was not going to find it behind a preposition. */}
+                Syllabus
+                {/* The models, not the documents on offer.
+                    #74 put the document count here on the principle that a badge
+                    should count what the list holds, and the list the tab opened
+                    on was the documents. The list it opens on now is the models,
+                    and 36 over a folder holding two syllabuses would be the same
+                    fault the other way up. The documents are still all offered,
+                    a heading further down. */}
+                {index.syllabuses.length > 0 && (
+                  <span class="tab__n">{index.syllabuses.length}</span>
+                )}
               </button>
             </nav>
 

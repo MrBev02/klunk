@@ -42,7 +42,8 @@ import {
 import { readPdf } from './pdftext'
 import { NotASyllabusError, suggestSyllabusId, summarise, toSyllabus } from './syllabus'
 import { costOfReplacing, problemsWith, tidyCourses } from './syllabusedit'
-import { SyllabusReview } from './syllabusreview'
+import { SyllabusModels } from './syllabusmodels'
+import { DEFAULT_GROUP_LABEL, SyllabusReview, lowerLabel, pluralLabel } from './syllabusreview'
 import { allQuestions, rememberDocument, writeJson, type ContentIndex } from './storage'
 import type { Syllabus, SyllabusCourse } from './types'
 import { readWorkbook } from './xlsx'
@@ -131,6 +132,8 @@ export function SyllabusReader({
     format: SyllabusFormat
     /** Topic ids the reader is unsure about, which the review panel points at. */
     suspects: string[]
+    /** The document's own word for a division, which the panel and the model use. */
+    groupLabel: string
     /** The filename as read, which the model records. Held here rather than read
      * back off the selection, because it belongs to what was parsed. */
     source: string
@@ -262,7 +265,7 @@ export function SyllabusReader({
       // Three kinds of document, told apart by extension long before any reader
       // sees them, because the three take different things: markup, rows and
       // pages of positioned text.
-      const { format, courses, suspects } = isPdf(chosen.path)
+      const { format, courses, suspects, groupLabel } = isPdf(chosen.path)
         ? readSyllabusPdf(await readPdf(new Uint8Array(await file.arrayBuffer())))
         : isWorkbook(chosen.path)
           ? readSyllabusWorkbook(await readWorkbook(file))
@@ -275,7 +278,7 @@ export function SyllabusReader({
       if (chosen.file === null) {
         remember({ path: chosen.path, read: 'syllabus', when: today })
       }
-      setFound({ courses, original: courses, format, suspects, source: base })
+      setFound({ courses, original: courses, format, suspects, groupLabel, source: base })
       setId(isIbDesignTechnology(format) ? 'ib-dp-design-technology' : suggestSyllabusId(base))
       setName(isIbDesignTechnology(format) ? 'Design Technology' : prettyName(base))
       // Filled in only where the format settles it: the content-table layout is
@@ -312,6 +315,7 @@ export function SyllabusReader({
         id,
         name: name.trim() || id,
         syllabusVersion: edition,
+        groupLabel: found.groupLabel,
         sourceTitle: found.source,
         retrieved: today,
         ...(isIbDesignTechnology(found.format) ? IB : {}),
@@ -330,6 +334,14 @@ export function SyllabusReader({
 
   return (
     <div class="factory">
+      {/* What the folder already has, before what could be added to it. A
+          teacher arriving here to look at their syllabus was arriving at a file
+          picker, and there was nowhere else to go (#76). Hidden while a
+          document is being read, because at that point the panel below is the
+          same model in a fuller form and two of them on one screen is a
+          question about which is which. */}
+      {!found && <SyllabusModels index={index} />}
+
       <section class="panel">
         <p class="panel__title">
           <span class="step">1</span> Pick the syllabus document
@@ -442,8 +454,8 @@ export function SyllabusReader({
                     <br />
                     <span class="muted setup__meta">
                       {c.groups.length === 0
-                        ? 'No focus areas, so every topic sits directly under the course.'
-                        : `Focus areas: ${c.groups.join(' · ')}`}
+                        ? `No ${pluralLabel(lowerLabel(found.groupLabel || DEFAULT_GROUP_LABEL))}, so every topic sits directly under the course.`
+                        : `${pluralLabel(found.groupLabel || DEFAULT_GROUP_LABEL)}: ${c.groups.join(' · ')}`}
                     </span>
                   </div>
                 </li>
@@ -465,7 +477,12 @@ export function SyllabusReader({
             </p>
           </section>
 
-          <SyllabusReview courses={found.courses} suspects={found.suspects} onChange={change} />
+          <SyllabusReview
+            courses={found.courses}
+            suspects={found.suspects}
+            groupLabel={found.groupLabel}
+            onChange={change}
+          />
 
           {edits.length > 0 && (
             <section class="panel panel--note">

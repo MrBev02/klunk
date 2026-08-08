@@ -18,6 +18,7 @@
  * is which button calls which one.
  */
 
+import { Fragment } from 'preact'
 import { useState } from 'preact/hooks'
 import { Field } from './fields'
 import {
@@ -48,6 +49,15 @@ import type { SyllabusCourse, SyllabusTopic } from './types'
 type Apply = (courses: SyllabusCourse[]) => SyllabusCourse[]
 
 /**
+ * How a correction is run, or `null` when the panel is only being read.
+ *
+ * Null rather than a no-op, so that every control which exists to change
+ * something has to say what it does when nothing can be changed. A no-op would
+ * leave the buttons on screen doing nothing.
+ */
+type Applier = ((fn: Apply, what: string) => void) | null
+
+/**
  * How tall to make the box holding a content point.
  *
  * Drama and Visual Arts write their content as paragraphs rather than bullets, so
@@ -60,9 +70,38 @@ function linesFor(text: string): number {
   return Math.min(14, Math.max(2, Math.ceil(text.length / 85) + 1))
 }
 
+/**
+ * The word to use for the division a topic sits under.
+ *
+ * A default is needed because a model saved before the word was recorded carries
+ * none, and "Focus area" is what NESA calls it in every document but two. It is
+ * only ever a fallback: where the reader knows, the reader says.
+ */
+export const DEFAULT_GROUP_LABEL = 'Focus area'
+
+/** The same word mid-sentence, where it is not opening a label or a heading. */
+export function lowerLabel(label: string): string {
+  return label.charAt(0).toLowerCase() + label.slice(1)
+}
+
+/**
+ * More than one of them.
+ *
+ * Not `+ 's'`. Two of the four labels are noun phrases and English pluralises
+ * the head noun, which in `Area of study` is the word before `of`: reading the
+ * real Textiles document through this panel printed "Area of studys" over the
+ * three areas it had just found. `Focus area` and `Theme` have their head noun
+ * at the end and take the plural there.
+ */
+export function pluralLabel(label: string): string {
+  const of = label.search(/\s+of\s+/i)
+  return of === -1 ? `${label}s` : `${label.slice(0, of)}s${label.slice(of)}`
+}
+
 export function SyllabusReview({
   courses,
   suspects = [],
+  groupLabel,
   onChange,
 }: {
   courses: SyllabusCourse[]
@@ -71,22 +110,37 @@ export function SyllabusReview({
    * markup that says so is reliable in one document and misleading in another.
    */
   suspects?: string[]
-  /** The corrected courses, with what was done to them for the list of changes. */
-  onChange: (courses: SyllabusCourse[], what: string) => void
+  /**
+   * What this document calls a division. Empty for a model that predates the
+   * field, or one whose reader had no evidence.
+   */
+  groupLabel?: string
+  /**
+   * The corrected courses, with what was done to them for the list of changes.
+   *
+   * Omitted to read a model rather than correct one (#76). The reading half of
+   * this panel is the same either way, and a second component rendering the
+   * same topics read-only is how the two quietly stop agreeing about what a
+   * topic looks like.
+   */
+  onChange?: ((courses: SyllabusCourse[], what: string) => void) | undefined
 }) {
   // An operation that cannot be done says so here. The buttons that would always
   // refuse are not offered at all, so this is for the ones that depend on what is
   // left, such as deleting the last topic a course has.
   const [refused, setRefused] = useState('')
+  const label = groupLabel?.trim() || DEFAULT_GROUP_LABEL
 
-  const apply = (fn: Apply, what: string) => {
-    setRefused('')
-    try {
-      onChange(fn(courses), what)
-    } catch (err) {
-      setRefused((err as Error).message)
-    }
-  }
+  const apply: Applier | null = onChange
+    ? (fn, what) => {
+        setRefused('')
+        try {
+          onChange(fn(courses), what)
+        } catch (err) {
+          setRefused((err as Error).message)
+        }
+      }
+    : null
 
   return (
     <>
@@ -97,7 +151,13 @@ export function SyllabusReview({
       )}
 
       {courses.map((course) => (
-        <CourseReview key={course.id} course={course} suspects={suspects} apply={apply} />
+        <CourseReview
+          key={course.id}
+          course={course}
+          suspects={suspects}
+          label={label}
+          apply={apply}
+        />
       ))}
     </>
   )
@@ -106,11 +166,14 @@ export function SyllabusReview({
 function CourseReview({
   course,
   suspects,
+  label,
   apply,
 }: {
   course: SyllabusCourse
   suspects: string[]
-  apply: (fn: Apply, what: string) => void
+  /** The document's word for a division, already resolved to a real one. */
+  label: string
+  apply: Applier
 }) {
   const [open, setOpen] = useState<string[]>([])
   const [showOutcomes, setShowOutcomes] = useState(false)
@@ -123,19 +186,23 @@ function CourseReview({
   return (
     <section class="panel">
       <div class="review__head">
-        <Field label="Course" for={`rv-${course.id}`} hint="As it will appear in the topic lists">
-          <input
-            id={`rv-${course.id}`}
-            class="input"
-            value={course.name}
-            onInput={(e) =>
-              apply(
-                (all) => renameCourse(all, course.id, (e.target as HTMLInputElement).value),
-                `Renamed the course to ${(e.target as HTMLInputElement).value}`,
-              )
-            }
-          />
-        </Field>
+        {apply ? (
+          <Field label="Course" for={`rv-${course.id}`} hint="As it will appear in the topic lists">
+            <input
+              id={`rv-${course.id}`}
+              class="input"
+              value={course.name}
+              onInput={(e) =>
+                apply(
+                  (all) => renameCourse(all, course.id, (e.target as HTMLInputElement).value),
+                  `Renamed the course to ${(e.target as HTMLInputElement).value}`,
+                )
+              }
+            />
+          </Field>
+        ) : (
+          <h3 class="review__course">{course.name}</h3>
+        )}
         <p class="det__label review__counts">
           {course.topics.length} topic{course.topics.length === 1 ? '' : 's'} · {points} content
           point{points === 1 ? '' : 's'} · {course.outcomes?.length ?? 0} outcome
@@ -153,22 +220,41 @@ function CourseReview({
         <button class="btn btn--small" onClick={() => setShowOutcomes(!showOutcomes)}>
           {showOutcomes ? 'Hide the outcomes' : `Show the ${course.outcomes?.length ?? 0} outcomes`}
         </button>
-        {grouped > 0 && (
+        {grouped > 0 && apply && (
           <button
             class="btn btn--small"
             onClick={() =>
               apply(
                 (all) => clearGroups(all, course.id),
-                `Cleared the focus area on ${grouped} topics of ${course.name}`,
+                `Cleared the ${lowerLabel(label)} on ${grouped} topics of ${course.name}`,
               )
             }
           >
-            Clear the focus area on all {grouped} topics
+            Clear the {lowerLabel(label)} on all {grouped} topics
           </button>
         )}
       </div>
 
-      {showOutcomes && (
+      {showOutcomes && !apply && (
+        <div class="det">
+          <ul class="plain review__readoutcomes">
+            {(course.outcomes ?? []).map((outcome) => (
+              <li key={outcome.code}>
+                <span class="mono review__pid">{outcome.code}</span>
+                <span>{outcome.text}</span>
+              </li>
+            ))}
+            {(course.outcomes ?? []).length === 0 && (
+              <li class="muted">
+                This syllabus sets its outcomes against the course as a whole rather than
+                   against each topic, so the model carries none.
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {showOutcomes && apply && (
         <div class="det">
           <p class="hint">
             Deleting an outcome here also takes it off every topic that lists it.
@@ -233,16 +319,32 @@ function CourseReview({
 
       <ul class="qlist">
         {course.topics.map((topic, at) => (
-          <TopicRow
-            key={topic.id}
-            course={course}
-            topic={topic}
-            at={at}
-            suspect={suspects.includes(topic.id)}
-            open={open.includes(topic.id)}
-            onToggle={() => toggle(topic.id)}
-            apply={apply}
-          />
+          <Fragment key={topic.id}>
+            {/* The area as a heading over its topics rather than as a prefix on
+                each of them. Computing Technology 7–10 is six focus areas
+                holding the same four topic names, so a flat list of this
+                course reads as "Identifying and defining" six times over and
+                the one thing that tells them apart is the one thing missing.
+                A prefix would say it, at the cost of repeating seventy
+                characters on every row of the list this panel exists to be
+                read (#75). */}
+            {topic.group && topic.group !== course.topics[at - 1]?.group && (
+              <li class="review__area">
+                <span class="det__label">{label}</span>
+                {topic.group}
+              </li>
+            )}
+            <TopicRow
+              course={course}
+              topic={topic}
+              at={at}
+              label={label}
+              suspect={suspects.includes(topic.id)}
+              open={open.includes(topic.id)}
+              onToggle={() => toggle(topic.id)}
+              apply={apply}
+            />
+          </Fragment>
         ))}
       </ul>
     </section>
@@ -253,6 +355,7 @@ function TopicRow({
   course,
   topic,
   at,
+  label,
   suspect,
   open,
   onToggle,
@@ -261,11 +364,12 @@ function TopicRow({
   course: SyllabusCourse
   topic: SyllabusTopic
   at: number
+  label: string
   /** The reader thinks this heading may be a content point of the topic above. */
   suspect: boolean
   open: boolean
   onToggle: () => void
-  apply: (fn: Apply, what: string) => void
+  apply: Applier
 }) {
   const [fixing, setFixing] = useState(false)
   const points = topic.points ?? []
@@ -316,10 +420,11 @@ function TopicRow({
             </p>
           )}
 
-          {fixing ? (
+          {fixing && apply ? (
             <FixTopic
               course={course}
               topic={topic}
+              label={label}
               first={at === 0}
               onDone={() => setFixing(false)}
               apply={apply}
@@ -353,11 +458,13 @@ function TopicRow({
                 </div>
               )}
 
-              <div class="rowbtns">
-                <button class="btn btn--small" onClick={() => setFixing(true)}>
-                  Fix this topic
-                </button>
-              </div>
+              {apply && (
+                <div class="rowbtns">
+                  <button class="btn btn--small" onClick={() => setFixing(true)}>
+                    Fix this topic
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -376,12 +483,14 @@ function TopicRow({
 function FixTopic({
   course,
   topic,
+  label,
   first,
   onDone,
   apply,
 }: {
   course: SyllabusCourse
   topic: SyllabusTopic
+  label: string
   first: boolean
   onDone: () => void
   apply: (fn: Apply, what: string) => void
@@ -414,9 +523,9 @@ function FixTopic({
         </Field>
 
         <Field
-          label="Focus area"
+          label={label}
           for={`fx-${topic.id}-group`}
-          hint="Leave it blank if the syllabus does not divide this course into areas."
+          hint={`Leave it blank if the syllabus does not divide this course into ${pluralLabel(lowerLabel(label))}.`}
         >
           <input
             id={`fx-${topic.id}-group`}
@@ -431,7 +540,7 @@ function FixTopic({
                     topic.id,
                     (e.target as HTMLInputElement).value,
                   ),
-                `Set the focus area on ${topic.id}`,
+                `Set the ${lowerLabel(label)} on ${topic.id}`,
               )
             }
           />

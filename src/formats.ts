@@ -48,18 +48,36 @@ export const FORMAT_DESCRIPTIONS: Record<SyllabusFormat, string> = {
  * one where a page break can turn a content point into a heading: the other two
  * read headings that Word itself marks as headings.
  */
-const READERS: [SyllabusFormat, (xml: string) => { courses: SyllabusCourse[]; suspects: string[] }][] =
-  [
-    ['tables', parseSyllabusTables],
-    ['headings', (xml) => ({ courses: parseHeadingsXml(xml), suspects: [] })],
-    ['prose', (xml) => ({ courses: parseProseXml(xml), suspects: [] })],
-  ]
+const READERS: [
+  SyllabusFormat,
+  (xml: string) => { courses: SyllabusCourse[]; suspects: string[]; groupLabel: string },
+][] = [
+  ['tables', parseSyllabusTables],
+  // Every reform document divides a course into focus areas and calls them
+  // that: Computing Technology, Biology, English Advanced and Mathematics
+  // Advanced all do. Drama is read here too and divides its courses into
+  // nothing, so the word never appears on its model's screen either way.
+  ['headings', (xml) => ({ courses: parseHeadingsXml(xml), suspects: [], groupLabel: 'Focus area' })],
+  // Visual Arts. Its groups are 8.3 to 8.5, and the syllabus calls the things
+  // those sections set out the content areas.
+  ['prose', (xml) => ({ courses: parseProseXml(xml), suspects: [], groupLabel: 'Content area' })],
+]
 
 export interface SyllabusReading {
   format: SyllabusFormat
   courses: SyllabusCourse[]
   /** Topic ids that may be the tail of the topic above. A question, never a decision. */
   suspects: string[]
+  /**
+   * The document's own word for the division a topic sits under — `Focus area`,
+   * `Area of study`, `Theme`. Carried so that a screen showing the model says
+   * what the syllabus in front of the teacher says, rather than picking one
+   * curriculum authority's vocabulary and using it for all of them.
+   *
+   * Empty where the reader has no evidence, which is a document that divides
+   * its courses into nothing.
+   */
+  groupLabel: string
 }
 
 /**
@@ -99,7 +117,12 @@ export function readSyllabusXml(xml: string): SyllabusReading {
  * @throws NotASyllabusError when the workbook is not a syllabus map.
  */
 export function readSyllabusWorkbook(sheets: Sheet[]): SyllabusReading {
-  return { format: 'workbook', ...readIbDesignTechnology(sheets), suspects: [] }
+  return {
+    format: 'workbook',
+    ...readIbDesignTechnology(sheets),
+    suspects: [],
+    groupLabel: 'Theme',
+  }
 }
 
 /**
@@ -114,5 +137,5 @@ export function readSyllabusWorkbook(sheets: Sheet[]): SyllabusReading {
  *   holds past papers too, and they are offered from the same list.
  */
 export function readSyllabusPdf(pages: PageText[]): SyllabusReading {
-  return { format: 'guide', ...readIbGuide(pages), suspects: [] }
+  return { format: 'guide', ...readIbGuide(pages), suspects: [], groupLabel: 'Theme' }
 }

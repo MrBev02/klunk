@@ -76,6 +76,12 @@ export interface Syllabus {
   framework: string
   authority?: string
   syllabusVersion?: string
+  /**
+   * What this syllabus calls the division a topic's `group` names. Recorded
+   * from the document rather than derived from the framework, because NESA
+   * itself uses two words for it and the IB uses a third.
+   */
+  groupLabel?: string
   source?: {
     title?: string
     url?: string

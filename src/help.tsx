@@ -128,10 +128,11 @@ export function Help({ onClose }: { onClose: () => void }) {
         <p>
           <strong>A syllabus model</strong> is the list of outcomes, topics and content
           points. <strong>Klunk comes with none, because a syllabus is copyright.</strong>{' '}
-          Build your own from your own copy: open the <strong>From a syllabus</strong> tab
-          and choose the syllabus document, either from your folder or straight off this
+          Build your own from your own copy: open the <strong>Syllabus</strong> tab and
+          choose the syllabus document, either from your folder or straight off this
           computer. It shows you every course, topic and content point it found before it
-          writes anything.
+          writes anything. The same tab lists the models you already have, and opens each
+          one to be read.
         </p>
 
         <p class="muted">
@@ -410,7 +411,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dt>The topic list is empty, or you cannot tag a question</dt>
           <dd>
             This folder has no syllabus model in it. Build one from your syllabus{' '}
-            <code>.docx</code> on the <strong>From a syllabus</strong> tab.
+            <code>.docx</code> on the <strong>Syllabus</strong> tab.
           </dd>
 
           <dt>"No profile in this folder yet"</dt>

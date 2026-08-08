@@ -35,6 +35,11 @@
       "description": "Which edition this models, e.g. 'Stage 6 (2013)'. Syllabuses are reissued, and a bank tagged against one edition may not map to the next."
     },
 
+    "groupLabel": {
+      "type": "string",
+      "description": "What this syllabus calls the division a topic's 'group' names: 'Focus area' in the NESA reform documents, 'Area of study' in 2013 Textiles, 'Content area' in Visual Arts, 'Theme' in the IB. Recorded from the document rather than derived from the framework, because NESA itself uses two words for it. Absent on a model generated before this field existed, and on a syllabus that divides its courses into nothing."
+    },
+
     "source": {
       "type": "object",
       "description": "Provenance for the document this was generated from. Recorded so a teacher can tell whether their model is current, and so attribution can be printed.",
