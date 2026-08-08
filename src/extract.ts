@@ -383,8 +383,22 @@ function isDroppable(text: string): boolean {
  */
 const YEAR = /^(\d{4}) HIGHER SCHOOL CERTIFICATE EXAMINATION$/i
 
-const SECTION = /^Section (I{1,3})$/
-const HEADING = /^Question (\d+) \((\d+) marks?\)$/
+/*
+ * Case-insensitive, as `YEAR` and `CONTINUED` beside them always were. These
+ * two were not, which was an oversight rather than a decision: `Question 11
+ * (5 Marks)` was refused by a reader that accepts `Question 11 (Continued)`.
+ * Nothing in the corpus prints either that way, so this buys tolerance of a
+ * change nobody has made rather than fixing an observed fault — the one thing
+ * it is worth doing speculatively, because a capital letter cannot be a
+ * different meaning.
+ *
+ * `SECTION`'s capture is used as a `SectionLabel`, so it has to be upper-cased
+ * where it is read: `section ii` would otherwise set the label to `ii`, and
+ * `SECTION_TYPE['ii']` is undefined, which is a question with no type and no
+ * complaint.
+ */
+const SECTION = /^Section (I{1,3})$/i
+const HEADING = /^Question (\d+) \((\d+) marks?\)$/i
 const CONTINUED = /^Question (\d+) \(continued\)$/i
 /** `(A) text` up to 2016, `A. text` from 2017. Both appear in the corpus. */
 const OPTION = /^\(?([A-D])[.)]\s+(.+)$/
@@ -492,7 +506,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     const sectionAt = SECTION.exec(line.text)
     if (sectionAt) {
       close()
-      section = sectionAt[1] as SectionLabel
+      section = sectionAt[1]!.toUpperCase() as SectionLabel
       continue
     }
 

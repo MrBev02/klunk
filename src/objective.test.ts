@@ -95,6 +95,14 @@ describe('reading a numbered multiple-choice paper', () => {
     expect(first.options?.[0]?.text).toBe('The ability of a material to withstand squeezing forces')
   })
 
+  it('accepts lower-case option labels and reports them upper-cased', () => {
+    const paper = readObjectivePaper([
+      page(1, '1. First question?', 'a. One', 'b. Two', 'c. Three', 'd. Four'),
+      ...paperOf(6).slice(1),
+    ])
+    expect(paper.questions[0]?.options?.map((o) => o.label)).toEqual(['A', 'B', 'C', 'D'])
+  })
+
   it('accepts `1)` and `A)` as well as full stops', () => {
     const paper = readObjectivePaper([
       page(1, '1) First question?', 'A) One', 'B) Two', 'C) Three', 'D) Four'),

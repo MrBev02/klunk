@@ -413,3 +413,24 @@ describe('what the teacher is told to check', () => {
     expect(paper.notes.join(' ')).toMatch(/no Question 11 had been read yet/)
   })
 })
+
+describe('tolerating a capital letter the corpus does not print', () => {
+  it('reads a heading whose Marks is capitalised', () => {
+    const paper = extractPaper([
+      page(5, 'Section II', 'Question 11 (5 Marks)', marked('(a)   Describe one benefit.', 5)),
+    ])
+    expect(paper.questions).toHaveLength(1)
+    expect(paper.questions[0]!.marks).toBe(5)
+  })
+
+  it('reads a section heading in capitals and still labels it I, II or III', () => {
+    const paper = extractPaper([
+      page(5, 'SECTION II', 'Question 11 (5 marks)', marked('(a)   Describe one benefit.', 5)),
+    ])
+    // Upper-cased where it is read: a bare cast would make this `II` from
+    // `SECTION II` but `ii` from `Section ii`, and `SECTION_TYPE['ii']` is
+    // undefined, which is a question with no type and no complaint.
+    expect(paper.questions[0]!.section).toBe('II')
+    expect(paper.questions[0]!.questionType).toBe('short_answer')
+  })
+})

@@ -51,8 +51,13 @@ const STEM = /^(\d{1,3})[.)]\s+(\S.*)$/
  * NESA printed `(A)` until 2017. Kept separate rather than shared: that rule is
  * a fact about NESA's papers between two known years, and widening it to serve
  * both documents would make it a fact about neither.
+ *
+ * Lower case is taken too, and the label upper-cased where it is read, because
+ * `a)` and `A)` cannot mean two different things. The separator is deliberately
+ * *not* widened past `.` and `)`: those two are observed and anything else would
+ * be an untested path added for a format nobody has published.
  */
-const OPTION = /^([A-D])[.)]\s+(\S.*)$/
+const OPTION = /^([A-Da-d])[.)]\s+(\S.*)$/
 
 /** `The maximum mark for the examination paper is [30 marks].` */
 const TOTAL = /maximum mark[^.]*?\[?\s*(\d{1,3})\s*marks?\s*\]?/i
@@ -153,7 +158,9 @@ function splitOptions(body: Line[]): { stem: string; options: ExtractedOption[] 
   for (const line of body) {
     const option = OPTION.exec(line.text)
     if (option) {
-      options.push({ label: option[1]!, text: option[2]!.trim() })
+      // Upper-cased here so `refuseUnlessObjective` and everything downstream
+      // see one alphabet, whichever the paper printed.
+      options.push({ label: option[1]!.toUpperCase(), text: option[2]!.trim() })
       continue
     }
     // A wrapped option continues the one above it, never the stem: the stem is
