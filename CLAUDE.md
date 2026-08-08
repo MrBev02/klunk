@@ -66,6 +66,9 @@ klunk/                     this repo - app and tools only, public
     extract.ts             the NESA past paper reader
     objective.ts           the numbered multiple-choice paper reader
     paperformats.ts        picks the paper reader that fits the document
+    guide.ts               the NESA marking guide reader
+    answerkey.ts           the grid-of-answers markscheme reader
+    guideformats.ts        picks the guide reader that fits the document
     syllabusedit.ts        correcting a parsed model, pure and testable
     modelcheck.ts          tags that name nothing, and two models of one document
     cover.ts               the cover sheet's three layers resolved, no JSX
@@ -884,6 +887,49 @@ NSW HSC examination.
 RevisionDojo's practice paper, not the IB's; no IB specimen is in the folder
 (#45). What it demonstrates is that a plainly-numbered multiple-choice paper
 reads, whoever set it.
+
+**The marking guide side is the same arrangement, and its silent failure was the
+worse one** (#66). `guide.ts` is NESA's, `answerkey.ts` reads a markscheme that
+is a grid of `1. D` pairs, and `guideformats.ts` picks between them. The
+RevisionDojo markscheme is one page of three interleaved columns and
+`extractGuide` returned `{ answerKey: {}, entries: [], mapping: [], notes: [] }`
+for it.
+
+**An empty guide is worse than no guide.** `adopt.ts` has to put something in
+`correctAnswer` and puts the first option there, so a paper read *with* its
+markscheme came out identical to one read without: thirty questions all answered
+**A**, ready to print on a marking guide. The teacher had supplied the answers
+and Klunk discarded them without a word. #64 lost nothing; this was ready to
+publish something false.
+
+- **The contract is contiguity.** Pairs are read wherever they fall on a line, so
+  one column or six reads the same, and the numbers must run from 1 with none
+  missing and none given two different answers. That is what stops a stray
+  `3. B` in prose claiming a document: the 85-page subject guide yields **zero**
+  matches and is refused.
+- **A year counts as recognition on the guide side too.** `extractGuide` throws
+  only when it found no key, no criteria, no mapping, nothing to say *and* no
+  year — a guide holding only `2021 HSC Design and Technology` is what
+  `applyGuide` uses to warn that paper and guide are from different years. A test
+  caught this being left out, the same way the paper side's did.
+- **A guide that cannot be read does not take the paper down with it.** It is
+  reported against the paper as a whole and named, because losing thirty read
+  questions because the second file was the wrong one is the worse trade.
+
+Verified by driving it: paper and markscheme together give all thirty questions
+an answer, checked against the markscheme by hand for the first four
+(D, B, B, A), with the option text agreeing (`5th percentile`, `Comfort and
+fatigue`, `Shell structure`, `withstand squeezing forces`). Pointing the guide
+slot at the subject guide instead left all thirty questions on screen with the
+failure named against the file.
+
+**One method note from that session.** The first browser check appeared to show
+the subject guide being *claimed* as a markscheme, which would have been a bad
+false positive. It was stale DOM: `setRead(null)` had not flushed when the wait
+loop first looked, so it read the previous run's cards and format line. A probe
+straight at `readAnswerKey` showed zero matches and a refusal. **Wait for the
+old result to clear before waiting for the new one**, or the check confirms the
+run before it.
 
 **Pictures come too** (#24). The page is rendered and the picture cut out of the
 band where the text is not, as a proposal the teacher keeps or drops before

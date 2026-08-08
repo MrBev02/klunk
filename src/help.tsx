@@ -259,8 +259,10 @@ export function Help({ onClose }: { onClose: () => void }) {
 
         <p class="muted">
           Klunk reads two shapes of paper: a NSW HSC examination, tested on the papers from
-          2015 onwards, and a paper of numbered multiple-choice questions. It says which one
-          it read, and says so plainly when a document is neither.
+          2015 onwards, and a paper of numbered multiple-choice questions. It reads two shapes
+          of marking guide to go with them: a NSW HSC marking guide, and a markscheme listing
+          each question number against its answer. It says which it read, and says so plainly
+          when a document is neither.
         </p>
       </section>
 
@@ -395,6 +397,14 @@ export function Help({ onClose }: { onClose: () => void }) {
             questions, and this document is neither. Check you chose the paper rather than
             the marking guide. If the paper really is a different shape, write the questions
             on the Questions tab or draft them on the Draft with AI tab.
+          </dd>
+
+          <dt>Every question came back with the wrong answer marked</dt>
+          <dd>
+            Klunk could not read your marking guide, and says so under{' '}
+            <strong>About the paper as a whole</strong>. Without it there is no answer key, so
+            the first option is marked correct on every question. Set them in the editor, or
+            check you chose the marking guide rather than another file.
           </dd>
 
           <dt>The topic list is empty, or you cannot tag a question</dt>

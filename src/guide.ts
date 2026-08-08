@@ -151,6 +151,25 @@ interface GridRow {
   outcomes: string[]
 }
 
+/**
+ * A guide reader's refusal to claim a document.
+ *
+ * The sibling of `NotAPaperError`, and it exists for the same reason: with more
+ * than one reader, trying them in order is only safe if each refuses what it
+ * does not recognise instead of returning an empty guide that silently marks
+ * every question wrong.
+ */
+export class NotAGuideError extends Error {}
+
+/**
+ * Read a NESA marking guide.
+ *
+ * @throws NotAGuideError when it recognised nothing at all: no answer key, no
+ *   criteria, no mapping grid and nothing to say. It returned all four empty
+ *   until #66, and the cost was not an empty guide but a wrong one — `adopt.ts`
+ *   has to put something in `correctAnswer`, so thirty questions came through
+ *   answered A with the marking guide sitting right there unread.
+ */
 export function extractGuide(pages: PageText[]): ExtractedGuide {
   const answerKey: Record<number, string> = {}
   const built: Building[] = []
@@ -290,6 +309,29 @@ export function extractGuide(pages: PageText[]): ExtractedGuide {
   if (key > 0 && key !== 10) {
     notes.push(
       `The answer key holds ${key} ${key === 1 ? 'answer' : 'answers'} rather than ten. Check it against the guide.`,
+    )
+  }
+
+  // Silence rather than emptiness, the rule `extractPaper` takes: a guide that
+  // found nothing but had something to say has recognised the document, and the
+  // note is its output.
+  //
+  // A year counts as recognition too, and a test caught that it had been left
+  // out. It is read off `2021 HSC Design and Technology`, which nothing but a
+  // NESA guide prints, and `applyGuide` uses it to say when the paper and the
+  // guide are from different years — the one thing a guide holding nothing else
+  // is still good for.
+  if (
+    key === 0 &&
+    entries.length === 0 &&
+    mapping.length === 0 &&
+    notes.length === 0 &&
+    year === undefined
+  ) {
+    throw new NotAGuideError(
+      'Klunk read no answers and no criteria in this document. It reads a NSW HSC ' +
+        'marking guide, which prints a "Question Answer" key for Section I and a ' +
+        'criteria table for every other question.',
     )
   }
 

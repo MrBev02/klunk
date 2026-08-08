@@ -46,7 +46,8 @@ import { stampSource, type ExtractedQuestion } from './extract'
 import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
 import { courseChoices } from './factory'
 import { CheckList, Field } from './fields'
-import { applyGuide, extractGuide } from './guide'
+import { applyGuide, NotAGuideError } from './guide'
+import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
 import { openPdf, pagesFromDocument, readPdf } from './pdftext'
 import { QuestionDetail } from './question'
@@ -115,6 +116,7 @@ export function Extractor({
     adopted: Adopted[]
     notes: string[]
     format: PaperFormat
+    guideFormat?: GuideFormat
     year?: number
   } | null>(
     null,
@@ -210,8 +212,22 @@ export function Extractor({
       const pages = await pagesFromDocument(doc)
       const { format, paper: readAs } = readPastPaper(pages)
       let paper = readAs
+      let guideFormat: GuideFormat | undefined
+      let guideFailed = ''
       if (guidePath) {
-        paper = applyGuide(paper, extractGuide(await readPdf(await readBytes(folder, guidePath))))
+        // A marking guide Klunk cannot read must not take the paper down with
+        // it. The questions are still worth having and the answers can be set by
+        // hand, so this is reported against the paper as a whole rather than
+        // thrown: losing thirty read questions because the second file was the
+        // wrong one would be the worse trade.
+        try {
+          const reading = readMarkingGuide(await readPdf(await readBytes(folder, guidePath)))
+          guideFormat = reading.format
+          paper = applyGuide(paper, reading.guide)
+        } catch (err) {
+          if (!(err instanceof NotAGuideError)) throw err
+          guideFailed = `${guidePath}: ${err.message}`
+        }
       }
       const year = paper.year
       if (year !== undefined) {
@@ -246,12 +262,19 @@ export function Extractor({
       }, cutouts)
 
       const notes = [...paper.notes]
+      if (guideFailed) notes.push(guideFailed)
       if (year === undefined) {
         notes.push(
           'Klunk could not find a year on the front of this paper, so these questions do not say where they came from. Add the year in the editor before you save them.',
         )
       }
-      setRead({ adopted, notes, format, ...(year === undefined ? {} : { year }) })
+      setRead({
+        adopted,
+        notes,
+        format,
+        ...(guideFormat === undefined ? {} : { guideFormat }),
+        ...(year === undefined ? {} : { year }),
+      })
     } catch (err) {
       setFailed((err as Error).message)
     } finally {
@@ -467,7 +490,11 @@ export function Extractor({
           {/* Which reader claimed the document, for the reason the syllabus tab
               says it: if Klunk has taken this for the wrong shape, the questions
               below are what look wrong, and this line is what says why. */}
-          <p class="hint">Klunk read this as {PAPER_FORMAT_DESCRIPTIONS[read.format]}.</p>
+          <p class="hint">
+            Klunk read this as {PAPER_FORMAT_DESCRIPTIONS[read.format]}.
+            {read.guideFormat !== undefined &&
+              ` The marking guide is ${GUIDE_FORMAT_DESCRIPTIONS[read.guideFormat]}.`}
+          </p>
 
           <ol class="drafts">
             {live.map((item, i) => (

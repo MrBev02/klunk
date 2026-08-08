@@ -21,13 +21,17 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { NotAPaperError, extractPaper } from './extract'
+import { NotAGuideError, applyGuide, extractGuide } from './guide'
+import { readMarkingGuide } from './guideformats'
 import { readObjectivePaper } from './objective'
 import { readPastPaper } from './paperformats'
 import { pagesFromDocument } from './pdftext'
 
 const PAPER =
   '../klunk-content/source/ib-dt/Design Technology SL Paper 1 (Set 1) (1).pdf'
-const available = existsSync(PAPER)
+const GUIDE =
+  '../klunk-content/source/ib-dt/Design Technology SL Paper 1 (Set 1) - Markscheme (1).pdf'
+const available = existsSync(PAPER) && existsSync(GUIDE)
 
 async function open(file: string) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
@@ -86,5 +90,37 @@ describe.skipIf(!available)('a numbered multiple-choice paper', () => {
     const { format, paper } = readPastPaper(await open(PAPER))
     expect(format).toBe('objective')
     expect(paper.questions).toHaveLength(30)
+  })
+})
+
+describe.skipIf(!available)('its markscheme', () => {
+  it('is refused by the NESA guide reader, which is why a second one exists', async () => {
+    await expect(async () => extractGuide(await open(GUIDE))).rejects.toThrow(NotAGuideError)
+  })
+
+  it('reads all thirty answers, one per question', async () => {
+    const { format, guide } = readMarkingGuide(await open(GUIDE))
+    expect(format).toBe('answerkey')
+    expect(Object.keys(guide.answerKey)).toHaveLength(30)
+    expect(Object.values(guide.answerKey).every((a) => 'ABCD'.includes(a))).toBe(true)
+  })
+
+  it('answers every question of the paper when the two are put together', async () => {
+    // The outcome the whole of #66 is about. Without it every question came
+    // through answered A, because `adopt.ts` has to put something in
+    // `correctAnswer` and the guide it was handed was silently empty.
+    const { paper } = readPastPaper(await open(PAPER))
+    const { guide } = readMarkingGuide(await open(GUIDE))
+    const marked = applyGuide(paper, guide)
+
+    expect(marked.questions).toHaveLength(30)
+    for (const q of marked.questions) {
+      expect(q.answer, `Q${q.number}`).toBeDefined()
+      expect(q.options?.some((o) => o.label === q.answer), `Q${q.number}`).toBe(true)
+      expect(q.notes, `Q${q.number}`).toEqual([])
+    }
+
+    // Not all the same letter, which is what the silently empty guide looked like.
+    expect(new Set(marked.questions.map((q) => q.answer)).size).toBeGreaterThan(1)
   })
 })
