@@ -633,8 +633,8 @@ function PromptStep({
       </div>
 
       <p class="hint">
-        This is the whole of what leaves your computer. Read it, copy it, and paste it
-           into whatever your school pays for.
+        Read this, copy it, and paste it into whatever your school pays for. It is the whole
+           of what leaves your computer.
       </p>
 
       {noProfile}

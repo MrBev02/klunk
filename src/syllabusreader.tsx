@@ -394,9 +394,9 @@ export function SyllabusReader({
               <span class="step">2</span> Check what was found
             </p>
             <p class="hint">
-              Klunk read this as {FORMAT_DESCRIPTIONS[found.format]}. Read the topics below
-                 against the document itself. Whatever is wrong here is wrong in every question
-                 you tag against it, so it is worth ten minutes now.
+              Check the topics below against the document itself. Anything wrong here will be
+                 wrong in every question you tag against it. Klunk read this as{' '}
+              {FORMAT_DESCRIPTIONS[found.format]}.
             </p>
 
             <ul class="plain setup__list">

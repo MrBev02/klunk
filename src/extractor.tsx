@@ -733,8 +733,8 @@ function ExtractedCard({
             {item.pictures.length === 1 ? '' : 's'} will be saved with this question
           </p>
           <p class="hint">
-            Klunk cuts these from the parts of the page with no text on them, so it gets one
-               wrong from time to time. Drop anything that is not part of the question.
+            Drop any picture that is not part of the question. Klunk cuts these from the
+               page, so some will be wrong.
           </p>
           <ul class="cutouts">
             {item.pictures.map((picture, n) => (
