@@ -20,13 +20,22 @@
  */
 
 /// <reference types="node" />
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import {
+  BIOLOGY,
+  COMPUTING,
+  DRAMA,
+  DT_SYLLABUS,
+  ENGLISH,
+  MATHS,
+  VISUAL_ARTS,
+  have,
+} from './corpus'
 import { readZipMember } from './docx'
 import { readSyllabusXml, type SyllabusFormat } from './formats'
 import { summarise } from './syllabus'
 
-const SOURCE = '../klunk-content/source'
 
 interface Expected {
   path: string
@@ -51,7 +60,7 @@ const EXPECTED: Record<string, Expected> = {
   // `Head5` and the next two are `Heading3` — so this is the document that
   // proves the reader ranks nothing by heading level.
   'Drama Stage 6 (2009)': {
-    path: `${SOURCE}/nsw-hsc-drama/drama-st6-syl-from2010.docx`,
+    path: DRAMA,
     format: 'headings',
     courses: {
       // No group on any topic: the courses are three topics each with nothing
@@ -64,7 +73,7 @@ const EXPECTED: Record<string, Expected> = {
     },
   },
   'English Advanced 11–12 (2024)': {
-    path: `${SOURCE}/nsw-hsc-english/NESA - english_advanced_11_12_2024 (S6).docx`,
+    path: ENGLISH,
     format: 'headings',
     courses: {
       // Three topics per focus area, not two: `Understanding` and `Responding`,
@@ -94,7 +103,7 @@ const EXPECTED: Record<string, Expected> = {
     },
   },
   'Mathematics Advanced 11–12 (2024)': {
-    path: `${SOURCE}/nsw-hsc-maths/NESA - mathematics_advanced_11_12_2024 (S6).docx`,
+    path: MATHS,
     format: 'headings',
     courses: {
       // Eleven outcomes where the table of outcomes lists ten: `MAO-WM-01
@@ -139,7 +148,7 @@ const EXPECTED: Record<string, Expected> = {
   // and it was refused only because `courseNamed` did not know a stage and
   // `CODE` did not admit the digit in `CT4-`/`CT5-`.
   'Computing Technology 7–10 (2022)': {
-    path: `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`,
+    path: COMPUTING,
     format: 'headings',
     courses: {
       // One outcome, and it is not an outcome: `CT4-ADJ-01` reads "in Stage 4
@@ -170,7 +179,7 @@ const EXPECTED: Record<string, Expected> = {
   // Environmental Science and Investigating Science were published beside it in
   // the same shape and with the same code pattern.
   'Biology Stage 6 (2017)': {
-    path: `${SOURCE}/nsw-hsc-biology/biology-stage-6-syllabus-2017.docx`,
+    path: BIOLOGY,
     format: 'headings',
     courses: {
       // Eleven outcomes per course, and the split is the point: four are the
@@ -214,7 +223,7 @@ const EXPECTED: Record<string, Expected> = {
     },
   },
   'Visual Arts Stage 6 (2016)': {
-    path: `${SOURCE}/nsw-hsc-visual-arts/visual-arts-st6-syl-amended-2016.docx`,
+    path: VISUAL_ARTS,
     format: 'prose',
     courses: {
       // The two courses hold the same 132 points because the syllabus says so:
@@ -254,7 +263,7 @@ const EXPECTED: Record<string, Expected> = {
  * skipping, so the four documents it had to keep reading went unchecked until
  * the gate was fixed.
  */
-const has = (e: Expected) => existsSync(e.path)
+const has = (e: Expected) => have(e.path)
 
 async function readingOf(path: string) {
   const bytes = readFileSync(path)
@@ -414,11 +423,15 @@ describe('the heading readers against the real NESA documents', () => {
     },
   )
 
-  it('gives the 2013 documents to the table reader, not to these', async () => {
-    // The order the readers are tried in is a decision, and this is what it is
-    // for: Design and Technology has headings too, and would be read badly.
-    const dt = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
-    if (!existsSync(dt)) return
-    expect((await readingOf(dt)).format).toBe('tables')
-  })
+  // Skipped rather than returned early. It used to `return` when the document
+  // was absent, which reports as a passing test that checked nothing — #65 in
+  // miniature, inside the file that fixed it.
+  it.skipIf(!have(DT_SYLLABUS))(
+    'gives the 2013 documents to the table reader, not to these',
+    async () => {
+      // The order the readers are tried in is a decision, and this is what it is
+      // for: Design and Technology has headings too, and would be read badly.
+      expect((await readingOf(DT_SYLLABUS)).format).toBe('tables')
+    },
+  )
 })

@@ -20,14 +20,12 @@
 // the Node types are pulled in here rather than left on in `tsconfig.json` for
 // everything. The app must not be able to reach for a filesystem by accident.
 /// <reference types="node" />
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { PAPER_YEARS, dtMarkingGuide, dtPaper, have } from './corpus'
 import { extractPaper } from './extract'
 import { applyGuide, extractGuide } from './guide'
 import { pagesFromDocument } from './pdftext'
-
-const CORPUS = '../klunk-content/source/nsw-hsc-dt/papers'
-const available = existsSync(`${CORPUS}/dt-2015-paper.pdf`)
 
 /**
  * What each year's paper holds.
@@ -58,24 +56,30 @@ async function open(file: string) {
   // ordinary one; `pagesFromDocument` is what both share, so this exercises the
   // conversion the app actually performs.
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const data = new Uint8Array(readFileSync(`${CORPUS}/${file}`))
+  const data = new Uint8Array(readFileSync(file))
   const doc = await pdfjs.getDocument({ data }).promise
   return pagesFromDocument(doc as never)
 }
 
 async function read(year: number) {
-  return extractPaper(await open(`dt-${year}-paper.pdf`))
+  return extractPaper(await open(dtPaper(year)))
 }
 
 async function readGuide(year: number) {
-  return extractGuide(await open(`dt-${year}-mg.pdf`))
+  return extractGuide(await open(dtMarkingGuide(year)))
 }
 
-describe.skipIf(!available)('the 2015-2025 corpus', () => {
-  for (const year of Object.keys(EXPECTED).map(Number)) {
+describe('the 2015-2025 corpus', () => {
+  for (const year of PAPER_YEARS) {
     const expected = EXPECTED[year]!
 
-    it(`${year}: reads the whole paper and totals 40 marks`, async () => {
+    // Each year gates on its own two files. The suite used to gate on the 2015
+    // paper alone and then read twenty-two, so a folder holding some of the
+    // years did not skip the rest — it threw ENOENT part-way through (#65).
+    const paper = have(dtPaper(year))
+    const guide = have(dtMarkingGuide(year))
+
+    it.skipIf(!(paper))(`${year}: reads the whole paper and totals 40 marks`, async () => {
       const paper = await read(year)
 
       const one = paper.questions.filter((q) => q.section === 'I')
@@ -100,7 +104,7 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
       )
     })
 
-    it(`${year}: every question was read and every part adds up`, async () => {
+    it.skipIf(!(paper))(`${year}: every question was read and every part adds up`, async () => {
       const paper = await read(year)
       for (const q of paper.questions) {
         // Not "has text": 2016, 2018 and 2019 each print a Section II question
@@ -120,7 +124,7 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
       }
     })
 
-    it(`${year}: no question carries the paper's furniture in its text`, async () => {
+    it.skipIf(!(paper))(`${year}: no question carries the paper's furniture in its text`, async () => {
       // The structural checks above all passed while Question 11 read as
       // "…in this…area. Of…". Marks added up, parts were present, nothing looked
       // wrong — because none of it looks at what the words are. The paper prints
@@ -145,7 +149,7 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
       }
     })
 
-    it(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
+    it.skipIf(!(guide))(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
       const guide = await readGuide(year)
 
       // Ten objective questions in every year, so ten answers, each a real label.
@@ -192,7 +196,7 @@ describe.skipIf(!available)('the 2015-2025 corpus', () => {
       expect(Math.max(...last.criteria.map((c) => c.marksTo ?? 0))).toBe(15)
     })
 
-    it(`${year}: the guide goes back onto the paper without a mismatch`, async () => {
+    it.skipIf(!(paper && guide))(`${year}: the guide goes back onto the paper without a mismatch`, async () => {
       const marked = applyGuide(await read(year), await readGuide(year))
 
       expect(marked.notes, `${year} paper-level notes`).toEqual([])

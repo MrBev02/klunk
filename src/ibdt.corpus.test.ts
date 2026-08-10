@@ -20,17 +20,18 @@
  */
 
 /// <reference types="node" />
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { IB_MAP, have } from './corpus'
 import { readSyllabusWorkbook } from './formats'
 import { summarise } from './syllabus'
 import { readWorkbook } from './xlsx'
 
-const MAP = '../klunk-content/source/ib-dt/ib-dt-syllabus-map-old-vs-new.xlsx'
+const MAP = IB_MAP
 
 const THEMES = ['A. Design in theory', 'B. Design in practice', 'C. Design in context']
 
-const describeIfPresent = existsSync(MAP) ? describe : describe.skip
+const describeIfPresent = have(MAP) ? describe : describe.skip
 
 describeIfPresent('IB DP Design Technology syllabus map', () => {
   const read = async () => {

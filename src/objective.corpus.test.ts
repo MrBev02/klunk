@@ -18,8 +18,9 @@
  */
 
 /// <reference types="node" />
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { IB_MARKSCHEME, IB_PAPER, have } from './corpus'
 import { NotAPaperError, extractPaper } from './extract'
 import { NotAGuideError, applyGuide, extractGuide } from './guide'
 import { readMarkingGuide } from './guideformats'
@@ -27,11 +28,9 @@ import { readObjectivePaper } from './objective'
 import { readPastPaper } from './paperformats'
 import { pagesFromDocument } from './pdftext'
 
-const PAPER =
-  '../klunk-content/source/ib-dt/Design Technology SL Paper 1 (Set 1) (1).pdf'
-const GUIDE =
-  '../klunk-content/source/ib-dt/Design Technology SL Paper 1 (Set 1) - Markscheme (1).pdf'
-const available = existsSync(PAPER) && existsSync(GUIDE)
+const PAPER = IB_PAPER
+const GUIDE = IB_MARKSCHEME
+const available = have(PAPER, GUIDE)
 
 async function open(file: string) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')

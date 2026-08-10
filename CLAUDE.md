@@ -591,6 +591,8 @@ are kept in `../klunk-content/fixtures/` purely as parser regression tests.
 npm install
 npm run dev            # dev server
 npm test               # vitest, the paper checker and shuffle logic
+npm run test:corpus    # the same, but a missing corpus document fails rather
+                       # than skipping. Run it before pushing a parser change.
 npm run build          # typecheck, then tests, then dist/ for GitHub Pages
 npm run build:single   # dist-single/ one self-contained HTML for a shared drive
 npm run typecheck
@@ -799,18 +801,44 @@ because Git never asks `gh`.
   a different account.
 - **`../klunk-content` is not in git and does not come with the repo, deliberately.**
   Without it, `extract.corpus`, `objective.corpus`, `syllabus.corpus`,
-  `headings.corpus`, `ibdt.corpus` and `ibguide.corpus` all
-  `describe.skipIf(!available)` themselves, and the port
-  comparison against the Python generator needs `python3` besides.
-  **`headings.corpus` now gates each document separately** (#77): it gated on
-  *every* document existing, so a machine holding five of the six ran none of
-  them — the reader was changed with its whole corpus silently skipping, which
-  is #65 arriving in the middle of a fix rather than in theory. So `npm test`
-  goes **green while testing far less**, and `npm run build` gates on that same
-  green. Nothing on screen says a suite skipped. On a machine without the content
-  folder, a passing build is not evidence that any reader still reads anything —
-  which is this repo's own lesson about the count being right while the content is
-  wrong, arriving from a new direction.
+  `headings.corpus`, `ibdt.corpus` and `ibguide.corpus` skip, and the port
+  comparison against the Python generator needs `python3` besides. **`npm test`
+  therefore goes green while testing far less, and `npm run build` gates the
+  Pages deploy on that same green.** That is unavoidable — the documents are
+  NESA's and the IB's — but it was also *silent*, which was not (#65), and it
+  bit: the heading reader was changed across three commits with its whole corpus
+  skipping, because one absent document took the other five with it.
+
+  Three things now hold.
+
+  **Every document is named once, in `src/corpus.ts`.** Six suites each kept
+  their own path string, so a typo in one was indistinguishable from a document
+  nobody had, and both read as an ordinary skip.
+
+  **Every run says what it did not test.** `src/corpus.test.ts` writes a summary
+  naming each suite that did not run in full and the documents it wanted — and
+  says so in the good case too, `all 6 suites ran against 36 real documents`,
+  because a warning that only appears when something is wrong teaches nobody what
+  right looks like. It writes to `process.stderr` and **not** through `console`,
+  which vitest captures here and prints neither. Checked, not assumed.
+
+  **`npm run test:corpus` fails where `npm test` skips.** That is the pass that
+  catches a mistyped path, run when it matters rather than nagging every time: a
+  missing document and a typo look identical from the outside, and a machine
+  legitimately holding only some of these is normal. It selects strict through
+  `--mode corpus` rather than an environment variable, because the Windows
+  machine runs these too and a `VAR=x` prefix is not portable.
+
+  Each document gates itself, so one absent file no longer takes a suite with it.
+  `extract.corpus` gated on the 2015 paper alone and then read twenty-two, so a
+  folder holding some years threw ENOENT part-way rather than skipping the rest.
+
+  What CI still cannot do is check a count against a real document. What it
+  **does** do, and this is worth knowing before reaching for a second corpus, is
+  run a committed synthetic suite for every reader — `extract.test.ts`,
+  `objective.test.ts`, `syllabus.test.ts`, `headings.test.ts`, `ibdt.test.ts`,
+  `ibguide.test.ts`. A reader that stops reading altogether fails in CI. Only the
+  real-document counts go unseen there.
 - `python3 -m venv` fails (`ensurepip` broken). Use `uv`.
 - **Python's stdout is not UTF-8 on the Windows machine, and that broke the port
   comparison for weeks** (#72). `sys.stdout.encoding` is `cp1252` there, the

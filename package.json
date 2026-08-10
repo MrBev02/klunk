@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest run",
+    "test:corpus": "vitest run --mode corpus",
     "test:watch": "vitest",
     "build": "tsc --noEmit && vitest run && vite build",
     "build:single": "tsc --noEmit && vite build --mode single",

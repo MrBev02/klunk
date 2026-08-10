@@ -22,21 +22,21 @@
  */
 
 /// <reference types="node" />
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { IB_GUIDE, IB_MAP, have } from './corpus'
 import { readSyllabusPdf, readSyllabusWorkbook } from './formats'
 import { pagesFromDocument } from './pdftext'
 import { summarise } from './syllabus'
 import type { SyllabusCourse } from './types'
 import { readWorkbook } from './xlsx'
 
-const SOURCE = '../klunk-content/source/ib-dt'
-const GUIDE = `${SOURCE}/design-technology-guide-2027.pdf`
-const MAP = `${SOURCE}/ib-dt-syllabus-map-old-vs-new.xlsx`
+const GUIDE = IB_GUIDE
+const MAP = IB_MAP
 
 const THEMES = ['A. Design in theory', 'B. Design in practice', 'C. Design in context']
 
-const describeIfPresent = existsSync(GUIDE) ? describe : describe.skip
+const describeIfPresent = have(GUIDE) ? describe : describe.skip
 
 async function pages() {
   // The legacy build is the one that runs under Node, as in `extract.corpus`.
@@ -102,7 +102,7 @@ describeIfPresent('IB DP Design Technology subject guide', () => {
   })
 
   it('agrees with the syllabus map on every topic', async () => {
-    if (!existsSync(MAP)) return
+    if (!have(MAP)) return
     const map = await readMap()
 
     // Structure first, and exactly: same courses, same topics in the same
@@ -113,7 +113,7 @@ describeIfPresent('IB DP Design Technology subject guide', () => {
   })
 
   it('differs from the syllabus map in three places, and the guide is right in all three', async () => {
-    if (!existsSync(MAP)) return
+    if (!have(MAP)) return
 
     const guide = flatten((await read()).courses)
     const map = flatten((await readMap()).courses)

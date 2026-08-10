@@ -24,13 +24,11 @@
 
 /// <reference types="node" />
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { DT_SYLLABUS, FOOD, INDUSTRIAL, TEXTILES, have, havePython } from './corpus'
 import { readZipMember } from './docx'
 import { parseSyllabusTables, parseSyllabusXml, summarise } from './syllabus'
-
-const SOURCE = '../klunk-content/source'
-const FIXTURES = '../klunk-content/fixtures'
 
 interface Expected {
   path: string
@@ -40,7 +38,7 @@ interface Expected {
 
 const EXPECTED: Record<string, Expected> = {
   'Design and Technology': {
-    path: `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`,
+    path: DT_SYLLABUS,
     courses: {
       // No group on any topic: D&T is one content table per course, so there is
       // nothing for a group to divide. Every topic was once filed under
@@ -50,7 +48,7 @@ const EXPECTED: Record<string, Expected> = {
     },
   },
   'Textiles and Design': {
-    path: `${SOURCE}/other-syllabuses/textiles-design-st6-syl.docx`,
+    path: TEXTILES,
     courses: {
       pre: {
         topics: 18,
@@ -83,12 +81,19 @@ const EXPECTED: Record<string, Expected> = {
 }
 
 /** Kept purely as parser regression tests; both subjects are out of scope. */
-const ALSO_PARSES = [
-  `${FIXTURES}/industrial-technology-st6-syl.docx`,
-  `${FIXTURES}/food-technology-st6-syl.docx`,
-]
+const ALSO_PARSES = [INDUSTRIAL, FOOD]
 
-const available = Object.values(EXPECTED).every((e) => existsSync(e.path))
+/**
+ * Each document gates itself. `every` was the rule, and one absent document
+ * skipped the lot without saying so (#65) — the same fault, in the same shape,
+ * as the one that let the heading reader be changed with its corpus dark.
+ */
+const dt = have(DT_SYLLABUS)
+const textiles = have(TEXTILES)
+const has: Record<string, boolean> = {
+  'Design and Technology': dt,
+  'Textiles and Design': textiles,
+}
 
 async function xmlOf(path: string) {
   const bytes = readFileSync(path)
@@ -104,9 +109,9 @@ async function suspectsOf(path: string) {
   return parseSyllabusTables(await xmlOf(path)).suspects
 }
 
-describe.skipIf(!available)('the syllabus reader against the real NESA documents', () => {
+describe('the syllabus reader against the real NESA documents', () => {
   for (const [subject, expected] of Object.entries(EXPECTED)) {
-    it(`reads ${subject} to its established counts`, async () => {
+    it.skipIf(!has[subject])(`reads ${subject} to its established counts`, async () => {
       const found = summarise(await coursesOf(expected.path))
       for (const [courseId, want] of Object.entries(expected.courses)) {
         const got = found.find((c) => c.courseId === courseId)
@@ -123,7 +128,7 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
     })
   }
 
-  it('takes no group from a heading that does not say it is one', async () => {
+  it.skipIf(!dt)('takes no group from a heading that does not say it is one', async () => {
     // The specific fault of #14, kept as its own case because it is the one
     // that hid behind correct counts for a long time.
     const courses = await coursesOf(EXPECTED['Design and Technology']!.path)
@@ -131,13 +136,13 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
     expect(groups).toEqual([])
   })
 
-  it('carries no non-breaking spaces into a group name', async () => {
+  it.skipIf(!textiles)('carries no non-breaking spaces into a group name', async () => {
     const courses = await coursesOf(EXPECTED['Textiles and Design']!.path)
     const groups = courses.flatMap((c) => c.topics.map((t) => t.group ?? ''))
     expect(groups.filter((g) => / /.test(g))).toEqual([])
   })
 
-  it('keeps the non-breaking spaces NESA published inside the content', async () => {
+  it.skipIf(!textiles)('keeps the non-breaking spaces NESA published inside the content', async () => {
     // The other half of the two cases above, and the one nothing asserted until
     // #72. A label is tidied and a non-breaking space in one is a fault; the
     // content itself is quoted and a non-breaking space in it is punctuation the
@@ -156,7 +161,7 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
   // #26, and the two checks a count cannot make: a count says how many topics
   // there are, never whether they are topics.
   for (const subject of Object.keys(EXPECTED)) {
-    it(`names no ${subject} topic after a content point`, async () => {
+    it.skipIf(!has[subject])(`names no ${subject} topic after a content point`, async () => {
       const courses = await coursesOf(EXPECTED[subject]!.path)
       const names = courses.flatMap((c) => c.topics.map((t) => t.name))
       // A heading never opens "i)" or "iv)" or "a)". A row that does is the tail
@@ -164,7 +169,7 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
       expect(names.filter((n) => /^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)/.test(n))).toEqual([])
     })
 
-    it(`carries no non-breaking space into a ${subject} topic name`, async () => {
+    it.skipIf(!has[subject])(`carries no non-breaking space into a ${subject} topic name`, async () => {
       const courses = await coursesOf(EXPECTED[subject]!.path)
       const names = courses.flatMap((c) => c.topics.map((t) => t.name))
       expect(names.filter((n) => /\u00a0/.test(n))).toEqual([])
@@ -181,11 +186,11 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
    * `graphical` and `written`, split off by a page break. Textiles HSC has the
    * #26 case, which `CONTINUATION_RE` already merges, so no topic exists to flag.
    */
-  it('points at the Textiles Preliminary row that is really a content point', async () => {
+  it.skipIf(!textiles)('points at the Textiles Preliminary row that is really a content point', async () => {
     expect(await suspectsOf(EXPECTED['Textiles and Design']!.path)).toEqual(['PRE-05'])
   })
 
-  it('points at nothing in Design and Technology, whose headings are all bullets', async () => {
+  it.skipIf(!dt)('points at nothing in Design and Technology, whose headings are all bullets', async () => {
     // The case that rules out merging on the markup. All forty of this
     // document's real topic headings are list items, so a reader that acted on
     // that signal would collapse each course to a single topic.
@@ -194,7 +199,7 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
 
   for (const path of ALSO_PARSES) {
     const name = path.split('/').pop() ?? path
-    it.skipIf(!existsSync(path))(`still reads ${name}`, async () => {
+    it.skipIf(!have(path))(`still reads ${name}`, async () => {
       const courses = await coursesOf(path)
       expect(courses.length).toBeGreaterThan(0)
       expect(courses.every((c) => c.topics.length > 0)).toBe(true)
@@ -220,42 +225,38 @@ describe.skipIf(!available)('the syllabus reader against the real NESA documents
  * over a tool that still writes the console codepage to anyone who runs it by
  * hand, which is the whole of its documented use.
  */
-const havePython = (() => {
-  try {
-    execFileSync('python3', ['--version'], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-})()
+const python = havePython()
 
-describe.skipIf(!available || !havePython)('the port against the Python generator', () => {
+describe('the port against the Python generator', () => {
   for (const [subject, expected] of Object.entries(EXPECTED)) {
-    it(`agrees with tools/nesa_stage6_syllabus.py on ${subject}`, async () => {
-      const fromPython = JSON.parse(
-        execFileSync(
-          'python3',
-          [
-            'tools/nesa_stage6_syllabus.py',
-            expected.path,
-            '--id',
-            'comparison',
-            '--name',
-            'Comparison',
-            // Fixed, so the two differ only where the parsing differs.
-            '--retrieved',
-            '2026-01-01',
-          ],
-          { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
-        ),
-      ) as { courses: unknown[] }
+    it.skipIf(!has[subject] || !python)(
+      `agrees with tools/nesa_stage6_syllabus.py on ${subject}`,
+      async () => {
+        const fromPython = JSON.parse(
+          execFileSync(
+            'python3',
+            [
+              'tools/nesa_stage6_syllabus.py',
+              expected.path,
+              '--id',
+              'comparison',
+              '--name',
+              'Comparison',
+              // Fixed, so the two differ only where the parsing differs.
+              '--retrieved',
+              '2026-01-01',
+            ],
+            { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
+          ),
+        ) as { courses: unknown[] }
 
-      // Compared through JSON on both sides: the Python model writes `group`
-      // only when there is one, and an absent key and an empty string are the
-      // difference #14 was about.
-      expect(JSON.parse(JSON.stringify(await coursesOf(expected.path)))).toEqual(
-        fromPython.courses,
-      )
-    })
+        // Compared through JSON on both sides: the Python model writes `group`
+        // only when there is one, and an absent key and an empty string are the
+        // difference #14 was about.
+        expect(JSON.parse(JSON.stringify(await coursesOf(expected.path)))).toEqual(
+          fromPython.courses,
+        )
+      },
+    )
   }
 })
