@@ -170,6 +170,17 @@ export interface QuestionSource {
 export interface Line {
   page: number
   y: number
+  /**
+   * The left edge of the row's text, which is what tells a question from a table
+   * cell that merely begins with a number.
+   *
+   * `8 am 41.1 18.8` is a row of a table of hourly temperatures, and it opened a
+   * Question 8 that does not exist on the 2025 Biology paper. The text alone
+   * cannot say otherwise; the position can, because a question number sits in
+   * the left margin and a table sits inside it. Infinity where the row held
+   * nothing but a margin mark.
+   */
+  x: number
   text: string
   /** A bare number alone in the right margin: marks for the block being read. */
   marginMark?: number
@@ -282,7 +293,12 @@ export function toLines(page: PageText, options: LineOptions = {}): Line[] {
       if (mark) marks.push(mark)
       else rest.push(piece)
     }
-    const line: Line = { page: page.number, y: row.y, text: join(rest) }
+    const line: Line = {
+      page: page.number,
+      y: row.y,
+      x: rest.length > 0 ? Math.min(...rest.map((p) => p.x)) : Number.POSITIVE_INFINITY,
+      text: join(rest),
+    }
     // Only when it is the sole mark on the row. Two numbers in the margin of one
     // row is not something this understands, and guessing would be worse.
     if (marks.length === 1) {
@@ -324,12 +340,6 @@ const FURNITURE: RegExp[] = [
   /^In your answer you will be assessed on/i,
   /^Please turn over$/i,
   /^[.…_\s]{10,}$/, // ruled answer lines
-  // Copyright, which belongs to the figure or the paper and never to the
-  // question. Anywhere in the line rather than at the start of it: on the last
-  // page the notice shares a baseline with the page number, so the row arrives
-  // as `– 12 – © 2019 NSW Education Standards Authority` and starts with
-  // neither. That is the same trap as the `2221 – 5 –` footer, sprung twice.
-  /©/,
   /Used by permission\.?$/i,
 ]
 
@@ -350,6 +360,12 @@ const FURNITURE: RegExp[] = [
  */
 const BOUNDARY: RegExp[] = [
   /^Centre Number$/i,
+  // The pages bound after the last question. Biology's carry
+  // `Section II extra writing space`, sometimes with the first word printed
+  // twice by two overlapping runs, which is why this is not anchored at the
+  // start. Without it the last question claims four pages of ruled lines and
+  // the heading is appended to its text.
+  /Section [IV]+ extra writing space$/i,
   /^Student Number$/i,
   /^Answer Booklet$/i,
   /^\d{4} HIGHER SCHOOL CERTIFICATE EXAMINATION$/i,
@@ -373,6 +389,52 @@ function isBoundary(text: string): boolean {
  */
 function isFooter(text: string): boolean {
   return /\d/.test(text) && !/\p{L}/u.test(text)
+}
+
+/**
+ * Is this row at the left edge of its page's text?
+ *
+ * The one thing that tells a question from a table. A paper's data table is
+ * indented inside the text block, so a row reading `8 am 41.1 18.8` looks
+ * exactly like the eighth question of Section I and is 116 points to the right
+ * of one. That was enough to invent a Question 8 on the 2025 Biology paper,
+ * swallow the real one, and leave Question 7 with no options.
+ *
+ * Checked across thirteen documents — eleven years of D&T, 2025 Biology and the
+ * practice paper — rather than assumed: every real numbered question sits at
+ * its page's leftmost column, every line that merely looks like one is indented
+ * past it, and nothing sits left of a question number.
+ */
+function atLeftEdge(line: Line, leftOf: Map<number, number>): boolean {
+  const left = leftOf.get(line.page)
+  return left === undefined || line.x <= left + 2
+}
+
+/**
+ * The line without its copyright notice.
+ *
+ * A credit belongs to the figure or to the paper and never to the question, so
+ * it goes — but it goes by itself. This used to drop the whole line on which a
+ * `©` appeared anywhere, which was right for the two shapes the D&T corpus
+ * prints (`© 2019 NSW Education Standards Authority` alone, and the same
+ * sharing the last page's baseline with `– 12 –`) and wrong for the third:
+ * 2025 Biology puts the credit for a picture on the same baseline as
+ * `(b) 'Genetic technologies are beneficial for society.'`, and dropping the
+ * line took part (b) with it — seven marks of an eleven-mark question, leaving
+ * a question whose parts did not add up.
+ *
+ * Cutting from the mark to the end of the line is enough for all three: what
+ * precedes it is either nothing, or a page number that is furniture in its own
+ * right, or the question.
+ *
+ * Every line carrying a `©` in the eleven papers, their guides, the 2025
+ * Biology paper and its guide was read before this was changed: 41 of them, of
+ * which 33 are the credit alone, seven are the page number and the notice, and
+ * one is Biology's part (b).
+ */
+function withoutCredit(text: string): string {
+  const at = text.indexOf('©')
+  return at === -1 ? text : text.slice(0, at).trim()
 }
 
 function isFurniture(text: string): boolean {
@@ -409,7 +471,18 @@ const YEAR = /^(\d{4}) HIGHER SCHOOL CERTIFICATE EXAMINATION$/i
  * `SECTION_TYPE['ii']` is undefined, which is a question with no type and no
  * complaint.
  */
-const SECTION = /^Section (I{1,3})$/i
+/*
+ * `Section II`, and `Section II Answer Booklet` where the booklet is bound into
+ * the same PDF and its cover carries the section's name.
+ *
+ * 2025 Biology prints the second, on one baseline, and it cost the whole of
+ * Section II: the section never changed, so all fourteen written questions were
+ * typed as multiple choice, lost their parts and their per-part marks, and each
+ * arrived in the review panel as a question with no options that cannot be
+ * saved. D&T's own booklet cover says `Answer Booklet` alone, which `BOUNDARY`
+ * already closes on, so nothing in the corpus ever showed this.
+ */
+const SECTION = /^Section (I{1,3})(?: Answer Booklet)?$/i
 const HEADING = /^Question (\d+) \((\d+) marks?\)$/i
 const CONTINUED = /^Question (\d+) \(continued\)$/i
 /** `(A) text` up to 2016, `A. text` from 2017. Both appear in the corpus. */
@@ -467,9 +540,19 @@ export class NotAPaperError extends Error {}
  */
 export function extractPaper(pages: PageText[]): ExtractedPaper {
   const lines: Line[] = []
+  /**
+   * The left edge of each page's text, once its furniture has gone.
+   *
+   * Only the Section I rule uses it, and only to refuse a table row. It is
+   * measured per page rather than fixed, because nothing promises every paper
+   * uses NESA's margins, and after the furniture has gone because the papers'
+   * own code sits further left than the text does (`2202 – 9 –` at x=48).
+   */
+  const leftOf = new Map<number, number>()
   let year: number | undefined
   for (const page of pages) {
-    for (const line of toLines(page)) {
+    for (const found of toLines(page)) {
+      const line = { ...found, text: withoutCredit(found.text) }
       // Taken on the way past, from a line that is furniture and is dropped a
       // moment later. It is the only place the paper says which year it is.
       const stamped = YEAR.exec(line.text)
@@ -477,6 +560,9 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
 
       if (!isDroppable(line.text)) {
         lines.push(line)
+        if (line.text !== '') {
+          leftOf.set(line.page, Math.min(leftOf.get(line.page) ?? Infinity, line.x))
+        }
       } else if (line.marginMark !== undefined) {
         // The text is furniture but the marks are not. A mark centred against
         // wrapped text lands on a line of its own, which is an empty line and
@@ -579,7 +665,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     // Section I questions are numbered bare — `1   Which term refers to…` — and
     // carry no marks, because every one of them is worth one.
     const objective = /^(\d{1,2})\s+(\S.*)$/.exec(line.text)
-    if (section === 'I' && objective) {
+    if (section === 'I' && objective && atLeftEdge(line, leftOf)) {
       const number = Number(objective[1])
       // Only the next number in sequence starts a question. A wrapped line that
       // happens to begin with a digit is far more likely than Section I jumping.

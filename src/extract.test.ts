@@ -434,3 +434,91 @@ describe('tolerating a capital letter the corpus does not print', () => {
     expect(paper.questions[0]!.questionType).toBe('short_answer')
   })
 })
+
+/**
+ * A science paper, whose shapes the D&T corpus never printed.
+ *
+ * All four of these come from the 2025 HSC Biology paper, which was the first
+ * document read by this reader that was not Design and Technology. Fictional
+ * text again, and the arrangements are the paper's.
+ */
+describe('the shapes a Biology paper printed first', () => {
+  const stem = (n: number, text: string) => `${n}    ${text}`
+
+  it('does not open a question on a table row that begins with a number', () => {
+    // `8 am` is the eighth row of a table of hourly readings and it opened a
+    // Question 8 that does not exist, swallowed the real one, and left Question
+    // 7 with no options. Position is what tells them apart: a question number
+    // sits at the left edge of the page and a table sits inside it.
+    const paper = extractPaper([
+      page(
+        4,
+        'Section I',
+        stem(1, 'Which row of the table shows an endotherm?'),
+        '                    Time      Body temperature',
+        '                    1 am      41.3',
+        '                    2 am      41.1',
+        '                    3 pm      40.8',
+        '     A.     Ectotherm',
+        '     B.     Endotherm',
+        '     C.     Neither',
+        '     D.     Both',
+        stem(2, 'Which pattern of inheritance is shown?'),
+        '     A.     Dominant',
+        '     B.     Recessive',
+        '     C.     Co-dominant',
+        '     D.     Sex-linked',
+      ),
+    ])
+    expect(paper.questions.map((q) => q.number)).toEqual([1, 2])
+    expect(paper.questions[0]!.options).toHaveLength(4)
+    expect(paper.questions[1]!.text).toBe('Which pattern of inheritance is shown?')
+  })
+
+  it('opens a section on the cover of an answer booklet that names it', () => {
+    // Biology binds the Section II booklet into the same PDF and its cover reads
+    // `Section II Answer Booklet` on one baseline. D&T's says `Answer Booklet`
+    // alone, so eleven years of corpus never showed this — and the whole of
+    // Section II was read as multiple choice, losing every part and every mark.
+    const paper = extractPaper([
+      page(2, 'Section I', stem(1, 'A question?'), '     A.  One', '     B.  Two', '     C.  Three', '     D.  Four'),
+      page(13, '2025 HIGHER SCHOOL CERTIFICATE EXAMINATION', 'Centre Number', 'Section II Answer Booklet'),
+      page(14, 'Question 21 (4 marks)', marked('(a)   Outline one process.', 2), marked('(b)   Outline another.', 2)),
+    ])
+    const twentyOne = paper.questions.find((q) => q.number === 21)!
+    expect(twentyOne.section).toBe('II')
+    expect(twentyOne.questionType).toBe('short_answer')
+    expect(twentyOne.parts?.map((p) => p.marks)).toEqual([2, 2])
+  })
+
+  it('keeps a part that shares its baseline with a picture credit', () => {
+    // The credit for a picture landed on the same line as `(b)`, and dropping
+    // any line holding a © took the part with it: seven marks of an eleven-mark
+    // question, leaving a question whose parts did not add up.
+    const paper = extractPaper([
+      page(
+        25,
+        'Section II',
+        'Question 30 (11 marks)',
+        'A protein is encoded by a gene in humans.',
+        marked('(a)   Describe the process shown.', 4),
+        marked('(b)   Evaluate this statement.        © Some Research Foundation', 7),
+      ),
+    ])
+    const parts = paper.questions[0]!.parts!
+    expect(parts.map((p) => p.label)).toEqual(['a', 'b'])
+    expect(parts[1]!.text).toBe('Evaluate this statement.')
+    expect(parts[1]!.marks).toBe(7)
+    expect(paper.questions[0]!.notes).toEqual([])
+  })
+
+  it('closes the last question at the extra writing space bound in behind it', () => {
+    const paper = extractPaper([
+      page(32, 'Section II', 'Question 34 (6 marks)', marked('(a)   Explain the graph.', 6)),
+      page(34, 'Section II extra writing space'),
+      page(35, 'SectionSection II extra writing space'),
+    ])
+    expect(paper.questions[0]!.pages).toEqual([32])
+    expect(paper.questions[0]!.parts![0]!.text).toBe('Explain the graph.')
+  })
+})

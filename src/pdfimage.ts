@@ -20,7 +20,7 @@
  * `securitypolicyviolation` and nothing fetched.
  */
 
-import type { PageText } from './extract'
+import type { PageText, TextPiece } from './extract'
 import type { PdfDocumentLike } from './pdftext'
 
 /**
@@ -154,11 +154,19 @@ function toBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
 /**
  * Where the pictures are, from the holes in the text.
  *
- * A picture is a band of a page that no text piece touches, tall enough not to
- * be the space between two paragraphs. Worked out from the pieces rather than
- * from the lines the extractor keeps, because the extractor throws away the
- * ruled answer lines and the page furniture — and a question with six ruled
- * lines under it would then look like a question with a picture under it.
+ * A picture is a band of a page that no *prose* touches, tall enough not to be
+ * the space between two paragraphs. Worked out from the pieces rather than from
+ * the lines the extractor keeps, because the extractor throws away the ruled
+ * answer lines and the page furniture — and a question with six ruled lines
+ * under it would then look like a question with a picture under it.
+ *
+ * **The word doing the work is prose.** The first version of this took a band
+ * between any two rows of text, and a diagram carries text: `Parent amoeba`,
+ * `Nucleus divides`, `Cytoplasm divides`, `Two daughter cells` are printed
+ * inside the picture on the 2025 Biology paper, and each one cut the band it
+ * sat in. One diagram arrived as five crops, a karyotype as four and a tick
+ * bite as seven, none of them a picture of anything. Eleven years of D&T never
+ * showed it, because a photograph carries no words.
  *
  * The band is the full width of the text on that page rather than of the
  * picture, since nothing here knows where a picture starts sideways. A crop
@@ -170,11 +178,12 @@ export function picturesFor(
   pages: PageText[],
   minHeight = 40,
 ): Region[] {
+  const columns = proseColumns(pages)
   const out: Region[] = []
   for (const span of question.spans) {
     const page = pages.find((p) => p.number === span.page)
     if (!page) continue
-    for (const region of findPictures(page, minHeight)) {
+    for (const region of findPictures(page, columns, minHeight)) {
       // The band has to sit inside the question's own text on that page, or it
       // belongs to whatever else shares the page. The midpoint is enough: a band
       // is bounded by the lines above and below it, so if its middle is between
@@ -186,19 +195,138 @@ export function picturesFor(
   return out
 }
 
-export function findPictures(page: PageText, minHeight = 40): Region[] {
-  const rows = [...new Set(page.pieces.filter((p) => p.str.trim()).map((p) => Math.round(p.y)))].sort(
-    (a, b) => b - a,
-  )
+/** One row of a page, as this module needs it: where it starts and what it says. */
+interface Row {
+  y: number
+  /** Left edge. What tells a line of the question from a label inside a figure. */
+  x: number
+  text: string
+}
+
+/**
+ * Group pieces into rows, keeping everything.
+ *
+ * Deliberately not `toLines`: that drops the ruled answer lines and lifts the
+ * margin marks off, and both are wanted here — a page of ruled lines must not
+ * read as a page holding one tall picture.
+ */
+function rowsOf(page: PageText): Row[] {
+  const rows: { y: number; pieces: TextPiece[] }[] = []
+  for (const piece of page.pieces) {
+    if (!piece.str.trim()) continue
+    const row = rows.find((r) => Math.abs(r.y - piece.y) <= 2)
+    if (row) row.pieces.push(piece)
+    else rows.push({ y: piece.y, pieces: [piece] })
+  }
+  rows.sort((a, b) => b.y - a.y)
+  return rows.map((row) => {
+    row.pieces.sort((a, b) => a.x - b.x)
+    return {
+      y: row.y,
+      x: row.pieces[0]!.x,
+      text: row.pieces.map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim(),
+    }
+  })
+}
+
+/**
+ * How much of a document's text a column must carry before it counts as prose.
+ *
+ * Measured over the 2015–2025 D&T corpus and the 2025 Biology paper rather than
+ * guessed. Every one of the twelve puts the question number at x=71 and the
+ * text at x=99, and Biology adds x=101 for its ruled answer lines; those three
+ * carry between 15% and 61% of each document's rows. The next column down is
+ * 6%, and it is either front matter or a figure. A tenth therefore sits well
+ * below the columns that are prose and above everything that is not.
+ *
+ * It is a share rather than a position because a figure's own labels reach
+ * x=104 on that paper, five points right of the text — near enough that any
+ * fixed indent would be fitting a number to one document.
+ */
+const PROSE_SHARE = 0.1
+
+/** Two columns this far apart are the same column. */
+const SAME_COLUMN = 2
+
+/**
+ * The columns a document sets its prose in.
+ *
+ * Taken over the whole document rather than one page, because a page carrying a
+ * full-page figure has hardly any prose on it to measure.
+ */
+export function proseColumns(pages: PageText[]): number[] {
+  const counts = new Map<number, number>()
+  let total = 0
+  for (const page of pages) {
+    for (const row of rowsOf(page)) {
+      const column = Math.round(row.x)
+      counts.set(column, (counts.get(column) ?? 0) + 1)
+      total += 1
+    }
+  }
+  if (total === 0) return []
+  return [...counts]
+    .filter(([, n]) => n / total >= PROSE_SHARE)
+    .map(([x]) => x)
+    .sort((a, b) => a - b)
+}
+
+/**
+ * Page structure that closes a picture.
+ *
+ * Deliberately a *smaller* set than `extract.ts`'s furniture, and the two
+ * differences are both cases where the wider rule cut a picture in half:
+ *
+ * - **A bare number is not furniture here.** `extract.ts` drops any line of
+ *   digits without letters, which is right for `2202 – 9 –` at the foot of a
+ *   page and wrong for `19 20 21 22 X Y`, the chromosome numbers printed across
+ *   a karyotype.
+ * - **A copyright line is not furniture here either.** It is the credit under
+ *   the picture it belongs to, so a crop that includes it is a crop with its
+ *   attribution on it.
+ *
+ * A page number is left out of both, so a band at the foot of a page runs down
+ * into the footer. That band is almost always blank and dropped by `cutOut`,
+ * and where it is not, a crop with a page number under it is the cheap mistake.
+ */
+const PAGE_STRUCTURE: RegExp[] = [
+  /^Question \d+ contin(?:ues|ued) on page \d+$/i,
+  /^Please turn over$/i,
+  /^End of paper$/i,
+  /^End of Question \d+$/i,
+  /^Office Use Only/i,
+  /^[.…_\s]{10,}$/, // ruled answer lines
+]
+
+function isPageStructure(text: string): boolean {
+  return PAGE_STRUCTURE.some((re) => re.test(text))
+}
+
+/**
+ * The bands of one page that a picture could be in.
+ *
+ * @param columns Where this document sets its prose, from `proseColumns`. Taken
+ *   from the page alone when it is not given, which is all a caller holding one
+ *   page can offer.
+ */
+export function findPictures(page: PageText, columns?: number[], minHeight = 40): Region[] {
+  const rows = rowsOf(page)
   if (rows.length < 2) return []
+
+  const prose = columns ?? proseColumns([page])
+  // Nothing to go on, so every row bounds a band, which is what this did before
+  // it knew about columns. A worse answer than the one below and a better one
+  // than no pictures at all.
+  const edges = prose.length === 0 ? rows : edgesOf(rows, prose)
+  if (edges.length < 2) return []
 
   const left = Math.min(...page.pieces.map((p) => p.x))
   const right = Math.max(...page.pieces.map((p) => p.x + p.width))
 
   const out: Region[] = []
-  for (let i = 1; i < rows.length; i += 1) {
-    const above = rows[i - 1]!
-    const below = rows[i]!
+  for (let i = 1; i < edges.length; i += 1) {
+    const above = edges[i - 1]!.y
+    const below = edges[i]!.y
     const gap = above - below
     if (gap < minHeight) continue
     // Just inside the two lines of text, so neither is clipped into the picture.
@@ -215,4 +343,39 @@ export function findPictures(page: PageText, minHeight = 40): Region[] {
     })
   }
   return out
+}
+
+/**
+ * Which rows close a picture, and which are inside one?
+ *
+ * Prose and page structure close one. Everything else — a label, a caption, an
+ * axis, a table cell — is inside whatever it is printed on.
+ *
+ * The second pass is the reason this takes the whole page rather than one row.
+ * A flow chart on the 2025 Biology paper prints `Normal temperature range` over
+ * three lines, and the third of them happens to begin in the text column while
+ * the two above it do not. A row that looks like prose but has a picture above
+ * it and a picture below it is inside the picture, whatever column it starts
+ * in — unless it starts at the left margin, which is where a paragraph starts
+ * and a figure never does. That exception is not decoration: without it a
+ * question's own last line was taken into the diagram above it, and the picture
+ * then had nothing below it to close against and was lost altogether.
+ *
+ * Both passes read the *first* classification, so a row is never judged against
+ * a neighbour that was itself judged against it.
+ */
+function edgesOf(rows: Row[], prose: number[]): Row[] {
+  const margin = Math.min(...prose)
+  const first = rows.map(
+    (row) => prose.some((c) => Math.abs(row.x - c) <= SAME_COLUMN) || isPageStructure(row.text),
+  )
+  return rows.filter((row, i) => {
+    if (!first[i]) return false
+    if (isPageStructure(row.text)) return true
+    if (Math.abs(row.x - margin) <= SAME_COLUMN) return true
+    const above = first[i - 1]
+    const below = first[i + 1]
+    if (above === undefined || below === undefined) return true
+    return above || below
+  })
 }

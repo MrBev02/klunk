@@ -32,11 +32,28 @@ describe('the multiple-choice answer key', () => {
     expect(guide.entries.map((e) => e.number)).toEqual([11])
   })
 
-  it('says so when the key does not hold ten answers', () => {
+  // Not how many. Ten is a D&T paper's Section I and nobody else's — 2025
+  // Biology prints twenty, and a guide read correctly came back saying its key
+  // was the wrong size. What is true of any paper is that the key runs from the
+  // first question with none missing.
+  it('says so when the key skips a question', () => {
+    const guide = extractGuide([
+      page(
+        1,
+        'Multiple-choice Answer Key',
+        '   1                B',
+        '   2                D',
+        '   4                A',
+      ),
+    ])
+    expect(guide.notes.join(' ')).toMatch(/so one is missing/)
+  })
+
+  it('says nothing about a short key that runs from one, because the paper decides that', () => {
     const guide = extractGuide([
       page(1, 'Multiple-choice Answer Key', '   1                B', '   2                D'),
     ])
-    expect(guide.notes.join(' ')).toMatch(/holds 2 answers rather than ten/)
+    expect(guide.notes).toEqual([])
   })
 })
 
@@ -396,6 +413,86 @@ describe('finding where the pictures are', () => {
   it('does not take the space between two lines of ordinary text', () => {
     const p = page(5, 'Section II', 'Question 11 (5 marks)', 'One line.', 'The next line.')
     expect(findPictures(p)).toEqual([])
+  })
+
+  /**
+   * A page with its answer lines on it, which is what a real one has.
+   *
+   * The prose columns are worked out from how much of the document's text each
+   * column carries, so a page has to hold a page's worth of text for the sum to
+   * mean anything. Ruled lines are most of what a Section II page holds, and
+   * they set in the same column as its prose.
+   */
+  const ruled = Array.from({ length: 20 }, () => '.'.repeat(90))
+
+  it('does not cut a picture into slices at the labels printed inside it', () => {
+    // The 2025 Biology paper prints `Parent amoeba`, `Nucleus divides` and the
+    // rest *inside* the diagram, and each label cut the band it sat in: one
+    // diagram arrived as five crops, a karyotype as four, a tick bite as seven.
+    // Eleven years of D&T never showed it, because a photograph carries no
+    // words. A label is told from a line of the question by where it starts —
+    // a paper sets its prose in the same one or two columns throughout, and a
+    // figure is placed wherever it fits.
+    const pages = [
+      page(
+        2,
+        'Section II',
+        'Question 11 (5 marks)',
+        'The diagram shows how a cell divides.',
+        '',
+        '',
+        '',
+        '',
+        '                              Parent cell',
+        '',
+        '',
+        '',
+        '',
+        '                              Two daughter cells',
+        '',
+        '',
+        '',
+        '',
+        marked('Explain what is shown.', 5),
+        ...ruled,
+      ),
+    ]
+    const paper = extractPaper(pages)
+    const regions = picturesFor(paper.questions[0]!, pages)
+    expect(regions).toHaveLength(1)
+    // The whole of the diagram, labels and all, rather than the three gaps
+    // between them, which is what this used to return.
+    expect(regions[0]!.height).toBeGreaterThan(150)
+  })
+
+  it("still bounds a picture at the question's own last line", () => {
+    // The exception that keeps the rule honest. A row at the left margin is
+    // prose whatever sits above and below it, because that is where a paragraph
+    // starts and a figure never does. Without it the question's own closing line
+    // was taken into the diagram, the band had nothing below it to close
+    // against, and the picture was lost rather than merged.
+    const pages = [
+      page(
+        2,
+        'Section II',
+        'Question 11 (5 marks)',
+        'The diagram shows a process.',
+        '',
+        '',
+        '',
+        '',
+        '                              A label',
+        '',
+        '',
+        '',
+        '',
+        marked('Explain what is shown.', 5),
+        '                    Component      How it protects',
+        ...ruled,
+      ),
+    ]
+    const paper = extractPaper(pages)
+    expect(picturesFor(paper.questions[0]!, pages)).toHaveLength(1)
   })
 
   it('gives a band to the question whose text surrounds it, not merely to the page', () => {

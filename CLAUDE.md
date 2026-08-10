@@ -169,6 +169,96 @@ Do not re-derive these, and do not contradict them without new evidence.
   no-network claim. `getDocument` detaches the bytes it is given, so the text and
   the pictures must share one open document.
 
+**A second subject reads, and it broke the paper reader in four places, of
+which one was visible** (#81 to #84). Established from the 2025 HSC Biology
+paper and its marking guide, the first document the extractor was given that
+was not Design and Technology. Its shape is a NESA paper — Section headings,
+`Question 21 (2 marks)`, marks in the same margin column — and it is 100 marks
+as 20 objective questions and fourteen written ones, with no Section III.
+
+- **The section heading is on the answer booklet's cover, and carries its
+  name.** `Section II Answer Booklet`, on one baseline. D&T binds its booklet
+  in too, from 2019, but its cover says `Answer Booklet` alone. So no Section
+  II was ever matched, `section` stayed at `I` for the whole document, and all
+  fourteen written questions came out as `multiple_choice` — losing every part
+  and every per-part mark, and arriving with an error that stops them being
+  saved. That was the whole of the *visible* failure and the other three cost
+  nothing until it was fixed, which is #50 and #77 a third time.
+- **A table row that begins with a number opened a question that does not
+  exist.** `8 am 41.1 18.8` is the fourth row of a table of hourly readings and
+  it satisfied both halves of the Section I rule — the pattern and the next
+  number in sequence. Question 7 then had no options at all and the real
+  Question 8 was read as the continuation of the false one, with eight. Two of
+  the twenty destroyed by one row. **The discriminator is position**: a
+  question number sits at the left edge of the page and a table sits inside it,
+  116 points to the right here. Checked across thirteen documents rather than
+  assumed — every real numbered question is at its page's leftmost column,
+  every line that merely looks like one is indented past it (`4 am`,
+  `19 20 21 22 X Y` across a karyotype, `10 years` on a graph axis), and
+  nothing sits left of a question number.
+- **A picture credit sharing a baseline with a part took the part with it.**
+  `FURNITURE` dropped any line holding a `©` anywhere, which is right for the
+  two shapes D&T prints and wrong for `(b) 'Genetic technologies are beneficial
+  for society.' © ILSI Research Foundation` — seven marks of an eleven-mark
+  question, leaving a question whose parts did not add up. All 41 lines
+  carrying a `©` in the eleven papers, their guides, this paper and its guide
+  were read: 33 are the credit alone, seven are the page number and the notice,
+  one is this. So the credit is **cut off the line** rather than the line
+  dropped.
+- **The guide reads almost perfectly, and said so wrongly.** Criteria on every
+  question and part, bands where the guide gives them, and all twenty answers.
+  It reported `The answer key holds 20 answers rather than ten`, because ten is
+  a D&T Section I and nobody else's. What `extractGuide` can say on its own is
+  that a key skips a number; whether it covers the paper is `applyGuide`'s,
+  which has the paper and already names the question with no answer.
+- **No mapping grid.** The Biology guide does not print D&T's
+  `Question | Marks | Content | Syllabus outcomes` table, so nothing is tagged
+  with outcomes and every question is left for the teacher. That is the
+  document, not a misread.
+
+**A picture is a band no *prose* touches, and the word doing the work is
+prose** (#83). The first reading took a band between any two rows of text,
+which is right for a photograph and wrong for a diagram, because a diagram
+carries text: `Parent amoeba`, `Nucleus divides`, `Cytoplasm divides`,
+`Two daughter cells` are printed inside the picture, and each label cut the
+band it sat in. One diagram was offered as **five crops**, a karyotype as four,
+a cloning diagram as four, a tick bite as seven — 46 crops on one paper, none
+of them a picture of anything. Eleven years of D&T never showed it because a
+photograph carries no words.
+
+- **A label is told from a line of the question by where it starts.** Measured
+  over the eleven D&T papers and this one: each puts its question numbers at
+  x=71 and its text at x=99, Biology adding x=101 for its ruled lines, and
+  those columns carry 15% to 61% of a document's rows. The next column down is
+  6% and is either front matter or a figure. So **a column carrying a tenth of
+  a document's rows is prose**, taken over the whole document because a page
+  holding a full-page figure has no prose on it to measure. It has to be a
+  share rather than a fixed indent: a figure's own labels reach x=104 on this
+  paper, five points right of the text.
+- **A row at the left margin is prose whatever surrounds it.** Without that
+  exception a question's own closing line was swallowed into the diagram above
+  it, the band then had nothing below it to close against, and the picture was
+  **lost** rather than merged — on Biology Q21 and on D&T 2016 Q14 and 2024
+  Q15. Losing one is the expensive mistake and merging two is the cheap one.
+- **A prose-looking row wedged between two picture rows is inside the
+  picture.** A flow chart prints `Normal temperature range` over three lines
+  and the third of them happens to begin in the text column. The cost of this
+  rule is that a table whose option labels sit in the prose column has every
+  label eaten and so gets no crop at all (#85); measured against the whole
+  corpus it still merges more than it suppresses, and it loses nothing that was
+  found before.
+- **`pdfimage.ts` keeps a smaller furniture list than `extract.ts`, and both
+  differences are cuts that halved a picture.** A bare number is not furniture
+  here — `19 20 21 22 X Y` is a karyotype's chromosome numbers, not a page
+  number — and neither is a copyright line, which is the credit under the
+  picture it belongs to and belongs on the crop.
+
+Driven on the real paper afterwards, not only measured: 34 questions, 100
+marks, **no question with an error**, the amoeba diagram one picture with its
+four labels and its credit, the karyotype one, the flow chart one and Question
+24 a four-mark short answer with two parts, and Question 30 carrying both parts
+at 4 and 7.
+
 **A section can be a set of alternatives, and until #52 Klunk could not say so.**
 Established from the 2025 Visual Arts HSC Trial (Redlands), the same document
 #51's cover work came from:

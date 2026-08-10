@@ -305,10 +305,20 @@ export function extractGuide(pages: PageText[]): ExtractedGuide {
     }
   })
 
-  const key = Object.keys(answerKey).length
-  if (key > 0 && key !== 10) {
+  // Not a count. This asked for ten, which is how many objective questions a
+  // D&T paper has and not how many any other paper has: 2025 Biology prints
+  // twenty, and a guide read perfectly came back saying its answer key was the
+  // wrong size. What is true of every paper is that the key runs from the first
+  // question with none missing, and a key that skips one has been misread.
+  // Whether it covers the paper is `applyGuide`'s to say, because that is the
+  // half that has the paper, and it says it against the question by name.
+  const numbers = Object.keys(answerKey)
+    .map(Number)
+    .sort((a, b) => a - b)
+  const missing = numbers.filter((n, i) => n !== (numbers[0] ?? 1) + i)
+  if (missing.length > 0) {
     notes.push(
-      `The answer key holds ${key} ${key === 1 ? 'answer' : 'answers'} rather than ten. Check it against the guide.`,
+      `The answer key runs from ${numbers[0]} to ${numbers[numbers.length - 1]} but holds only ${numbers.length} answers, so one is missing. Check it against the guide.`,
     )
   }
 
@@ -322,7 +332,7 @@ export function extractGuide(pages: PageText[]): ExtractedGuide {
   // guide are from different years — the one thing a guide holding nothing else
   // is still good for.
   if (
-    key === 0 &&
+    numbers.length === 0 &&
     entries.length === 0 &&
     mapping.length === 0 &&
     notes.length === 0 &&
