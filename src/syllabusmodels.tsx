@@ -51,7 +51,7 @@ export function SyllabusModels({ index }: { index: ContentIndex }) {
            and content point in it, with the ids a question uses.
       </p>
 
-      <ul class="plain setup__list">
+      <ul class="modellist">
         {models.map((model) => (
           <ModelRow
             key={model.path}
@@ -88,34 +88,44 @@ function ModelRow({
   const about = [syllabus.framework, syllabus.syllabusVersion].filter(Boolean).join(' · ')
 
   return (
-    <li class="setup__row model">
+    <li class="model">
       <button class="model__head" onClick={onToggle} aria-expanded={open}>
-        <span class="model__name">
-          <strong>{syllabus.name}</strong>
-          {about && <span class="muted setup__meta"> · {about}</span>}
-          <br />
-          <span class="muted mono setup__meta">{model.path}</span>
+        <span class="model__titles">
+          <span>
+            <span class="model__name">{syllabus.name}</span>
+            {about && <span class="model__about">{about}</span>}
+          </span>
+          <span class="model__path">{model.path}</span>
         </span>
         <span class="qrow__caret">›</span>
       </button>
 
-      <ul class="plain model__courses">
-        {summary.map((course) => (
-          <li key={course.courseId}>
-            <strong>{course.courseName}</strong>{' '}
-            <span class="muted mono setup__meta">
-              {course.topics} topics · {course.points} content points · {course.outcomes}{' '}
-              outcomes
-            </span>
-            <br />
-            <span class="muted setup__meta">
-              {course.groups.length === 0
-                ? `No ${pluralLabel(lowerLabel(label))}, so every topic sits directly under the course.`
-                : `${pluralLabel(label)}: ${course.groups.join(' · ')}`}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* Only while it is shut. Open, `SyllabusReview` heads each course with the
+          same three counts, and printing them twice a hundred pixels apart is
+          what made this screen look unconsidered. */}
+      {!open && (
+        <ul class="model__courses">
+          {summary.map((course) => (
+            <li class="model__course" key={course.courseId}>
+              <span class="model__coursename">{course.courseName}</span>
+              <span class="model__counts">
+                <b>{course.topics}</b> topics · <b>{course.points}</b> content points ·{' '}
+                <b>{course.outcomes}</b> outcomes
+              </span>
+              <span class="model__areas">
+                {course.groups.length === 0 ? (
+                  `No ${pluralLabel(lowerLabel(label))}, so every topic sits directly under the course.`
+                ) : (
+                  <>
+                    <span class="model__arealabel">{pluralLabel(label)}</span>
+                    {course.groups.join(' · ')}
+                  </>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {open && (
         <div class="model__detail">

@@ -250,68 +250,183 @@ code,
   margin-bottom: 0.4rem;
 }
 
-/* One syllabus model in the folder: a heading that opens it, its courses under
-   that, and the whole model under those when it is open (#76). A column rather
-   than the row `.setup__row` lays out, because what is being listed here is
-   nested and a row can only put things beside each other. */
-.model {
-  display: block;
+/*
+ * The syllabus models in the folder (#76), laid out (#79).
+ *
+ * Rows on one surface rather than a card each. `.qlist` settled that question
+ * for the question list: a bordered card per item, inside a bordered panel,
+ * with a third border once one is open is three levels of box for a list of
+ * five things, and the drafting-table aesthetic has nothing to spend on the
+ * second and third.
+ *
+ * The list carries its own reset instead of the `.plain` utility, and that is
+ * not a preference. `.plain` is declared 250 lines below this at the same
+ * specificity, so it won on source order and silently discarded the padding
+ * that used to be written here: the course summary sat on the row's left
+ * border and its last line on the bottom one. Three other screens use
+ * `.plain`, so moving it up is not the fix.
+ */
+.modellist {
+  list-style: none;
+  margin: 1rem 0 0;
   padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.model {
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Hovering the control lights the whole row, because the row is one object even
+   though only its head is clickable. Putting the summary inside the button
+   would make every part of it clickable, at the price of a toggle whose
+   accessible name is the entire summary read aloud. */
+.model:has(.model__head:hover) {
+  background: var(--blue-soft);
 }
 
 .model__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
-  padding: 0.6rem 0.75rem;
+  padding: 0.8rem 0.4rem 0.6rem;
   background: none;
   border: none;
   text-align: left;
   cursor: pointer;
   font: inherit;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
-.model__head:hover {
-  background: var(--blue-soft);
+.model__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+/* The name of a document, so it is set in the document face while the course
+   names under it stay in the interface one. That difference is what says which
+   of the two contains the other; at 1rem bold sans apiece, nothing did. */
+.model__name {
+  font-family: var(--display);
+  font-size: 1.15rem;
+}
+
+.model__about {
+  margin-left: 0.55rem;
+  color: var(--ink-faint);
+  font-size: 0.82rem;
+}
+
+.model__path {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
 }
 
 .model__head[aria-expanded='true'] .qrow__caret {
   transform: rotate(90deg);
 }
 
+/* One course of one model. The name column is fixed so that the counts line up
+   down the whole list rather than down each model: this folder holds five
+   models and thirteen courses, and comparing them is the only reason to print
+   the numbers here at all. */
 .model__courses {
+  list-style: none;
   margin: 0;
-  padding: 0 0.75rem 0.7rem 1.6rem;
+  padding: 0 0.4rem 0.85rem 1.1rem;
+}
+
+.model__course {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  column-gap: 1.2rem;
+  align-items: baseline;
+  padding: 0.3rem 0;
+}
+
+/* Left-aligned in a fixed column, which is what `.review__readoutcomes` and
+   `.review__pid` already do with a code against its text. Sized to hold
+   `Preliminary course`, the longest of the nine course names these documents
+   actually use; a teacher can rename a course to anything, so it wraps rather
+   than running into the counts. */
+.model__coursename {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+/* The unit words faint and the numbers in full ink, which is the reading the
+   marks column already takes: the number is what is being compared and the word
+   only says what of. Same three counts, same casing, as the panel that opens
+   underneath — they were lowercase here and uppercase there. */
+.model__counts {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.model__counts b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.model__areas {
+  grid-column: 2;
+  font-size: 0.82rem;
   line-height: 1.5;
+  color: var(--ink-soft);
 }
 
-.model__courses > li + li {
-  margin-top: 0.4rem;
+.model__arealabel {
+  margin-right: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
-/* The panel sits inside the row, so its own panels have to stop looking like
-   cards floating on a card. */
+/* The model, opened. Flush with the row above rather than indented under it,
+   because what opens here is a whole syllabus and it wants the width. */
 .model__detail {
-  padding: 0.2rem 0.75rem 0.75rem;
+  padding: 0 0.4rem 1rem;
   border-top: 1px solid var(--rule);
 }
 
 .model__detail .panel {
-  margin: 0.8rem 0 0;
+  margin: 0.9rem 0 0;
   border: none;
   border-top: 1px solid var(--rule);
   border-radius: 0;
   background: none;
-  padding: 0.8rem 0 0;
+  padding: 0.9rem 0 0;
   box-shadow: none;
 }
 
 .model__detail .panel:first-child {
   border-top: none;
-  padding-top: 0.4rem;
+  padding-top: 0;
+}
+
+/* A fixed name column needs a window to be fixed in. Below this the course name
+   sits on its own line above its counts. */
+@media (max-width: 52rem) {
+  .model__course {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.1rem;
+  }
+
+  .model__areas {
+    grid-column: 1;
+  }
 }
 
 .setup__meta {
