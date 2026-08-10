@@ -72,6 +72,27 @@ const RUN_RE = /<w:r(?: [^>]*)?>[\s\S]*?<\/w:r>/g
 const BOLD_RE = /<w:b(?: w:val="([^"]*)")?\s*\/>/
 const BOLD_OFF = new Set(['0', 'false', 'off'])
 
+// The depth of a list item, which is the only place the structure of a bulleted
+// list is written down. Biology Stage 6 (2017) sets its content out as items a
+// student must achieve with sub-items under them (#78) — `ilvl` 0 and 1 — and
+// without this the two arrive as siblings and a sub-item that means nothing on
+// its own, "the cane toad", is offered for tagging as a content point.
+//
+// Read from the paragraph properties rather than from the paragraph, so a
+// `w:ilvl` inside anything else cannot be mistaken for this one.
+const LIST_LEVEL_RE = /<w:numPr>[\s\S]*?<w:ilvl w:val="(\d+)"/
+
+// What a picture says it is. NESA marks a content point's general capabilities
+// with icons, and the icon carries its name in its alt text — `descr` on the
+// drawing, with `title` saying the same thing — so the capability is readable
+// without touching an image (#78).
+//
+// `descr` first because it is the accessibility description proper; `title` is
+// the fallback, and in this corpus the two always agree.
+const PICTURE_RE = /<wp:docPr\b[^>]*\/?>/g
+const DESCR_RE = /\bdescr="([^"]*)"/
+const TITLE_RE = /\btitle="([^"]*)"/
+
 // Word concatenates a heading's automatic number onto its text, so the
 // paragraph reads "8.3Practice in Artmaking". The depth of that number is the
 // depth of the heading, and in Visual Arts it is a better signal than
@@ -175,6 +196,20 @@ export interface Para {
   bold: boolean
   /** In a numbered or bulleted list. */
   listed: boolean
+  /**
+   * How deep in that list, `0` being the outermost. Absent when the paragraph
+   * is not a list item at all, which is not the same as being at the top of one.
+   */
+  listLevel?: number
+  /**
+   * What each picture in this paragraph says it is, in document order.
+   *
+   * The alt text and never the image. A general capability icon is a picture
+   * whose description names the capability, so the tag is recoverable as text;
+   * a syllabus also carries logos and described diagrams, and telling those
+   * apart is the reader's business rather than this file's.
+   */
+  pictures: string[]
 }
 
 // A cell's first paragraph carries two facts that its text does not, and both are
@@ -241,12 +276,20 @@ export function blocks(xml: string): Block[] {
     const outlined = /<w:outlineLvl w:val="(\d+)"/.exec(m[0])
     const level = styled ? Number(styled[1]) : outlined ? Number(outlined[1]) + 1 : undefined
 
+    const ppr = PPR_RE.exec(m[0])?.[0] ?? ''
+    const listLevel = LIST_LEVEL_RE.exec(ppr)?.[1]
+
     const para: Para = {
       kind: 'para',
       text,
       bold: allRunsBold(m[0]),
       listed: /<w:numPr>/.test(m[0]),
+      pictures: [...m[0].matchAll(PICTURE_RE)]
+        .map((d) => DESCR_RE.exec(d[0])?.[1] ?? TITLE_RE.exec(d[0])?.[1] ?? '')
+        .map((alt) => unescapeXml(alt).trim())
+        .filter((alt) => alt !== ''),
     }
+    if (listLevel !== undefined) para.listLevel = Number(listLevel)
     if (level !== undefined) para.headingLevel = level
     if (style !== undefined) para.style = style
     spans.push({ at, block: para })

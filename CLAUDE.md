@@ -111,7 +111,7 @@ All defined in `schemas/`, all validated with real data.
 
 | Schema | Holds | Key decision |
 |---|---|---|
-| `syllabus.schema.json` | Courses, outcomes, topics, content points | Stable local ids (`HSC-01.07`); topics carry `group` for focus areas |
+| `syllabus.schema.json` | Courses, outcomes, topics, content points | Stable local ids (`HSC-01.07`); topics carry `group` for focus areas; a point may carry `parent`, so a flat array can hold a two-level list |
 | `profile.schema.json` | Paper structure and rules per course | Everything the old toolchain hardcoded lives here as data |
 | `bank.schema.json` | Questions | References syllabus by **stable id**, not a `A > B > C` path string; carries provenance |
 | `paper.schema.json` | An exam as a selection of questions | By reference, never by copy |
@@ -396,10 +396,67 @@ Investigating Science in the same shape:
 - A module is a **group**, not a topic: the topics are the sub-headings inside
   its `Content` block. The seven Working Scientifically skills are topics with
   **no group**, being stated once for the whole course.
-- `Students:` and `Inquiry question: …` come through as content points, which is
-  the standing decision that nothing under a `Content` heading is dropped — the
-  same reason English Advanced gets a third topic per focus area. The review
-  panel is where a teacher removes them.
+
+**A science content point is an item with sub-items under it, and it carries
+capability tags** (#78). This was read flat at first, and the flat reading was
+wrong in a way no count could show — every point was real text and the totals
+looked like a syllabus. The document prints:
+
+```
+Evolution – the Evidence                        ← the topic
+Inquiry question: What is the evidence that supports the Theory of Evolution…?
+Students:
+ ●  investigate, using secondary sources, evidence in support of Darwin and
+    Wallace's Theory of Evolution by Natural Selection, including but not
+    limited to:                                            [ICT] [Literacy]
+ –     biochemical evidence, comparative anatomy, comparative embryology and
+       biogeography (ACSBL089)                             [ICT] [Literacy]
+ ●  explain modern-day examples that demonstrate evolutionary change, for
+    example:
+ –     the cane toad
+```
+
+- **Both facts are in the markup and were simply discarded.** Nesting is
+  `<w:ilvl w:val="0"/>` against `"1"`, which `ooxml.ts` reduced to
+  `listed: boolean`; the capability is the **alt text of a picture**,
+  `descr=" Information and communication technology capability icon"`, and
+  `ooxml.ts` read `<w:t>` and `<m:t>` only. Neither needs an image decoded.
+- **`point.parent`, rather than nested arrays.** Points stay one flat array, so
+  every existing consumer is untouched and an id never moves because it gained a
+  parent. 137 of Biology's 271 points have one. **Two levels only** — there is no
+  third, checked rather than assumed.
+- **The vocabulary is read from the document, not hardcoded.** The thirteen
+  capabilities are the sub-headings of `Learning Across the Curriculum`, and they
+  match the thirteen distinct icon descriptions exactly. A document with no such
+  section has an empty vocabulary, which matches no picture — which is what makes
+  this a no-op everywhere else.
+- **The alt text is not consistent, and the vocabulary is what fixes it.**
+  `Work and enterprise icon` appears four times and `Work and enterprise` four
+  times for the same capability, so both sides are reduced — lowercased, curly
+  apostrophes straightened, a trailing ` icon` removed — and what is stored is
+  the document's own heading. Not every drawing is a capability: the NESA logo
+  and five described diagrams are drawings too, and are told apart by not being
+  in the vocabulary rather than by their text ending in `icon`, which
+  `Work and enterprise` does not.
+- **`Inquiry question:` moves onto the topic** as `topic.inquiryQuestion`. There
+  are 29 of them and 29 module topics, so it is one per topic and never a content
+  point — a question cannot be tagged against. **One of the 29 carries a
+  capability icon of its own**, so `topic.capabilities` exists purely to stop that
+  tag being lost in the lift. Found by counting 139 tagged paragraphs against 138
+  tagged points, which is the only reason it was noticed at all.
+- **`Students:` is dropped**, being the list's own lead-in and the counterpart of
+  `A student:` above an `Outcomes` block. Exactly one per topic, 43 in the
+  content, which is what shows it is structural rather than written.
+- **Anything that mints point ids has to carry `parent` with them.**
+  `deletePoint` promotes what hung off the deleted point, `splitTopic` remaps
+  across the cut and promotes what was left behind, and `mergeTopicUp` rebuilt
+  every moved point from its text alone and so dropped `parent` and
+  `capabilities` silently. A dangling parent still validates, because the schema
+  checks the shape of an id and not that anything answers to it.
+- **The prompt factory sends the item above a chosen sub-item as context**, and
+  without an id. `the cane toad` on its own is not something a question can be
+  written from, and printing the parent's id would let the reply tag itself
+  against a point the teacher never chose.
 
 **Two editions of one subject are live at the same time.** The Biology document
 states it: 2027 Term 1 starts the new syllabus for Year 11 *while Year 12
@@ -565,7 +622,7 @@ by hand off the documents rather than inherited:
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
 | Computing Technology 7–10 (2022) | s4 **24 / 246 / 1** | s5 **24 / 246 / 10** |
-| Biology Stage 6 (2017) | y11 **19 / 153 / 11** | y12 **24 / 190 / 11** |
+| Biology Stage 6 (2017) | y11 **19 / 122 / 11** | y12 **24 / 149 / 11** |
 
 Six groups per course in Computing Technology, the focus areas, and each holds
 the same four topics — `Identifying and defining`, `Researching and planning`,
@@ -593,7 +650,10 @@ pattern refusing the shared shape; a topic coming out with none is the
 `Working Scientifically` heading having taken its module again. Its nineteen and
 twenty-four topics are the seven Working Scientifically skills, which carry no
 group, plus the sub-headings inside the four modules — so **a module appearing
-as a topic is the fault, not the arrangement**.
+as a topic is the fault, not the arrangement**. Its point counts sit 31 and 41
+below the paragraph counts, being one `Students:` per topic and one inquiry
+question per module topic, both of which are now somewhere better (#78); a
+sub-item still counts as a point, having gained a parent rather than a new home.
 
 The IB syllabus, counted off the guide's Overview table and its numbered
 understandings rather than off either parser. **Both documents must give these**,

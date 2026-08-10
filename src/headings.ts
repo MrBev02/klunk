@@ -55,7 +55,7 @@
 
 import { blocks, sectionNumber, tidyHeading, type Block, type Para } from './ooxml'
 import { NotASyllabusError, tidyName } from './syllabus'
-import type { SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
+import type { SyllabusCourse, SyllabusOutcome, SyllabusPoint, SyllabusTopic } from './types'
 
 /* ----------------------------------------------------------------- the rules */
 
@@ -129,6 +129,58 @@ const COURSE_SECTION_RE = /^(?:outcomes and content for|content)\s*[:–—-]?\s
  * rule would open a course on that too.
  */
 const COURSE_CONTENT_RE = /^(.+?)\s+course content$/i
+
+/**
+ * The section in which a syllabus declares its own capability vocabulary.
+ *
+ * NESA's 2017 science syllabuses print a general capability against a content
+ * point as an icon, and the icon's alt text names it. Rather than hardcoding
+ * the thirteen, they are read from the sub-headings of this section — the
+ * document says what its own icons mean, and a syllabus that has no such
+ * section simply has no capabilities (#78).
+ */
+const LEARNING_ACROSS_RE = /^learning across the curriculum$/
+
+/**
+ * A capability name reduced to what two spellings of it have in common.
+ *
+ * The alt text is not consistent: Biology writes `Work and enterprise icon`
+ * four times and `Work and enterprise` four times for the same capability, and
+ * the Asia one carries a curly apostrophe where the heading does too. So the
+ * trailing word and the punctuation come off both sides before comparing.
+ */
+function capabilityKey(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s+icon$/, '')
+}
+
+/**
+ * One content paragraph as a line, with the capabilities its pictures name.
+ *
+ * A picture that is not in the vocabulary is ignored rather than recorded: a
+ * syllabus also carries a logo and several described diagrams, and neither is a
+ * tag on the point it happens to sit near.
+ */
+function lineOf(para: Para, vocabulary: Map<string, string>): Line {
+  const capabilities: string[] = []
+  for (const alt of para.pictures) {
+    const name = vocabulary.get(capabilityKey(alt))
+    if (name && !capabilities.includes(name)) capabilities.push(name)
+  }
+  const line: Line = { text: para.text, capabilities }
+  if (para.listLevel !== undefined) line.level = para.listLevel
+  return line
+}
+
+/** The line under `Students:` that is the list's own lead-in, and not a point. */
+const STUDENTS_RE = /^students:$/i
+
+/** `Inquiry question: What distinguishes one cell from another?` */
+const INQUIRY_RE = /^inquiry question:\s*(.+)$/i
 
 /** The two block markers, which is the whole contract the shapes have in common. */
 const OUTCOMES_BLOCK = 'outcomes'
@@ -228,19 +280,60 @@ function addTopic(
   heading: string,
   group: string,
   outcomes: string[],
-  points: string[],
+  lines: Line[],
 ): void {
   const id = `${prefixOf(course.id)}-${String(course.topics.length + 1).padStart(2, '0')}`
+
+  // Two lines a syllabus prints that are not content points. `Students:` is the
+  // list's own lead-in, the counterpart of `A student:` above an `Outcomes`
+  // block, and carries nothing; the inquiry question belongs to the topic,
+  // there being exactly one per topic and no way to tag a question against a
+  // question. Only the first is lifted, so a second would stay visible as a
+  // point rather than being swallowed (#78).
+  let inquiryQuestion: string | undefined
+  // One of Biology's 29 inquiry questions carries a capability icon of its own,
+  // so lifting the question as a bare string would drop that tag without a
+  // word. It moves with it, onto the topic, which is where the question now is.
+  let topicCapabilities: string[] = []
+  const content: Line[] = []
+  for (const line of lines) {
+    const text = line.text.trim()
+    if (STUDENTS_RE.test(text)) continue
+    const inquiry = INQUIRY_RE.exec(text)
+    if (inquiry && inquiryQuestion === undefined) {
+      inquiryQuestion = (inquiry[1] ?? '').trim()
+      topicCapabilities = line.capabilities
+      continue
+    }
+    content.push(line)
+  }
+
+  // A sub-item hangs off the last item above it. Only a stated depth of 0 opens
+  // one, so a document with no nesting never sets a parent at all, and a
+  // sub-item with nothing above it keeps none rather than being given a
+  // plausible one.
+  let above: string | undefined
+  const points = content.map((line, i) => {
+    const pointId = `${id}.${String(i + 1).padStart(2, '0')}`
+    const point: SyllabusPoint = { id: pointId, text: line.text }
+    if (line.level === 0 || line.level === undefined) {
+      if (line.level === 0) above = pointId
+    } else if (above) {
+      point.parent = above
+    }
+    if (line.capabilities.length > 0) point.capabilities = [...line.capabilities]
+    return point
+  })
+
   const topic: SyllabusTopic = {
     id,
     name: tidyName(heading),
     text: heading,
     outcomes: [...outcomes],
-    points: points.map((text, i) => ({
-      id: `${id}.${String(i + 1).padStart(2, '0')}`,
-      text,
-    })),
+    points,
   }
+  if (inquiryQuestion) topic.inquiryQuestion = inquiryQuestion
+  if (topicCapabilities.length > 0) topic.capabilities = [...topicCapabilities]
   if (group) topic.group = group
   course.topics.push(topic)
 }
@@ -261,7 +354,7 @@ function addTopic(
  */
 function addSection(
   course: Building,
-  section: { name: string; outcomes: string[]; lead: string[]; subs: Sub[] },
+  section: { name: string; outcomes: string[]; lead: Line[]; subs: Sub[] },
 ): void {
   if (section.subs.length === 0) {
     addTopic(course, section.name, '', section.outcomes, section.lead)
@@ -272,9 +365,23 @@ function addSection(
   for (const sub of section.subs) addTopic(course, sub.name, group, section.outcomes, sub.points)
 }
 
+/**
+ * One line of content, with what the markup said about it beyond its text.
+ *
+ * A bare string was enough while every document set its content out as one flat
+ * list. Biology's is items with sub-items under them, and prints a capability
+ * against either (#78), and neither survives being reduced to a sentence.
+ */
+interface Line {
+  text: string
+  /** Depth in the bulleted list. Absent where the paragraph is not a list item. */
+  level?: number
+  capabilities: string[]
+}
+
 interface Sub {
   name: string
-  points: string[]
+  points: Line[]
 }
 
 /** In published order, with any course that gathered no topic left out. */
@@ -391,6 +498,36 @@ export function courseOutcomeTables(
   return out
 }
 
+/**
+ * The capability vocabulary a syllabus declares about itself.
+ *
+ * The sub-headings of `Learning Across the Curriculum`, mapped from a comparable
+ * key to the document's own spelling, so what lands in the model is the wording
+ * the syllabus uses rather than the wording an icon's alt text happens to have.
+ *
+ * Empty for every document that has no such section, which is every document but
+ * the 2017 sciences — and an empty vocabulary matches no picture, so those
+ * models are untouched.
+ */
+export function capabilityVocabulary(items: Block[]): Map<string, string> {
+  const out = new Map<string, string>()
+  let under: number | undefined
+
+  for (const block of items) {
+    if (block.kind !== 'para' || block.headingLevel === undefined) continue
+    if (under === undefined) {
+      if (LEARNING_ACROSS_RE.test(headingKey(block.text))) under = block.headingLevel
+      continue
+    }
+    // The section has ended, at its own level or above it.
+    if (block.headingLevel <= under) break
+    const name = tidyHeading(sectionNumber(block.text)?.rest ?? block.text).trim()
+    if (name) out.set(capabilityKey(name), name)
+  }
+
+  return out
+}
+
 /* ------------------------------------- syllabuses with Outcomes and Content */
 
 function isHeading(para: Para): boolean {
@@ -411,6 +548,7 @@ function headingKey(text: string): string {
 export function parseHeadingsXml(xml: string): SyllabusCourse[] {
   const items = blocks(xml)
   const fromTables = courseOutcomeTables(items)
+  const vocabulary = capabilityVocabulary(items)
 
   // Which heading follows this one, for the rule that decides whether a heading
   // opens a section or sits inside one.
@@ -426,7 +564,7 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
   const courses = new Map<string, Building>()
   let course: Building | null = null
   let courseLevel: number | undefined
-  let section: { name: string; outcomes: string[]; lead: string[]; subs: Sub[] } | null = null
+  let section: { name: string; outcomes: string[]; lead: Line[]; subs: Sub[] } | null = null
   let mode: 'outcomes' | 'content' | null = null
 
   const closeSection = () => {
@@ -447,9 +585,10 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
           if (text && !course.outcomes.has(code)) course.outcomes.set(code, text)
         }
       } else if (mode === 'content') {
+        const line = lineOf(block, vocabulary)
         const sub = section.subs[section.subs.length - 1]
-        if (sub) sub.points.push(block.text)
-        else section.lead.push(block.text)
+        if (sub) sub.points.push(line)
+        else section.lead.push(line)
       }
       continue
     }
@@ -554,6 +693,7 @@ const CONTENT_SECTION_RE = /^content\b/i
 export function parseProseXml(xml: string): SyllabusCourse[] {
   const items = blocks(xml)
   const fromTables = courseOutcomeTables(items)
+  const vocabulary = capabilityVocabulary(items)
   if (fromTables.size === 0) {
     throw new NotASyllabusError('no table in this document sets out the outcomes by course')
   }
@@ -565,7 +705,7 @@ export function parseProseXml(xml: string): SyllabusCourse[] {
   const everyCourse = [...courses.keys()]
 
   let inContent = false
-  let section: { name: string; into: string[]; lead: string[]; subs: Sub[] } | null = null
+  let section: { name: string; into: string[]; lead: Line[]; subs: Sub[] } | null = null
 
   const closeSection = () => {
     if (section) {
@@ -622,9 +762,10 @@ export function parseProseXml(xml: string): SyllabusCourse[] {
     }
 
     if (!section) continue
+    const line = lineOf(block, vocabulary)
     const sub = section.subs[section.subs.length - 1]
-    if (sub) sub.points.push(block.text)
-    else section.lead.push(block.text)
+    if (sub) sub.points.push(line)
+    else section.lead.push(line)
   }
 
   closeSection()

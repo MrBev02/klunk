@@ -42,6 +42,14 @@ export interface SyllabusPoint {
   id: string
   text: string
   ownedBy?: string
+  /**
+   * The point this one sits under, where the syllabus nests its content.
+   * Flat array, stated relation: a reader that does not care about depth is
+   * unaffected, and an id never moves because it gained or lost a parent.
+   */
+  parent?: string
+  /** General capabilities the syllabus prints against this point. */
+  capabilities?: string[]
 }
 
 export interface SyllabusTopic {
@@ -51,6 +59,10 @@ export interface SyllabusTopic {
   /** Section or focus area. Textiles and Industrial Technology both use these. */
   group?: string
   outcomes?: string[]
+  /** The question the syllabus frames this topic with, where it prints one. */
+  inquiryQuestion?: string
+  /** Capabilities printed against the topic rather than against one of its points. */
+  capabilities?: string[]
   points?: SyllabusPoint[]
   skills?: string[]
 }

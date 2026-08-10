@@ -420,6 +420,15 @@ function TopicRow({
             </p>
           )}
 
+          {topic.inquiryQuestion && (
+            <p class="review__inquiry">
+              <span class="muted">Inquiry question</span> {topic.inquiryQuestion}
+              {(topic.capabilities ?? []).length > 0 && (
+                <span class="review__caps"> {(topic.capabilities ?? []).join(' · ')}</span>
+              )}
+            </p>
+          )}
+
           {fixing && apply ? (
             <FixTopic
               course={course}
@@ -434,9 +443,16 @@ function TopicRow({
               {points.length > 0 ? (
                 <ol class="review__points">
                   {points.map((point) => (
-                    <li key={point.id}>
+                    <li key={point.id} class={point.parent ? 'review__point--sub' : ''}>
                       <span class="mono review__pid">{point.id}</span>
-                      <span>{point.text}</span>
+                      <span>
+                        {point.text}
+                        {(point.capabilities ?? []).length > 0 && (
+                          <span class="review__caps">
+                            {(point.capabilities ?? []).join(' · ')}
+                          </span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ol>

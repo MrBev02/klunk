@@ -36,6 +36,18 @@ const bullet = (...text: string[]) =>
 const boldPara = (...text: string[]) =>
   `<w:p>${text.map((t) => `<w:r><w:rPr><w:b/></w:rPr><w:t>${t}</w:t></w:r>`).join('')}</w:p>`
 
+/** A picture, which carries its meaning in its alt text and nothing in its runs. */
+const picture = (alt: string) =>
+  `<w:r><w:drawing><wp:inline><wp:docPr id="1" name="icon.png" ` +
+  `descr="${alt}" title="${alt}"/></wp:inline></w:drawing></w:r>`
+
+/** A bulleted paragraph at a stated depth, with any capability icons after it. */
+const item = (level: number, text: string, ...icons: string[]) =>
+  `<w:p><w:pPr><w:numPr><w:ilvl w:val="${level}"/><w:numId w:val="7"/></w:numPr></w:pPr>` +
+  runs(text) +
+  icons.map(picture).join('') +
+  `</w:p>`
+
 const cell = (...lines: string[]) => `<w:tc>${lines.map((l) => para(l)).join('')}</w:tc>`
 const row = (...cells: string[]) => `<w:tr>${cells.join('')}</w:tr>`
 const table = (...rows: string[]) => `<w:tbl>${rows.join('')}</w:tbl>`
@@ -135,6 +147,11 @@ const SCIENCE = body(
     row(cell('Year 11 course'), cell('Year 12 course')),
     row(cell('EXA11-8 describes the first thing'), cell('EXA12-12 describes the later thing')),
   ),
+  // The document declares what its own icons mean, so the vocabulary is read
+  // rather than hardcoded.
+  heading('Heading1', 'Learning Across the Curriculum'),
+  heading('Heading2', 'Literacy'),
+  heading('Heading2', 'Work and Enterprise'),
   heading('Heading1', 'Example Year 11 Course Content'),
   heading('Heading2', 'Working Scientifically Skills'),
   heading('Heading2', 'Questioning and Predicting'),
@@ -159,9 +176,14 @@ const SCIENCE = body(
   para('In this module, students focus on conducting investigations.'),
   heading('Heading3', 'Content'),
   heading('Heading4', 'First Sub-heading'),
-  para('Inquiry question: What is the first question?'),
+  // The inquiry question carries an icon of its own, and the question moves to
+  // the topic, so the tag has to move with it or it is lost in the lift.
+  `<w:p>${runs('Inquiry question: What is the first question?')}${picture('Literacy icon')}</w:p>`,
   para('Students:'),
-  bullet('investigate the first structure'),
+  item(0, 'investigate the first structure, including but not limited to:', 'Literacy icon'),
+  item(1, 'the first sub-item', 'Literacy icon', 'Work and enterprise'),
+  item(1, 'the second sub-item'),
+  item(0, 'explain the second structure'),
   heading('Heading4', 'Second Sub-heading'),
   bullet('investigate the second structure'),
   heading('Heading1', 'Example Year 12 Course Content'),
@@ -416,10 +438,46 @@ describe('parseHeadingsXml on the 2017 science shape', () => {
   it('still reads the skills topic that has no module above it', () => {
     const skills = courses[0]?.topics.find((t) => t.name === 'Questioning and Predicting')
     expect(skills?.outcomes).toEqual(['EXA11/12-1'])
-    expect(skills?.points?.map((p) => p.text)).toEqual([
-      'Students:',
-      'develop and evaluate inquiry questions',
+    // `Students:` is gone: it is the list's own lead-in and carries nothing.
+    expect(skills?.points?.map((p) => p.text)).toEqual(['develop and evaluate inquiry questions'])
+  })
+
+  it('hangs a sub-item off the item above it', () => {
+    const topic = courses[0]?.topics.find((t) => t.name === 'First Sub-heading')
+    expect(topic?.points?.map((p) => [p.text, p.parent ?? null])).toEqual([
+      ['investigate the first structure, including but not limited to:', null],
+      ['the first sub-item', 'Y11-02.01'],
+      ['the second sub-item', 'Y11-02.01'],
+      ['explain the second structure', null],
     ])
+  })
+
+  it('takes the capability from the icon, not from the image', () => {
+    const topic = courses[0]?.topics.find((t) => t.name === 'First Sub-heading')
+    const sub = topic?.points?.find((p) => p.text === 'the first sub-item')
+    // `Work and enterprise` is written without the trailing word that every
+    // other icon carries, so both spellings have to reduce to one capability,
+    // and what is stored is the document's own heading rather than the alt text.
+    expect(sub?.capabilities).toEqual(['Literacy', 'Work and Enterprise'])
+    expect(topic?.points?.find((p) => p.text === 'the second sub-item')?.capabilities).toBeUndefined()
+  })
+
+  it('lifts the inquiry question onto the topic, and its capability with it', () => {
+    const topic = courses[0]?.topics.find((t) => t.name === 'First Sub-heading')
+    expect(topic?.inquiryQuestion).toBe('What is the first question?')
+    expect(topic?.points?.some((p) => p.text.startsWith('Inquiry question'))).toBe(false)
+    // The tag would otherwise be dropped in the move, silently.
+    expect(topic?.capabilities).toEqual(['Literacy'])
+  })
+
+  it('gives a capability to nothing when the document declares no vocabulary', () => {
+    // The reform export has no `Learning Across the Curriculum` section, so an
+    // icon in it would name nothing and none of these fields appear at all.
+    for (const xml of [REFORM, STAGES, DRAMA]) {
+      const points = parseHeadingsXml(xml).flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+      expect(points.some((p) => p.capabilities)).toBe(false)
+      expect(points.some((p) => p.parent)).toBe(false)
+    }
   })
 })
 

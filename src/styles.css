@@ -2371,6 +2371,46 @@ code,
   color: var(--ink-faint);
 }
 
+/*
+ * A sub-item, indented under the item it hangs off. NESA's science syllabuses
+ * set their content out as things a student must achieve with sub-items under
+ * them, and printed flat the sub-item reads as a content point of its own —
+ * "the cane toad" on a line by itself.
+ */
+.review__point--sub > span:last-child {
+  padding-left: 1.4rem;
+  border-left: 2px solid var(--rule);
+  margin-left: -0.7rem;
+}
+
+/*
+ * A sub-item in a list of content points offered for ticking, indented under
+ * the item it hangs off so the two are not read as equals.
+ */
+.checklist__sub {
+  padding-left: 1.6rem;
+}
+
+/* The general capabilities a point carries, which are secondary to its text. */
+.review__caps {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+.review__inquiry {
+  margin: 0 0 0.7rem;
+  font-size: 0.94rem;
+}
+
+.review__inquiry .muted {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 0.4rem;
+}
+
 /* Fixed width so the ids line up down the left and a gap in them is visible. */
 .review__pid {
   flex: 0 0 5.5rem;

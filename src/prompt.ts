@@ -101,8 +101,26 @@ function assesses(spec: PromptSpec): string {
   const chosen = new Set(spec.pointIds)
   for (const topic of spec.topics) {
     lines.push(`Topic ${topic.id}: ${plain(topic.name)}`)
-    const points = (topic.points ?? []).filter((p) => chosen.has(p.id))
-    for (const p of points) lines.push(`  ${p.id}  ${plain(p.text)}`)
+    // The question the syllabus frames the topic with. Not a content point and
+    // never tagged against, but it is the best statement there is of what the
+    // topic is for, which is exactly what is being asked for here.
+    if (topic.inquiryQuestion) lines.push(`  Inquiry question: ${plain(topic.inquiryQuestion)}`)
+
+    const all = topic.points ?? []
+    const byId = new Map(all.map((p) => [p.id, p]))
+    for (const point of all) {
+      if (!chosen.has(point.id)) continue
+      const parent = point.parent ? byId.get(point.parent) : undefined
+      // A sub-item read on its own says nothing — "the cane toad" is a content
+      // point of Biology. It is the item above that carries the verb, so where
+      // that item was not itself chosen it goes in as context. Without an id,
+      // deliberately: it is not something the teacher asked for a question on,
+      // and every id printed here is one the reply is allowed to name.
+      if (parent && !chosen.has(parent.id)) {
+        lines.push(`  Under: ${plain(parent.text)}`)
+      }
+      lines.push(`  ${parent ? '  ' : ''}${point.id}  ${plain(point.text)}`)
+    }
     lines.push('')
   }
 

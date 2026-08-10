@@ -133,6 +133,18 @@
           "description": "The content points. May be empty when the topic heading is itself the only content point, in which case questions reference the topic id.",
           "items": { "$ref": "#/$defs/point" }
         },
+        "inquiryQuestion": {
+          "type": "string",
+          "description": "The question the syllabus frames this topic with, where it prints one. NESA's 2017 science syllabuses give exactly one per topic; it is not a content point, because a question cannot be tagged against."
+        },
+        "capabilities": {
+          "type": "array",
+          "description": "General capabilities the syllabus prints against the topic as a whole rather than against one of its points. Biology 2017 prints one against an inquiry question, and the question becomes 'inquiryQuestion' above, so without this the tag would be lost in the move.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "skills": {
           "type": "array",
           "description": "The 'students learn to' side, where the syllabus separates knowledge from skill. Not referenced by questions; carried so the model is complete.",
@@ -155,6 +167,19 @@
         "ownedBy": {
           "type": "string",
           "description": "Set when this point is deliberately assessed elsewhere. Suppresses the uncovered flag and records the decision instead of leaving it in someone's head."
+        },
+        "parent": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*\\.[0-9]+$",
+          "description": "The point this one sits under, where the syllabus sets its content out as items with sub-items. NESA's 2017 science syllabuses do: 'the cane toad' is a sub-item of 'explain modern-day examples that demonstrate evolutionary change' and means nothing without it. Points stay one flat array so a reader that does not care about depth is unaffected."
+        },
+        "capabilities": {
+          "type": "array",
+          "description": "The general capabilities and cross-curriculum priorities this point carries, named as the syllabus names them. NESA prints them as icons beside the point and declares the vocabulary in its own Learning Across the Curriculum section.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }

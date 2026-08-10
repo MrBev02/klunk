@@ -334,7 +334,7 @@ export function Factory({
             </div>
             <ul class="plain checklist">
               {points.map((p) => (
-                <li key={p.id}>
+                <li key={p.id} class={p.parent ? 'checklist__sub' : ''}>
                   <label class="checkline">
                     <input
                       type="checkbox"

@@ -257,3 +257,57 @@ describe('plain', () => {
     expect(plain('  two   words\n')).toBe('two words')
   })
 })
+
+describe('a syllabus that nests its content (#78)', () => {
+  const nested: SyllabusCourse = {
+    id: 'y11',
+    name: 'Year 11',
+    outcomes: [{ code: 'BIO11-8', text: 'describes single cells' }],
+    topics: [
+      {
+        id: 'Y11-01',
+        name: 'Evolution',
+        outcomes: ['BIO11-8'],
+        inquiryQuestion: 'What is the evidence for evolution?',
+        points: [
+          { id: 'Y11-01.01', text: 'explain modern-day examples, for example:' },
+          { id: 'Y11-01.02', text: 'the cane toad', parent: 'Y11-01.01' },
+        ],
+      },
+    ],
+  }
+
+  const build = (pointIds: string[]) =>
+    buildPrompt({
+      syllabus: { ...syllabus, courses: [nested] },
+      course: nested,
+      topics: nested.topics,
+      pointIds,
+      questionType: 'short_answer',
+      marks: 3,
+      count: 1,
+      extra: '',
+    })
+
+  it('gives a sub-item the item above it, when that item was not chosen', () => {
+    // "the cane toad" on its own is not something anyone can write a question
+    // from: the verb is on the item above it.
+    const text = build(['Y11-01.02'])
+    expect(text).toContain('Under: explain modern-day examples, for example:')
+    expect(text).toContain('Y11-01.02  the cane toad')
+    // Context, not a target: the id of an unchosen point is never offered, or
+    // the reply could tag itself against something nobody asked for.
+    expect(text).not.toContain('Y11-01.01')
+  })
+
+  it('does not repeat the item when it was chosen too', () => {
+    const text = build(['Y11-01.01', 'Y11-01.02'])
+    expect(text).not.toContain('Under:')
+    expect(text).toContain('Y11-01.01  explain modern-day examples, for example:')
+    expect(text).toContain('Y11-01.02  the cane toad')
+  })
+
+  it('states the topic\'s inquiry question, which says what the topic is for', () => {
+    expect(build(['Y11-01.01'])).toContain('Inquiry question: What is the evidence for evolution?')
+  })
+})

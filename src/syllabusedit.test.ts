@@ -34,6 +34,55 @@ import {
 } from './syllabusedit'
 import type { Question, QuestionRef, SyllabusCourse } from './types'
 
+/** The Biology shape from #78: items with sub-items under them, and capabilities. */
+function nested(): SyllabusCourse[] {
+  return [
+    {
+      id: 'y11',
+      name: 'Year 11',
+      outcomes: [{ code: 'BIO11-8', text: 'describes single cells' }],
+      topics: [
+        {
+          id: 'Y11-01',
+          name: 'Cell Structure',
+          group: 'Module 1: Cells as the Basis of Life',
+          outcomes: ['BIO11-8'],
+          inquiryQuestion: 'What distinguishes one cell from another?',
+          points: [
+            { id: 'Y11-01.01', text: 'investigate structures, including:', capabilities: ['Literacy'] },
+            { id: 'Y11-01.02', text: 'examining prokaryotic cells', parent: 'Y11-01.01' },
+            { id: 'Y11-01.03', text: 'drawing scaled diagrams', parent: 'Y11-01.01' },
+            { id: 'Y11-01.04', text: 'describe a range of technologies' },
+          ],
+        },
+        {
+          id: 'Y11-02',
+          name: 'Cell Function',
+          group: 'Module 1: Cells as the Basis of Life',
+          outcomes: ['BIO11-8'],
+          inquiryQuestion: 'How do cells coordinate activities?',
+          points: [
+            { id: 'Y11-02.01', text: 'investigate movement, including:' },
+            { id: 'Y11-02.02', text: 'modelling diffusion', parent: 'Y11-02.01', capabilities: ['Numeracy'] },
+          ],
+        },
+      ],
+    },
+  ]
+}
+
+/** Every parent on every point names a point of the same topic. */
+function dangling(courses: SyllabusCourse[]): string[] {
+  return courses.flatMap((c) =>
+    c.topics.flatMap((t) => {
+      const ids = new Set((t.points ?? []).map((p) => p.id))
+      return (t.points ?? [])
+        .filter((p) => p.parent && !ids.has(p.parent))
+        .map((p) => `${t.id} ${p.id} -> ${p.parent}`)
+    }),
+  )
+}
+
 /** The Textiles HSC shape from #26: a topic, then its tail read as a topic of its own. */
 function courses(): SyllabusCourse[] {
   return [
@@ -542,5 +591,78 @@ describe('what would stop it being saved', () => {
       'HSC course has no topics left. Every course needs at least one.',
       'Outcome 1 of HSC course has no code, such as H1.1.',
     ])
+  })
+})
+
+describe('editing a syllabus that nests its content (#78)', () => {
+  it('promotes a sub-item when the item above it is deleted', () => {
+    // The reference would otherwise point at an id the topic no longer has, and
+    // the model would still validate: the schema checks the shape of an id, not
+    // that anything answers to it.
+    const after = deletePoint(nested(), 'y11', 'Y11-01', 'Y11-01.01')
+    expect(dangling(after)).toEqual([])
+    const points = after[0]?.topics[0]?.points ?? []
+    expect(points.map((p) => [p.id, p.parent ?? null])).toEqual([
+      ['Y11-01.02', null],
+      ['Y11-01.03', null],
+      ['Y11-01.04', null],
+    ])
+  })
+
+  it('leaves the other sub-item alone when one sub-item is deleted', () => {
+    const after = deletePoint(nested(), 'y11', 'Y11-01', 'Y11-01.02')
+    expect(after[0]?.topics[0]?.points?.map((p) => [p.id, p.parent ?? null])).toEqual([
+      ['Y11-01.01', null],
+      ['Y11-01.03', 'Y11-01.01'],
+      ['Y11-01.04', null],
+    ])
+  })
+
+  it('carries a parent across a split, and promotes one left behind', () => {
+    // Split at the second sub-item: it moves to a new topic while the item it
+    // hangs off stays behind, so it cannot keep pointing at it.
+    const after = splitTopic(nested(), 'y11', 'Y11-01', 'Y11-01.03')
+    expect(dangling(after)).toEqual([])
+    const [kept, fresh] = after[0]?.topics ?? []
+    expect(kept?.points?.map((p) => [p.text, p.parent ?? null])).toEqual([
+      ['investigate structures, including:', null],
+      ['examining prokaryotic cells', 'Y11-01.01'],
+    ])
+    expect(fresh?.name).toBe('drawing scaled diagrams')
+    expect(fresh?.points?.map((p) => [p.text, p.parent ?? null])).toEqual([
+      ['describe a range of technologies', null],
+    ])
+  })
+
+  it('keeps parents and capabilities when a topic is merged upwards', () => {
+    // The merge used to rebuild every moved point from its text alone, which
+    // silently dropped both.
+    const after = mergeTopicUp(nested(), 'y11', 'Y11-02')
+    expect(dangling(after)).toEqual([])
+    const topic = after[0]?.topics[0]
+    expect(topic?.points?.map((p) => [p.id, p.text, p.parent ?? null])).toEqual([
+      ['Y11-01.01', 'investigate structures, including:', null],
+      ['Y11-01.02', 'examining prokaryotic cells', 'Y11-01.01'],
+      ['Y11-01.03', 'drawing scaled diagrams', 'Y11-01.01'],
+      ['Y11-01.04', 'describe a range of technologies', null],
+      ['Y11-01.05', 'Cell Function', null],
+      ['Y11-01.06', 'investigate movement, including:', null],
+      ['Y11-01.07', 'modelling diffusion', 'Y11-01.06'],
+      ['Y11-01.08', 'Inquiry question: How do cells coordinate activities?', null],
+    ])
+    expect(topic?.points?.find((p) => p.text === 'modelling diffusion')?.capabilities).toEqual([
+      'Numeracy',
+    ])
+    // The topic merged into already had one, so the child's becomes a point
+    // rather than being overwritten out of existence.
+    expect(topic?.inquiryQuestion).toBe('What distinguishes one cell from another?')
+  })
+
+  it('takes the inquiry question up when the topic above has none', () => {
+    const start = nested()
+    delete start[0]!.topics[0]!.inquiryQuestion
+    const topic = mergeTopicUp(start, 'y11', 'Y11-02')[0]?.topics[0]
+    expect(topic?.inquiryQuestion).toBe('How do cells coordinate activities?')
+    expect(topic?.points?.some((p) => p.text.startsWith('Inquiry question'))).toBe(false)
   })
 })

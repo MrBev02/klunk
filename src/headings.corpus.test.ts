@@ -184,9 +184,14 @@ const EXPECTED: Record<string, Expected> = {
       // rather than as a group means the `Working Scientifically` heading
       // between `Outcomes` and `Content` has been taken for a topic again — and
       // the outcome check below is what catches the damage that does.
+      //
+      // The point counts are 31 and 41 below the number of paragraphs, which is
+      // one `Students:` per topic — the list's own lead-in — plus one inquiry
+      // question per module topic, both of which are now somewhere better (#78).
+      // Sub-items still count as points; they gained a parent, not a new home.
       y11: {
         topics: 19,
-        points: 153,
+        points: 122,
         outcomes: 11,
         groups: [
           'Module 1: Cells as the Basis of Life',
@@ -197,7 +202,7 @@ const EXPECTED: Record<string, Expected> = {
       },
       y12: {
         topics: 24,
-        points: 190,
+        points: 149,
         outcomes: 11,
         groups: [
           'Module 5: Heredity',
@@ -331,6 +336,50 @@ describe('the heading readers against the real NESA documents', () => {
       const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
       const quadratic = points.find((p) => p.text.includes('graph a parabola of the form'))
       expect(quadratic?.text).toContain('y=ax2+bx+c')
+    },
+  )
+
+  it.skipIf(!has(EXPECTED['Biology Stage 6 (2017)']!))(
+    'reads Biology as items with sub-items under them, tagged with capabilities',
+    async () => {
+      // #78. The counts above cannot see any of this: a flattened sub-item is
+      // still a point, and a lost capability is still a sentence.
+      const { courses } = await readingOf(EXPECTED['Biology Stage 6 (2017)']!.path)
+      const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+      const topics = courses.flatMap((c) => c.topics)
+
+      // 137 sub-items, counted off the markup's own `w:ilvl` before any of this
+      // was built.
+      expect(points.filter((p) => p.parent).length).toBe(137)
+
+      // Every parent is a real point of the same topic, and no parent is itself
+      // a sub-item — the document has two levels and only two.
+      const byId = new Map(points.map((p) => [p.id, p]))
+      for (const point of points.filter((p) => p.parent)) {
+        const parent = byId.get(point.parent!)
+        expect(parent, `${point.id} points at ${point.parent}`).toBeDefined()
+        expect(parent!.parent).toBeUndefined()
+        expect(point.id.split('.')[0]).toBe(point.parent!.split('.')[0])
+      }
+
+      // 139 paragraphs carry at least one icon: 138 content points and the one
+      // inquiry question, whose tag moves onto its topic rather than being lost.
+      const tagged = points.filter((p) => p.capabilities?.length).length
+      const onTopics = topics.filter((t) => t.capabilities?.length).length
+      expect(tagged).toBe(138)
+      expect(onTopics).toBe(1)
+
+      // The thirteen the syllabus declares under Learning Across the Curriculum,
+      // in its own spelling — never the alt text's, which is not consistent.
+      const used = new Set(points.flatMap((p) => p.capabilities ?? []))
+      expect(used.size).toBe(13)
+      expect(used).toContain('Work and Enterprise')
+      expect([...used].filter((c) => /icon$/i.test(c))).toEqual([])
+
+      // One inquiry question per module topic, and none left as a content point.
+      expect(topics.filter((t) => t.inquiryQuestion).length).toBe(29)
+      expect(points.filter((p) => /^inquiry question:/i.test(p.text))).toEqual([])
+      expect(points.filter((p) => /^students:$/i.test(p.text.trim()))).toEqual([])
     },
   )
 

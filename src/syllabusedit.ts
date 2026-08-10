@@ -81,6 +81,30 @@ export function nextPointId(topic: SyllabusTopic): string {
   return id
 }
 
+/**
+ * Points renumbered under a topic, with every `parent` following its point.
+ *
+ * A parent is an id, so anything that mints new ids has to carry the references
+ * across with them or leave a point hanging off one that no longer exists (#78).
+ * A parent that did not come along is dropped rather than left dangling: the
+ * sub-item is promoted, which is what it is once the item above it is gone.
+ */
+function renumbered(points: SyllabusPoint[], topicId: string, from = 0): SyllabusPoint[] {
+  const renamed = new Map<string, string>()
+  const withIds = points.map((point, i) => {
+    const id = `${topicId}.${String(from + i + 1).padStart(2, '0')}`
+    if (point.id) renamed.set(point.id, id)
+    return { ...point, id }
+  })
+  return withIds.map((point) => {
+    if (!point.parent) return point
+    const moved = renamed.get(point.parent)
+    if (moved) return { ...point, parent: moved }
+    const { parent: _dropped, ...promoted } = point
+    return promoted
+  })
+}
+
 /* ------------------------------------------------------------------ plumbing */
 
 function onCourse(
@@ -217,13 +241,37 @@ export function mergeTopicUp(
     const parent = course.topics[at - 1] as SyllabusTopic
     const child = course.topics[at] as SyllabusTopic
 
-    let merged: SyllabusTopic = { ...parent, points: [...(parent.points ?? [])] }
-    const moving = [child.text?.trim() || child.name, ...(child.points ?? []).map((p) => p.text)]
-    for (const text of moving) {
-      merged = {
-        ...merged,
-        points: [...(merged.points ?? []), { id: nextPointId(merged), text }],
+    const kept = [...(parent.points ?? [])]
+
+    // The child's heading becomes a content point, and its own points follow it.
+    // They are rebuilt rather than re-listed as text, because a point carries a
+    // parent and its capabilities and both would otherwise be dropped in the
+    // move without a word (#78).
+    const heading: SyllabusPoint = { id: '', text: child.text?.trim() || child.name }
+    const moving = renumbered([heading, ...(child.points ?? [])], parent.id, kept.length)
+
+    let merged: SyllabusTopic = { ...parent, points: [...kept, ...moving] }
+
+    // The child's own inquiry question has nowhere to go when the topic it is
+    // merging into already has one, so it becomes a content point instead of
+    // disappearing.
+    if (child.inquiryQuestion) {
+      if (!merged.inquiryQuestion) {
+        merged.inquiryQuestion = child.inquiryQuestion
+      } else {
+        merged = {
+          ...merged,
+          points: [
+            ...(merged.points ?? []),
+            { id: nextPointId(merged), text: `Inquiry question: ${child.inquiryQuestion}` },
+          ],
+        }
       }
+    }
+    if (child.capabilities?.length) {
+      merged.capabilities = [
+        ...new Set([...(merged.capabilities ?? []), ...child.capabilities]),
+      ]
     }
     if (child.skills?.length) merged.skills = [...(merged.skills ?? []), ...child.skills]
 
@@ -268,19 +316,19 @@ export function splitTopic(
     }
 
     const heading = points[cut] as SyllabusPoint
-    const kept: SyllabusTopic = { ...topic, points: points.slice(0, cut) }
+    const kept: SyllabusTopic = { ...topic, points: renumbered(points.slice(0, cut), topic.id) }
     const id = nextTopicId(course)
     const fresh: SyllabusTopic = {
       id,
       name: heading.text,
       text: heading.text,
       outcomes: [...(topic.outcomes ?? [])],
-      points: points.slice(cut + 1).map((p, i) => ({
-        // Renumbered under their new topic. These ids are being minted here for
-        // the first time under this parent, so nothing can already point at them.
-        ...p,
-        id: `${id}.${String(i + 1).padStart(2, '0')}`,
-      })),
+      // Renumbered under their new topic. These ids are being minted here for
+      // the first time under this topic, so nothing can already point at them —
+      // but the points themselves may point at each other, and a sub-item whose
+      // item stayed on the other side of the cut is promoted rather than left
+      // hanging off a topic it is no longer in (#78).
+      points: renumbered(points.slice(cut + 1), id),
     }
     if (topic.group) fresh.group = topic.group
 
@@ -305,16 +353,35 @@ export function editPoint(
   }))
 }
 
+/**
+ * Delete a content point, and adopt anything hanging off it.
+ *
+ * A sub-item whose item is deleted takes the deleted point's own parent, which
+ * for a two-level syllabus means it is promoted. Leaving the reference alone
+ * would point it at an id the topic no longer has, and the model would still
+ * validate (#78).
+ */
 export function deletePoint(
   courses: SyllabusCourse[],
   courseId: string,
   topicId: string,
   pointId: string,
 ): SyllabusCourse[] {
-  return onTopic(courses, courseId, topicId, (topic) => ({
-    ...topic,
-    points: (topic.points ?? []).filter((p) => p.id !== pointId),
-  }))
+  return onTopic(courses, courseId, topicId, (topic) => {
+    const points = topic.points ?? []
+    const going = points.find((p) => p.id === pointId)
+    return {
+      ...topic,
+      points: points
+        .filter((p) => p.id !== pointId)
+        .map((p) => {
+          if (p.parent !== pointId) return p
+          if (going?.parent) return { ...p, parent: going.parent }
+          const { parent: _orphaned, ...promoted } = p
+          return promoted
+        }),
+    }
+  })
 }
 
 /** Append a point the reader dropped. Its id goes past the end, never into a gap. */
