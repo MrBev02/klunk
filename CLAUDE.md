@@ -1202,6 +1202,17 @@ with eight of them, 246 point ids running `S5-01.01` to `S5-24.06`, written to
 `syllabus.schema.json`, and both courses then offered by name on the Draft with AI
 tab.
 
+**And the 2017 sciences read, structure and all** (#77, #78). Biology Stage 6
+(2017) is the live HSC syllabus and was refused outright by three separate rules;
+once it read, the reading was flat, which lost the sub-items and the capability
+tags — about 40% of what the content means, with every count still looking
+right. Both are fixed and checked in the browser by the user.
+
+The regression numbers are 19 / 122 / 11 and 24 / 149 / 11 with the modules as
+groups, and `src/headings.corpus.test.ts` now gates each document separately, so
+one absent file no longer skips the whole corpus in silence (#65 in the middle of
+a fix rather than in theory).
+
 **IB DP Design Technology reads too, from a spreadsheet** (#4). `src/xlsx.ts` is
 the workbook half of what `ooxml.ts` does for Word: shared strings, merged cells
 carried down, rows out, deciding nothing. `src/ibdt.ts` is the reader and takes
