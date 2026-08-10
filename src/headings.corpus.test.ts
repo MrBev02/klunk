@@ -162,6 +162,52 @@ const EXPECTED: Record<string, Expected> = {
       // Life Skills outcome column. That is a decision, not an oversight (#71).
     },
   },
+  // The live HSC syllabus, and the reason it matters that it reads: the 2025
+  // reform document starts with Year 11 in 2027 while Year 12 continues on this
+  // one (#29). Structurally it is the reform contract again and needed no new
+  // reader — it was refused by three separate rules (#77), of which only the
+  // first was visible. One of a series: Chemistry, Physics, Earth and
+  // Environmental Science and Investigating Science were published beside it in
+  // the same shape and with the same code pattern.
+  'Biology Stage 6 (2017)': {
+    path: `${SOURCE}/nsw-hsc-biology/biology-stage-6-syllabus-2017.docx`,
+    format: 'headings',
+    courses: {
+      // Eleven outcomes per course, and the split is the point: four are the
+      // course's own — `BIO11-8` to `BIO11-11` — and seven are the Working
+      // Scientifically outcomes `BIO11/12-1` to `BIO11/12-7`, which both courses
+      // share and which no other document's code shape admits.
+      //
+      // Nineteen topics is the seven Working Scientifically skills, which carry
+      // no group, plus the twelve sub-headings inside the four modules' Content
+      // blocks, which carry their module. A module appearing here as a topic
+      // rather than as a group means the `Working Scientifically` heading
+      // between `Outcomes` and `Content` has been taken for a topic again — and
+      // the outcome check below is what catches the damage that does.
+      y11: {
+        topics: 19,
+        points: 153,
+        outcomes: 11,
+        groups: [
+          'Module 1: Cells as the Basis of Life',
+          'Module 2: Organisation of Living Things',
+          'Module 3: Biological Diversity',
+          'Module 4: Ecosystem Dynamics',
+        ],
+      },
+      y12: {
+        topics: 24,
+        points: 190,
+        outcomes: 11,
+        groups: [
+          'Module 5: Heredity',
+          'Module 6: Genetic Change',
+          'Module 7: Infectious Disease',
+          'Module 8: Non-infectious Disease and Disorders',
+        ],
+      },
+    },
+  },
   'Visual Arts Stage 6 (2016)': {
     path: `${SOURCE}/nsw-hsc-visual-arts/visual-arts-st6-syl-amended-2016.docx`,
     format: 'prose',
@@ -193,7 +239,17 @@ const EXPECTED: Record<string, Expected> = {
   },
 }
 
-const available = Object.values(EXPECTED).every((e) => existsSync(e.path))
+/**
+ * Each document gates itself, rather than one missing document skipping them all.
+ *
+ * `every` was the rule, and it is the wrong one: a machine holding five of the
+ * six documents ran none of these and said so nowhere (#65). That is this
+ * repository's own lesson about a green run being evidence of nothing, and it
+ * bit during #77 — the reader was changed with its whole corpus silently
+ * skipping, so the four documents it had to keep reading went unchecked until
+ * the gate was fixed.
+ */
+const has = (e: Expected) => existsSync(e.path)
 
 async function readingOf(path: string) {
   const bytes = readFileSync(path)
@@ -201,75 +257,113 @@ async function readingOf(path: string) {
   return readSyllabusXml(await readZipMember(buffer as ArrayBuffer, 'word/document.xml'))
 }
 
-describe.skipIf(!available)('the heading readers against the real NESA documents', () => {
+describe('the heading readers against the real NESA documents', () => {
   for (const [subject, expected] of Object.entries(EXPECTED)) {
-    it(`reads ${subject} to its established counts`, async () => {
-      const { format, courses } = await readingOf(expected.path)
-      expect(format, `${subject} was read by the wrong reader`).toBe(expected.format)
+    // The document is missing on this machine, so say so against its own name
+    // rather than skipping every document with it.
+    describe.skipIf(!has(expected))(subject, () => {
+      it(`reads ${subject} to its established counts`, async () => {
+        const { format, courses } = await readingOf(expected.path)
+        expect(format, `${subject} was read by the wrong reader`).toBe(expected.format)
 
-      const found = summarise(courses)
-      expect(found.map((c) => c.courseId).sort()).toEqual(Object.keys(expected.courses).sort())
+        const found = summarise(courses)
+        expect(found.map((c) => c.courseId).sort()).toEqual(Object.keys(expected.courses).sort())
 
-      for (const [courseId, want] of Object.entries(expected.courses)) {
-        const got = found.find((c) => c.courseId === courseId)
-        expect(got, `${subject} ${courseId}`).toBeDefined()
-        expect(
-          { topics: got?.topics, points: got?.points, outcomes: got?.outcomes },
-          `${subject} ${courseId}`,
-        ).toEqual({ topics: want.topics, points: want.points, outcomes: want.outcomes })
-        // Sorted, because the order groups appear in is not what is checked.
-        expect([...(got?.groups ?? [])].sort(), `${subject} ${courseId} groups`).toEqual(
-          [...want.groups].sort(),
-        )
-      }
-    })
-
-    // The checks a count cannot make. A count says how many topics there are,
-    // never whether they are topics — which is the lesson of #26 and #14.
-    it(`gives ${subject} no topic that is really a content point`, async () => {
-      const { courses } = await readingOf(expected.path)
-      const names = courses.flatMap((c) => c.topics.map((t) => t.name))
-      expect(names.filter((n) => n === '')).toEqual([])
-      // A heading never opens "i)" or "a)" or ends in a full stop.
-      expect(names.filter((n) => /^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)/.test(n))).toEqual([])
-      expect(names.filter((n) => /\.$/.test(n))).toEqual([])
-      // Nor is a heading ever the marker that opened its own block.
-      expect(names.filter((n) => /^(outcomes|content)$/i.test(n))).toEqual([])
-    })
-
-    it(`carries no non-breaking space into a ${subject} topic name or group`, async () => {
-      const { courses } = await readingOf(expected.path)
-      const labels = courses.flatMap((c) => c.topics.flatMap((t) => [t.name, t.group ?? '']))
-      expect(labels.filter((n) => / /.test(n))).toEqual([])
-    })
-
-    it(`leaves no ${subject} outcome without its text`, async () => {
-      const { courses } = await readingOf(expected.path)
-      const empty = courses.flatMap((c) =>
-        (c.outcomes ?? []).filter((o) => o.text.trim() === '').map((o) => `${c.id} ${o.code}`),
-      )
-      expect(empty).toEqual([])
-    })
-
-    it(`tags every ${subject} topic outcome against one the course declares`, async () => {
-      const { courses } = await readingOf(expected.path)
-      const unknown = courses.flatMap((c) => {
-        const declared = new Set((c.outcomes ?? []).map((o) => o.code))
-        return c.topics.flatMap((t) => (t.outcomes ?? []).filter((code) => !declared.has(code)))
+        for (const [courseId, want] of Object.entries(expected.courses)) {
+          const got = found.find((c) => c.courseId === courseId)
+          expect(got, `${subject} ${courseId}`).toBeDefined()
+          expect(
+            { topics: got?.topics, points: got?.points, outcomes: got?.outcomes },
+            `${subject} ${courseId}`,
+          ).toEqual({ topics: want.topics, points: want.points, outcomes: want.outcomes })
+          // Sorted, because the order groups appear in is not what is checked.
+          expect([...(got?.groups ?? [])].sort(), `${subject} ${courseId} groups`).toEqual(
+            [...want.groups].sort(),
+          )
+        }
       })
-      expect(unknown).toEqual([])
+
+      // The checks a count cannot make. A count says how many topics there are,
+      // never whether they are topics — which is the lesson of #26 and #14.
+      it(`gives ${subject} no topic that is really a content point`, async () => {
+        const { courses } = await readingOf(expected.path)
+        const names = courses.flatMap((c) => c.topics.map((t) => t.name))
+        expect(names.filter((n) => n === '')).toEqual([])
+        // A heading never opens "i)" or "a)" or ends in a full stop.
+        expect(names.filter((n) => /^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)/.test(n))).toEqual([])
+        expect(names.filter((n) => /\.$/.test(n))).toEqual([])
+        // Nor is a heading ever the marker that opened its own block.
+        expect(names.filter((n) => /^(outcomes|content)$/i.test(n))).toEqual([])
+      })
+
+      it(`carries no non-breaking space into a ${subject} topic name or group`, async () => {
+        const { courses } = await readingOf(expected.path)
+        const labels = courses.flatMap((c) => c.topics.flatMap((t) => [t.name, t.group ?? '']))
+        expect(labels.filter((n) => / /.test(n))).toEqual([])
+      })
+
+      it(`leaves no ${subject} outcome without its text`, async () => {
+        const { courses } = await readingOf(expected.path)
+        const empty = courses.flatMap((c) =>
+          (c.outcomes ?? []).filter((o) => o.text.trim() === '').map((o) => `${c.id} ${o.code}`),
+        )
+        expect(empty).toEqual([])
+      })
+
+      it(`tags every ${subject} topic outcome against one the course declares`, async () => {
+        const { courses } = await readingOf(expected.path)
+        const unknown = courses.flatMap((c) => {
+          const declared = new Set((c.outcomes ?? []).map((o) => o.code))
+          return c.topics.flatMap((t) => (t.outcomes ?? []).filter((code) => !declared.has(code)))
+        })
+        expect(unknown).toEqual([])
+      })
     })
   }
 
-  it('recovers the formulae Word keeps in its own namespace', async () => {
+  it.skipIf(!has(EXPECTED['Mathematics Advanced 11–12 (2024)']!))(
+    'recovers the formulae Word keeps in its own namespace',
+    async () => {
     // Mathematics Advanced is the only one of the six documents carrying any,
     // and without them 159 of its 359 content points read as complete sentences
     // with the mathematics silently missing.
-    const { courses } = await readingOf(EXPECTED['Mathematics Advanced 11–12 (2024)']!.path)
-    const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
-    const quadratic = points.find((p) => p.text.includes('graph a parabola of the form'))
-    expect(quadratic?.text).toContain('y=ax2+bx+c')
-  })
+      const { courses } = await readingOf(EXPECTED['Mathematics Advanced 11–12 (2024)']!.path)
+      const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+      const quadratic = points.find((p) => p.text.includes('graph a parabola of the form'))
+      expect(quadratic?.text).toContain('y=ax2+bx+c')
+    },
+  )
+
+  it.skipIf(!has(EXPECTED['Biology Stage 6 (2017)']!))(
+    'leaves no Biology topic holding content but no outcome',
+    async () => {
+      // The check the counts cannot make, and the one the fault needed. Taking
+      // `Working Scientifically` for a topic left every module's content under
+      // it with an empty outcome list while the totals still looked like a
+      // syllabus — 23 topics against 19, which reads as a parser being generous
+      // rather than as a model that has lost what a question is tagged against.
+      const { courses } = await readingOf(EXPECTED['Biology Stage 6 (2017)']!.path)
+      const bare = courses.flatMap((c) =>
+        c.topics.filter((t) => (t.outcomes ?? []).length === 0).map((t) => `${c.id} ${t.id} ${t.name}`),
+      )
+      expect(bare).toEqual([])
+
+      // The seven Working Scientifically outcomes are stated once each, in a
+      // topic block, and both courses carry all seven.
+      for (const course of courses) {
+        const shared = (course.outcomes ?? []).filter((o) => o.code.includes('/'))
+        expect(shared.map((o) => o.code)).toEqual([
+          'BIO11/12-1',
+          'BIO11/12-2',
+          'BIO11/12-3',
+          'BIO11/12-4',
+          'BIO11/12-5',
+          'BIO11/12-6',
+          'BIO11/12-7',
+        ])
+      }
+    },
+  )
 
   it('gives the 2013 documents to the table reader, not to these', async () => {
     // The order the readers are tried in is a decision, and this is what it is

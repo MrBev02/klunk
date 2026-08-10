@@ -60,11 +60,11 @@ import type { SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
 /* ----------------------------------------------------------------- the rules */
 
 /**
- * An outcome code, in every shape NESA has printed across the six documents.
+ * An outcome code, in every shape NESA has printed across the seven documents.
  *
  * `P1` and `H10` in Visual Arts, `P1.1` and `H3.5` in Drama and the 2013
  * syllabuses, `EAV-11-01` and `MAV-12-08` in the reform exports, `MAO-WM-01`
- * for a Working Mathematically outcome and `BI-11WS-01` in Biology.
+ * for a Working Mathematically outcome and `BI-11WS-01` in Biology 11–12 (2025).
  *
  * The `\d?` is Computing Technology 7–10 (#50), which puts the stage inside the
  * prefix: `CT4-ADJ-01`, `CT5-SAF-01`. Without it `[A-Z]{1,4}` takes `CT` and
@@ -72,8 +72,26 @@ import type { SyllabusCourse, SyllabusOutcome, SyllabusTopic } from './types'
  * while `CTLS-SAF-01` does, its prefix being all letters. That asymmetry is what
  * made the fault dangerous rather than obvious: the Life Skills outcomes read
  * and the Stage 4 and Stage 5 ones silently did not.
+ *
+ * `HYPHENATED_NUMBER` is Biology Stage 6 (2017), and the four science
+ * syllabuses published beside it, which number the subject rather than
+ * lettering it (#77): `BIO11-8`, `BIO12-15`, and `BIO11/12-1` for the seven
+ * Working Scientifically outcomes both courses share. Neither shape matched —
+ * `[A-Z]{1,4}` takes `BIO`, `NUMBER` takes `11` and stops short of the hyphen,
+ * and `LETTERED` cannot start at a digit followed by another digit.
+ *
+ * **The order of the three branches is load-bearing.** `CODE_FIRST_RE` has
+ * nothing anchoring its end, so the alternation is decided rather than
+ * backtracked into, and `NUMBER` is the only branch that can stop in the middle
+ * of another. Tried first, it reads the Objectives and Outcomes table's
+ * `BIO11-8 describes single cells…` as the code `BIO11` carrying the text
+ * `-8 describes single cells…`: a code naming nothing, wearing the right
+ * wording. So it goes last.
  */
-const CODE = String.raw`[A-Z]{1,4}(?:\d+(?:\.\d+)?|\d?(?:-[A-Z0-9]{1,6})+-\d{2})`
+const LETTERED = String.raw`\d?(?:-[A-Z0-9]{1,6})+-\d{2}`
+const HYPHENATED_NUMBER = String.raw`\d+(?:/\d+)?-\d{1,2}`
+const NUMBER = String.raw`\d+(?:\.\d+)?`
+const CODE = String.raw`[A-Z]{1,4}(?:${LETTERED}|${HYPHENATED_NUMBER}|${NUMBER})`
 
 /** A cell or bullet that is nothing but the code, its text on the next line. */
 const CODE_ONLY_RE = new RegExp(`^(${CODE})$`)
@@ -96,6 +114,21 @@ const CODE_LAST_RE = new RegExp(`^(.+?)\\s+(${CODE})$`)
  * course with.
  */
 const COURSE_SECTION_RE = /^(?:outcomes and content for|content)\s*[:–—-]?\s*(.+)$/i
+
+/**
+ * The same heading with the label at the other end.
+ *
+ * Biology Stage 6 (2017) heads its two course sections `Biology Year 11 Course
+ * Content` and `Biology Year 12 Course Content` (#77): the subject opens the
+ * heading and the label closes it. Everything else about the document is the
+ * reform contract, so this one rule is the difference between reading it and
+ * refusing it outright.
+ *
+ * The whole label is required rather than `content` alone, because `Year 11
+ * Course Structure and Requirements` heads the section beside it and a looser
+ * rule would open a course on that too.
+ */
+const COURSE_CONTENT_RE = /^(.+?)\s+course content$/i
 
 /** The two block markers, which is the whole contract the shapes have in common. */
 const OUTCOMES_BLOCK = 'outcomes'
@@ -156,6 +189,23 @@ export function courseNamed(text: string): { id: string; name: string } | null {
   if (year) return { id: `y${year[1]}`, name: `Year ${year[1]}` }
   const stage = low.match(/\bstage(?!s)\s*([1-5])\b/)
   if (stage) return { id: `s${stage[1]}`, name: `Stage ${stage[1]}` }
+  return null
+}
+
+/**
+ * Which course a heading opens, if it opens one.
+ *
+ * Two wordings, because NESA puts the label at either end of the heading and
+ * the course name at the other. The first that names exactly one course wins,
+ * and a heading matching the shape while naming no course opens nothing — which
+ * is what keeps `Contents` out, being `content` followed by `s`.
+ */
+function courseSectionNamed(text: string): { id: string; name: string } | null {
+  for (const re of [COURSE_SECTION_RE, COURSE_CONTENT_RE]) {
+    const opens = re.exec(text)
+    const named = opens ? courseNamed(opens[1] as string) : null
+    if (named) return named
+  }
   return null
 }
 
@@ -404,9 +454,7 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
       continue
     }
 
-    const bare = sectionNumber(block.text)?.rest ?? block.text
-    const opens = COURSE_SECTION_RE.exec(bare)
-    const named = opens ? courseNamed(opens[1] as string) : null
+    const named = courseSectionNamed(sectionNumber(block.text)?.rest ?? block.text)
     if (named) {
       closeSection()
       let building = courses.get(named.id)
@@ -450,8 +498,25 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
       continue
     }
 
+    // A heading the next heading marks as a topic: the contract is `[topic
+    // heading, "Outcomes", "Content"]`, and either marker is enough because a
+    // topic may state one without the other.
+    //
+    // Except between the two. Biology Stage 6 (2017) prints `Content Focus` and
+    // `Working Scientifically` under every module, after its `Outcomes` and
+    // before its `Content` (#77), so `Working Scientifically` is a heading whose
+    // next heading is `Content`. Taken as a topic it takes the whole module with
+    // it: the module keeps its outcomes and loses its content, all sixteen
+    // topics that hold the content are grouped under `Working Scientifically` in
+    // every module alike, and not one of them ends with any outcome at all. The
+    // counts stay plausible and what a question is tagged against is gone, which
+    // is #50's lesson exactly.
+    //
+    // So an open topic that has stated its outcomes and is still waiting for its
+    // content is not interrupted. That is a no-op on every other document, none
+    // of which prints a heading between the two markers.
     const next = after.get(i)
-    if (next === OUTCOMES_BLOCK || next === CONTENT_BLOCK) {
+    if (next === OUTCOMES_BLOCK || (next === CONTENT_BLOCK && mode !== 'outcomes')) {
       closeSection()
       section = { name: block.text, outcomes: [], lead: [], subs: [] }
       continue

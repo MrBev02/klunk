@@ -353,6 +353,54 @@ ever read, which settled #50:
   English Advanced's and Mathematics Advanced's counts are of their Year 11 and
   Year 12 sections alone.
 
+**The 2017 Stage 6 science syllabuses are the reform contract a third time, and
+they were refused by three rules of which only the first was visible** (#77).
+Established from Biology Stage 6 (2017), the live HSC syllabus — the 2025 reform
+document takes Year 11 in 2027 while Year 12 stays on this one — and one of five
+published together, with Chemistry, Physics, Earth and Environmental Science and
+Investigating Science in the same shape:
+
+- **The course heading puts the label last.** `Biology Year 11 Course Content`,
+  where Drama writes `Content: … Preliminary Course` and every reform export
+  writes `Outcomes and content for Year 11`. The subject opens the heading and
+  the label closes it, so `COURSE_SECTION_RE` matched nothing and no course
+  opened. That is the whole of the *visible* failure, and fixing it alone gives
+  two courses with **zero outcomes**.
+- **The outcome code numbers the subject instead of lettering it.** `BIO11-8`,
+  `BIO12-15`, and `BIO11/12-1` for the seven Working Scientifically outcomes,
+  which **both courses share**. `[A-Z]{1,4}` takes `BIO`, the plain-number branch
+  takes `11` and stops short of the hyphen, and the lettered branch cannot start
+  at a digit followed by another digit. Fifteen codes, none matching.
+- **The order of the branches inside `CODE` is load-bearing, and the outcome
+  table is what shows it.** `CODE_FIRST_RE` has nothing anchoring its end, so the
+  alternation is decided rather than backtracked into. The table prints its cells
+  code-first — `BIO11-8 describes single cells…` — and with the plain-number
+  branch tried first that reads as the code `BIO11` carrying the text
+  `-8 describes single cells…`: a code naming nothing, wearing the right wording.
+  `CODE_LAST_RE` *is* anchored and backtracks its way to the right answer, which
+  is why the table shows this and the topic blocks do not.
+- **A heading between `Outcomes` and `Content` took the whole topic.** Every
+  module prints `Content Focus` and then `Working Scientifically` between the
+  two markers, so `Working Scientifically` is a heading whose next heading is
+  `Content` — and the rule that opens a topic on that fired on it. The module
+  kept its outcomes and lost its content, all sixteen content-bearing topics were
+  grouped under `Working Scientifically` in every module alike, and **not one of
+  them ended with any outcome at all**. Year 11 read as 23 topics against 19,
+  which looks like a parser being generous rather than like a model that has lost
+  what a question is tagged against. So an open topic that has stated its
+  outcomes and is still waiting for its content is not interrupted; that is a
+  no-op on every other document, none of which prints a heading between the two.
+- **The three faults hid each other**, exactly as #50's two did. The document is
+  refused outright by the first, so the second and third cost nothing until it is
+  fixed — and both are silent when they arrive.
+- A module is a **group**, not a topic: the topics are the sub-headings inside
+  its `Content` block. The seven Working Scientifically skills are topics with
+  **no group**, being stated once for the whole course.
+- `Students:` and `Inquiry question: …` come through as content points, which is
+  the standing decision that nothing under a `Content` heading is dropped — the
+  same reason English Advanced gets a third topic per focus area. The review
+  panel is where a teacher removes them.
+
 **Two editions of one subject are live at the same time.** The Biology document
 states it: 2027 Term 1 starts the new syllabus for Year 11 *while Year 12
 continues on the 2017 one*, and the first HSC examination for the new course is
@@ -517,6 +565,7 @@ by hand off the documents rather than inherited:
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
 | Computing Technology 7–10 (2022) | s4 **24 / 246 / 1** | s5 **24 / 246 / 10** |
+| Biology Stage 6 (2017) | y11 **19 / 153 / 11** | y12 **24 / 190 / 11** |
 
 Six groups per course in Computing Technology, the focus areas, and each holds
 the same four topics — `Identifying and defining`, `Researching and planning`,
@@ -535,6 +584,16 @@ the syllabus states — "The content available for Stage 4 is identical to Stage
 identical order under identical headings. That is the Visual Arts arrangement
 arriving from a second direction, and the ids stay distinct because `prefixOf`
 mints them per course, `S4-01` against `S5-01`.
+
+Biology's eleven outcomes per course are **seven plus four**, and the seven are
+the same seven in both: `BIO11/12-1` to `BIO11/12-7` are stated once each in a
+topic block and belong to Year 11 and Year 12 alike, while the outcome table
+gives each course its own four. A course coming out with four is the code
+pattern refusing the shared shape; a topic coming out with none is the
+`Working Scientifically` heading having taken its module again. Its nineteen and
+twenty-four topics are the seven Working Scientifically skills, which carry no
+group, plus the sub-headings inside the four modules — so **a module appearing
+as a topic is the fault, not the arrangement**.
 
 The IB syllabus, counted off the guide's Overview table and its numbered
 understandings rather than off either parser. **Both documents must give these**,
@@ -682,7 +741,11 @@ because Git never asks `gh`.
   Without it, `extract.corpus`, `objective.corpus`, `syllabus.corpus`,
   `headings.corpus`, `ibdt.corpus` and `ibguide.corpus` all
   `describe.skipIf(!available)` themselves, and the port
-  comparison against the Python generator needs `python3` besides. So `npm test`
+  comparison against the Python generator needs `python3` besides.
+  **`headings.corpus` now gates each document separately** (#77): it gated on
+  *every* document existing, so a machine holding five of the six ran none of
+  them — the reader was changed with its whole corpus silently skipping, which
+  is #65 arriving in the middle of a fix rather than in theory. So `npm test`
   goes **green while testing far less**, and `npm run build` gates on that same
   green. Nothing on screen says a suite skipped. On a machine without the content
   folder, a passing build is not evidence that any reader still reads anything —

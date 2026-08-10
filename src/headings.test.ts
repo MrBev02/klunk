@@ -119,6 +119,61 @@ const STAGES = body(
 )
 
 /** Drama's shape: the course in a numbered heading, code first, content in prose. */
+/**
+ * The 2017 Stage 6 science shape: the reform contract with the course label at
+ * the end of the heading, two further headings between `Outcomes` and
+ * `Content`, and outcome codes that number the subject instead of lettering it.
+ */
+const SCIENCE = body(
+  heading('Heading1', 'Example Science Stage 6 Syllabus'),
+  heading('Heading1', 'Contents'),
+  heading('Heading1', 'Outcomes'),
+  heading('Heading2', 'Table of Objectives and Outcomes'),
+  // Code-first, which is the arrangement that makes the order of the branches
+  // inside `CODE` matter: nothing anchors the end of `CODE_FIRST_RE`.
+  table(
+    row(cell('Year 11 course'), cell('Year 12 course')),
+    row(cell('EXA11-8 describes the first thing'), cell('EXA12-12 describes the later thing')),
+  ),
+  heading('Heading1', 'Example Year 11 Course Content'),
+  heading('Heading2', 'Working Scientifically Skills'),
+  heading('Heading2', 'Questioning and Predicting'),
+  heading('Heading3', 'Outcomes'),
+  para('A student:'),
+  bullet('develops and evaluates questions EXA11/12-1'),
+  heading('Heading3', 'Content'),
+  para('Students:'),
+  bullet('develop and evaluate inquiry questions'),
+  heading('Heading2', 'Module 1: The First Module'),
+  heading('Heading3', 'Outcomes'),
+  para('A student:'),
+  bullet('develops and evaluates questions EXA11/12-1'),
+  bullet('describes the first thing EXA11-8'),
+  // The two blocks that sit between `Outcomes` and `Content` under every module.
+  // `Working Scientifically` is the dangerous one: the heading after it is
+  // `Content`, so unless an open topic is protected it takes the module's
+  // content and leaves the module holding nothing but its outcomes.
+  heading('Heading3', 'Content Focus'),
+  para('What this module is about.'),
+  heading('Heading3', 'Working Scientifically'),
+  para('In this module, students focus on conducting investigations.'),
+  heading('Heading3', 'Content'),
+  heading('Heading4', 'First Sub-heading'),
+  para('Inquiry question: What is the first question?'),
+  para('Students:'),
+  bullet('investigate the first structure'),
+  heading('Heading4', 'Second Sub-heading'),
+  bullet('investigate the second structure'),
+  heading('Heading1', 'Example Year 12 Course Content'),
+  heading('Heading2', 'Module 5: The Later Module'),
+  heading('Heading3', 'Outcomes'),
+  bullet('describes the later thing EXA12-12'),
+  heading('Heading3', 'Content'),
+  heading('Heading4', 'Later Sub-heading'),
+  bullet('investigate the later structure'),
+  heading('Heading1', 'Glossary'),
+)
+
 const DRAMA = body(
   heading('Heading1', '8 Content: Example Stage 6 Preliminary and HSC Courses'),
   heading('Heading2', '8.1 Content: Example Stage 6 Preliminary Course'),
@@ -302,6 +357,69 @@ describe('parseHeadingsXml on the 7–10 shape', () => {
     // the topic ids are the only thing telling a question's tag apart (#47).
     expect(courses[0]?.topics[0]?.id).toBe('S4-01')
     expect(courses[1]?.topics[0]?.id).toBe('S5-01')
+  })
+})
+
+describe('parseHeadingsXml on the 2017 science shape', () => {
+  const courses = parseHeadingsXml(SCIENCE)
+
+  it('opens a course on a heading that puts the label last', () => {
+    // `Example Year 11 Course Content`, where every other document writes
+    // `Outcomes and content for Year 11`. Nothing else about the document is
+    // new, so this one rule is the difference between reading and refusing.
+    expect(courses.map((c) => [c.id, c.name])).toEqual([
+      ['y11', 'Year 11'],
+      ['y12', 'Year 12'],
+    ])
+  })
+
+  it('does not open a course on the table of contents', () => {
+    // `Contents` matches `content` followed by `s`, so the shape alone is not
+    // enough. It opens nothing because `s` names no course.
+    expect(courses.map((c) => c.id)).not.toContain('s')
+  })
+
+  it('reads a code that numbers the subject, and one both courses share', () => {
+    expect(courses[0]?.outcomes?.map((o) => o.code).sort()).toEqual(['EXA11-8', 'EXA11/12-1'])
+    expect(courses[1]?.outcomes?.map((o) => o.code)).toContain('EXA12-12')
+  })
+
+  it('keeps a code-first cell whole rather than stopping at the first digits', () => {
+    // The trap: `CODE_FIRST_RE` has nothing anchoring its end, so with the
+    // plain-number branch tried first this reads as the code `EXA11` carrying
+    // the text `-8 describes the first thing` — a code naming nothing, wearing
+    // the right wording.
+    expect(courses[0]?.outcomes?.find((o) => o.code === 'EXA11-8')?.text).toBe(
+      'describes the first thing',
+    )
+  })
+
+  it('does not let a heading between Outcomes and Content take the topic', () => {
+    // `Working Scientifically` is followed by `Content`, so the rule that opens
+    // a topic on the next heading fires on it unless an open topic still
+    // waiting for its own content is protected.
+    expect(courses[0]?.topics.map((t) => [t.name, t.group ?? ''])).toEqual([
+      ['Questioning and Predicting', ''],
+      ['First Sub-heading', 'Module 1: The First Module'],
+      ['Second Sub-heading', 'Module 1: The First Module'],
+    ])
+  })
+
+  it('leaves no content topic without the outcomes its module stated', () => {
+    // The failure this guards is silent: the counts stay plausible while every
+    // topic holding content has lost what a question would be tagged against.
+    const module1 = courses[0]?.topics.filter((t) => t.group?.startsWith('Module 1')) ?? []
+    expect(module1.length).toBe(2)
+    for (const topic of module1) expect(topic.outcomes).toEqual(['EXA11/12-1', 'EXA11-8'])
+  })
+
+  it('still reads the skills topic that has no module above it', () => {
+    const skills = courses[0]?.topics.find((t) => t.name === 'Questioning and Predicting')
+    expect(skills?.outcomes).toEqual(['EXA11/12-1'])
+    expect(skills?.points?.map((p) => p.text)).toEqual([
+      'Students:',
+      'develop and evaluate inquiry questions',
+    ])
   })
 })
 
