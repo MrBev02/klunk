@@ -1083,12 +1083,9 @@ function TranscribePanel({
 }) {
   return (
     <section class="panel">
-      <div class="panel__head">
-        <p class="panel__title">
-          <span class="step">2</span> Transcribe it with an AI
-        </p>
-        <CopyButton text={prompt} />
-      </div>
+      <p class="panel__title">
+        <span class="step">2</span> Transcribe it with an AI
+      </p>
 
       <p class="hint">
         Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste
@@ -1136,6 +1133,16 @@ function TranscribePanel({
               'how the paper is laid out.'}
       </p>
 
+      {/* The button rides with the prompt rather than with the step heading.
+          In the heading it was four blocks and two fields above the thing it
+          copies, which are only there because they change what the prompt
+          says, so a teacher who had scrolled to the prompt could not see it.
+          The factory has the same button two lines from its promptbox, which
+          is why the fault showed up here and not there. */}
+      <div class="panel__head panel__head--sub">
+        <p class="panel__title">The prompt</p>
+        <CopyButton text={prompt} />
+      </div>
       <pre class="promptbox">{prompt}</pre>
 
       <Field label="Paste the reply here" for="tr-reply">

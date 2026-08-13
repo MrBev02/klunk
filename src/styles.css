@@ -2172,6 +2172,15 @@ code,
   margin-bottom: 0;
 }
 
+/* A heading for one block inside a step rather than for the step itself, so it
+   sits below the numbered title without competing with it. */
+.panel__head--sub {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--rule);
+}
+
 /* A message and the button it is about, kept together. Both uses are places
    where naming a button that sits elsewhere on the page sent the teacher
    hunting for it. */
