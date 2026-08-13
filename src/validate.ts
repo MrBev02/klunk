@@ -167,6 +167,12 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
     case 'multiple_choice':
       validateMultipleChoice(cfg, err)
       break
+    case 'multiple_response':
+      validateMultipleResponse(cfg, err, warn)
+      break
+    case 'matching':
+      validateMatching(cfg, err, warn)
+      break
     case 'true_false':
       if (typeof cfg.correctAnswer !== 'boolean') err('Choose true or false as the answer.', 'Answer')
       break
@@ -217,6 +223,108 @@ function validateMultipleChoice(cfg: QuestionConfig, err: Report): void {
     // Beyond the schema, which only requires a non-negative integer: an index
     // past the end prints a marking guide with no answer on it.
     err('The correct option is not one of the options listed.', 'Options')
+  }
+}
+
+/**
+ * A missing answer key is a warning here and an error on multiple choice, and
+ * the difference is deliberate.
+ *
+ * `multipleChoiceConfig` requires `correctAnswer`, so a paper read without its
+ * markscheme has to have one invented, and `adopt.ts` puts 0 there — thirty
+ * questions all answered A, ready to print (#64). These two types do not
+ * repeat that: the key is optional, absent means unknown, and both the guide
+ * and this say so in words. The student paper is unaffected either way, which
+ * is what makes a warning the honest severity rather than a lenient one.
+ */
+function validateMultipleResponse(cfg: QuestionConfig, err: Report, warn: Report): void {
+  const choices = cfg.choices ?? []
+  if (choices.length < 3) {
+    err(
+      'A multiple response question needs at least three options. With two, either ' +
+        'one is right and it is multiple choice, or both are and it asks nothing.',
+      'Options',
+    )
+  }
+  choices.forEach((c, i) => {
+    if (!c.text.trim()) err('This option is empty.', `Option ${letter(i)}`)
+  })
+
+  const correct = cfg.correctAnswers
+  if (correct === undefined) {
+    warn(
+      'No answers are marked, so the marking guide will say the answers are not ' +
+        'recorded rather than print them.',
+      'Options',
+    )
+    return
+  }
+
+  if (correct.length === 0) {
+    err('Mark the options that are answers, or leave the answers unrecorded.', 'Options')
+  }
+  if (new Set(correct).size !== correct.length) {
+    err('The same option is marked as an answer more than once.', 'Options')
+  }
+  correct.forEach((i) => {
+    if (!Number.isInteger(i) || i < 0 || i >= choices.length) {
+      // Beyond the schema, which only requires a non-negative integer: an index
+      // past the end prints a letter on the guide that is on no paper.
+      err('An answer is not one of the options listed.', 'Options')
+    }
+  })
+  if (correct.length === 1) {
+    warn(
+      'Only one option is an answer, so this is a multiple choice question. ' +
+        'The paper will still tell the student more than one may be correct.',
+      'Options',
+    )
+  }
+}
+
+function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void {
+  const items = cfg.items ?? []
+  const options = cfg.options ?? []
+
+  if (items.length < 2) err('A matching question needs at least two numbered items.', 'Matching')
+  if (options.length < 2) err('A matching question needs at least two lettered options.', 'Matching')
+
+  items.forEach((item, i) => {
+    if (!item.text.trim()) err('This item is empty.', `Item ${i + 1}`)
+    item.matches?.forEach((m) => {
+      if (!Number.isInteger(m) || m < 0 || m >= options.length) {
+        err('This item is linked to an option that is not listed.', `Item ${i + 1}`)
+      }
+    })
+    if (item.matches && new Set(item.matches).size !== item.matches.length) {
+      err('This item is linked to the same option twice.', `Item ${i + 1}`)
+    }
+  })
+  options.forEach((o, i) => {
+    if (!o.text.trim()) err('This option is empty.', `Option ${letter(i)}`)
+  })
+
+  if (items.every((item) => item.matches === undefined)) {
+    warn(
+      'Nothing is linked, so the marking guide will say the answers are not recorded ' +
+        'rather than print them.',
+      'Matching',
+    )
+    return
+  }
+
+  const unlinked = items
+    .map((item, i) => (item.matches?.length ? 0 : i + 1))
+    .filter((n) => n > 0)
+  if (unlinked.length > 0) {
+    // Not an error: the 2024 paper's rubric allows an item to link to anything
+    // or nothing. But a question where some items are linked and others are not
+    // is far more likely to be half-finished than to be deliberate.
+    warn(
+      `Item${unlinked.length === 1 ? '' : 's'} ${unlinked.join(', ')} ` +
+        `${unlinked.length === 1 ? 'is' : 'are'} linked to nothing.`,
+      'Matching',
+    )
   }
 }
 
@@ -814,6 +922,8 @@ export function cleanIdentification(
 
 const TYPE_ABBREVIATION: Record<QuestionType, string> = {
   multiple_choice: 'mc',
+  multiple_response: 'mr',
+  matching: 'mat',
   true_false: 'tf',
   short_answer: 'sa',
   extended_response: 'er',
@@ -933,6 +1043,40 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
           }),
         correctAnswer: typeof cfg.correctAnswer === 'number' ? cfg.correctAnswer : 0,
         shuffle: cfg.shuffle !== false,
+      }
+
+    case 'multiple_response': {
+      const out: QuestionConfig = {
+        choices: (cfg.choices ?? [])
+          .filter((c) => c.text.trim())
+          .map((c) => {
+            const feedback = text(c.feedback)
+            return feedback === undefined
+              ? { text: c.text.trim() }
+              : { text: c.text.trim(), feedback }
+          }),
+        shuffle: cfg.shuffle !== false,
+      }
+      // Written only when the question states it. Defaulting to `[]` here would
+      // turn "nobody said" into "none of them are answers", which is the whole
+      // distinction this type was built to keep.
+      if (cfg.correctAnswers !== undefined) {
+        out.correctAnswers = [...cfg.correctAnswers].sort((a, b) => a - b)
+      }
+      return out
+    }
+
+    case 'matching':
+      return {
+        items: (cfg.items ?? [])
+          .filter((item) => item.text.trim())
+          .map((item) =>
+            item.matches === undefined
+              ? { text: item.text.trim() }
+              : { text: item.text.trim(), matches: [...item.matches].sort((a, b) => a - b) },
+          ),
+        options: (cfg.options ?? []).filter((o) => o.text.trim()).map((o) => ({ text: o.text.trim() })),
+        ...(cfg.shuffle === false ? { shuffle: false } : {}),
       }
 
     case 'true_false':

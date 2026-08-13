@@ -12,8 +12,26 @@
 
 import { plainText } from './richtext'
 
+/**
+ * A closed list, grown by evidence.
+ *
+ * The alternative — a profile declaring its own types — was considered and
+ * refused (#32). It buys a label and nothing else: `render.tsx` would fall to
+ * its default and rule blank lines under a question headed *Matching*, and
+ * every exhaustive switch here would stop meaning anything. A type is four
+ * things at once — a schema, a validation, a printing and a way to write one —
+ * and a faculty that cannot have all four is better served by an honest
+ * `short_answer` than by a word that prints wrongly.
+ *
+ * So the rule for adding one is the rule every reader in this repository
+ * follows: a real examination prints it, and Klunk can print it back.
+ * `profile.questionTypes` hides the rest, which is why a closed list costs a
+ * Mathematics teacher nothing.
+ */
 export type QuestionType =
   | 'multiple_choice'
+  | 'multiple_response'
+  | 'matching'
   | 'true_false'
   | 'short_answer'
   | 'extended_response'
@@ -22,6 +40,8 @@ export type QuestionType =
 
 export const QUESTION_TYPES: readonly QuestionType[] = [
   'multiple_choice',
+  'multiple_response',
+  'matching',
   'true_false',
   'short_answer',
   'extended_response',
@@ -31,11 +51,31 @@ export const QUESTION_TYPES: readonly QuestionType[] = [
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: 'Multiple choice',
+  multiple_response: 'Multiple response',
+  matching: 'Matching',
   true_false: 'True or false',
   short_answer: 'Short answer',
   extended_response: 'Extended response',
   table: 'Table',
   drawing: 'Drawing',
+}
+
+/**
+ * The types an examination numbers inline, `10  Which of the following …`,
+ * rather than heading `Question 10 (1 mark)`.
+ *
+ * Read off the Enterprise Computing papers, where questions 1 to 15 are one
+ * run of three types under three rubrics and print identically apart from the
+ * options beneath them; and off eleven years of Design and Technology, whose
+ * Section I is ten of the first kind.
+ */
+export function printsInline(type: QuestionType): boolean {
+  return (
+    type === 'multiple_choice' ||
+    type === 'multiple_response' ||
+    type === 'matching' ||
+    type === 'true_false'
+  )
 }
 
 /* ------------------------------------------------------------------ syllabus */
@@ -284,11 +324,31 @@ export interface TableRow {
   marks?: number
 }
 
+/** One row of a matching question's numbered column. */
+export interface MatchItem {
+  text: string
+  /**
+   * Indices into `options`. An array because the 2024 Enterprise Computing
+   * paper's rubric permits it — "Multiple lines can start and end from any
+   * item" — even though every question printed in 2024 and 2025 is one-to-one.
+   *
+   * Absent means the answer was never recorded, which is what a paper
+   * transcribed without its markscheme gives. It never stands for "links to
+   * nothing".
+   */
+  matches?: number[]
+}
+
 export interface QuestionConfig {
   /** multiple_choice */
   choices?: { text: string; feedback?: string }[]
   correctAnswer?: number | boolean
   shuffle?: boolean
+  /** multiple_response, alongside `choices` and `shuffle` */
+  correctAnswers?: number[]
+  /** matching */
+  items?: MatchItem[]
+  options?: { text: string }[]
   /** true_false */
   feedbackTrue?: string
   feedbackFalse?: string

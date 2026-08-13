@@ -15,13 +15,17 @@ import { Fragment } from 'preact'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
+  optionLetter,
   rowAnswers,
   shuffledChoices,
+  shuffledMatching,
+  shuffledResponses,
   type ResolvedPaper,
   type ResolvedQuestion,
 } from './paper'
 import { RichText } from './richtext'
 import { joinPath } from './storage'
+import { printsInline } from './types'
 import type { MarkCriterion, Profile, Question, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
@@ -340,7 +344,7 @@ function QuestionBlock({
    * `HEADING` — because eleven years of papers taught it to; the renderer knew
    * only the second shape and drew every question in the first.
    */
-  const asHeading = q.questionType !== 'multiple_choice' && q.questionType !== 'true_false'
+  const asHeading = !printsInline(q.questionType)
 
   return (
     <div class="q-print">
@@ -453,6 +457,33 @@ function QuestionBody({
       )
     }
 
+    case 'multiple_response': {
+      const { choices } = shuffledResponses(q)
+      return (
+        <>
+          {/*
+            The paper prints this once over a run of questions — "For questions
+            10-12 … (Multiple items may be selected)" — which Klunk has no way
+            to say, its runs being sections. Per question is the safe direction:
+            a question moved into another paper keeps it, and a student who is
+            not told cannot tell this from the multiple choice above it.
+          */}
+          <p class="q-print__hint">More than one answer may be correct.</p>
+          <ol class="choices choices--multi">
+            {choices.map((c, i) => (
+              <li key={i}>
+                <span class="choices__letter">{optionLetter(i)}.</span>
+                <span>{c.text}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )
+    }
+
+    case 'matching':
+      return <MatchingBody question={q} mode={mode} />
+
     case 'true_false':
       return (
         <p class="truefalse">
@@ -524,6 +555,38 @@ function GuideAnswer({ item }: { item: ResolvedQuestion }) {
       )
     }
 
+    case 'multiple_response': {
+      const { choices, correctIndexes, known } = shuffledResponses(q)
+      // Not knowing and knowing there are none are different, and only one of
+      // them can be printed as an answer (#64).
+      if (!known) {
+        return (
+          <p class="answer answer--unknown">
+            <strong>No answer recorded.</strong> This question was read without a markscheme.
+          </p>
+        )
+      }
+      return (
+        <>
+          <p class="answer">
+            <strong>Answer: {correctIndexes.map(optionLetter).join(', ')}</strong>
+          </p>
+          <ul class="answer__set">
+            {correctIndexes.map((i) => (
+              <li key={i}>
+                <span class="choices__letter">{optionLetter(i)}.</span>
+                <span>{choices[i]?.text}</span>
+                {choices[i]?.feedback && <span class="why"> {choices[i]?.feedback}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )
+    }
+
+    case 'matching':
+      return <MatchingBody question={q} mode="guide" />
+
     case 'true_false': {
       const yes = q.config?.correctAnswer === true
       const why = yes ? q.config?.feedbackTrue : q.config?.feedbackFalse
@@ -570,6 +633,98 @@ function GuideAnswer({ item }: { item: ResolvedQuestion }) {
       )
     }
   }
+}
+
+/**
+ * Two boxed columns with space between them to draw in.
+ *
+ * The gap is the answer: the paper's instruction is "draw lines linking items
+ * on the left with matching items on the right", so the column of white
+ * between the two halves is where a student works, and it is why this is not
+ * two lists stacked.
+ *
+ * **One table with a blank middle column, not two tables side by side**, and
+ * that is the whole of what makes it readable. The Enterprise Computing papers
+ * align the two halves row for row: `1 Enhanced data analysis` sits in a box
+ * exactly as tall as the three-line description beside it, most of the box
+ * empty. Two independent tables cannot do that, and the first reading here was
+ * two — a six-item question with short terms on the left and sentences on the
+ * right had its third numbered box beside the middle of the third letter's, so
+ * nothing on the page said which box a line runs between. A table row does it
+ * for nothing, which is very likely why the examination is laid out this way.
+ *
+ * Rows are the longer of the two columns, since more options than items is
+ * allowed. A row with nothing on one side gets unbordered cells rather than an
+ * empty box, because an empty box is somewhere a student would draw to.
+ *
+ * On the guide the same table prints, with the letters each numbered item
+ * takes written against it. A marker holding only the guide needs the words as
+ * well as the letters, which is why the columns are still here rather than a
+ * bare `1 → C`.
+ */
+function MatchingBody({ question, mode }: { question: Question; mode: PrintMode }) {
+  const { items, options, known } = shuffledMatching(question)
+
+  return (
+    <>
+      {/*
+        The same reasoning as multiple response's line, and it was missed here
+        first time. The paper prints "For questions 13-15, draw lines linking
+        items on the left with matching items on the right" once over a run,
+        which Klunk's sections cannot express. Without it the two columns are a
+        layout rather than a task: nothing on the page says a line is what the
+        student draws, and the boxes look like a table to fill in.
+      */}
+      {mode === 'paper' && (
+        <p class="q-print__hint">
+          Draw a line from each item on the left to the one on the right that matches it.
+        </p>
+      )}
+      {mode === 'guide' && !known && (
+        <p class="answer answer--unknown">
+          <strong>No answer recorded.</strong> This question was read without a markscheme.
+        </p>
+      )}
+      <table class="matching">
+        <tbody>
+          {Array.from({ length: Math.max(items.length, options.length) }, (_, i) => {
+            const item = items[i]
+            const option = options[i]
+            return (
+              <tr key={i}>
+                {item ? (
+                  <>
+                    <td class="matching__key">{i + 1}</td>
+                    <td class="matching__cell">{item.text}</td>
+                  </>
+                ) : (
+                  <>
+                    <td class="matching__none" />
+                    <td class="matching__none" />
+                  </>
+                )}
+                {mode === 'guide' && (
+                  <td class="matching__answer">{item?.letters.join(', ') ?? ''}</td>
+                )}
+                <td class="matching__gap" />
+                {option ? (
+                  <>
+                    <td class="matching__key">{optionLetter(i)}</td>
+                    <td class="matching__cell">{option.text}</td>
+                  </>
+                ) : (
+                  <>
+                    <td class="matching__none" />
+                    <td class="matching__none" />
+                  </>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </>
+  )
 }
 
 function TableBody({ question, mode }: { question: Question; mode: PrintMode }) {

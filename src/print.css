@@ -458,6 +458,65 @@
   font-weight: 700;
 }
 
+/* ------------------------------------------------------------------ matching */
+
+/*
+ * One table, so the two halves align row for row, with a blank middle column
+ * for the gap. The gap is not decoration: the paper's own instruction is to
+ * draw lines from one column to the other, so it is the space a student
+ * answers in, and 20mm is what the Enterprise Computing papers leave between
+ * their halves.
+ *
+ * `break-inside: avoid` because a matching question split across a page is
+ * unanswerable: the lines would have to cross the break.
+ */
+.matching {
+  width: 100%;
+  border-collapse: collapse;
+  break-inside: avoid;
+  font-size: 10pt;
+}
+
+.matching__key,
+.matching__cell {
+  border: 0.4pt solid #000;
+  padding: 2mm;
+  vertical-align: middle;
+}
+
+.matching__key {
+  width: 8mm;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Named rather than left to the browser: the two halves have to be the same
+   width whatever is in them, or a column of one-word terms shrinks to nothing
+   and the boxes stop looking like a pair. */
+.matching__cell {
+  width: 36%;
+}
+
+.matching__gap {
+  width: 20mm;
+  border: none;
+}
+
+/* A row where one side has run out. Unbordered, because an empty box is
+   somewhere a student would draw a line to. */
+.matching__none {
+  border: none;
+}
+
+.matching__answer {
+  width: 14mm;
+  text-align: center;
+  font-weight: 700;
+  /* Guide only, so it carries no border: it is an annotation beside the row
+     rather than a cell of the table the student saw. */
+  border: none;
+}
+
 /* --------------------------------------------------------------------- parts */
 
 .parts {
@@ -694,6 +753,28 @@
 .answer strong {
   /* The one thing a marker is looking for. */
   border-bottom: 1.5pt solid #000;
+}
+
+/*
+ * Not knowing the answer is not the same as there being none, so it is said in
+ * words and not underlined: a marker skimming for the underline finds nothing
+ * here, which is the point.
+ */
+.answer--unknown strong {
+  border-bottom: none;
+}
+
+.answer__set {
+  list-style: none;
+  margin: 0 0 2mm;
+  padding: 0;
+  font-size: 10pt;
+}
+
+.answer__set li {
+  display: grid;
+  grid-template-columns: 7mm 1fr;
+  margin-bottom: 1mm;
 }
 
 .why {

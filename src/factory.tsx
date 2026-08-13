@@ -803,7 +803,12 @@ function defaultMarks(type: QuestionType, profile: Profile | undefined): number 
 
   switch (type) {
     case 'multiple_choice':
+    case 'multiple_response':
+    case 'matching':
     case 'true_false':
+      // One mark, whatever it asks. The Enterprise Computing papers give a
+      // six-pair matching question and a seven-option multiple response the
+      // same single mark as the multiple choice beside them.
       return 1
     case 'extended_response':
       return 15

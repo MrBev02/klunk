@@ -208,6 +208,139 @@ describe('multiple choice', () => {
   })
 })
 
+/*
+ * The two types the Enterprise Computing Year 11 papers print and the other six
+ * could not say (#32). Both hold an answer key that may honestly be absent, and
+ * telling "not recorded" from "none" is most of what is tested here: multiple
+ * choice cannot make that distinction, and #64 is what it cost.
+ */
+describe('multiple response', () => {
+  const mr = (config: QuestionConfig): Question =>
+    question({ questionType: 'multiple_response', marks: 1, config })
+
+  const six = [
+    { text: 'a' },
+    { text: 'b' },
+    { text: 'c' },
+    { text: 'd' },
+    { text: 'e' },
+    { text: 'f' },
+  ]
+
+  it('needs at least three options', () => {
+    expect(
+      errors(mr({ choices: [{ text: 'a' }, { text: 'b' }], correctAnswers: [0] })).join(' '),
+    ).toContain('at least three options')
+  })
+
+  it('warns rather than refuses when no answers are recorded', () => {
+    // The whole reason `correctAnswers` is optional where multiple choice's
+    // `correctAnswer` is required. A paper transcribed without its markscheme
+    // still prints correctly, so this must not stop it being saved.
+    const q = mr({ choices: six })
+    expect(errors(q)).toEqual([])
+    expect(warnings(q).join(' ')).toContain('No answers are marked')
+  })
+
+  it('refuses an empty answer list, which says none of them are answers', () => {
+    expect(errors(mr({ choices: six, correctAnswers: [] })).join(' ')).toContain(
+      'Mark the options that are answers',
+    )
+  })
+
+  it('refuses an answer that is not one of the options, and a repeated one', () => {
+    expect(errors(mr({ choices: six, correctAnswers: [0, 9] })).join(' ')).toContain(
+      'not one of the options',
+    )
+    expect(errors(mr({ choices: six, correctAnswers: [2, 2] })).join(' ')).toContain(
+      'more than once',
+    )
+  })
+
+  it('says so when only one option is an answer', () => {
+    expect(warnings(mr({ choices: six, correctAnswers: [3] })).join(' ')).toContain(
+      'multiple choice question',
+    )
+  })
+
+  it('sorts the answers and drops an empty option when cleaned', () => {
+    const cleaned = cleanQuestion(
+      mr({ choices: [...six, { text: '   ' }], correctAnswers: [4, 0, 2], shuffle: true }),
+    )
+    expect(cleaned.config?.choices).toHaveLength(6)
+    expect(cleaned.config?.correctAnswers).toEqual([0, 2, 4])
+  })
+
+  it('never writes an answer list the question did not state', () => {
+    // `[]` would mean "none of these", which is a different claim from silence.
+    const cleaned = cleanQuestion(mr({ choices: six }))
+    expect('correctAnswers' in (cleaned.config ?? {})).toBe(false)
+  })
+})
+
+describe('matching', () => {
+  const match = (config: QuestionConfig): Question =>
+    question({ questionType: 'matching', marks: 1, config })
+
+  const twoByTwo: QuestionConfig = {
+    items: [{ text: 'Video', matches: [1] }, { text: 'Audio', matches: [0] }],
+    options: [{ text: 'MP3' }, { text: 'MP4' }],
+  }
+
+  it('needs two of each column', () => {
+    expect(
+      errors(match({ items: [{ text: 'only one' }], options: [{ text: 'a' }, { text: 'b' }] }))
+        .join(' '),
+    ).toContain('at least two numbered items')
+    expect(
+      errors(match({ items: [{ text: 'a' }, { text: 'b' }], options: [{ text: 'a' }] })).join(' '),
+    ).toContain('at least two lettered options')
+  })
+
+  it('refuses a link to an option that is not listed', () => {
+    expect(
+      errors(match({ ...twoByTwo, items: [{ text: 'Video', matches: [7] }, { text: 'Audio' }] }))
+        .join(' '),
+    ).toContain('not listed')
+  })
+
+  it('warns rather than refuses when nothing is linked', () => {
+    const q = match({ items: [{ text: 'Video' }, { text: 'Audio' }], options: [{ text: 'MP3' }, { text: 'MP4' }] })
+    expect(errors(q)).toEqual([])
+    expect(warnings(q).join(' ')).toContain('Nothing is linked')
+  })
+
+  it('names the items left unlinked when others are linked', () => {
+    // Half a key is far more likely to be unfinished than deliberate, but the
+    // 2024 paper's own rubric permits an item to link to nothing, so it is not
+    // an error.
+    const q = match({
+      items: [{ text: 'Video', matches: [1] }, { text: 'Audio' }, { text: 'Text' }],
+      options: [{ text: 'MP3' }, { text: 'MP4' }],
+    })
+    expect(errors(q)).toEqual([])
+    expect(warnings(q).join(' ')).toContain('Items 2, 3')
+  })
+
+  it('keeps an item linked to more than one option', () => {
+    // "Multiple lines can start and end from any item", printed on the 2024
+    // paper. Nothing here may treat the columns as a bijection.
+    const q = match({
+      items: [{ text: 'Cheap to run', matches: [0, 1] }, { text: 'Quiet', matches: [1] }],
+      options: [{ text: 'Electric' }, { text: 'Hybrid' }],
+    })
+    expect(errors(q)).toEqual([])
+    expect(cleanQuestion(q).config?.items?.[0]?.matches).toEqual([0, 1])
+  })
+
+  it('drops an empty row and keeps the rest', () => {
+    const cleaned = cleanQuestion(
+      match({ ...twoByTwo, items: [...(twoByTwo.items ?? []), { text: '  ' }] }),
+    )
+    expect(cleaned.config?.items).toHaveLength(2)
+  })
+})
+
 describe('written questions with parts', () => {
   it('refuses parts whose marks do not add up to the question', () => {
     const q = question({

@@ -353,6 +353,121 @@ describe('multiple choice, where a model most often goes wrong', () => {
   })
 })
 
+describe('multiple response', () => {
+  const mrCtx = ctx({ expected: { questionType: 'multiple_response', marks: 1 } })
+
+  const MR = (config: string) => `[{
+    "questionType": "multiple_response",
+    "questionText": "Which of the following are video file formats?",
+    "marks": 1,
+    "config": ${config}
+  }]`
+
+  const six = `[
+    { "text": "WAV" }, { "text": "MOV" }, { "text": "PNG" },
+    { "text": "MP3" }, { "text": "MP4" }, { "text": "MIDI" }
+  ]`
+
+  it('takes a list of indices as given', () => {
+    const { draft } = first(MR(`{ "choices": ${six}, "correctAnswers": [1, 4] }`), mrCtx)
+    expect(draft.question.config?.correctAnswers).toEqual([1, 4])
+    // The only repair is about the missing tagging, not about the answers: a
+    // reply in the shape the prompt asked for is taken silently.
+    expect(draft.repairs.join(' ')).not.toContain('answer')
+  })
+
+  it('takes the answers from flags on the options, which is what a model usually does', () => {
+    const flagged = MR(`{ "choices": [
+      { "text": "WAV" },
+      { "text": "MOV", "correct": true },
+      { "text": "PNG" },
+      { "text": "MP4", "correct": true }
+    ] }`)
+    const { draft } = first(flagged, mrCtx)
+    expect(draft.question.config?.correctAnswers).toEqual([1, 3])
+    expect(draft.repairs.join(' ')).toContain('"correct" flag')
+  })
+
+  it('turns a list of letters into indices', () => {
+    const { draft } = first(MR(`{ "choices": ${six}, "correctAnswers": ["B", "E"] }`), mrCtx)
+    expect(draft.question.config?.correctAnswers).toEqual([1, 4])
+  })
+
+  it('sorts and deduplicates what it was given', () => {
+    const { draft } = first(MR(`{ "choices": ${six}, "correctAnswers": [4, 1, 4] }`), mrCtx)
+    expect(draft.question.config?.correctAnswers).toEqual([1, 4])
+  })
+
+  it('leaves the answers absent rather than empty when none are stated', () => {
+    // A transcribed paper states no answers, and `[]` would say every option is
+    // wrong. Validation warns; it must not error, or the paper cannot be saved.
+    const { draft } = first(MR(`{ "choices": ${six} }`), mrCtx)
+    expect(draft.question.config?.correctAnswers).toBeUndefined()
+    expect(draft.faults.filter((f) => f.severity === 'error')).toEqual([])
+  })
+})
+
+describe('matching', () => {
+  const matchCtx = ctx({ expected: { questionType: 'matching', marks: 1 } })
+
+  const MATCH = (config: string) => `[{
+    "questionType": "matching",
+    "questionText": "Match the media type with its file format.",
+    "marks": 1,
+    "config": ${config}
+  }]`
+
+  it('reads two columns of plain strings and the links between them', () => {
+    const { draft } = first(
+      MATCH(`{
+        "items": [ { "text": "Video", "matches": [1] }, { "text": "Audio", "matches": [0] } ],
+        "options": ["MP3", "MP4"]
+      }`),
+      matchCtx,
+    )
+    expect(draft.question.config?.options).toEqual([{ text: 'MP3' }, { text: 'MP4' }])
+    expect(draft.question.config?.items?.[0]?.matches).toEqual([1])
+  })
+
+  it('reads pairs given by wording, building the lettered column as it goes', () => {
+    const { draft } = first(
+      MATCH(`{ "pairs": [
+        { "left": "Video", "right": "MP4" },
+        { "left": "Audio", "right": "MP3" }
+      ] }`),
+      matchCtx,
+    )
+    expect(draft.question.config?.options).toEqual([{ text: 'MP4' }, { text: 'MP3' }])
+    expect(draft.question.config?.items?.map((i) => i.matches)).toEqual([[0], [1]])
+    expect(draft.repairs.join(' ')).toContain('Added "MP4"')
+  })
+
+  it('leaves an item unlinked rather than guessing, and does not error for it', () => {
+    const { draft } = first(
+      MATCH(`{
+        "items": [ { "text": "Video" }, { "text": "Audio" } ],
+        "options": ["MP3", "MP4"]
+      }`),
+      matchCtx,
+    )
+    expect(draft.question.config?.items?.[0]?.matches).toBeUndefined()
+    expect(draft.faults.filter((f) => f.severity === 'error')).toEqual([])
+  })
+
+  it('drops a link to an option that does not exist', () => {
+    // Better an unlinked item than a link into nothing: the second prints a
+    // letter on the guide that is on no paper.
+    const { draft } = first(
+      MATCH(`{
+        "items": [ { "text": "Video", "matches": [9] } ],
+        "options": ["MP3", "MP4"]
+      }`),
+      matchCtx,
+    )
+    expect(draft.question.config?.items?.[0]?.matches).toBeUndefined()
+  })
+})
+
 /* -------------------------------------------------------------- the other types */
 
 describe('the other types', () => {

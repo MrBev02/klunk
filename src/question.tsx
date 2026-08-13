@@ -12,12 +12,18 @@
 
 import { useState } from 'preact/hooks'
 import { unresolvedAgainst, type ModelIds } from './modelcheck'
-import { rowAnswers, shuffledChoices } from './paper'
+import { optionLetter, rowAnswers, shuffledChoices, shuffledMatching, shuffledResponses } from './paper'
 import { markRange } from './render'
 import { RichText } from './richtext'
 import { joinPath } from './storage'
 import type { Stimulus } from './types'
-import { QUESTION_TYPE_LABELS, questionLabel, type Question, type QuestionRef } from './types'
+import {
+  QUESTION_TYPE_LABELS,
+  questionLabel,
+  type Question,
+  type QuestionRef,
+  type QuestionType,
+} from './types'
 import { hasGuide, looksBanded, needsGuide } from './validate'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -201,6 +207,101 @@ function Body({ question: q }: { question: Question }) {
           )}
         </div>
       )
+
+    case 'multiple_response': {
+      const { choices, correctIndexes, known } = shuffledResponses(q)
+      const isAnswer = new Set(correctIndexes)
+      return (
+        <div class="det">
+          <p class="det__label">
+            Options, in the order they will print
+            {known ? '' : ' · no answers recorded'}
+          </p>
+          <ul class="opts">
+            {choices.map((c, i) => (
+              <li key={i} class={isAnswer.has(i) ? 'is-correct' : ''}>
+                <span class="opts__letter">{optionLetter(i)}</span>
+                <span>
+                  {c.text}
+                  {isAnswer.has(i) && <strong class="muted"> (an answer)</strong>}
+                </span>
+                {c.feedback && <span class="opts__why">{c.feedback}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+
+    /*
+     * The same table `render.tsx` prints, in screen units.
+     *
+     * Two faults got it here. It began as a `minitable` of the numbered column
+     * above an `opts` list of the lettered one: two visual forms for the two
+     * halves of one pairing, so nothing said the halves belonged together or
+     * that a line is drawn between them, and a single digit was stretched
+     * across a third of the width. Side-by-side columns fixed that and left
+     * the real one — the halves have to align **row for row**, which is what
+     * the examination does and what says which box a line runs between.
+     *
+     * #76 settled the general form of this for the syllabus panel: two
+     * renderings of one thing are how the two stop agreeing about what the
+     * thing looks like. Screen and print keep separate stylesheets here, as
+     * `answertable` and `minitable` already do, but the markup is the same
+     * shape on purpose.
+     */
+    case 'matching': {
+      const { items, options, known } = shuffledMatching(q)
+      return (
+        <div class="det">
+          <p class="det__label">
+            The two columns, as they will print{known ? '' : ' · no links recorded'}
+          </p>
+          <div class="matchdet">
+            <table class="matchdet__table">
+              <tbody>
+                {Array.from({ length: Math.max(items.length, options.length) }, (_, i) => {
+                  const item = items[i]
+                  const option = options[i]
+                  return (
+                    <tr key={i}>
+                      {item ? (
+                        <>
+                          <td class="matchdet__key">{i + 1}</td>
+                          <td class="matchdet__cell">{item.text}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td class="matchdet__none" />
+                          <td class="matchdet__none" />
+                        </>
+                      )}
+                      {/* Only where there is an answer to show. A dash in every
+                          row is a column of nothing pretending to be one. */}
+                      {known && (
+                        <td class="matchdet__answer">{item?.letters.join(', ') || '–'}</td>
+                      )}
+                      <td class="matchdet__gap" />
+                      {option ? (
+                        <>
+                          <td class="matchdet__key">{optionLetter(i)}</td>
+                          <td class="matchdet__cell">{option.text}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td class="matchdet__none" />
+                          <td class="matchdet__none" />
+                        </>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )
+    }
 
     case 'table': {
       const cols = q.config?.columns ?? []
@@ -419,16 +520,27 @@ function Tags({ question: q, known }: { question: Question; known?: ModelIds | u
 
 /* --------------------------------------------------------------------- utils */
 
+/*
+ * `Record<QuestionType, string>` rather than `Record<string, string>` with a
+ * fallback, which is what this was: a type added to the list printed its own
+ * `multiple_response` in the builder's rail, past the typechecker and past every
+ * test, and was only visible on screen.
+ *
+ * `MC` and `T/F` are abbreviations teachers already write on a mark sheet.
+ * There is no such shorthand for the other two, so they get a word.
+ */
 export function shortType(q: Question): string {
-  const map: Record<string, string> = {
+  const map: Record<QuestionType, string> = {
     multiple_choice: 'MC',
+    multiple_response: 'multi',
+    matching: 'match',
     true_false: 'T/F',
     short_answer: 'short',
     extended_response: 'extended',
     table: 'table',
     drawing: 'drawing',
   }
-  return map[q.questionType] ?? q.questionType
+  return map[q.questionType]
 }
 
 export function sourceLabel(q: Question): string {

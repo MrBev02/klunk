@@ -39,6 +39,7 @@ import {
   QUESTION_TYPE_LABELS,
   type MarkCriterion,
   type Question,
+  type MatchItem,
   type QuestionConfig,
   type QuestionPart,
   type QuestionType,
@@ -402,6 +403,12 @@ function TypeFields({
     case 'multiple_choice':
       return <ChoiceFields cfg={cfg} setConfig={setConfig} />
 
+    case 'multiple_response':
+      return <ResponseFields cfg={cfg} setConfig={setConfig} />
+
+    case 'matching':
+      return <MatchingFields cfg={cfg} setConfig={setConfig} />
+
     case 'true_false':
       return (
         <section class="panel">
@@ -590,6 +597,249 @@ function ChoiceFields({
           onChange={(e) => setConfig({ shuffle: (e.target as HTMLInputElement).checked })}
         />
         Shuffle the options
+      </label>
+    </section>
+  )
+}
+
+/**
+ * Multiple choice with tickboxes instead of a radio, and one real difference.
+ *
+ * Unticking the last answer clears `correctAnswers` rather than leaving `[]`,
+ * so the form can say "not recorded" at all. That is the state a paper
+ * transcribed without its markscheme arrives in, and the alternative is
+ * asserting that no option is an answer.
+ */
+function ResponseFields({
+  cfg,
+  setConfig,
+}: {
+  cfg: QuestionConfig
+  setConfig: (patch: Patch<QuestionConfig>) => void
+}) {
+  const choices = cfg.choices ?? []
+  const correct = cfg.correctAnswers ?? []
+  const isAnswer = new Set(correct)
+
+  const change = (i: number, patch: Patch<{ text: string; feedback?: string }>) =>
+    setConfig({ choices: choices.map((c, j) => (i === j ? patched(c, patch) : c)) })
+
+  const toggle = (i: number) => {
+    const next = isAnswer.has(i) ? correct.filter((n) => n !== i) : [...correct, i].sort((a, b) => a - b)
+    setConfig({ correctAnswers: next.length ? next : undefined })
+  }
+
+  return (
+    <section class="panel">
+      <p class="panel__title">Options</p>
+      <p class="hint">
+        Tick every option that is an answer. The paper tells the student more than one may
+        be correct, without saying how many.
+      </p>
+
+      <ol class="editrows">
+        {choices.map((c, i) => (
+          <li key={i} class="editrow">
+            <label class="editrow__pick" title="This option is one of the answers">
+              <input type="checkbox" checked={isAnswer.has(i)} onChange={() => toggle(i)} />
+              <span class="editrow__letter">{String.fromCharCode(65 + i)}</span>
+            </label>
+            <div class="editrow__body">
+              <input
+                class="input"
+                value={c.text}
+                placeholder="The option as the student reads it"
+                onInput={(e) => change(i, { text: (e.target as HTMLInputElement).value })}
+              />
+              <input
+                class="input input--sub"
+                value={c.feedback ?? ''}
+                placeholder={
+                  isAnswer.has(i) ? 'Why this is an answer' : 'Why this one is not'
+                }
+                onInput={(e) => change(i, { feedback: (e.target as HTMLInputElement).value })}
+              />
+            </div>
+            <button
+              class="btn btn--icon"
+              title="Remove this option"
+              disabled={choices.length <= 3}
+              onClick={() =>
+                setConfig({
+                  choices: choices.filter((_, j) => j !== i),
+                  // The answers move with the options they point into.
+                  correctAnswers: nonEmptyIndexes(correct.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n))),
+                })
+              }
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <button
+        class="btn btn--small"
+        disabled={choices.length >= 8}
+        onClick={() => setConfig({ choices: [...choices, { text: '' }] })}
+      >
+        Add an option
+      </button>
+
+      {correct.length === 0 && (
+        <p class="hint">No answers ticked. The marking guide will say so instead of printing them.</p>
+      )}
+
+      <label class="checkline">
+        <input
+          type="checkbox"
+          checked={cfg.shuffle !== false}
+          onChange={(e) => setConfig({ shuffle: (e.target as HTMLInputElement).checked })}
+        />
+        Shuffle the options
+      </label>
+    </section>
+  )
+}
+
+/** `[]` means "none are answers" everywhere else, so it never gets written. */
+function nonEmptyIndexes(indexes: number[]): number[] | undefined {
+  return indexes.length ? indexes : undefined
+}
+
+function MatchingFields({
+  cfg,
+  setConfig,
+}: {
+  cfg: QuestionConfig
+  setConfig: (patch: Patch<QuestionConfig>) => void
+}) {
+  const items = cfg.items ?? []
+  const options = cfg.options ?? []
+
+  const setItem = (i: number, patch: Patch<MatchItem>) =>
+    setConfig({ items: items.map((item, j) => (i === j ? patched(item, patch) : item)) })
+
+  const link = (i: number, at: number) => {
+    const now = items[i]?.matches ?? []
+    const next = now.includes(at) ? now.filter((n) => n !== at) : [...now, at].sort((a, b) => a - b)
+    setItem(i, { matches: nonEmptyIndexes(next) })
+  }
+
+  return (
+    <section class="panel">
+      <p class="panel__title">The two columns</p>
+      <p class="hint">
+        Write both columns, then click a letter to link it to that item. The lettered
+        column prints in a shuffled but fixed order.
+      </p>
+
+      <ol class="editrows">
+        {items.map((item, i) => (
+          <li key={i} class="editrow">
+            <span class="editrow__letter">{i + 1}</span>
+            <div class="editrow__body">
+              <input
+                class="input"
+                value={item.text}
+                placeholder="The item as the student reads it"
+                onInput={(e) => setItem(i, { text: (e.target as HTMLInputElement).value })}
+              />
+              <div class="matchpick">
+                {options.map((_, at) => (
+                  <button
+                    key={at}
+                    type="button"
+                    class={`btn btn--letter ${item.matches?.includes(at) ? 'is-on' : ''}`}
+                    aria-pressed={item.matches?.includes(at) ? 'true' : 'false'}
+                    title={`Link item ${i + 1} to option ${String.fromCharCode(65 + at)}`}
+                    onClick={() => link(i, at)}
+                  >
+                    {String.fromCharCode(65 + at)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              class="btn btn--icon"
+              title="Remove this item"
+              disabled={items.length <= 2}
+              onClick={() => setConfig({ items: items.filter((_, j) => j !== i) })}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <button
+        class="btn btn--small"
+        onClick={() => setConfig({ items: [...items, { text: '' }] })}
+      >
+        Add an item
+      </button>
+
+      <p class="panel__title">The lettered column</p>
+      <ol class="editrows">
+        {options.map((o, i) => (
+          <li key={i} class="editrow">
+            <span class="editrow__letter">{String.fromCharCode(65 + i)}</span>
+            <div class="editrow__body">
+              <input
+                class="input"
+                value={o.text}
+                placeholder="The option as the student reads it"
+                onInput={(e) =>
+                  setConfig({
+                    options: options.map((x, j) =>
+                      i === j ? { text: (e.target as HTMLInputElement).value } : x,
+                    ),
+                  })
+                }
+              />
+            </div>
+            <button
+              class="btn btn--icon"
+              title="Remove this option"
+              disabled={options.length <= 2}
+              onClick={() =>
+                setConfig({
+                  options: options.filter((_, j) => j !== i),
+                  // Every link past the removed option shifts down with it, and
+                  // links to the option itself go. Leaving them would point at
+                  // whatever moved up into the gap.
+                  items: items.map((item) =>
+                    item.matches === undefined
+                      ? item
+                      : patched(item, {
+                          matches: nonEmptyIndexes(
+                            item.matches.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n)),
+                          ),
+                        }),
+                  ),
+                })
+              }
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <button
+        class="btn btn--small"
+        onClick={() => setConfig({ options: [...options, { text: '' }] })}
+      >
+        Add an option
+      </button>
+
+      <label class="checkline">
+        <input
+          type="checkbox"
+          checked={cfg.shuffle !== false}
+          onChange={(e) => setConfig({ shuffle: (e.target as HTMLInputElement).checked })}
+        />
+        Shuffle the lettered column
       </label>
     </section>
   )
@@ -1522,6 +1772,8 @@ function blankQuestion(type: QuestionType): Question {
 function defaultMarks(type: QuestionType): number {
   switch (type) {
     case 'multiple_choice':
+    case 'multiple_response':
+    case 'matching':
     case 'true_false':
       return 1
     case 'extended_response':
@@ -1539,6 +1791,27 @@ function defaultConfig(type: QuestionType): QuestionConfig {
       return {
         choices: [{ text: '' }, { text: '' }, { text: '' }, { text: '' }],
         correctAnswer: 0,
+        shuffle: true,
+      }
+    case 'multiple_response':
+      // Six, which is what both Enterprise Computing papers print, and no
+      // `correctAnswers`: nothing has been ticked yet, and that is a state the
+      // form can say rather than a gap it has to fill.
+      return {
+        choices: [
+          { text: '' },
+          { text: '' },
+          { text: '' },
+          { text: '' },
+          { text: '' },
+          { text: '' },
+        ],
+        shuffle: true,
+      }
+    case 'matching':
+      return {
+        items: [{ text: '' }, { text: '' }, { text: '' }, { text: '' }],
+        options: [{ text: '' }, { text: '' }, { text: '' }, { text: '' }],
         shuffle: true,
       }
     case 'true_false':

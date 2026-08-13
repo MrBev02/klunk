@@ -21,6 +21,8 @@ import {
   resolvePaper,
   rowAnswers,
   shuffledChoices,
+  shuffledMatching,
+  shuffledResponses,
 } from './paper'
 import { emptyManifest } from './manifest'
 import type { ContentIndex } from './storage'
@@ -847,6 +849,143 @@ describe('shuffledChoices', () => {
     shuffledChoices(mc('new-two'))
     const after = shuffledChoices(mc('keep'))
     expect(after.choices.map((c) => c.text)).toEqual(before.choices.map((c) => c.text))
+  })
+})
+
+/*
+ * Both new types shuffle a lettered column and carry an answer that points into
+ * it, so the answer has to move with it. A remap that is off by one prints a
+ * marking guide that is wrong and looks entirely reasonable, which is the
+ * failure mode this whole file exists for.
+ */
+describe('shuffledResponses', () => {
+  const mr = (id: string, correctAnswers?: number[]): Question => ({
+    id,
+    questionType: 'multiple_response',
+    questionText: 'Which of these are video formats?',
+    marks: 1,
+    config: {
+      choices: [
+        { text: 'WAV' },
+        { text: 'MOV' },
+        { text: 'PNG' },
+        { text: 'MP3' },
+        { text: 'MP4' },
+        { text: 'MIDI' },
+      ],
+      ...(correctAnswers ? { correctAnswers } : {}),
+    },
+  })
+
+  it('keeps pointing at the options that were the answers', () => {
+    for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+      const { choices, correctIndexes } = shuffledResponses(mr(id, [1, 4]))
+      expect(correctIndexes.map((i) => choices[i]?.text).sort()).toEqual(['MOV', 'MP4'])
+    }
+  })
+
+  it('is stable across calls', () => {
+    const q = mr('stable', [1, 4])
+    const first = shuffledResponses(q)
+    for (let i = 0; i < 20; i += 1) {
+      const again = shuffledResponses(q)
+      expect(again.choices.map((c) => c.text)).toEqual(first.choices.map((c) => c.text))
+      expect(again.correctIndexes).toEqual(first.correctIndexes)
+    }
+  })
+
+  it('reports answers as unknown when none are recorded, not as an empty set', () => {
+    const unknown = shuffledResponses(mr('none'))
+    expect(unknown.known).toBe(false)
+    expect(unknown.correctIndexes).toEqual([])
+
+    // Same empty array, opposite meaning, and the guide prints them
+    // differently. Nothing may collapse the two.
+    const stated = shuffledResponses(mr('some', [0]))
+    expect(stated.known).toBe(true)
+  })
+
+  it('reorders at least some questions', () => {
+    const moved = ['a', 'b', 'c', 'd'].filter(
+      (id) => shuffledResponses(mr(id, [0])).choices[0]?.text !== 'WAV',
+    )
+    expect(moved.length).toBeGreaterThan(0)
+  })
+})
+
+describe('shuffledMatching', () => {
+  const matching = (id: string, matches = true): Question => ({
+    id,
+    questionType: 'matching',
+    questionText: 'Match the media type with its file format.',
+    marks: 1,
+    config: {
+      items: [
+        { text: 'Text', ...(matches ? { matches: [4] } : {}) },
+        { text: 'Image', ...(matches ? { matches: [5] } : {}) },
+        { text: 'Video', ...(matches ? { matches: [2] } : {}) },
+        { text: 'Audio', ...(matches ? { matches: [0] } : {}) },
+      ],
+      options: [
+        { text: 'MP3' },
+        { text: 'SWF' },
+        { text: 'MP4' },
+        { text: 'ZIP' },
+        { text: 'TXT' },
+        { text: 'PNG' },
+      ],
+    },
+  })
+
+  it('gives each item the letter its own option ended up with', () => {
+    const wanted = { Text: 'TXT', Image: 'PNG', Video: 'MP4', Audio: 'MP3' }
+    for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+      const { items, options } = shuffledMatching(matching(id))
+      items.forEach((item) => {
+        const letter = item.letters[0]
+        expect(letter).toBeDefined()
+        const at = (letter as string).charCodeAt(0) - 65
+        expect(options[at]?.text).toBe(wanted[item.text as keyof typeof wanted])
+      })
+    }
+  })
+
+  it('leaves the numbered column in the teacher\'s own order', () => {
+    // Only the letters move. The numbers carry the question's sense.
+    for (const id of ['a', 'b', 'c', 'd']) {
+      expect(shuffledMatching(matching(id)).items.map((i) => i.text)).toEqual([
+        'Text',
+        'Image',
+        'Video',
+        'Audio',
+      ])
+    }
+  })
+
+  it('carries an item linked to more than one option', () => {
+    const q = matching('many')
+    q.config = {
+      ...q.config,
+      items: [{ text: 'Compressed', matches: [3, 1] }, { text: 'Audio', matches: [0] }],
+    }
+    const { items, options } = shuffledMatching(q)
+    const letters = items[0]?.letters ?? []
+    expect(letters).toHaveLength(2)
+    expect(letters.map((l) => options[l.charCodeAt(0) - 65]?.text).sort()).toEqual(['SWF', 'ZIP'])
+  })
+
+  it('reports links as unknown when none are recorded', () => {
+    expect(shuffledMatching(matching('bare', false)).known).toBe(false)
+    expect(shuffledMatching(matching('keyed')).known).toBe(true)
+  })
+
+  it('is stable across calls, and reorders at least some questions', () => {
+    const q = matching('stable')
+    expect(shuffledMatching(q).options).toEqual(shuffledMatching(q).options)
+    const moved = ['a', 'b', 'c', 'd'].filter(
+      (id) => shuffledMatching(matching(id)).options[0]?.text !== 'MP3',
+    )
+    expect(moved.length).toBeGreaterThan(0)
   })
 })
 

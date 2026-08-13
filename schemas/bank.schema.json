@@ -142,6 +142,14 @@
           "then": { "properties": { "config": { "$ref": "#/$defs/multipleChoiceConfig" } }, "required": ["config"] }
         },
         {
+          "if": { "properties": { "questionType": { "const": "multiple_response" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/multipleResponseConfig" } }, "required": ["config"] }
+        },
+        {
+          "if": { "properties": { "questionType": { "const": "matching" } }, "required": ["questionType"] },
+          "then": { "properties": { "config": { "$ref": "#/$defs/matchingConfig" } }, "required": ["config"] }
+        },
+        {
           "if": { "properties": { "questionType": { "const": "true_false" } }, "required": ["questionType"] },
           "then": { "properties": { "config": { "$ref": "#/$defs/trueFalseConfig" } }, "required": ["config"] }
         },
@@ -230,6 +238,90 @@
           "type": "boolean",
           "default": true,
           "description": "Shuffled deterministically per question, so option letters stay identical between the student paper and the marking guide across rebuilds."
+        }
+      }
+    },
+
+    "multipleResponseConfig": {
+      "type": "object",
+      "description": "One stem, a lettered list, and more than one right answer. Printed by the Enterprise Computing Year 11 papers over questions 10-12 in both 2024 and 2025, under the rubric 'place an X next to each alternative that answers the question. (Multiple items may be selected)'. Six or seven options in every instance, and the paper never prints how many are correct.",
+      "required": ["choices"],
+      "additionalProperties": false,
+      "properties": {
+        "choices": {
+          "type": "array",
+          "minItems": 3,
+          "description": "Three at least: with two, a question with one right answer is multiple choice and one with two right answers asks nothing.",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "feedback": {
+                "type": "string",
+                "description": "Why this option is or is not one of the answers."
+              }
+            }
+          }
+        },
+        "correctAnswers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Zero-based indices into choices, in any order. Deliberately NOT required, unlike multipleChoiceConfig's 'correctAnswer': a question paper transcribed without its markscheme does not state the answer, and the alternative is inventing one. That is exactly what #64 caught doing silently. Absent means unknown and Klunk says so; it never stands for 'none'."
+        },
+        "shuffle": {
+          "type": "boolean",
+          "default": true,
+          "description": "As for multiple choice: deterministic per question, so the letters agree between the student paper and the marking guide."
+        }
+      }
+    },
+
+    "matchingConfig": {
+      "type": "object",
+      "description": "Two lists, drawn together. The Enterprise Computing Year 11 papers print questions 13-15 this way in both 2024 and 2025: a numbered column, a lettered column beside it, and 'draw lines linking items on the left with matching items on the right'. Not a table question, because the right-hand column is a closed list the student chooses from rather than cells they fill in.",
+      "required": ["items", "options"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 2,
+          "description": "The left column, numbered 1, 2, 3 in the order given.",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "matches": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "type": "integer", "minimum": 0 },
+                "description": "Zero-based indices into options. An array rather than a single index because the 2024 paper's own rubric says '(Multiple lines can start and end from any item)'. Every question in both years happens to be one-to-one, but the examination does not promise it, so the model does not either. Absent means the answer is not recorded, for the reason multipleResponseConfig's correctAnswers gives."
+              }
+            }
+          }
+        },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "description": "The right column, lettered A, B, C after shuffling. May be longer than 'items', which leaves spare options nothing links to.",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "shuffle": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shuffles the lettered column only. The numbered column is the teacher's own order and carries the question's sense; the letters are what would otherwise run 1-A, 2-B, 3-C and answer the question for the student."
         }
       }
     },

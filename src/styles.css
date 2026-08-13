@@ -1636,6 +1636,93 @@ textarea.input {
   font-weight: 700;
 }
 
+/*
+ * A matching question shown as the table it prints as: the two halves aligned
+ * row for row, with a blank column between them for the gap the student draws
+ * across.
+ *
+ * It scrolls sideways rather than reflowing. This renders in two places of
+ * very different widths, the library's detail panel and the question editor's
+ * preview rail at about 340px, and the row alignment is the whole point of the
+ * layout, so there is nothing to reflow *to*: stacked columns cannot align and
+ * squeezed ones put a six-word description one word per line. A minimum width
+ * and a scrollbar keeps it honest at both sizes.
+ */
+.matchdet {
+  overflow-x: auto;
+}
+
+.matchdet__table {
+  width: 100%;
+  min-width: 26rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.matchdet__key,
+.matchdet__cell {
+  border: 1px solid var(--rule);
+  padding: 0.35rem 0.5rem;
+  vertical-align: middle;
+}
+
+.matchdet__key {
+  width: 1.6rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+.matchdet__cell {
+  width: 36%;
+}
+
+.matchdet__gap {
+  width: 2.5rem;
+  border: none;
+}
+
+/* A row where one side has run out. Unbordered, so it does not read as a box
+   with nothing in it. */
+.matchdet__none {
+  border: none;
+}
+
+.matchdet__answer {
+  width: 2.2rem;
+  border: none;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* The row of letters under a matching item, one per lettered option. */
+.matchpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.btn--letter {
+  font-family: var(--mono);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  min-height: 0;
+}
+
+.btn--letter.is-on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-weight: 700;
+}
+
 .checkline {
   display: flex;
   align-items: baseline;

@@ -23,6 +23,7 @@ import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
   type MarkCriterion,
+  type MatchItem,
   type Question,
   type QuestionConfig,
   type QuestionPart,
@@ -706,6 +707,26 @@ const DRAWING_SUBTYPES = ['sketch', 'diagram', 'flowchart', 'orthographic', 'fre
 /** Everything each type's config accepts, tolerated aliases included. */
 const CONFIG_FIELDS: Record<QuestionType, string[]> = {
   multiple_choice: ['choices', 'options', 'answers', 'correctAnswer', 'correct', 'answer', 'shuffle'],
+  multiple_response: [
+    'choices',
+    'options',
+    'correctAnswers',
+    'answers',
+    'correct',
+    'answer',
+    'shuffle',
+  ],
+  matching: [
+    'items',
+    'left',
+    'pairs',
+    'options',
+    'right',
+    'matches',
+    'links',
+    'matchIndexes',
+    'shuffle',
+  ],
   true_false: ['correctAnswer', 'correct', 'answer', 'feedbackTrue', 'feedbackFalse'],
   short_answer: ['answerLines', 'lines', 'parts', 'subQuestions'],
   extended_response: ['answerLines', 'lines', 'parts', 'subQuestions'],
@@ -730,6 +751,10 @@ function readConfig(type: QuestionType, value: unknown, repairs: string[]): Ques
   switch (type) {
     case 'multiple_choice':
       return readChoices(cfg, repairs)
+    case 'multiple_response':
+      return readResponses(cfg, repairs)
+    case 'matching':
+      return readMatching(cfg, repairs)
     case 'true_false':
       return readTrueFalse(cfg, repairs)
     case 'table':
@@ -742,10 +767,21 @@ function readConfig(type: QuestionType, value: unknown, repairs: string[]): Ques
   }
 }
 
-function readChoices(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
+/**
+ * The options, however the model listed them, and which of them it flagged.
+ *
+ * Shared because multiple choice and multiple response take the same list and
+ * differ only in how many flags they expect. A model asked for a multiple
+ * response question very often marks each option `"correct": true` rather than
+ * listing indices, so the flags are the ordinary route there rather than the
+ * fallback they are for multiple choice.
+ */
+function readChoiceList(cfg: Record<string, unknown>): {
+  choices: { text: string; feedback?: string }[]
+  flagged: number[]
+} {
   const choices: { text: string; feedback?: string }[] = []
-  /** Set when the model marked the right option on the option itself. */
-  let flagged: number | undefined
+  const flagged: number[] = []
 
   asArray(cfg.choices ?? cfg.options ?? cfg.answers).forEach((entry) => {
     if (typeof entry === 'string') {
@@ -760,9 +796,16 @@ function readChoices(cfg: Record<string, unknown>, repairs: string[]): QuestionC
     if (text === undefined) return
 
     const feedback = asString(c.feedback) ?? asString(c.why) ?? asString(c.explanation)
-    if (c.correct === true || c.isCorrect === true) flagged = choices.length
+    if (c.correct === true || c.isCorrect === true) flagged.push(choices.length)
     choices.push(feedback === undefined ? { text } : { text, feedback })
   })
+
+  return { choices, flagged }
+}
+
+function readChoices(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
+  const { choices, flagged: allFlagged } = readChoiceList(cfg)
+  const flagged = allFlagged[0]
 
   const out: QuestionConfig = { choices }
   const correct = readCorrectIndex(cfg.correctAnswer ?? cfg.correct ?? cfg.answer, choices, repairs)
@@ -821,6 +864,101 @@ function readCorrectIndex(
 
   repairs.push(`Could not tell which option "${raw}" means, so no answer is marked.`)
   return undefined
+}
+
+function readResponses(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
+  const { choices, flagged } = readChoiceList(cfg)
+  const out: QuestionConfig = { choices }
+
+  const stated = cfg.correctAnswers ?? cfg.correct ?? cfg.answers ?? cfg.answer
+  const listed = Array.isArray(stated)
+    ? stated
+        .map((v) => readCorrectIndex(v, choices, repairs))
+        .filter((i): i is number => i !== undefined)
+    : undefined
+
+  if (listed?.length) {
+    out.correctAnswers = [...new Set(listed)].sort((a, b) => a - b)
+  } else if (flagged.length > 0) {
+    out.correctAnswers = flagged
+    repairs.push(
+      `Took the answers from the "correct" flag on option${flagged.length === 1 ? '' : 's'} ` +
+        `${flagged.map(letter).join(', ')}, because no correctAnswers list was given.`,
+    )
+  }
+  // Nothing else. An unreadable answer leaves `correctAnswers` absent, which is
+  // "not recorded" rather than "none", and both the guide and the checker say
+  // so. Filling in an empty array here would assert that no option is an
+  // answer, which is the failure #64 was about wearing different clothes.
+
+  if (typeof cfg.shuffle === 'boolean') out.shuffle = cfg.shuffle
+  return out
+}
+
+/**
+ * Two columns, and the links between them.
+ *
+ * The links arrive in every shape a model can invent, so `matches` is read from
+ * the item, from a `pairs` list of two texts, and from a `1: "C"` style map.
+ * What none of them may do is invent a link that was not given: an unmatched
+ * item stays unmatched.
+ */
+function readMatching(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
+  const options: { text: string }[] = []
+  asArray(cfg.options ?? cfg.right ?? cfg.matches).forEach((entry) => {
+    const text =
+      typeof entry === 'string'
+        ? asString(entry)
+        : typeof entry === 'object' && entry !== null
+          ? asString((entry as Record<string, unknown>).text) ??
+            asString((entry as Record<string, unknown>).option) ??
+            asString((entry as Record<string, unknown>).label)
+          : undefined
+    if (text !== undefined) options.push({ text })
+  })
+
+  const items: MatchItem[] = []
+  asArray(cfg.items ?? cfg.left ?? cfg.pairs).forEach((entry) => {
+    if (typeof entry === 'string') {
+      const text = asString(entry)
+      if (text) items.push({ text })
+      return
+    }
+    if (typeof entry !== 'object' || entry === null) return
+
+    const e = entry as Record<string, unknown>
+    const text = asString(e.text) ?? asString(e.item) ?? asString(e.left) ?? asString(e.label)
+    if (text === undefined) return
+
+    // A `pairs` entry names its partner's wording rather than its position, and
+    // that wording may not be in `options` yet — a model that answers with
+    // pairs alone often gives no separate option list at all.
+    const partner = asString(e.right) ?? asString(e.match) ?? asString(e.answer)
+    if (partner !== undefined) {
+      let at = options.findIndex((o) => o.text.toLowerCase() === partner.toLowerCase())
+      if (at < 0) {
+        at = options.length
+        options.push({ text: partner })
+        repairs.push(`Added "${partner}" to the lettered column, from the pair given for "${text}".`)
+      }
+      items.push({ text, matches: [at] })
+      return
+    }
+
+    const raw = e.matches ?? e.links ?? e.matchIndexes
+    if (raw === undefined) {
+      items.push({ text })
+      return
+    }
+    const matched = asArray(raw)
+      .map((v) => readCorrectIndex(v, options, repairs))
+      .filter((i): i is number => i !== undefined && i >= 0 && i < options.length)
+    items.push(matched.length ? { text, matches: [...new Set(matched)] } : { text })
+  })
+
+  const out: QuestionConfig = { items, options }
+  if (typeof cfg.shuffle === 'boolean') out.shuffle = cfg.shuffle
+  return out
 }
 
 function readTrueFalse(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {

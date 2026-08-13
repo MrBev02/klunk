@@ -212,6 +212,20 @@ export function marksGuidance(spec: Pick<PromptSpec, 'questionType' | 'marks' | 
       'has to be plausible to a student who holds a particular misconception.'
     )
   }
+  if (questionType === 'multiple_response') {
+    return (
+      `Each question is worth ${marks} mark${marks === 1 ? '' : 's'} for the whole set, ` +
+      'so a student who picks two answers of three earns nothing. That is what makes ' +
+      'a marginal option fatal here: every one has to be plainly in or plainly out.'
+    )
+  }
+  if (questionType === 'matching') {
+    return (
+      `Each question is worth ${marks} mark${marks === 1 ? '' : 's'} for the whole ` +
+      'grid, so every pairing has to be the only defensible one. Six items is the ' +
+      'usual size.'
+    )
+  }
   if (questionType === 'true_false') {
     return (
       `Each statement is worth ${marks} mark${marks === 1 ? '' : 's'} and must be ` +
@@ -324,10 +338,13 @@ function shape(spec: PromptSpec): string {
 }
 
 function guideFields(type: QuestionType): string[] {
-  if (type === 'multiple_choice' || type === 'true_false') {
+  if (type === 'multiple_choice' || type === 'multiple_response' || type === 'true_false') {
     return [
       '  markingGuide   not needed; the option feedback below does that work',
     ]
+  }
+  if (type === 'matching') {
+    return ['  markingGuide   not needed; the links below are the whole answer']
   }
   return [
     '  markingGuide   { "sampleAnswer": "...",',
@@ -345,6 +362,24 @@ function configFields(type: QuestionType, marks: number): string[] {
         '    correctAnswer  a number: the position of the correct option in',
         '                   "choices", counting from zero. 0 is the first option,',
         '                   3 is the fourth. Not a letter, not the option text.',
+      ]
+    case 'multiple_response':
+      return [
+        '    choices        six or seven, as',
+        '                   [ { "text": "...", "feedback": "..." } ]',
+        '    correctAnswers an array of numbers: the positions in "choices" of every',
+        '                   option that is an answer, counting from zero. Two or',
+        '                   three of them. Not letters, not the option text.',
+      ]
+    case 'matching':
+      return [
+        '    items          the numbered column, as',
+        '                   [ { "text": "...", "matches": [2] } ]',
+        '                   "matches" holds the positions in "options" this item',
+        '                   links to, counting from zero. Usually one.',
+        '    options        the lettered column, as [ { "text": "..." } ]',
+        '                   Same length as "items" unless you mean to leave spare',
+        '                   options nothing links to.',
       ]
     case 'true_false':
       return [
@@ -410,6 +445,23 @@ function guideNotes(type: QuestionType, marks: number): string[] {
         'The criteria say what has to be visible in the drawing to earn each mark.',
         'A drawing question a marker cannot mark from the criteria alone is not one.',
       ]
+    case 'multiple_response':
+      return [
+        'More than one option is an answer, and the student is told so but not told how',
+        'many. So every option has to be decidable on its own: an option that is',
+        'arguably right makes the whole question unmarkable, where in multiple choice it',
+        'would only be a weak distractor.',
+        'Every option carries "feedback", saying why it is or is not one of the answers.',
+      ]
+    case 'matching':
+      return [
+        'Each numbered item must match exactly one lettered option, and no option may',
+        'fit two items. The commonest fault is a pair of options a student could argue',
+        'either way round, which makes both items unmarkable.',
+        'Write the two columns so that reading down them in order does not give the',
+        'answer away — Klunk shuffles the lettered column when it prints, but a teacher',
+        'reading your reply should not see 1-A, 2-B, 3-C either.',
+      ]
     case 'short_answer':
     case 'true_false':
       return []
@@ -473,6 +525,51 @@ const EXAMPLES: Record<QuestionType, string> = {
       { "text": "Recyclability", "feedback": "Recyclability matters at the end of the product's life, not while it is being used." }
     ],
     "correctAnswer": 0
+  }
+}`,
+
+  multiple_response: `{
+  "questionType": "multiple_response",
+  "questionText": "Which of the following are properties of a thermosetting polymer?",
+  "marks": 1,
+  "difficulty": 3,
+  "syllabus": { "pointIds": ["HSC-01.07"] },
+  "outcomes": ["H1.1"],
+  "tags": ["materials"],
+  "config": {
+    "choices": [
+      { "text": "It cannot be softened and reshaped once cured", "feedback": "An answer. Curing forms cross-links between the chains, and they do not break with heat." },
+      { "text": "It chars or burns rather than melting", "feedback": "An answer, and the same fact seen from the workshop: there is no melting point to work to." },
+      { "text": "It holds its shape at temperatures that would soften a thermoplastic", "feedback": "An answer. This is why thermosets are used for saucepan handles and electrical fittings." },
+      { "text": "It can be reground and moulded again", "feedback": "Not an answer. This is a thermoplastic, and it is why thermoplastics are the recyclable ones." },
+      { "text": "It softens each time it is heated", "feedback": "Not an answer. This is the defining property of a thermoplastic." },
+      { "text": "It is always transparent", "feedback": "Not an answer, and not true of either family: transparency depends on the polymer and its fillers." }
+    ],
+    "correctAnswers": [0, 1, 2]
+  }
+}`,
+
+  matching: `{
+  "questionType": "matching",
+  "questionText": "Match each joining method with the situation it suits.",
+  "marks": 1,
+  "difficulty": 2,
+  "syllabus": { "pointIds": ["HSC-01.07"] },
+  "outcomes": ["H1.1"],
+  "tags": ["manufacturing"],
+  "config": {
+    "items": [
+      { "text": "A joint that must be taken apart for servicing", "matches": [2] },
+      { "text": "A continuous seal between two steel plates", "matches": [0] },
+      { "text": "Two acrylic sheets joined with no visible fastener", "matches": [3] },
+      { "text": "A frame corner carrying load in two directions", "matches": [1] }
+    ],
+    "options": [
+      { "text": "Welding" },
+      { "text": "Mortise and tenon" },
+      { "text": "Machine screw and captive nut" },
+      { "text": "Solvent cement" }
+    ]
   }
 }`,
 

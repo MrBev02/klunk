@@ -120,7 +120,8 @@ All defined in `schemas/`, all validated with real data.
 | `school.schema.json` | Cover branding: name, logo, what a student fills in | One per folder, because a logo is one file and a school is one school |
 | `manifest.schema.json` | What each document in the folder turned out to be | A cache, not a record: delete it and Klunk refills it as it reads |
 
-Question types are D&T-relevant only: `multiple_choice`, `true_false`, `short_answer`,
+Question types are a **closed enum that grows by evidence** (#32):
+`multiple_choice`, `multiple_response`, `matching`, `true_false`, `short_answer`,
 `extended_response`, `table`, `drawing`. No `sql`, `spreadsheet` or `python`.
 
 Two deliberate divergences worth preserving:
@@ -350,6 +351,93 @@ on the marking guide, Q27's four columns surviving their spanning header, and th
 answer key still marking C. The 2019 D&T paper reads to fourteen questions and
 forty marks with no table anywhere; the 2022 one to fifteen and forty with its
 matrix recovered.
+
+**Six of the fifteen objective questions on an Enterprise Computing Year 11
+paper had no type, and the workaround was already written down in this
+repository** (#32). Established from the 2024 and 2025 Enterprise Computing Year
+11 examinations (Redlands), both scans in `../klunk-content/source/`. Section I
+is fifteen one-mark questions under three rubrics, and the same three in both
+years, word for word:
+
+| | |
+|---|---|
+| 1–9 | *place an X next to the alternative that best answers the question* |
+| 10–12 | *place an X next to **each** alternative that answers the question. (Multiple items may be selected).* |
+| 13–15 | *draw lines linking items on the left with matching items on the right* — 2024 adds *(Multiple lines can start and end from any item)* |
+
+- **The evidence was `src/paperprompt.ts`.** #89's transcription prompt told the
+  model: where the paper says more than one may be selected, or asks the student
+  to match two lists, "use `short_answer` and put the options or the lists in
+  `questionText`". That rule was written *because* of these papers, and it costs
+  the options their letters, the shuffle, the marking guide's answer, and
+  `plainText` search.
+- **The decision is that the enum stays closed and grows by evidence**, not that
+  a profile declares its own types. An open list buys a label: `render.tsx` would
+  fall to its `default` and rule blank lines under a question headed *Matching*,
+  which is worse than an honest `short_answer`. The issue's own sentence settles
+  it — a type that cannot print is worse than one that does not exist — and
+  `profile.questionTypes` already hides what a course never sets, so a closed
+  list costs a Mathematics teacher nothing. The price is a code change per type,
+  and that price is the point: a type is a schema, a validation, a printing and
+  a form, and a shape nobody can write all four for is not one Klunk can offer.
+- **Two assumptions were wrong and only the paper corrected them.** The student
+  **draws lines**, so the gap between the two columns is the answer space rather
+  than decoration, and matching is **not** a bijection — the 2024 rubric says so
+  outright, and `matches` is therefore an array. Every question in both years
+  happens to be one-to-one, which is exactly the corpus that would have taught
+  the wrong rule.
+- **A matching question is one table with a blank middle column, and two tables
+  side by side is the fault.** The examination aligns the two halves **row for
+  row**: on 2024's Q14 the box holding `1 Enhanced data analysis` is exactly as
+  tall as the three-line description beside it, most of it empty. Two
+  independent tables cannot do that, and the first reading here was two — short
+  terms on the left against sentences on the right put the third numbered box
+  beside the middle of the third lettered one, so nothing on the page said
+  which box a line runs between. A table row does it for nothing, which is
+  very likely why the paper is laid out this way. Rows run to the longer
+  column, and a row with nothing on one side gets **unbordered** cells, because
+  an empty box is somewhere a student would draw to. The screen rendering in
+  `question.tsx` is the same markup in screen units, for #76's reason.
+- **The instruction has to print per question here too, and it was missed the
+  first time** while the identical argument was being made for multiple
+  response. Without it the two columns are a layout rather than a task: nothing
+  says a line is what the student draws, and the boxes read as a table to fill
+  in.
+- **No count is ever printed**, so `correctAnswers.length` is not something the
+  student is told. The instruction is printed once over a run of questions, which
+  Klunk's sections cannot express, so it prints per question: a question moved
+  onto another paper keeps it, and a student not told cannot tell this from the
+  multiple choice above it.
+- **The answer key is optional on both types, and that is a departure from
+  `multiple_choice`.** `multipleChoiceConfig` requires `correctAnswer`, so a
+  paper read without its markscheme has to have one invented and `adopt.ts` puts
+  0 there — thirty questions all answered **A**, ready to print (#64). Here
+  absent means unknown, the guide prints *No answer recorded* rather than a
+  letter, and validation **warns** rather than erroring, because the student
+  paper is correct either way. `[]` is a different claim, means "none of these",
+  and is refused.
+- **A `Record<string, string>` with a `?? fallback` is where a new type escapes
+  the typechecker.** Every exhaustive `switch` and every `Record<QuestionType,
+  …>` failed to compile and was fixed on sight; `shortType` in `question.tsx`
+  compiled fine and printed `multiple_response` in the builder's rail. Found by
+  driving, invisible in the source, and it is now keyed on `QuestionType`.
+  `render.tsx` and `editor.tsx` have `default:` branches for the same reason and
+  need the same care.
+
+Driven end to end afterwards on `../klunk-content`: 2025's Q10 and 2024's Q13
+written through the editor and saved into a bank that validates, the multiple
+response marking `MOV` and `MP4` after a shuffle that moved them from B and E to
+A and C, all six matching pairs surviving a shuffle of the lettered column, both
+printing inline-numbered with the marks in the margin, the two matching columns
+boxed with 20 mm between them, the guide reading `Answer: A, C` and
+`1→A 2→D 3→E 4→C 5→B 6→F` against a lettered column that agrees with the student
+paper, and a third question saved with nothing ticked printing *No answer
+recorded. This question was read without a markscheme.* rather than a letter.
+
+Not built, and deferred with its evidence in #32: `sql` and `spreadsheet`. The
+Year 12 mid-year question map sets both, but they are Year 12 shapes and on a
+printed page both are short answer with ruled lines, so the case is weaker than
+these two and rests on no Year 11 document.
 
 **A section can be a set of alternatives, and until #52 Klunk could not say so.**
 Established from the 2025 Visual Arts HSC Trial (Redlands), the same document

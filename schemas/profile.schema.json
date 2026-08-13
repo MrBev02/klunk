@@ -127,8 +127,11 @@
 
     "questionType": {
       "type": "string",
+      "description": "A closed list, and it grows only when a real examination prints a shape Klunk can print back. An open list would let a profile name a type nothing can render or mark, and a question that cannot print is worse than one that does not exist. Hiding types a course never sets is what 'questionTypes' below is for.",
       "enum": [
         "multiple_choice",
+        "multiple_response",
+        "matching",
         "true_false",
         "short_answer",
         "extended_response",

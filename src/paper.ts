@@ -24,7 +24,7 @@ import type {
   School,
   TableRow,
 } from './types'
-import { parseRef, refKey } from './types'
+import { parseRef, printsInline, refKey } from './types'
 
 export interface ResolvedQuestion {
   question: Question
@@ -566,6 +566,45 @@ export interface ShuffledChoices {
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
 /**
+ * The letter printed against the nth option.
+ *
+ * `LETTERS` stops at H because ten years of Design and Technology never set a
+ * fifth option, and it is left alone rather than widened so nothing that reads
+ * it changes. A matching question's lettered column is longer — the Enterprise
+ * Computing papers print six, and nothing caps it — so anything past H is
+ * computed.
+ */
+export function optionLetter(index: number): string {
+  return LETTERS[index] ?? String.fromCharCode(65 + (index % 26))
+}
+
+/**
+ * The order to print n options in, the same way every time.
+ *
+ * Fisher-Yates driven by a seeded hash, so the permutation is a pure function
+ * of the question id: adding a question to a paper does not renumber the
+ * letters of any other, and the student paper and the marking guide printed a
+ * minute later agree.
+ */
+function printOrder(question: Question, n: number, seed: string): number[] {
+  const order = Array.from({ length: n }, (_, i) => i)
+  if (question.config?.shuffle === false) return order
+
+  let state = hash(`${question.id}${seed}`)
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    state = (Math.imul(state, 1103515245) + 12345) >>> 0
+    const j = state % (i + 1)
+    const a = order[i]
+    const b = order[j]
+    if (a !== undefined && b !== undefined) {
+      order[i] = b
+      order[j] = a
+    }
+  }
+  return order
+}
+
+/**
  * Order a question's options the same way every time it is rendered.
  *
  * Seeded by the question's own id, so adding a question to a paper does not
@@ -577,27 +616,80 @@ export function shuffledChoices(question: Question, seed = ''): ShuffledChoices 
     ? question.config.correctAnswer
     : 0
 
-  const order = choices.map((_, i) => i)
-  if (question.config?.shuffle !== false) {
-    // Fisher-Yates driven by the seeded hash, so the permutation is a pure
-    // function of the question id.
-    let state = hash(`${question.id}${seed}`)
-    for (let i = order.length - 1; i > 0; i -= 1) {
-      state = (Math.imul(state, 1103515245) + 12345) >>> 0
-      const j = state % (i + 1)
-      const a = order[i]
-      const b = order[j]
-      if (a !== undefined && b !== undefined) {
-        order[i] = b
-        order[j] = a
-      }
-    }
-  }
+  const order = printOrder(question, choices.length, seed)
 
   return {
     choices: order.map((i) => choices[i]).filter((c): c is { text: string; feedback?: string } => !!c),
     correctIndex: order.indexOf(correct),
     letters: LETTERS,
+  }
+}
+
+export interface ShuffledResponses {
+  choices: { text: string; feedback?: string | undefined }[]
+  /** Positions in the printed list that are answers, ascending. */
+  correctIndexes: number[]
+  /**
+   * Whether the question states its answers at all. False is a real state and
+   * not an empty set: a paper transcribed without its markscheme does not say,
+   * and the marking guide has to admit that rather than print "Answer: none".
+   */
+  known: boolean
+}
+
+/** The multiple-response sibling of `shuffledChoices`, on the same seed. */
+export function shuffledResponses(question: Question, seed = ''): ShuffledResponses {
+  const choices = question.config?.choices ?? []
+  const stated = question.config?.correctAnswers
+  const order = printOrder(question, choices.length, seed)
+
+  const correctIndexes = (stated ?? [])
+    .map((i) => order.indexOf(i))
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)
+
+  return {
+    choices: order.map((i) => choices[i]).filter((c): c is { text: string; feedback?: string } => !!c),
+    correctIndexes,
+    known: stated !== undefined,
+  }
+}
+
+export interface ShuffledMatching {
+  /** The numbered column, in the teacher's own order. */
+  items: { text: string; letters: string[] }[]
+  /** The lettered column, in the order it prints. */
+  options: { text: string }[]
+  /** Whether any item states what it links to. */
+  known: boolean
+}
+
+/**
+ * Letter the right-hand column and say which letters each numbered item takes.
+ *
+ * Only the lettered column moves. The numbered column is the teacher's own
+ * order and carries the question's sense — the Enterprise Computing papers
+ * group their items by idea — while the letters, left alone, would run 1-A,
+ * 2-B, 3-C and hand the student the answer.
+ */
+export function shuffledMatching(question: Question, seed = ''): ShuffledMatching {
+  const items = question.config?.items ?? []
+  const options = question.config?.options ?? []
+  const order = printOrder(question, options.length, seed)
+  /** Where each original option ended up, so an item's matches can follow it. */
+  const movedTo = new Map(order.map((from, to) => [from, to]))
+
+  return {
+    items: items.map((item) => ({
+      text: item.text,
+      letters: (item.matches ?? [])
+        .map((i) => movedTo.get(i))
+        .filter((i): i is number => i !== undefined)
+        .sort((a, b) => a - b)
+        .map(optionLetter),
+    })),
+    options: order.map((i) => options[i]).filter((o): o is { text: string } => !!o),
+    known: items.some((item) => item.matches !== undefined),
   }
 }
 
@@ -759,9 +851,10 @@ export function answerLinesFor(
   profile?: Profile,
 ): number {
   if (question.config?.answerLines !== undefined) return question.config.answerLines
-  if (question.questionType === 'multiple_choice' || question.questionType === 'true_false') {
-    return 0
-  }
+  // A student answers these on the question itself — against the options, or
+  // by drawing between the two columns — so ruled lines under them are space
+  // taken from the next question.
+  if (printsInline(question.questionType)) return 0
   if (question.questionType === 'drawing' || question.questionType === 'table') return 0
   const perMark = profile?.print?.linesPerMark ?? 2
   return Math.max(2, Math.round(marks * perMark))
