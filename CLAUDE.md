@@ -728,6 +728,73 @@ Students:
   written from, and printing the parent's id would let the reply tag itself
   against a point the teacher never chose.
 
+**A content point can be stated inside a box, and skipping every table threw
+away two thirds of a syllabus without a word** (#93). Established from Enterprise
+Computing 11–12 (2022), which is structurally the reform contract and needed no
+new reader. It prints:
+
+```
+§  Research the evolution of interactive media
+   ┌──────────────────────────────────────────────────────────────┐
+   │ Including:                                                   │
+   │  §  prevalence of blogs, online video and digital radio      │
+   │  §  privacy issues and the use of intellectual property,     │
+   │     including Indigenous Cultural and Intellectual Property  │
+   └──────────────────────────────────────────────────────────────┘
+```
+
+The box is a one-row, one-cell shaded table. `parseHeadingsXml` read content from
+`block.kind === 'para'` alone, so all 73 of them went. **Year 11 came out 10 / 58
+and Year 12 14 / 82** — 140 points of real syllabus, every count plausible, and
+nothing anywhere to say the document held 437. #26, #43 and #78 a fourth time.
+
+- **The box is the nesting, and `w:ilvl` says the opposite.** Biology marks a
+  sub-item `ilvl` 1 under an `ilvl` 0 item; here the bullets inside the box are
+  at `ilvl` 0, the same depth as the point above, and Word expresses the
+  relationship by drawing a box and starting a fresh `w:numId`. A reader trusting
+  the level alone gets 437 points as one flat list, which is the reading that
+  loses what the box is for: on its own, `sandbox gaming` is not something a
+  question can be written from.
+- **The rule names the document's own word, not the shape.** There are 74
+  one-cell tables and 73 are these; **the 74th is the `Special arrangements
+  applying to the NSW Curriculum Reform` licence notice**, which holds bullets of
+  its own and would arrive as content. Every other document in the corpus has
+  exactly one one-cell table and it is that same notice — Computing Technology,
+  English Advanced and Mathematics Advanced one each, Biology, Drama and Visual
+  Arts none — so reading the boxes is a **no-op on every existing count**.
+- **All 73 follow a `ListParagraph` at `ilvl` 0**, the point they belong to. Not
+  one follows a heading, a table or another box, and no box holds a box, so this
+  is #78's two levels again and not a third.
+- **`Including:` is dropped**, being the box's own lead-in and the counterpart of
+  `Students:`. A question cannot be tagged against the word.
+- The counts were read off the document by hand before the reader was pointed at
+  it: 10 / 180 / 11 and 14 / 257 / 11, the topics being the sub-headings inside
+  each focus area's `Content` block.
+
+**A sub-item's id now carries its depth**: `Y11-01.03.01` under `Y11-01.03`,
+where it used to be a flat `Y11-01.04` that read as the next sibling. An id is
+what a teacher tags a question with and what a chip prints, and #75's lesson is
+that a name or an id shown without what it hangs off is ambiguous on screen.
+
+- **`parent` stays the source of truth** and nothing derives one from an id. The
+  schema says the arrangement out loud by giving `id` the optional third group
+  and `parent` only two: **two levels and no third**, checked rather than assumed
+  on both documents.
+- **`renumbered` in `syllabusedit.ts` had to learn it too**, or a split or a
+  merge quietly flattened every sub-item into a sibling of its parent — and the
+  result would still have validated, `parent` still agreeing with the ids, so
+  nothing would have said so. A point whose parent did not survive a cut is
+  promoted *and* renumbered in the same pass, so an id never describes a nesting
+  the point has lost.
+- **`kept.length` was the same mistake in `mergeTopicUp`.** Counting every point
+  rather than the top-level ones leaves a widening gap in a syllabus that nests.
+  `lastPointOrdinal` is what both that and `nextPointId` ask now.
+- It renumbers Biology's model on a re-read — 137 of its 271 points have a parent
+  — and that cost was checked rather than waved at: **no question in any bank
+  tags a Biology point id**, and the only point-id tags anywhere are IB's and
+  D&T's, neither of which has a sub-item. #44's replace-cost panel prices it
+  either way.
+
 **Two editions of one subject are live at the same time.** The Biology document
 states it: 2027 Term 1 starts the new syllabus for Year 11 *while Year 12
 continues on the 2017 one*, and the first HSC examination for the new course is
@@ -895,6 +962,7 @@ by hand off the documents rather than inherited:
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
 | Computing Technology 7–10 (2022) | s4 **24 / 246 / 1** | s5 **24 / 246 / 10** |
 | Biology Stage 6 (2017) | y11 **19 / 122 / 11** | y12 **24 / 149 / 11** |
+| Enterprise Computing 11–12 (2022) | y11 **10 / 180 / 11** | y12 **14 / 257 / 11** |
 
 Six groups per course in Computing Technology, the focus areas, and each holds
 the same four topics — `Identifying and defining`, `Researching and planning`,
@@ -926,6 +994,16 @@ as a topic is the fault, not the arrangement**. Its point counts sit 31 and 41
 below the paragraph counts, being one `Students:` per topic and one inquiry
 question per module topic, both of which are now somewhere better (#78); a
 sub-item still counts as a point, having gained a parent rather than a new home.
+
+Enterprise Computing's is the number a rewrite would get most wrong, because the
+wrong one is the one that looks right. **297 of its 437 points are inside a
+box**, and a reader that skips tables gives 58 and 82 — a syllabus by every
+appearance, with two thirds of the content gone. Its ten and fourteen topics are
+the sub-headings inside each focus area's `Content` block; three focus areas in
+Year 11 and four in Year 12, and no lead topic in either, as in Computing
+Technology. The corpus test also pins the 297 sub-items, that every one is
+numbered under its own parent, that no parent is itself a sub-item, and that
+neither `Including:` nor NESA's licence terms reached the model.
 
 The IB syllabus, counted off the guide's Overview table and its numbered
 understandings rather than off either parser. **Both documents must give these**,

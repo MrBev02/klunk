@@ -637,6 +637,12 @@ describe('editing a syllabus that nests its content (#78)', () => {
   it('keeps parents and capabilities when a topic is merged upwards', () => {
     // The merge used to rebuild every moved point from its text alone, which
     // silently dropped both.
+    //
+    // The points that move are renumbered into the depth-carrying scheme (#93),
+    // so `modelling diffusion` becomes `.06.01` rather than the `.07` that made
+    // it look like its parent's next sibling. `nested()` is deliberately left in
+    // the flat scheme, being a model written before that: the ones the parent
+    // topic keeps are untouched, because ids never renumber under a teacher.
     const after = mergeTopicUp(nested(), 'y11', 'Y11-02')
     expect(dangling(after)).toEqual([])
     const topic = after[0]?.topics[0]
@@ -647,8 +653,8 @@ describe('editing a syllabus that nests its content (#78)', () => {
       ['Y11-01.04', 'describe a range of technologies', null],
       ['Y11-01.05', 'Cell Function', null],
       ['Y11-01.06', 'investigate movement, including:', null],
-      ['Y11-01.07', 'modelling diffusion', 'Y11-01.06'],
-      ['Y11-01.08', 'Inquiry question: How do cells coordinate activities?', null],
+      ['Y11-01.06.01', 'modelling diffusion', 'Y11-01.06'],
+      ['Y11-01.07', 'Inquiry question: How do cells coordinate activities?', null],
     ])
     expect(topic?.points?.find((p) => p.text === 'modelling diffusion')?.capabilities).toEqual([
       'Numeracy',
@@ -664,5 +670,82 @@ describe('editing a syllabus that nests its content (#78)', () => {
     const topic = mergeTopicUp(start, 'y11', 'Y11-02')[0]?.topics[0]
     expect(topic?.inquiryQuestion).toBe('How do cells coordinate activities?')
     expect(topic?.points?.some((p) => p.text.startsWith('Inquiry question'))).toBe(false)
+  })
+})
+
+describe('editing a syllabus whose ids carry their depth (#93)', () => {
+  /** What a reader now produces: a sub-item numbered under its own parent. */
+  function boxed(): SyllabusCourse[] {
+    return [
+      {
+        id: 'y11',
+        name: 'Year 11',
+        outcomes: [{ code: 'EC-11-01', text: 'does the first thing' }],
+        topics: [
+          {
+            id: 'Y11-01',
+            name: 'Ubiquity of interactive media',
+            outcomes: ['EC-11-01'],
+            points: [
+              { id: 'Y11-01.01', text: 'Investigate how it is used' },
+              { id: 'Y11-01.02', text: 'Research the evolution' },
+              { id: 'Y11-01.02.01', text: 'prevalence of blogs', parent: 'Y11-01.02' },
+              { id: 'Y11-01.02.02', text: 'privacy issues', parent: 'Y11-01.02' },
+              { id: 'Y11-01.03', text: 'Evaluate the performance' },
+            ],
+          },
+          {
+            id: 'Y11-02',
+            name: 'Capture, store and integrate data',
+            outcomes: ['EC-11-01'],
+            points: [
+              { id: 'Y11-02.01', text: 'Explore data capture' },
+              { id: 'Y11-02.01.01', text: 'sensors', parent: 'Y11-02.01' },
+            ],
+          },
+        ],
+      },
+    ]
+  }
+
+  it('numbers a new point past the top-level ones, not past the sub-items', () => {
+    // Counting every point would give `.06` on a topic whose last point is
+    // `.03`, and the gap widens with every box the syllabus prints.
+    expect(nextPointId(boxed()[0]!.topics[0]!)).toBe('Y11-01.04')
+  })
+
+  it('keeps the depth in the ids when a topic is merged upwards', () => {
+    const after = mergeTopicUp(boxed(), 'y11', 'Y11-02')
+    expect(dangling(after)).toEqual([])
+    expect(after[0]?.topics[0]?.points?.map((p) => [p.id, p.parent ?? null])).toEqual([
+      ['Y11-01.01', null],
+      ['Y11-01.02', null],
+      ['Y11-01.02.01', 'Y11-01.02'],
+      ['Y11-01.02.02', 'Y11-01.02'],
+      ['Y11-01.03', null],
+      // The merged topic's heading becomes a point, and the run continues from
+      // the last top-level ordinal rather than from the number of points.
+      ['Y11-01.04', null],
+      ['Y11-01.05', null],
+      ['Y11-01.05.01', 'Y11-01.05'],
+    ])
+  })
+
+  it('gives a promoted sub-item a top-level id, so no id describes a nesting it lost', () => {
+    // Splitting between a parent and its sub-items strands them. They are
+    // promoted, and renumbering them flat is what keeps `Y11-01.02.01` from
+    // surviving as an id whose parent is not there any more.
+    const after = splitTopic(boxed(), 'y11', 'Y11-01', 'Y11-01.02.01')
+    expect(dangling(after)).toEqual([])
+    const [kept, fresh] = after[0]?.topics ?? []
+    expect(kept?.points?.map((p) => [p.id, p.parent ?? null])).toEqual([
+      ['Y11-01.01', null],
+      ['Y11-01.02', null],
+    ])
+    expect(fresh?.name).toBe('prevalence of blogs')
+    expect(fresh?.points?.map((p) => [p.id, p.parent ?? null])).toEqual([
+      ['Y11-03.01', null],
+      ['Y11-03.02', null],
+    ])
   })
 })

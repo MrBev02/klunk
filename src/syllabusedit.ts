@@ -67,15 +67,29 @@ export function nextTopicId(course: SyllabusCourse): string {
   return id
 }
 
+/**
+ * The highest ordinal the top-level points of a topic have used.
+ *
+ * A sub-item's id ends `.03.01` (#93), whose tail past the topic is not a bare
+ * number, so `ordinalAfter` returns null for one and the count is of the
+ * top-level points alone. That is what it has to be: numbering a new point past
+ * every point including the sub-items would leave a widening gap in a syllabus
+ * that nests, and `kept.length` is the same mistake in `mergeTopicUp`.
+ */
+function lastPointOrdinal(points: SyllabusPoint[], topicId: string): number {
+  let n = 0
+  for (const point of points) {
+    const at = ordinalAfter(point.id, topicId, '.')
+    if (at !== null && at > n) n = at
+  }
+  return n
+}
+
 /** An id for a new content point on `topic`, past the end of the ones it has. */
 export function nextPointId(topic: SyllabusTopic): string {
   const points = topic.points ?? []
   const taken = new Set(points.map((p) => p.id))
-  let n = 1
-  for (const point of points) {
-    const at = ordinalAfter(point.id, topic.id, '.')
-    if (at !== null && at >= n) n = at + 1
-  }
+  let n = lastPointOrdinal(points, topic.id) + 1
   let id = `${topic.id}.${String(n).padStart(2, '0')}`
   while (taken.has(id)) id = `${topic.id}.${String(++n).padStart(2, '0')}`
   return id
@@ -88,20 +102,37 @@ export function nextPointId(topic: SyllabusTopic): string {
  * across with them or leave a point hanging off one that no longer exists (#78).
  * A parent that did not come along is dropped rather than left dangling: the
  * sub-item is promoted, which is what it is once the item above it is gone.
+ *
+ * **Depth is kept, because the id carries it** (#93): a sub-item is numbered
+ * under its own parent, `Y11-03.02.01`, and only top-level points advance the
+ * topic's own count. Renumbering flat would have left a split or a merge quietly
+ * turning every sub-item into a sibling of its parent — and the ids would still
+ * have validated, `parent` still agreeing with them, so nothing would have said
+ * so. A promoted point takes a top-level id in the same pass, so an id never
+ * describes a nesting the point does not have.
+ *
+ * A parent is renumbered before its children because points are in published
+ * order and a parent precedes what hangs off it. The reader is what guarantees
+ * that, and `mergeTopicUp` and `splitTopic` only ever cut a run of them.
  */
 function renumbered(points: SyllabusPoint[], topicId: string, from = 0): SyllabusPoint[] {
   const renamed = new Map<string, string>()
-  const withIds = points.map((point, i) => {
-    const id = `${topicId}.${String(from + i + 1).padStart(2, '0')}`
+  const under = new Map<string, number>()
+  let tops = from
+  return points.map((point) => {
+    const moved = point.parent ? renamed.get(point.parent) : undefined
+    let id: string
+    if (moved) {
+      const n = (under.get(moved) ?? 0) + 1
+      under.set(moved, n)
+      id = `${moved}.${String(n).padStart(2, '0')}`
+    } else {
+      id = `${topicId}.${String(++tops).padStart(2, '0')}`
+    }
     if (point.id) renamed.set(point.id, id)
-    return { ...point, id }
-  })
-  return withIds.map((point) => {
-    if (!point.parent) return point
-    const moved = renamed.get(point.parent)
-    if (moved) return { ...point, parent: moved }
+    if (moved) return { ...point, id, parent: moved }
     const { parent: _dropped, ...promoted } = point
-    return promoted
+    return { ...promoted, id }
   })
 }
 
@@ -248,7 +279,11 @@ export function mergeTopicUp(
     // parent and its capabilities and both would otherwise be dropped in the
     // move without a word (#78).
     const heading: SyllabusPoint = { id: '', text: child.text?.trim() || child.name }
-    const moving = renumbered([heading, ...(child.points ?? [])], parent.id, kept.length)
+    const moving = renumbered(
+      [heading, ...(child.points ?? [])],
+      parent.id,
+      lastPointOrdinal(kept, parent.id),
+    )
 
     let merged: SyllabusTopic = { ...parent, points: [...kept, ...moving] }
 

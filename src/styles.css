@@ -2643,9 +2643,13 @@ code,
   margin-right: 0.4rem;
 }
 
-/* Fixed width so the ids line up down the left and a gap in them is visible. */
+/* Fixed width so the ids line up down the left and a gap in them is visible.
+   Wide enough for the longest id any reader mints, which is a sub-item's twelve
+   characters — `Y11-01.03.01`, a three-letter course prefix being the longest
+   there is (#93). At 5.5rem those wrapped onto two lines, measured on the real
+   Enterprise Computing model rather than guessed at: they need 7.29rem. */
 .review__pid {
-  flex: 0 0 5.5rem;
+  flex: 0 0 7.5rem;
   font-size: 0.8rem;
   color: var(--ink-faint);
   padding-top: 0.12rem;

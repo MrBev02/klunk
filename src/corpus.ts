@@ -95,6 +95,18 @@ export const BIOLOGY = `${SOURCE}/nsw-hsc-biology/biology-stage-6-syllabus-2017.
 export const COMPUTING =
   `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`
 
+/**
+ * The only document that states content inside a box rather than in a list (#93).
+ *
+ * 73 one-cell shaded tables headed `Including:`, holding 297 content points
+ * between them — more than twice what the bullets outside them hold. Every one
+ * was discarded in silence until the reader learned the shape, and the model
+ * that came out was 140 points of real syllabus with nothing to say it was a
+ * third of the document.
+ */
+export const ENTERPRISE =
+  `${SOURCE}/nsw-enterprise-computing-11-12/NESA - enterprise_computing_11_12_2022 (S6).docx`
+
 export const INDUSTRIAL = `${FIXTURES}/industrial-technology-st6-syl.docx`
 export const FOOD = `${FIXTURES}/food-technology-st6-syl.docx`
 
@@ -176,8 +188,8 @@ export const SUITES: Record<string, CorpusSuite> = {
     needs: { what: 'python3 on the path', met: havePython },
   },
   'headings.corpus': {
-    what: 'the Outcomes/Content and prose readers, over six syllabuses',
-    docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, VISUAL_ARTS, DT_SYLLABUS],
+    what: 'the Outcomes/Content and prose readers, over seven syllabuses',
+    docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, ENTERPRISE, VISUAL_ARTS, DT_SYLLABUS],
   },
   'textlayer.corpus': {
     what: 'refusing a scan for holding no text, over two documents that have none',

@@ -51,6 +51,17 @@ const item = (level: number, text: string, ...icons: string[]) =>
 const cell = (...lines: string[]) => `<w:tc>${lines.map((l) => para(l)).join('')}</w:tc>`
 const row = (...cells: string[]) => `<w:tr>${cells.join('')}</w:tr>`
 const table = (...rows: string[]) => `<w:tbl>${rows.join('')}</w:tbl>`
+
+/**
+ * A one-row one-cell box of sub-items, as Enterprise Computing 11–12 (2022)
+ * draws one under the content point it elaborates.
+ *
+ * The bullets inside are at `ilvl` 0, the same depth as the point above them,
+ * because that is what the real document does: the box is the nesting and the
+ * list level says nothing (#93).
+ */
+const box = (...items: string[]) =>
+  table(row(`<w:tc>${para('Including:')}${items.map((t) => item(0, t)).join('')}</w:tc>`))
 const body = (...blocks: string[]) => `<w:document><w:body>${blocks.join('')}</w:body></w:document>`
 
 /* ---------------------------------------------------------------- the shapes */
@@ -194,6 +205,40 @@ const SCIENCE = body(
   heading('Heading4', 'Later Sub-heading'),
   bullet('investigate the later structure'),
   heading('Heading1', 'Glossary'),
+)
+
+/**
+ * The reform contract with its sub-items in boxes instead of in list levels.
+ *
+ * Enterprise Computing 11–12 (2022) states two thirds of its content this way,
+ * and every bullet in a box is at the same `w:ilvl` as the point above it, so
+ * the depth `ooxml.ts` reports calls them siblings (#93).
+ *
+ * The licence notice is here because it is the reason the rule names the
+ * document's own word rather than reading any one-cell box: it is the only other
+ * one-cell table in the whole corpus, and it holds bullets of its own.
+ */
+const BOXES = body(
+  heading('Heading1', 'Example Computing 11–12 (2022)'),
+  table(
+    row(
+      `<w:tc>${para('Special arrangements applying to the NSW Curriculum Reform')}` +
+        `${para('NESA grants a limited non-exclusive licence to:')}` +
+        `${item(0, 'teachers employed in NSW government schools')}</w:tc>`,
+    ),
+  ),
+  heading('Heading2', 'Outcomes and content for Year 11'),
+  heading('Heading3', 'First focus area'),
+  heading('Heading4', 'Outcomes'),
+  bullet('does the first thing EXC-11-01'),
+  heading('Heading4', 'Content'),
+  heading('Heading5', 'Ubiquity of the first thing'),
+  bullet('Investigate how the first thing is used'),
+  bullet('Research the evolution of the first thing'),
+  box('prevalence of the first kind', 'privacy issues around the second kind'),
+  bullet('Describe the contribution of the first thing'),
+  box('how the third kind supports learning'),
+  bullet('Evaluate the performance of the first thing'),
 )
 
 const DRAMA = body(
@@ -442,13 +487,15 @@ describe('parseHeadingsXml on the 2017 science shape', () => {
     expect(skills?.points?.map((p) => p.text)).toEqual(['develop and evaluate inquiry questions'])
   })
 
-  it('hangs a sub-item off the item above it', () => {
+  it('hangs a sub-item off the item above it, and numbers it under it', () => {
     const topic = courses[0]?.topics.find((t) => t.name === 'First Sub-heading')
-    expect(topic?.points?.map((p) => [p.text, p.parent ?? null])).toEqual([
-      ['investigate the first structure, including but not limited to:', null],
-      ['the first sub-item', 'Y11-02.01'],
-      ['the second sub-item', 'Y11-02.01'],
-      ['explain the second structure', null],
+    expect(topic?.points?.map((p) => [p.id, p.text, p.parent ?? null])).toEqual([
+      ['Y11-02.01', 'investigate the first structure, including but not limited to:', null],
+      ['Y11-02.01.01', 'the first sub-item', 'Y11-02.01'],
+      ['Y11-02.01.02', 'the second sub-item', 'Y11-02.01'],
+      // Only the top-level points advance the topic's own count, so the item
+      // after a run of sub-items is `.02` rather than `.04` (#93).
+      ['Y11-02.02', 'explain the second structure', null],
     ])
   })
 
@@ -478,6 +525,51 @@ describe('parseHeadingsXml on the 2017 science shape', () => {
       expect(points.some((p) => p.capabilities)).toBe(false)
       expect(points.some((p) => p.parent)).toBe(false)
     }
+  })
+})
+
+describe('parseHeadingsXml on the boxed shape', () => {
+  const courses = parseHeadingsXml(BOXES)
+  const topic = courses[0]?.topics.find((t) => t.name === 'Ubiquity of the first thing')
+
+  it('takes a box of sub-items as sub-items of the point above it', () => {
+    expect(topic?.points?.map((p) => [p.id, p.text, p.parent ?? null])).toEqual([
+      ['Y11-01.01', 'Investigate how the first thing is used', null],
+      ['Y11-01.02', 'Research the evolution of the first thing', null],
+      ['Y11-01.02.01', 'prevalence of the first kind', 'Y11-01.02'],
+      ['Y11-01.02.02', 'privacy issues around the second kind', 'Y11-01.02'],
+      ['Y11-01.03', 'Describe the contribution of the first thing', null],
+      ['Y11-01.03.01', 'how the third kind supports learning', 'Y11-01.03'],
+      ['Y11-01.04', 'Evaluate the performance of the first thing', null],
+    ])
+  })
+
+  it('drops Including:, which is the box lead-in and not a point', () => {
+    // The counterpart of `Students:` above a list. Nothing can be tagged
+    // against the word, and it would sit in the model as a content point.
+    const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+    expect(points.filter((p) => /^including:?$/i.test(p.text))).toEqual([])
+  })
+
+  it('leaves the licence notice alone, being a box that says something else', () => {
+    // The one other one-cell table in the corpus, and it holds bullets. Matching
+    // the shape rather than the word would put NESA's licence terms into the
+    // model as content — and here it is in the front matter, so it would need
+    // only a course section growing one to arrive.
+    const texts = courses.flatMap((c) => c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)))
+    expect(texts.filter((t) => /licence|NSW government schools/i.test(t))).toEqual([])
+  })
+
+  it('numbers a sub-item under its parent and never as the next sibling', () => {
+    // The id is what a teacher tags a question with and what a chip prints, so
+    // `Y11-01.03` beside `Y11-01.02` has to mean a sibling and nothing else.
+    const subs = (topic?.points ?? []).filter((p) => p.parent)
+    expect(subs.length).toBe(3)
+    for (const sub of subs) expect(sub.id.startsWith(`${sub.parent}.`)).toBe(true)
+    // Two levels and no third, which is what the schema says by giving `parent`
+    // the shallower pattern.
+    const byId = new Map((topic?.points ?? []).map((p) => [p.id, p]))
+    for (const sub of subs) expect(byId.get(sub.parent as string)?.parent).toBeUndefined()
   })
 })
 

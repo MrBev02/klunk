@@ -179,6 +179,38 @@ function lineOf(para: Para, vocabulary: Map<string, string>): Line {
 /** The line under `Students:` that is the list's own lead-in, and not a point. */
 const STUDENTS_RE = /^students:$/i
 
+/**
+ * The lead-in of a box of sub-items, and the one word that opens one.
+ *
+ * Enterprise Computing 11–12 (2022) states part of its content inside a shaded
+ * one-cell table sitting under the point it elaborates (#93):
+ *
+ * ```
+ * §  Research the evolution of interactive media
+ *    ┌───────────────────────────────────────────────────────────┐
+ *    │ Including:                                                │
+ *    │  §  prevalence of blogs, online video and digital radio   │
+ *    │  §  privacy issues and the use of intellectual property…  │
+ *    └───────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * **The box is the nesting, and `w:ilvl` is no help.** Biology's sub-items are
+ * `ilvl` 1 under an `ilvl` 0 item (#78); here both are 0 and Word expresses the
+ * relationship by drawing a box and giving its list a fresh `w:numId`. So the
+ * depth `ooxml.ts` reports says these are siblings, and they are not.
+ *
+ * Matched by the document's own word rather than by the shape alone, which is
+ * what `STUDENTS_RE` and `CROSS_REFERENCE_RE` above do. It is the conjunction
+ * that makes it safe: 74 one-cell tables in the document, 73 of them these, and
+ * the 74th is the `Special arrangements applying to the NSW Curriculum Reform`
+ * licence notice in the front matter. Reading any one-cell box would take that
+ * one too if a course section ever grew one.
+ *
+ * The line itself is dropped, being the box's own lead-in and the counterpart of
+ * `Students:` — a question cannot be tagged against the word "Including".
+ */
+const INCLUDING_RE = /^including:?$/i
+
 /** `Inquiry question: What distinguishes one cell from another?` */
 const INQUIRY_RE = /^inquiry question:\s*(.+)$/i
 
@@ -312,15 +344,29 @@ function addTopic(
   // one, so a document with no nesting never sets a parent at all, and a
   // sub-item with nothing above it keeps none rather than being given a
   // plausible one.
+  //
+  // **The id goes down with it**: `Y11-01.03.01` under `Y11-01.03`, rather than
+  // a flat `Y11-01.04` that says nothing about where it sits (#93). An id is
+  // what a teacher tags a question with and what a chip prints, and a sub-item
+  // wearing the next sibling's number reads as a sibling. Counting is kept per
+  // parent rather than in a running total, so a plain paragraph falling between
+  // a parent and its sub-items cannot mint an id twice.
   let above: string | undefined
-  const points = content.map((line, i) => {
-    const pointId = `${id}.${String(i + 1).padStart(2, '0')}`
-    const point: SyllabusPoint = { id: pointId, text: line.text }
-    if (line.level === 0 || line.level === undefined) {
+  let tops = 0
+  const under = new Map<string, number>()
+  const points = content.map((line): SyllabusPoint => {
+    const parent = line.level !== undefined && line.level > 0 ? above : undefined
+    let pointId: string
+    if (parent) {
+      const n = (under.get(parent) ?? 0) + 1
+      under.set(parent, n)
+      pointId = `${parent}.${String(n).padStart(2, '0')}`
+    } else {
+      pointId = `${id}.${String(++tops).padStart(2, '0')}`
       if (line.level === 0) above = pointId
-    } else if (above) {
-      point.parent = above
     }
+    const point: SyllabusPoint = { id: pointId, text: line.text }
+    if (parent) point.parent = parent
     if (line.capabilities.length > 0) point.capabilities = [...line.capabilities]
     return point
   })
@@ -382,6 +428,23 @@ interface Line {
 interface Sub {
   name: string
   points: Line[]
+}
+
+/**
+ * The sub-items a box states, or `null` when this block is not one.
+ *
+ * A cell's lines arrive as text, so a capability icon printed inside a box
+ * would be lost. None is: the icons are the 2017 sciences' and those documents
+ * have no boxes, while the document that has them declares no capability
+ * vocabulary for a picture to match against.
+ */
+function includedIn(block: Block): string[] | null {
+  if (block.kind !== 'table' || block.rows.length !== 1) return null
+  const row = block.rows[0]
+  if (!row || row.length !== 1) return null
+  const [lead, ...rest] = row[0] ?? []
+  if (lead === undefined || !INCLUDING_RE.test(lead.trim())) return null
+  return rest
 }
 
 /** In published order, with any course that gathered no topic left out. */
@@ -575,7 +638,20 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
 
   for (let i = 0; i < items.length; i++) {
     const block = items[i]
-    if (!block || block.kind !== 'para') continue
+    if (!block) continue
+
+    // A box of sub-items belonging to the content point above it. Every other
+    // table is skipped here as it always was: the outcome tables are read in one
+    // pass of their own, before any of this.
+    if (block.kind !== 'para') {
+      const included = section && mode === 'content' ? includedIn(block) : null
+      if (included && section) {
+        const sub = section.subs[section.subs.length - 1]
+        const into = sub ? sub.points : section.lead
+        for (const text of included) into.push({ text, level: 1, capabilities: [] })
+      }
+      continue
+    }
 
     if (!isHeading(block)) {
       if (!course || !section) continue

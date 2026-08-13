@@ -28,6 +28,7 @@ import {
   DRAMA,
   DT_SYLLABUS,
   ENGLISH,
+  ENTERPRISE,
   MATHS,
   VISUAL_ARTS,
   have,
@@ -222,6 +223,47 @@ const EXPECTED: Record<string, Expected> = {
       },
     },
   },
+  // The first document to state content inside a box (#93): a one-row one-cell
+  // shaded table headed `Including:`, sitting under the point it elaborates, and
+  // holding bullets at the same `w:ilvl` as that point. Structurally the reform
+  // contract otherwise, so it needed no new reader — it needed the reader to
+  // stop skipping every table.
+  'Enterprise Computing 11–12 (2022)': {
+    path: ENTERPRISE,
+    format: 'headings',
+    courses: {
+      // Read off the document by hand before the reader was pointed at it: the
+      // topics are the sub-headings inside each focus area's `Content` block,
+      // and the points are the bullets plus the 297 items the 73 boxes hold.
+      //
+      // **Two thirds of these points are in a box.** Year 11 was 58 and Year 12
+      // 82 while the boxes were being skipped, and both numbers read as a
+      // syllabus — every point in them real, every count plausible, and nothing
+      // anywhere to say the document had more to give. #26, #43 and #78 a fourth
+      // time: the count was right while the content was gone.
+      y11: {
+        topics: 10,
+        points: 180,
+        outcomes: 11,
+        groups: [
+          'Interactive media and the user experience',
+          'Networking systems and social computing',
+          'Principles of cybersecurity',
+        ],
+      },
+      y12: {
+        topics: 14,
+        points: 257,
+        outcomes: 11,
+        groups: [
+          'Data science',
+          'Data visualisation',
+          'Intelligent systems',
+          'Enterprise project',
+        ],
+      },
+    },
+  },
   'Visual Arts Stage 6 (2016)': {
     path: VISUAL_ARTS,
     format: 'prose',
@@ -389,6 +431,40 @@ describe('the heading readers against the real NESA documents', () => {
       expect(topics.filter((t) => t.inquiryQuestion).length).toBe(29)
       expect(points.filter((p) => /^inquiry question:/i.test(p.text))).toEqual([])
       expect(points.filter((p) => /^students:$/i.test(p.text.trim()))).toEqual([])
+    },
+  )
+
+  it.skipIf(!has(EXPECTED['Enterprise Computing 11–12 (2022)']!))(
+    'reads the boxed sub-items, and numbers each under its own parent',
+    async () => {
+      // #93. The counts above would be satisfied by 437 points arriving as one
+      // flat list, which is the reading that loses what the box is for: on its
+      // own, "sandbox gaming" is not something a question can be written from.
+      const { courses } = await readingOf(EXPECTED['Enterprise Computing 11–12 (2022)']!.path)
+      const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+
+      // 297 items across 73 boxes, counted off the markup before any of this was
+      // built, and every one of them inside a course section.
+      expect(points.filter((p) => p.parent).length).toBe(297)
+
+      const byId = new Map(points.map((p) => [p.id, p]))
+      for (const point of points.filter((p) => p.parent)) {
+        const parent = byId.get(point.parent!)
+        expect(parent, `${point.id} points at ${point.parent}`).toBeDefined()
+        // Two levels and no third: no box in the document holds a box.
+        expect(parent!.parent).toBeUndefined()
+        // The id carries the depth, so a sub-item can never wear the number of
+        // its parent's next sibling.
+        expect(point.id.startsWith(`${point.parent!}.`)).toBe(true)
+      }
+
+      // The box's own lead-in, which is the counterpart of Biology's `Students:`
+      // and no more taggable than it is.
+      expect(points.filter((p) => /^including:?$/i.test(p.text.trim()))).toEqual([])
+
+      // The licence notice is the only other one-cell table in the corpus, and
+      // it is the reason the rule names the document's own word.
+      expect(points.filter((p) => /non-exclusive licence/i.test(p.text))).toEqual([])
     },
   )
 
