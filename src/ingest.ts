@@ -57,8 +57,23 @@ export interface IngestContext {
   points: OfferedPoint[]
   /** Outcome codes the prompt listed. Empty means do not check. */
   outcomes: string[]
-  /** What the prompt asked for, used to fill a gap and to notice a departure. */
-  expected: { questionType: QuestionType; marks: number }
+  /**
+   * What the prompt asked for, used to fill a gap and to notice a departure.
+   *
+   * Absent when there is nothing to depart from. Drafting asks for one type at
+   * one mark value, so a reply worth 3 where 1 was asked for is worth saying;
+   * transcribing a paper takes whatever each question is printed as, and
+   * reporting all 30 of them as departures would be reporting the paper (#89).
+   */
+  expected?: { questionType: QuestionType; marks: number } | undefined
+  /**
+   * The paper these questions were transcribed from, when they were.
+   *
+   * Set only by the extraction path. It is what turns a "number" in the reply
+   * into provenance: unlike the source field, which is dropped because a model
+   * cannot know it, the question number is printed on the page it read.
+   */
+  paper?: { examination: string; year?: number | undefined } | undefined
 }
 
 export interface Draft {
@@ -124,10 +139,31 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
     else drafts.push(read)
   })
 
+  // Said once, not thirty times. A bank holds questions and a paper holds
+  // sections, so there is nowhere on a question to keep this and every question
+  // of a transcribed paper carries one: as a per-question repair it buried the
+  // four that mattered under thirty that did not.
+  if (list.items.some((raw) => hasSection(raw))) {
+    notes.push(
+      'Each question said which section of the paper it came from. A bank does not ' +
+        'record sections, so that was not kept.',
+    )
+  }
+
   if (drafts.length === 0 && rejected.length === 0) {
     return { drafts, rejected, notes, failure: 'That JSON parsed, but holds no questions.' }
   }
   return { drafts, rejected, notes }
+}
+
+/** Did the model say which section this question came from? */
+function hasSection(raw: unknown): boolean {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    !Array.isArray(raw) &&
+    (raw as Record<string, unknown>).section !== undefined
+  )
 }
 
 /* -------------------------------------------------------------- finding the JSON */
@@ -232,6 +268,11 @@ const KNOWN_FIELDS = new Set([
   'type',
   'topicIds',
   'pointIds',
+  // Consumed as warnings on the draft, by `transcriptionNotes`.
+  'unreadable',
+  'stimulusNote',
+  // Reported once for the batch rather than on every question, below.
+  'section',
 ])
 
 function readQuestion(
@@ -254,8 +295,12 @@ function readQuestion(
     repairs.push('Took the question text from a field not called "questionText".')
   }
 
-  const questionType = readType(src.questionType ?? src.type, ctx.expected.questionType, repairs)
-  const marks = readMarks(src.marks, ctx.expected.marks, repairs)
+  const questionType = readType(
+    src.questionType ?? src.type,
+    ctx.expected?.questionType ?? 'short_answer',
+    repairs,
+  )
+  const marks = readMarks(src.marks, ctx.expected?.marks, repairs)
 
   const id = suggestQuestionId(ctx.bankPath, questionType, taken)
   taken.add(id)
@@ -290,9 +335,16 @@ function readQuestion(
     )
   }
 
-  question.config = readConfig(questionType, src.config, repairs)
+  const { config: configSource, lifted } = liftConfig(questionType, src, repairs)
+  question.config = readConfig(questionType, configSource, repairs)
 
-  const ignored = Object.keys(src).filter((k) => !KNOWN_FIELDS.has(k))
+  const provenance = readPaperSource(src, ctx, repairs)
+  if (provenance) question.source = provenance
+
+  // `number` is consumed as provenance, but only when the caller said these came
+  // off a paper. Anywhere else it is a field nobody asked for and is reported.
+  const consumed = ctx.paper ? new Set([...lifted, 'number']) : lifted
+  const ignored = Object.keys(src).filter((k) => !KNOWN_FIELDS.has(k) && !consumed.has(k))
   if (ignored.length > 0) {
     repairs.push(`Ignored ${ignored.length === 1 ? 'a field' : 'fields'} Klunk does not store: ${ignored.join(', ')}.`)
   }
@@ -303,6 +355,7 @@ function readQuestion(
     // Its own id is already in `taken`, and matching itself is not a collision.
     originalId: id,
   })
+  faults.push(...transcriptionNotes(src))
 
   return { question, repairs, faults }
 }
@@ -353,14 +406,21 @@ function readType(value: unknown, fallback: QuestionType, repairs: string[]): Qu
   return fallback
 }
 
-function readMarks(value: unknown, expected: number, repairs: string[]): number {
+function readMarks(value: unknown, expected: number | undefined, repairs: string[]): number {
   const n = asNumber(value)
   if (n === undefined) {
+    if (expected === undefined) {
+      // Nothing to fall back on, so this is left at zero for `validateQuestion`
+      // to refuse. Guessing a mark off a paper is the one repair that cannot be
+      // checked against anything.
+      repairs.push('No marks given, and there is nothing to work them out from.')
+      return 0
+    }
     repairs.push(`No marks given, so it was set to the ${expected} the prompt asked for.`)
     return expected
   }
   if (typeof value === 'string') repairs.push(`Read the marks "${value}" as the number ${n}.`)
-  if (n !== expected) {
+  if (expected !== undefined && n !== expected) {
     repairs.push(`This came back worth ${n} marks, not the ${expected} that were asked for.`)
   }
   return n
@@ -528,6 +588,115 @@ function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] 
   if (notes) out.notes = notes
 
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * Take config fields the model left at the top level and put them where they go.
+ *
+ * Both real extraction runs returned `choices` beside `config` rather than
+ * inside it, in all nine multiple-choice questions each time, and it was then
+ * dropped as a field Klunk does not store: every one of those questions arrived
+ * with no options at all and an error saying so. The prompt shows the nesting
+ * now rather than describing it, and this is the other half of that fix, because
+ * a reply is a model's and not a contract (#89).
+ *
+ * Only fields belonging to this question's own type are lifted, so a stray
+ * `answer` on a drawing question is still reported rather than swallowed. A
+ * field already nested wins, since that is the one the reply meant.
+ */
+function liftConfig(
+  type: QuestionType,
+  src: Record<string, unknown>,
+  repairs: string[],
+): { config: unknown; lifted: Set<string> } {
+  const nested =
+    typeof src.config === 'object' && src.config !== null && !Array.isArray(src.config)
+      ? (src.config as Record<string, unknown>)
+      : undefined
+
+  const lifted = new Set<string>()
+  const merged: Record<string, unknown> = { ...(nested ?? {}) }
+  for (const field of CONFIG_FIELDS[type]) {
+    if (!(field in src) || field in merged) continue
+    merged[field] = src[field]
+    lifted.add(field)
+  }
+  if (lifted.size === 0) return { config: src.config, lifted }
+
+  repairs.push(
+    `Moved ${[...lifted].join(', ')} into the question's settings, where Klunk keeps ` +
+      `${lifted.size === 1 ? 'it' : 'them'}.`,
+  )
+  return { config: merged, lifted }
+}
+
+/**
+ * The question number the model read off the page, as provenance.
+ *
+ * A `source` in the reply is dropped, because where a question came from is not
+ * something a model can know. A transcribed question number is the exception:
+ * it is printed on the page it was read from, it is what lets a teacher find the
+ * question again, and it is what the reuse warning rests on. So it is taken only
+ * when the caller has said these came off a named paper.
+ */
+function readPaperSource(
+  src: Record<string, unknown>,
+  ctx: IngestContext,
+  repairs: string[],
+): Question['source'] | undefined {
+  if (!ctx.paper) return undefined
+
+  const source: NonNullable<Question['source']> = {
+    origin: 'extracted',
+    paper: ctx.paper.examination,
+  }
+  if (ctx.paper.year !== undefined) source.year = ctx.paper.year
+
+  const n = asNumber(src.number)
+  const number = n !== undefined ? String(n) : asString(src.number)
+  if (number === undefined) {
+    repairs.push('No question number came back, so this cannot be matched to the paper again.')
+  } else {
+    source.questionNumber = number
+  }
+  return source
+}
+
+/**
+ * What the model said about reading this question, which is not a repair.
+ *
+ * Two fields exist on the extraction side and nowhere to keep either: a question
+ * has no place for a description of a picture, and none at all for a note about
+ * what could not be read. Dropping them as unknown fields is the one thing that
+ * must not happen. `unreadable` is the whole of a transcription's honesty: on
+ * the 2025 paper it is what said the routers in a network diagram could not be
+ * made out, instead of inventing them.
+ *
+ * Warnings rather than errors. Both describe something the teacher has to look
+ * at on the page, and neither makes the question unsaveable once they have.
+ */
+function transcriptionNotes(src: Record<string, unknown>): Check[] {
+  const notes: Check[] = []
+
+  const unreadable = asString(src.unreadable)
+  if (unreadable !== undefined) {
+    notes.push({
+      severity: 'warning',
+      message: `Some of this could not be read: ${unreadable} Check it against the paper.`,
+    })
+  }
+
+  const stimulus = asString(src.stimulusNote)
+  if (stimulus !== undefined) {
+    notes.push({
+      severity: 'warning',
+      message:
+        `The paper prints a picture here: ${stimulus} Klunk cannot cut a picture out of a ` +
+        'scan, so add one yourself or reword the question.',
+    })
+  }
+
+  return notes
 }
 
 /* --------------------------------------------------------------------- config */

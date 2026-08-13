@@ -452,3 +452,126 @@ describe('a clean answer', () => {
     expect(draft.question.questionText).toContain('ergonomics')
   })
 })
+
+/* ------------------------------------------------- transcribing a past paper */
+
+/**
+ * The extraction side, all of it established by two real runs over scanned Year
+ * 11 Enterprise Computing papers (#89) rather than imagined.
+ */
+describe('reading back a paper somebody transcribed', () => {
+  const paper = { examination: 'Enterprise Computing Year 11', year: 2025 }
+
+  /** A multiple choice question shaped as both real runs actually returned one. */
+  function flattened(over: Record<string, unknown> = {}): string {
+    return JSON.stringify([
+      {
+        number: 7,
+        questionType: 'multiple_choice',
+        questionText: 'What is the purpose of a firewall in a cybersecurity system?',
+        marks: 1,
+        section: 'I',
+        // Beside "config", not inside it, which is what cost every option.
+        choices: [
+          { text: 'To detect and remove viruses' },
+          { text: 'To manage user authentication' },
+          { text: 'To encrypt data being transmitted' },
+          { text: 'To monitor and control incoming and outgoing network traffic' },
+        ],
+        ...over,
+      },
+    ])
+  }
+
+  it('recovers options the model left beside config instead of inside it', () => {
+    const { draft } = first(flattened(), ctx({ expected: undefined }))
+
+    expect(draft.question.config?.choices).toHaveLength(4)
+    expect(draft.question.config?.choices?.[3]?.text).toContain('incoming and outgoing')
+    expect(draft.repairs.join(' ')).toContain('Moved choices')
+    // The fault this replaced: options dropped, then reported as missing.
+    expect(draft.faults.map((f) => f.message).join(' ')).not.toContain('at least two options')
+  })
+
+  it('prefers what was nested, where a reply gives both', () => {
+    const { draft } = first(
+      flattened({ config: { choices: [{ text: 'The nested one' }, { text: 'And its pair' }] } }),
+      ctx({ expected: undefined }),
+    )
+
+    expect(draft.question.config?.choices).toHaveLength(2)
+    expect(draft.question.config?.choices?.[0]?.text).toBe('The nested one')
+  })
+
+  it('still reports a top-level field that is not this type of question\'s', () => {
+    const { draft } = first(flattened({ spaceMm: [180, 240] }), ctx({ expected: undefined }))
+
+    expect(draft.repairs.join(' ')).toContain('spaceMm')
+  })
+
+  it('takes the marks the paper printed, without calling them a departure', () => {
+    const { draft } = first(flattened({ marks: 5 }), ctx({ expected: undefined }))
+
+    expect(draft.question.marks).toBe(5)
+    expect(draft.repairs.join(' ')).not.toMatch(/asked for/)
+  })
+
+  it('refuses to invent marks when there is nothing to work them out from', () => {
+    const { draft } = first(flattened({ marks: undefined }), ctx({ expected: undefined }))
+
+    expect(draft.question.marks).toBe(0)
+    expect(draft.repairs.join(' ')).toContain('nothing to work them out from')
+    expect(draft.faults.some((f) => f.severity === 'error')).toBe(true)
+  })
+
+  it('keeps the question number as provenance, which a model can know', () => {
+    const { draft } = first(flattened(), ctx({ expected: undefined, paper }))
+
+    expect(draft.question.source).toEqual({
+      origin: 'extracted',
+      paper: 'Enterprise Computing Year 11',
+      year: 2025,
+      questionNumber: '7',
+    })
+  })
+
+  it('leaves the number alone, and says so, when nothing came off a paper', () => {
+    const { draft } = first(flattened(), ctx({ expected: undefined }))
+
+    expect(draft.question.source).toBeUndefined()
+    expect(draft.repairs.join(' ')).toContain('number')
+  })
+
+  it('carries what could not be read through as a warning, never dropping it', () => {
+    const { draft } = first(
+      flattened({ unreadable: 'The router labels could not be made out.' }),
+      ctx({ expected: undefined, paper }),
+    )
+
+    const warnings = draft.faults.filter((f) => f.severity === 'warning').map((f) => f.message)
+    expect(warnings.join(' ')).toContain('The router labels could not be made out.')
+    expect(draft.repairs.join(' ')).not.toContain('unreadable')
+  })
+
+  it('turns a described picture into the warning that one has to be added', () => {
+    const { draft } = first(
+      flattened({ stimulusNote: 'A diagram of a small office network.' }),
+      ctx({ expected: undefined, paper }),
+    )
+
+    const warnings = draft.faults.filter((f) => f.severity === 'warning').map((f) => f.message)
+    expect(warnings.join(' ')).toContain('A diagram of a small office network.')
+    expect(warnings.join(' ')).toContain('add one yourself')
+  })
+
+  it('says once that sections were dropped, rather than on every question', () => {
+    const two = JSON.parse(flattened()) as Record<string, unknown>[]
+    const out = ingestQuestions(JSON.stringify([two[0], { ...two[0], number: 8 }]), ctx({
+      expected: undefined,
+      paper,
+    }))
+
+    expect(out.notes.filter((n) => n.includes('section'))).toHaveLength(1)
+    for (const draft of out.drafts) expect(draft.repairs.join(' ')).not.toContain('section')
+  })
+})
