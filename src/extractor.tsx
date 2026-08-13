@@ -42,17 +42,27 @@
 import { useMemo, useState } from 'preact/hooks'
 import { adoptPaper, type Adopted } from './adopt'
 import type { Editing } from './editor'
-import { NotAPaperError, stampSource, type ExtractedQuestion } from './extract'
+import { NotAPaperError, stampSource, type ExtractedQuestion, type PageText } from './extract'
 import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
-import { courseChoices } from './factory'
-import { bankPathFault, CheckList, DocumentOptions, Field, normaliseBankPath } from './fields'
+import { courseChoices, profileFor } from './factory'
+import {
+  bankPathFault,
+  CheckList,
+  CopyButton,
+  DocumentOptions,
+  Field,
+  normaliseBankPath,
+} from './fields'
 import { historyOf, type DocumentNote } from './manifest'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
+import { ingestQuestions, type Draft } from './ingest'
+import { buildPaperPrompt } from './paperprompt'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
 import { hasMarkup } from './richtext'
 import { openPdf, pagesFromDocument, readPdf } from './pdftext'
 import { QuestionDetail } from './question'
+import { hasNoText } from './textlayer'
 import {
   copyFileInto,
   copyFileIntoUnlessThere,
@@ -91,6 +101,25 @@ function altFor(question: Question): string {
   return year === undefined
     ? `Picture from question ${which} of the paper`
     : `Picture from question ${which} of the ${year} paper`
+}
+
+/**
+ * A transcribed draft, in the shape the review below already understands.
+ *
+ * `Adopted` and `Draft` are the same thing arrived at two ways, so the whole
+ * review, discard, edit and save path is reused rather than written twice. What
+ * a transcription has none of is pictures and pages: a crop is cut from where
+ * the text is not, and a scan has no text anywhere, so `findPictures` has
+ * nothing to bound a band with (#89).
+ */
+function asAdopted(draft: Draft): Adopted {
+  return {
+    question: draft.question,
+    pictures: [],
+    pages: [],
+    notes: draft.repairs,
+    faults: draft.faults,
+  }
 }
 
 /** Where a paper chosen from this computer is put, which is where papers already live. */
@@ -135,7 +164,20 @@ export function Extractor({
   const [dragging, setDragging] = useState<Slot | null>(null)
   const [taking, setTaking] = useState(false)
   const [took, setTook] = useState('')
-  const [courseKey, setCourseKey] = useState(courses[0]?.key ?? '')
+  /**
+   * Which course every question read here is tagged against.
+   *
+   * Empty until the teacher says, and deliberately not defaulted to the folder's
+   * first course (#90). A default cannot be told from a choice on screen, and
+   * this one is written into the bank: three Enterprise Computing questions went
+   * in tagged as Visual Arts because the select was showing what it opened with.
+   *
+   * A wrong course is worse than none. #47 holds a question naming a course to
+   * that course, and `modelcheck.ts` cannot report it either, because the ids are
+   * real ids of a real model. Untagged is already handled everywhere: #47 and #49
+   * both offer a question that names nothing rather than holding it out.
+   */
+  const [courseKey, setCourseKey] = useState('')
   /**
    * The bank to write into, or `null` for one that does not exist yet.
    *
@@ -163,6 +205,15 @@ export function Extractor({
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
   /**
+   * This document is a picture of a paper, so no reader can ever have it (#89).
+   *
+   * Set only after every reader has already refused, which is what makes it a
+   * second route rather than a guess about the file.
+   */
+  const [noText, setNoText] = useState(false)
+  /** The reply to the transcription prompt, as pasted. */
+  const [pasted, setPasted] = useState('')
+  /**
    * The year every question carries, as typed.
    *
    * Kept as text rather than a number so a half-typed `20` is not read as a
@@ -174,7 +225,8 @@ export function Extractor({
   const [read, setRead] = useState<{
     adopted: Adopted[]
     notes: string[]
-    format: PaperFormat
+    /** Which reader claimed it. Absent where none did and an AI transcribed it. */
+    format?: PaperFormat
     guideFormat?: GuideFormat
     year?: number
   } | null>(
@@ -266,11 +318,15 @@ export function Extractor({
     setDiscarded([])
     setRenamed({})
     setRead(null)
+    setNoText(false)
+    // Held outside the try so the refusal below can say what kind of document
+    // this is, rather than only that no reader wanted it.
+    let pages: PageText[] = []
     try {
       // One open document for both the text and the pictures: `getDocument`
       // detaches the bytes it is given, so opening the same file twice throws.
       const doc = await openPdf(await readBytes(folder, paperPath))
-      const pages = await pagesFromDocument(doc)
+      pages = await pagesFromDocument(doc)
       const { format, paper: readAs } = readPastPaper(pages)
       remember({ path: paperPath, read: 'paper', when: today })
       let paper = readAs
@@ -355,11 +411,79 @@ export function Extractor({
       // that threw says nothing about what the document is.
       if (err instanceof NotAPaperError) {
         remember({ path: paperPath, refused: 'paper', when: today })
+        // The questions are in there, they are simply not text, so this is the
+        // one refusal that opens a second route instead of closing the screen.
+        if (hasNoText(pages)) setNoText(true)
       }
       setFailed((err as Error).message)
     } finally {
       setReading(false)
     }
+  }
+
+  /** The year as typed, where four digits have been typed. */
+  const typedYear = /^\d{4}$/.test(yearText.trim()) ? Number(yearText.trim()) : undefined
+
+  /**
+   * The prompt for a document no reader can have.
+   *
+   * Rebuilt as the examination and year are typed, because both are printed in
+   * it and a prompt naming the wrong paper is worse than one naming none.
+   */
+  const transcribeProfile = useMemo(
+    () => profileFor(index, chosen?.syllabus, chosen?.course.id),
+    [index, chosen],
+  )
+
+  const transcribePrompt = useMemo(() => {
+    if (!noText) return ''
+    return buildPaperPrompt({
+      examination: paperName.trim() || 'Past paper',
+      year: typedYear,
+      profile: transcribeProfile,
+      syllabus: chosen?.syllabus,
+      course: chosen?.course,
+    })
+  }, [noText, paperName, typedYear, transcribeProfile, chosen])
+
+  /**
+   * Read back what the teacher's AI made of the paper.
+   *
+   * The same `ingestQuestions` the Draft with AI tab uses, told that these came
+   * off a named paper, which is what turns a question number in the reply into
+   * provenance. Content points are deliberately not offered: a course can carry
+   * hundreds, and tagging is by topic here (#89).
+   */
+  const readReply = () => {
+    setFailed('')
+    const examination = paperName.trim() || 'Past paper'
+    const out = ingestQuestions(pasted, {
+      bankPath,
+      inFolder: questionIds(index),
+      inBank: new Set(
+        (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+      ),
+      syllabusId: chosen?.syllabus.id,
+      courseId: chosen?.course.id,
+      topicIds: (chosen?.course.topics ?? []).map((t) => t.id),
+      points: [],
+      outcomes: [],
+      paper: { examination, year: typedYear },
+    })
+
+    if (out.drafts.length === 0) {
+      setFailed(out.failure ?? 'That reply held no questions.')
+      return
+    }
+
+    setRead({
+      adopted: out.drafts.map(asAdopted),
+      notes: [
+        ...out.notes,
+        ...out.rejected.map((r) => `Entry ${r.at + 1} was not a question: ${r.why}`),
+      ],
+      ...(typedYear === undefined ? {} : { year: typedYear }),
+    })
   }
 
   // Worked out from the folder rather than remembered, so a question sent to the
@@ -590,13 +714,20 @@ export function Extractor({
               value={courseKey}
               onChange={(e) => setCourseKey((e.target as HTMLSelectElement).value)}
             >
-              {courses.length === 0 && <option value="">No syllabus in this folder</option>}
+              <option value="">
+                {courses.length === 0 ? 'No syllabus in this folder' : 'Not one of these'}
+              </option>
               {courses.map((c) => (
                 <option key={c.key} value={c.key}>
                   {c.label}
                 </option>
               ))}
             </select>
+            <p class="hint">
+              {chosen === undefined
+                ? 'Every question is saved untagged. You can tag them later in the library.'
+                : `Every question is saved tagged against ${chosen.syllabus.name}, ${chosen.course.name}.`}
+            </p>
           </Field>
 
         </div>
@@ -618,10 +749,27 @@ export function Extractor({
         )}
       </section>
 
+      {noText && (
+        <TranscribePanel
+          paperPath={paperPath}
+          prompt={transcribePrompt}
+          profileName={transcribeProfile?.name}
+          courseName={chosen ? `${chosen.syllabus.name}, ${chosen.course.name}` : undefined}
+          examination={paperName}
+          onExamination={setPaperName}
+          year={yearText}
+          onYear={setYearText}
+          pasted={pasted}
+          onPasted={setPasted}
+          onRead={readReply}
+        />
+      )}
+
       {read && (
         <section class="panel">
           <p class="panel__title">
-            <span class="step">2</span> Review every question before saving
+            <span class="step">{read.format === undefined ? 3 : 2}</span> Review every question
+               before saving
           </p>
           <p class="hint">
             Check each question against the paper. Anything Klunk was unsure about is
@@ -719,7 +867,9 @@ export function Extractor({
               says it: if Klunk has taken this for the wrong shape, the questions
               below are what look wrong, and this line is what says why. */}
           <p class="hint">
-            Klunk read this as {PAPER_FORMAT_DESCRIPTIONS[read.format]}.
+            {read.format === undefined
+              ? 'An AI transcribed these from the scan. Klunk did not read the paper itself.'
+              : `Klunk read this as ${PAPER_FORMAT_DESCRIPTIONS[read.format]}.`}
             {read.guideFormat !== undefined &&
               ` The marking guide is ${GUIDE_FORMAT_DESCRIPTIONS[read.guideFormat]}.`}
           </p>
@@ -895,6 +1045,119 @@ function PdfSlot({
 }
 
 /** Where a bank's pictures live, beside the bank rather than mixed in with it. */
+/**
+ * The second route in, for a paper that is a picture of a paper.
+ *
+ * It appears only once every reader has refused a document holding no text, so
+ * it is never an alternative to reading one Klunk can read. The privacy line is
+ * not decoration: every other prompt Klunk writes carries its own content, and
+ * the teacher reads the whole of it before copying. This one cannot, because the
+ * content is in a file Klunk cannot see, so the teacher attaches the paper
+ * themselves and the whole of it leaves their computer (#89).
+ */
+function TranscribePanel({
+  paperPath,
+  prompt,
+  profileName,
+  courseName,
+  examination,
+  onExamination,
+  year,
+  onYear,
+  pasted,
+  onPasted,
+  onRead,
+}: {
+  paperPath: string
+  prompt: string
+  /** The profile the structure came from, named because a borrowed one is invisible. */
+  profileName?: string | undefined
+  courseName?: string | undefined
+  examination: string
+  onExamination: (v: string) => void
+  year: string
+  onYear: (v: string) => void
+  pasted: string
+  onPasted: (v: string) => void
+  onRead: () => void
+}) {
+  return (
+    <section class="panel">
+      <div class="panel__head">
+        <p class="panel__title">
+          <span class="step">2</span> Transcribe it with an AI
+        </p>
+        <CopyButton text={prompt} />
+      </div>
+
+      <p class="hint">
+        Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste
+           the reply into the box below.
+      </p>
+      <p class="hint">
+        You attach the paper yourself, so all of it leaves your computer. Klunk cannot read
+           it to show you first.
+      </p>
+
+      <div class="slots">
+        <Field label="Which examination is this?" for="tr-exam">
+          <input
+            id="tr-exam"
+            class="input"
+            value={examination}
+            placeholder="Enterprise Computing Year 11 Examination"
+            onInput={(e) => onExamination((e.target as HTMLInputElement).value)}
+          />
+        </Field>
+        <Field label="Year" for="tr-year" hint="Printed on every question, so it can be found again.">
+          <input
+            id="tr-year"
+            class="input"
+            inputMode="numeric"
+            value={year}
+            placeholder="2025"
+            onInput={(e) => onYear((e.target as HTMLInputElement).value)}
+          />
+        </Field>
+      </div>
+
+      {/* The course above is a default until somebody changes it, and the profile
+          follows the course, so the totals in this prompt can be another
+          examination's entirely. They are stated to the model as fact, so the
+          one thing that must not happen is their arriving unattributed. */}
+      <p class="hint">
+        {profileName !== undefined
+          ? `Structure taken from ${profileName}. Change the course above if that is not ` +
+            'this paper.'
+          : courseName === undefined
+            ? 'The prompt does not say how the paper is laid out. Choose a course above to ' +
+              'take that from its profile.'
+            : `No paper profile for ${courseName} in this folder, so the prompt does not say ` +
+              'how the paper is laid out.'}
+      </p>
+
+      <pre class="promptbox">{prompt}</pre>
+
+      <Field label="Paste the reply here" for="tr-reply">
+        <textarea
+          id="tr-reply"
+          class="input"
+          rows={6}
+          value={pasted}
+          placeholder="Paste the whole reply, code block and all."
+          onInput={(e) => onPasted((e.target as HTMLTextAreaElement).value)}
+        />
+      </Field>
+
+      <div class="panel__act">
+        <button class="btn btn--primary" disabled={!pasted.trim()} onClick={onRead}>
+          Read the reply
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function imageDirectory(bankPath: string): string {
   const slash = bankPath.lastIndexOf('/')
   return slash < 0 ? 'stimulus' : `${bankPath.slice(0, slash)}/stimulus`
@@ -943,10 +1206,12 @@ function ExtractedCard({
 
       <p class="det__label">
         <span class="mono">{savedAs ?? q.id}</span> · {QUESTION_TYPE_LABELS[q.questionType]} ·{' '}
-        {q.marks} mark{q.marks === 1 ? '' : 's'} ·{' '}
+        {q.marks} mark{q.marks === 1 ? '' : 's'}
         {/* The page is what a doubtful question gets checked against, so it is on
-            the card rather than hidden behind the detail. */}
-        page{item.pages.length === 1 ? '' : 's'} {item.pages.join(', ')}
+            the card rather than hidden behind the detail. A transcribed question
+            has none: nobody read the pages, so there is no page to name. */}
+        {item.pages.length > 0 &&
+          ` · page${item.pages.length === 1 ? '' : 's'} ${item.pages.join(', ')}`}
         {q.source?.year !== undefined && ` · ${q.source.year} Q${q.source.questionNumber}`}
       </p>
 

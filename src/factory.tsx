@@ -19,6 +19,7 @@ import type { Editing } from './editor'
 import {
   bankPathFault,
   CheckList,
+  CopyButton,
   Field,
   normaliseBankPath,
   NumField,
@@ -98,7 +99,10 @@ export function Factory({
   const bankPath = bank === null ? normaliseBankPath(newBankPath) : bank
   const pathFault = bank === null ? bankPathFault(newBankPath) : null
 
-  const profile = useMemo(() => profileFor(index, chosen?.syllabus), [index, chosen])
+  const profile = useMemo(
+    () => profileFor(index, chosen?.syllabus, chosen?.course.id),
+    [index, chosen],
+  )
   const topics = (chosen?.course.topics ?? []).filter((t) => topicIds.includes(t.id))
   const points = topics.flatMap((t) => (t.points ?? []).map((p) => ({ ...p, topicId: t.id })))
 
@@ -600,21 +604,6 @@ function PromptStep({
   /** Said above the prompt, because it is about what the prompt does not contain. */
   noProfile: ComponentChildren
 }) {
-  const [said, setSaid] = useState('')
-
-  // What was copied is no longer what is on screen the moment anything changes.
-  useEffect(() => setSaid(''), [prompt])
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(prompt)
-      setSaid('Copied. Paste it into your school’s AI.')
-    } catch {
-      // The recovery is the teacher's hands: the text is right there, selectable.
-      setSaid('Your browser would not let Klunk copy this. Select the prompt and press Ctrl+C.')
-    }
-  }
-
   return (
     <section class="panel">
       <div class="panel__head">
@@ -623,16 +612,7 @@ function PromptStep({
         </p>
         {/* The confirmation belongs beside the button. Below the prompt it is
             26rem away from the thing that was just pressed, which is nowhere. */}
-        <div class="panel__act">
-          {said && <span class="hint">{said}</span>}
-          <button
-            class="btn btn--primary"
-            disabled={!prompt}
-            onClick={() => void copy()}
-          >
-            Copy to clipboard
-          </button>
-        </div>
+        <CopyButton text={prompt} />
       </div>
 
       <p class="hint">
@@ -791,9 +771,24 @@ export function courseChoices(index: ContentIndex): CourseChoice[] {
  * *particular* public examination; there is no reading under which another
  * subject's describes this one. The prompt now simply says less.
  */
-function profileFor(index: ContentIndex, syllabus: Syllabus | undefined): Profile | undefined {
+export function profileFor(
+  index: ContentIndex,
+  syllabus: Syllabus | undefined,
+  courseId?: string | undefined,
+): Profile | undefined {
   if (!syllabus) return undefined
-  return index.profiles.find((p) => p.data.syllabusId === syllabus.id)?.data
+  const mine = index.profiles.filter((p) => p.data.syllabusId === syllabus.id)
+
+  // A subject runs across several years and each sets its own papers (#49), so a
+  // profile naming a different course of this syllabus describes a different
+  // examination. Taking it is the same borrowing as taking another subject's,
+  // one level down, and it matters more here than in a mark-per-question hint:
+  // `paperprompt.ts` prints the totals as what the paper says.
+  if (courseId !== undefined) {
+    const exact = mine.find((p) => p.data.courseId === courseId)
+    if (exact) return exact.data
+  }
+  return mine.find((p) => p.data.courseId === undefined)?.data
 }
 
 /**

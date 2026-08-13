@@ -242,6 +242,41 @@ export function TopicChipLabel({ topic }: { topic: SyllabusTopic }) {
   )
 }
 
+/**
+ * Copy something long to the clipboard, and say what happened beside the button.
+ *
+ * Shared by the two screens that hand a teacher a prompt to paste elsewhere, so
+ * the failure wording exists once. The recovery is the teacher's own hands: the
+ * text is on screen and selectable either way, which is why a browser refusing
+ * the clipboard is a hint rather than an error.
+ *
+ * What was copied stops being what is on screen the moment the text changes, so
+ * the confirmation clears with it.
+ */
+export function CopyButton({ text, label = 'Copy to clipboard' }: { text: string; label?: string }) {
+  const [said, setSaid] = useState('')
+
+  useEffect(() => setSaid(''), [text])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setSaid('Copied. Paste it into your school\u2019s AI.')
+    } catch {
+      setSaid('Your browser would not let Klunk copy this. Select the prompt and press Ctrl+C.')
+    }
+  }
+
+  return (
+    <div class="panel__act">
+      {said && <span class="hint">{said}</span>}
+      <button class="btn btn--primary" disabled={!text} onClick={() => void copy()}>
+        {label}
+      </button>
+    </div>
+  )
+}
+
 export function CheckList({ checks }: { checks: Check[] }) {
   return (
     <ul class="plain">
