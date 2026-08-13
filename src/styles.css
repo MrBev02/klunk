@@ -641,6 +641,27 @@ textarea.input {
   outline-offset: -1px;
 }
 
+/*
+ * A placeholder is an example of what to write, and it was being read as what
+ * had been written.
+ *
+ * Nothing styled these, so they took Chrome's default, which is dark enough to
+ * pass for real text in a field a teacher is scanning rather than reading. Two
+ * signals rather than one, because either alone is missable: the colour is the
+ * one already used for text that is not content, and the italic says so
+ * without being read at all. It matters most where the example is a plausible
+ * answer — `Enterprise Computing Year 11 Examination` in a box asking which
+ * examination this is looks exactly like a filled-in field.
+ *
+ * `opacity: 1` because Firefox dims placeholders by default, and a colour
+ * chosen for contrast is not that colour once something halves it.
+ */
+.input::placeholder {
+  color: var(--ink-faint);
+  opacity: 1;
+  font-style: italic;
+}
+
 .muted {
   color: var(--ink-faint);
 }
