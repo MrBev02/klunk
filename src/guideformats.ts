@@ -15,6 +15,7 @@
 import type { PageText } from './extract'
 import { readAnswerKey } from './answerkey'
 import { type ExtractedGuide, NotAGuideError, extractGuide } from './guide'
+import { hasNoText, NO_TEXT_IN_GUIDE } from './textlayer'
 
 export type GuideFormat = 'nesa' | 'answerkey'
 
@@ -43,7 +44,8 @@ export interface GuideReading {
 /**
  * Read a PDF as a marking guide, whichever shape it is.
  *
- * @throws NotAGuideError when no reader recognises it.
+ * @throws NotAGuideError when no reader recognises it, or, for a document holding
+ *   no text at all, saying that instead.
  */
 export function readMarkingGuide(pages: PageText[]): GuideReading {
   for (const [format, read] of READERS) {
@@ -53,6 +55,10 @@ export function readMarkingGuide(pages: PageText[]): GuideReading {
       if (!(err instanceof NotAGuideError)) throw err
     }
   }
+
+  // The paper side's reasoning, and the same document arrives here: a teacher
+  // scanning an exam scans its marking guide in the same pass (#89).
+  if (hasNoText(pages)) throw new NotAGuideError(NO_TEXT_IN_GUIDE)
 
   throw new NotAGuideError(
     'Klunk could not read any answers in this document. It reads a NSW HSC marking ' +

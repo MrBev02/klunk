@@ -20,6 +20,7 @@
 
 import { NotAPaperError, type ExtractedPaper, extractPaper, type PageText } from './extract'
 import { readObjectivePaper } from './objective'
+import { hasNoText, NO_TEXT_IN_PAPER } from './textlayer'
 
 export type PaperFormat = 'nesa' | 'objective'
 
@@ -52,7 +53,8 @@ export interface PaperReading {
  *   Klunk does read. What each reader looked for is left out for the reason
  *   `readSyllabusXml` leaves it out: it is the shape of the markup, and a
  *   teacher cannot act on it. What they can act on is knowing which documents
- *   work and that this one is not one of them.
+ *   work and that this one is not one of them. A document holding no text at
+ *   all says that instead, because the shapes are not what is wrong with a scan.
  */
 export function readPastPaper(pages: PageText[]): PaperReading {
   for (const [format, read] of READERS) {
@@ -62,6 +64,11 @@ export function readPastPaper(pages: PageText[]): PaperReading {
       if (!(err instanceof NotAPaperError)) throw err
     }
   }
+
+  // A scan or a photograph is not "neither of the two shapes". It is a document
+  // with nothing in it to read, and listing the shapes tells the teacher the one
+  // thing that is not the problem (#89).
+  if (hasNoText(pages)) throw new NotAPaperError(NO_TEXT_IN_PAPER)
 
   throw new NotAPaperError(
     'Klunk could not read any questions in this document. It reads a NSW HSC ' +

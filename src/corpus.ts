@@ -64,6 +64,25 @@ export const dtMarkingGuide = (year: number) => `${PAPERS}/dt-${year}-mg.pdf`
 export const BIOLOGY_PAPER = `${SOURCE}/2025-hsc-biology.pdf`
 export const BIOLOGY_MARKING_GUIDE = `${SOURCE}/2025-hsc-biology-mg.pdf`
 
+/* ------------------------------------------------------------ scanned papers */
+
+/**
+ * Two Year 11 Enterprise Computing exams scanned on a school copier, and the
+ * only documents anywhere in the corpus with no text layer at all (#89).
+ *
+ * They are what settled the rule in `src/textlayer.ts`: 34 pages between them
+ * and not one text piece, because the copier ran no text recognition and every
+ * page is a single full-page image. Every other PDF here sits on the other side
+ * of that line, so both halves of the rule have a real document behind them.
+ *
+ * Worth knowing before either is used for anything beyond that. The 2025 scan is
+ * upside down on every page. The 2024 one is **2-up** on A3, two of the paper's
+ * 20 pages per image, and its orientation varies sheet by sheet; its first sheet
+ * is a failed scan holding no page at all, so the cover is simply missing.
+ */
+export const EC_2025_SCAN = `${SOURCE}/enterprise-computing-2025-year11-scan.pdf`
+export const EC_2024_SCAN = `${SOURCE}/enterprise-computing-2024-year11-scan.pdf`
+
 /* --------------------------------------------------------- NESA syllabuses */
 
 export const DT_SYLLABUS = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
@@ -159,6 +178,10 @@ export const SUITES: Record<string, CorpusSuite> = {
   'headings.corpus': {
     what: 'the Outcomes/Content and prose readers, over six syllabuses',
     docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, VISUAL_ARTS, DT_SYLLABUS],
+  },
+  'textlayer.corpus': {
+    what: 'refusing a scan for holding no text, over two documents that have none',
+    docs: [EC_2025_SCAN, EC_2024_SCAN],
   },
   'ibdt.corpus': {
     what: 'the IB syllabus map reader',
