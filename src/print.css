@@ -757,3 +757,33 @@
   /* Height is capped rather than width, because a tall image shrinks to an
      unreadable width on A4. Draw stimulus landscape. */
 }
+
+/* A table printed inside a question (#88), on the page. Matched to
+   `.answertable`, which is the table a student writes in, because a paper
+   showing two weights of rule looks like two different documents. */
+.richp + .richp,
+.richp + .richtable,
+.richtable + .richp {
+  margin-top: 2mm;
+}
+
+.richtable {
+  width: 100%;
+  border-collapse: collapse;
+  /* Never split across a page. A table of readings with its heading on one page
+     and its rows on the next is unreadable, and the questions are short enough
+     that moving the whole thing costs nothing. */
+  break-inside: avoid;
+}
+
+.richtable th,
+.richtable td {
+  border: 0.5pt solid #000;
+  padding: 1.5mm 2mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+.richtable th {
+  font-weight: 600;
+}

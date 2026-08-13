@@ -51,6 +51,19 @@ const PAPERS = `${SOURCE}/nsw-hsc-dt/papers`
 export const dtPaper = (year: number) => `${PAPERS}/dt-${year}-paper.pdf`
 export const dtMarkingGuide = (year: number) => `${PAPERS}/dt-${year}-mg.pdf`
 
+/**
+ * The 2025 HSC Biology paper and its marking guide.
+ *
+ * The first document the paper reader was given that was not Design and
+ * Technology, and it broke it in four places (#81 to #84) and a fifth (#85).
+ * Every one of those findings was established by hand and none of them was
+ * pinned by a test, which is the same silence #65 was about: the eleven D&T
+ * papers can all pass while the document that actually found the faults goes
+ * unread.
+ */
+export const BIOLOGY_PAPER = `${SOURCE}/2025-hsc-biology.pdf`
+export const BIOLOGY_MARKING_GUIDE = `${SOURCE}/2025-hsc-biology-mg.pdf`
+
 /* --------------------------------------------------------- NESA syllabuses */
 
 export const DT_SYLLABUS = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
@@ -127,8 +140,12 @@ export interface CorpusSuite {
  */
 export const SUITES: Record<string, CorpusSuite> = {
   'extract.corpus': {
-    what: 'the NESA past paper and marking guide readers, over eleven years',
-    docs: PAPER_YEARS.flatMap((year) => [dtPaper(year), dtMarkingGuide(year)]),
+    what: 'the NESA past paper and marking guide readers, over eleven years and two subjects',
+    docs: [
+      ...PAPER_YEARS.flatMap((year) => [dtPaper(year), dtMarkingGuide(year)]),
+      BIOLOGY_PAPER,
+      BIOLOGY_MARKING_GUIDE,
+    ],
   },
   'objective.corpus': {
     what: 'the numbered multiple-choice paper and answer-key readers',

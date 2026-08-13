@@ -50,6 +50,7 @@ import { historyOf, type DocumentNote } from './manifest'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
+import { hasMarkup } from './richtext'
 import { openPdf, pagesFromDocument, readPdf } from './pdftext'
 import { QuestionDetail } from './question'
 import {
@@ -1020,7 +1021,9 @@ function ExtractedCard({
 
       {open && (
         <div class="qrow__detail">
-          <QuestionDetail question={q} showStem={false} />
+          {/* The heading above shows the stem, so it is not repeated here —
+              unless it holds a table, which a clamped heading cannot show (#88). */}
+          <QuestionDetail question={q} showStem={hasMarkup(q.questionText)} />
           <p class="det__label" style={{ marginTop: '0.6rem' }}>
             Will be saved into <span class="mono">{bankPath}</span>
           </p>

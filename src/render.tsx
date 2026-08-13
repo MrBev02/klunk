@@ -20,6 +20,7 @@ import {
   type ResolvedPaper,
   type ResolvedQuestion,
 } from './paper'
+import { RichText } from './richtext'
 import { joinPath } from './storage'
 import type { MarkCriterion, Profile, Question, Stimulus } from './types'
 
@@ -351,13 +352,13 @@ function QuestionBlock({
           {q.stimulus?.map((s, i) => (
             <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
           ))}
-          {q.questionText.trim() && <p class="q-print__text">{q.questionText}</p>}
+          {q.questionText.trim() && <RichText text={q.questionText} class="q-print__text" />}
         </div>
       ) : (
         <div class="q-print__head">
           <span class="q-print__n">{item.number}</span>
           <div class="q-print__body">
-            <p class="q-print__text">{q.questionText}</p>
+            <RichText text={q.questionText} class="q-print__text" />
             {q.stimulus?.map((s, i) => (
               <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
             ))}

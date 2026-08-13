@@ -69,6 +69,8 @@ klunk/                     this repo - app and tools only, public
     guide.ts               the NESA marking guide reader
     answerkey.ts           the grid-of-answers markscheme reader
     guideformats.ts        picks the guide reader that fits the document
+    richtext.tsx           the paragraphs and pipe tables a question's text may
+                           carry, and taking them back out again
     syllabusedit.ts        correcting a parsed model, pure and testable
     syllabusreview.tsx     every topic on screen, to correct or only to read
     syllabusmodels.tsx     the models already in the folder, read-only
@@ -258,6 +260,96 @@ marks, **no question with an error**, the amoeba diagram one picture with its
 four labels and its credit, the karyotype one, the flow chart one and Question
 24 a four-mark short answer with two parts, and Question 30 carrying both parts
 at 4 and 7.
+
+**A row of a page is a row of columns, and throwing the columns away cost two
+questions their meaning** (#85, #88). `toLines` joined a row's runs into one
+string and kept only the leftmost x. `Line.cells` keeps the spans as well, and
+`Line.text` is unchanged, so the four other readers that call `toLines` are
+untouched.
+
+- **An option can be a row of a table, and then the label is centred against its
+  cell.** Where the cell wraps, the label lands on its own baseline *between* the
+  two halves — so the first half is printed **above** the label it belongs to.
+  Appending each line to the option before it, which is right for an ordinary
+  wrap, gave every option the second half of its own cell and the first half of
+  the next one's. Each read plausibly and each was wrong, which is the worst
+  kind: a teacher scanning fifteen questions would not catch it, and it prints.
+- **The discriminator is horizontal, and vertical distance alone is not enough.**
+  An ordinary wrapped option continues at the option's own text column (x=127 on
+  this paper); a wrapped cell is at x=235. A three-line wrapped option puts its
+  last line nearer the *next* label than its own, so a pure nearest-label rule
+  breaks what already works. The rule is therefore: a line at the option's text
+  column continues the option above it, and a line right of it, inside the run of
+  labels, goes to the label nearest its baseline — `guide.ts`'s rule for a mark
+  against a band, arriving on an option label.
+- **The block reaches half a label-spacing above the first label**, and no
+  further. The labels are 33 points apart, the first cell line is 7 above its own
+  label, and the column headings are 27.8 above it: 16.5 admits the one and
+  refuses the other. The headings stay in the stem, which is why a question read
+  from a table says so in a note.
+- **A cell boundary is 14 points, and 6 was measured wrongly.** Every gap in the
+  twelve papers with a word on each side was read: the widest inside running
+  prose is **8.4**, because a line justified to both margins has wide word gaps
+  and the 2017 D&T paper prints one such option. At 6 it shattered into a cell
+  per word and would have come back as `Conduct – research – into – the`. The
+  narrowest real column boundary is **22**, a label against its own text.
+- **One row of columns is not a table, and two rows are a legend.** The gate is
+  three rows sharing two columns, with a three-cell row somewhere in the run. Two
+  rows takes a graph's key, which the 2025 D&T paper prints; two columns takes
+  every option list and every numbered list. **Columns are matched by span
+  overlap, never by left edge** — `Body temperature` starts at x=247 and the
+  `41.3` under it at x=280, and left edges lose the heading row entirely.
+- **What survives the gate and is not a table: two diagrams on this one paper**,
+  a four-step figure whose captions wrap over three lines, and the labels around
+  a cell-division diagram. Geometry over `{x, y, width, str}` cannot refuse
+  either without also refusing Q7's data table: both are indented past the prose
+  columns and both sit inside a band `findPictures` claims. So a recovered table
+  is a **proposal**, as a crop is — the crop is still offered beside it, and
+  neither case loses a word that was read before.
+- **Eleven years of D&T change in exactly one place, and it is a fix.** The 2022
+  paper sets an objective question on a two-by-two matrix of market demand
+  against manufacturing cost, and it had been read as loose words like every
+  other table. Nothing else in the corpus moves.
+- **A `BLANK PAGE` notice was being read onto the option above it** (#86), on the
+  last objective question of this paper. The 2015 D&T paper prints two and cost
+  nothing, because neither falls while a question is open.
+- **Not fixed: Question 14's options are drawings** laid out two to a row, so
+  `A. B.` matches as one option whose text is `B.` (#87). It says `Read 2 options
+  rather than four`, so it is loud rather than silent.
+
+**A table in a question is a pipe table in `questionText`, and the markup is
+deliberately tiny** (#88). Blank-line paragraphs and pipe tables, nothing else —
+no bold, no lists, no links.
+
+- **Why markup rather than a field.** The table is printed *between* two
+  paragraphs of the question, and `stimulus` renders in one fixed place, so a
+  field would mean splitting the stem and deciding where the split falls. It is
+  also what an AI draft already comes back as, so `ingest.ts` needs nothing:
+  `asString` trims the ends and keeps interior newlines.
+- **`src/richtext.tsx` is written by hand**, about 130 lines. A markdown library
+  would be a third dependency, would bring far more syntax than this wants, and
+  would need a sanitiser behind it. The precedent is `CriterionPoints`.
+- **A table is known by its separator row**, not by holding a pipe, so a sentence
+  mentioning `A|B` is prose. A pipe inside a cell is written `\|` and survives a
+  round trip through the editor.
+- **`plainText` is the other half and is not optional.** Three list views clamp a
+  stem to two lines, and `questionHaystack` is what search reads; both would
+  otherwise show rows of pipes. A table flattens to its cells, so searching for
+  `41.3` still finds the question that prints it.
+- **A two-line summary is a faithful summary of prose and is not of a table.**
+  The extractor and the factory both passed `showStem={false}` on the ground that
+  the heading had said it already; with a table that hid the whole point. They
+  ask `hasMarkup` now.
+- **A `//` comment inside JSX is text on the page.** Two of them printed on the
+  review card and were only found by driving it. `{/* … */}` is the only form.
+
+Driven end to end afterwards: 34 questions and 100 marks with no question in
+error, Q7's four options each carrying their own reason and nothing of a
+neighbour's, its six readings a real table on screen and on the printed paper and
+on the marking guide, Q27's four columns surviving their spanning header, and the
+answer key still marking C. The 2019 D&T paper reads to fourteen questions and
+forty marks with no table anywhere; the 2022 one to fifteen and forty with its
+matrix recovered.
 
 **A section can be a set of alternatives, and until #52 Klunk could not say so.**
 Established from the 2025 Visual Arts HSC Trial (Redlands), the same document

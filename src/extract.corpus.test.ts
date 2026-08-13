@@ -22,7 +22,14 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { PAPER_YEARS, dtMarkingGuide, dtPaper, have } from './corpus'
+import {
+  BIOLOGY_MARKING_GUIDE,
+  BIOLOGY_PAPER,
+  PAPER_YEARS,
+  dtMarkingGuide,
+  dtPaper,
+  have,
+} from './corpus'
 import { extractPaper } from './extract'
 import { applyGuide, extractGuide } from './guide'
 import { pagesFromDocument } from './pdftext'
@@ -67,6 +74,41 @@ async function read(year: number) {
 
 async function readGuide(year: number) {
   return extractGuide(await open(dtMarkingGuide(year)))
+}
+
+/** Every pipe table in a stem, as rows of cells. */
+function tablesIn(text: string): string[][][] {
+  return text
+    .split('\n\n')
+    .filter((block) => block.startsWith('|'))
+    .map((block) =>
+      block
+        .split('\n')
+        .filter((row) => !/^\|(\s*---\s*\|)+$/.test(row))
+        .map((row) => row.slice(1, -1).split('|').map((cell) => cell.trim())),
+    )
+}
+
+/**
+ * The fault in #85, stated without quoting the paper.
+ *
+ * Where an option was a table row whose cell wrapped, the label was centred
+ * against the cell and landed between its two halves, so each option ended with
+ * the opening of the *next* option's cell. The last words of one option were
+ * therefore the first words of the one below it — which is a property, not a
+ * wording, and can be checked on a corpus that cannot be committed.
+ */
+function noOptionHoldsTheNext(q: { number: number; options?: { label: string; text: string }[] }) {
+  const options = q.options ?? []
+  for (let i = 0; i + 1 < options.length; i += 1) {
+    const words = options[i]!.text.split(/\s+/).filter(Boolean)
+    if (words.length < 5) continue
+    const tail = words.slice(-4).join(' ')
+    expect(
+      options[i + 1]!.text.startsWith(tail),
+      `Q${q.number}: option ${options[i + 1]!.label} opens with the end of option ${options[i]!.label}`,
+    ).toBe(false)
+  }
 }
 
 describe('the 2015-2025 corpus', () => {
@@ -147,6 +189,24 @@ describe('the 2015-2025 corpus', () => {
         )
         expect(text, 'a page number was read as question text').not.toMatch(/–\s*\d+\s*–/)
       }
+
+      for (const q of paper.questions) noOptionHoldsTheNext(q)
+    })
+
+    it.skipIf(!paper)(`${year}: only the one paper that prints a table has one`, async () => {
+      const paper = await read(year)
+      const tabled = paper.questions.filter((q) => tablesIn(q.text).length > 0)
+
+      // One question in eleven years. The 2022 paper sets an objective question
+      // on a two-by-two matrix of market demand against manufacturing cost, and
+      // until #88 it was read as a run of loose words like every other table.
+      // Every other year has none, which is what keeps this from drifting.
+      expect(tabled.map((q) => q.number)).toEqual(year === 2022 ? [3] : [])
+      for (const q of tabled) {
+        const [table] = tablesIn(q.text)
+        expect(table!).toHaveLength(3)
+        expect(new Set(table!.map((row) => row.length)).size, 'ragged rows').toBe(1)
+      }
     })
 
     it.skipIf(!(guide))(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
@@ -217,4 +277,131 @@ describe('the 2015-2025 corpus', () => {
       }
     })
   }
+})
+
+/**
+ * The 2025 HSC Biology paper, which is the whole of the second subject.
+ *
+ * Every fault in #81 to #85 was found on this document and none of them was
+ * pinned by anything, so eleven green D&T years said nothing about whether it
+ * still read. Its shape is a NESA paper and its numbers are not: 100 marks as
+ * twenty objective questions and fourteen written ones, with no Section III.
+ */
+describe('the 2025 Biology paper', () => {
+  const paper = have(BIOLOGY_PAPER)
+  const guide = have(BIOLOGY_MARKING_GUIDE)
+
+  const readBiology = async () => extractPaper(await open(BIOLOGY_PAPER))
+
+  it.skipIf(!paper)('reads all 34 questions and totals 100 marks', async () => {
+    const read = await readBiology()
+
+    const one = read.questions.filter((q) => q.section === 'I')
+    const two = read.questions.filter((q) => q.section === 'II')
+
+    expect(one).toHaveLength(20)
+    expect(one.every((q) => q.marks === 1)).toBe(true)
+    expect(two).toHaveLength(14)
+
+    // Nineteen of the twenty. The twentieth prints its four options as drawings
+    // laid out two to a row, so `A. B.` reads as one option (#87). It says so
+    // rather than passing quietly, which is what is pinned here.
+    expect(one.filter((q) => q.options?.length === 4)).toHaveLength(19)
+    const short = one.filter((q) => q.options?.length !== 4)
+    expect(short.every((q) => q.notes.some((n) => /options rather than four/.test(n)))).toBe(true)
+    // No Section III. A paper that has one is D&T's shape, not every paper's.
+    expect(read.questions.filter((q) => q.section === 'III')).toHaveLength(0)
+
+    expect(read.questions.reduce((sum, q) => sum + q.marks, 0)).toBe(100)
+    expect(read.questions.map((q) => q.number)).toEqual(read.questions.map((_, i) => i + 1))
+  })
+
+  it.skipIf(!paper)('reads every question and every part adds up', async () => {
+    const read = await readBiology()
+    for (const q of read.questions) {
+      expect(q.text !== '' || (q.parts?.length ?? 0) > 0, `Q${q.number} read as empty`).toBe(true)
+      if (q.parts) {
+        expect(q.parts.reduce((s, part) => s + part.marks, 0), `Q${q.number} parts sum`).toBe(q.marks)
+        expect(q.parts.every((part) => part.text !== '')).toBe(true)
+      }
+    }
+  })
+
+  it.skipIf(!paper)('gives every option its own row of the table and none of the next (#85)', async () => {
+    const read = await readBiology()
+    for (const q of read.questions) noOptionHoldsTheNext(q)
+
+    // Five of the twenty objective questions lay their options out as a table.
+    // Four print each row on one baseline; the fifth wraps a cell, which is the
+    // one that centred its labels and scrambled every option.
+    const tables = read.questions.filter((q) => q.notes.some((n) => /printed as a table/.test(n)))
+    expect(tables).toHaveLength(5)
+
+    for (const q of tables) {
+      // They are rows of one table, so they have the same number of columns.
+      const columns = q.options!.map((o) => o.text.split(' – ').length)
+      expect(new Set(columns).size, `Q${q.number} rows disagree on their columns`).toBe(1)
+      expect(columns[0]).toBeGreaterThan(1)
+    }
+  })
+
+  it.skipIf(!paper)('keeps a table printed inside a question as a table (#88)', async () => {
+    const read = await readBiology()
+
+    // Six hourly readings under three headings, the second and third of which
+    // are printed over two lines and have to come back as one heading each.
+    const [readings] = tablesIn(read.questions.find((q) => q.number === 7)!.text)
+    expect(readings).toHaveLength(7)
+    expect(readings!.every((row) => row.length === 3)).toBe(true)
+    expect(readings!.every((row) => row.every((cell) => cell !== ''))).toBe(true)
+
+    // Two groups of three animals, under a heading that spans two columns each
+    // time. The span must not weld the columns it covers into one.
+    const [eggs] = tablesIn(read.questions.find((q) => q.number === 27)!.text)
+    expect(eggs!.every((row) => row.length === 4)).toBe(true)
+    expect(eggs).toHaveLength(5)
+
+    // Four questions in all. The other two are diagrams whose labels line up,
+    // and geometry cannot refuse them without refusing the two above: both are
+    // also offered as a picture, and neither loses a word that was read before.
+    // Pinned so that a change to the rule is looked at rather than absorbed.
+    expect(read.questions.filter((q) => tablesIn(q.text).length > 0).map((q) => q.number)).toEqual([
+      7, 26, 27, 33,
+    ])
+  })
+
+  it.skipIf(!paper)('carries none of the paper\'s furniture in its text', async () => {
+    const read = await readBiology()
+    const texts = read.questions.flatMap((q) => [
+      q.text,
+      ...(q.parts ?? []).map((part) => part.text),
+      ...(q.options ?? []).map((o) => o.text),
+    ])
+    for (const text of texts) {
+      expect(text, 'a ruled answer line was read as question text').not.toMatch(/[.…_]{4,}/)
+      expect(text, 'the sideways margin notice was read as question text').not.toMatch(
+        /Do NOT write|Office Use Only/i,
+      )
+      expect(text, 'a copyright notice was read as question text').not.toMatch(/©/)
+      expect(text, 'the answer booklet front matter was read as question text').not.toMatch(
+        /Answer Booklet|Centre Number|Student Number/i,
+      )
+      expect(text, 'a page number was read as question text').not.toMatch(/–\s*\d+\s*–/)
+      expect(text, 'a blank page notice was read as question text').not.toMatch(/BLANK PAGE/i)
+    }
+  })
+
+  it.skipIf(!guide)('reads a marking guide with twenty answers and no mapping grid', async () => {
+    const read = extractGuide(await open(BIOLOGY_MARKING_GUIDE))
+
+    expect(Object.keys(read.answerKey)).toHaveLength(20)
+    for (let n = 1; n <= 20; n += 1) {
+      expect(read.answerKey[n], `no answer for Q${n}`).toMatch(/^[A-D]$/)
+    }
+    // Biology's guide prints no `Question | Marks | Content | Syllabus outcomes`
+    // table, so nothing is tagged with outcomes and every question is left for
+    // the teacher. That is the document, not a misread.
+    expect(read.mapping).toEqual([])
+    expect(read.entries.length).toBeGreaterThan(0)
+  })
 })

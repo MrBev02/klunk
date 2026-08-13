@@ -10,6 +10,8 @@
  * has to survive that rather than assume its own generator produced it.
  */
 
+import { plainText } from './richtext'
+
 export type QuestionType =
   | 'multiple_choice'
   | 'true_false'
@@ -488,16 +490,21 @@ export interface QuestionRef {
  * the paper itself does: the reader's first sight of the question is `(a)`.
  */
 export function questionLabel(q: Question): string {
-  const own = q.questionText.trim()
+  // Every list that shows this clamps it to two lines, so a table in the stem
+  // has to arrive as its cells rather than as rows of pipes (#88).
+  const own = plainText(q.questionText)
   if (own) return own
   const parts = (q.config?.parts ?? []).filter((p) => p.text.trim())
   if (parts.length === 0) return '(no question text)'
-  return parts.map((p) => `(${p.label}) ${p.text.trim()}`).join('  ')
+  return parts.map((p) => `(${p.label}) ${plainText(p.text)}`).join('  ')
 }
 
 /** Everything a search over question text should look at, parts included. */
 export function questionHaystack(q: Question): string {
-  return [q.questionText, ...(q.config?.parts ?? []).map((p) => p.text)].join(' ').toLowerCase()
+  return [q.questionText, ...(q.config?.parts ?? []).map((p) => p.text)]
+    .map(plainText)
+    .join(' ')
+    .toLowerCase()
 }
 
 export function refKey(ref: PaperRef): string {

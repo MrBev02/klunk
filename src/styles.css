@@ -2610,3 +2610,39 @@ code,
   font-size: 0.9rem;
   line-height: 1.55;
 }
+
+/* ------------------------------------------------------------ question text */
+
+/* A stem is one paragraph in almost every question, and the classes it is given
+   all set `margin: 0` for that reason. A question carrying a table has three
+   blocks, so the space between them is keyed on the paragraphs themselves. */
+.richp + .richp,
+.richp + .richtable,
+.richtable + .richp {
+  margin-top: 0.6rem;
+}
+
+/* A table printed inside a question (#88). Same weight as `.minitable`, which
+   shows a question's own answer table, so the two do not read as different
+   kinds of thing on one screen. */
+.richtable {
+  border-collapse: collapse;
+  display: block;
+  font-size: 0.92rem;
+  /* Wide tables are ordinary — the 2025 Biology paper prints a four-column one
+     — and a stem must never push the panel sideways. */
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.richtable th,
+.richtable td {
+  border: 1px solid var(--rule);
+  padding: 0.28rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.richtable th {
+  font-weight: 600;
+}

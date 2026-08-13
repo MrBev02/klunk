@@ -46,10 +46,158 @@ describe('toLines', () => {
     expect(line!.marginMark).toBeUndefined()
     expect(line!.text).toContain('200 households')
   })
+
+  it('keeps the columns a row was printed in', () => {
+    const p = page(1, 'Pine            42          Softwood')
+    const [line] = toLines(p)
+    expect(line!.cells.map((c) => c.text)).toEqual(['Pine', '42', 'Softwood'])
+    // The spans are what a later rule asks about, so they have to be real.
+    expect(line!.cells[0]!.left).toBe(0)
+    expect(line!.cells[1]!.left).toBe(80)
+  })
+
+  it('reads ordinary prose as one cell', () => {
+    const p = page(1, 'A designer evaluates a prototype against the design criteria.')
+    expect(toLines(p)[0]!.cells).toHaveLength(1)
+  })
+
+  it('finds the same columns whatever order the pieces arrive in', () => {
+    const p = shuffled(page(1, 'Pine            42          Softwood'))
+    expect(toLines(p)[0]!.cells.map((c) => c.text)).toEqual(['Pine', '42', 'Softwood'])
+  })
+
+  it('leaves a mark-only line with no cells, because it has no text', () => {
+    const p = page(1, markOnly(3))
+    const [line] = toLines(p)
+    expect(line!.marginMark).toBe(3)
+    expect(line!.cells).toEqual([])
+  })
 })
 
 describe('Section I objective questions', () => {
   const stem = (n: number, text: string) => `${n}    ${text}`
+
+  describe('options laid out as a table', () => {
+    /**
+     * The geometry of #85, which is `guide.ts`'s rule arriving on an option
+     * label. Where a cell wraps, the label is centred against it and lands on
+     * its own baseline between the two halves — so the first half is printed
+     * *above* the label it belongs to, and appending each line to the option
+     * before it gave every option the wrong half of two different cells.
+     *
+     * Rows are twelve points apart here, so an option is three rows and the
+     * labels are 36 apart. Half of that is 18: far enough for the cell line 12
+     * above its own label, and not far enough for the headings 24 above the
+     * first.
+     */
+    const wrapped = page(
+      2,
+      'Section I',
+      stem(1, 'Which row of the table gives the property of each material?'),
+      '',
+      '                    Material            Property',
+      '                                        Bends a long way',
+      '          A.   Copper',
+      '                                        without breaking.',
+      '                                        Snaps under a low',
+      '          B.   Cast iron',
+      '                                        bending force.',
+      '                                        Resists a load and',
+      '          C.   Mild steel',
+      '                                        returns to shape.',
+      '                                        Deforms and stays',
+      '          D.   Lead',
+      '                                        deformed.',
+    )
+
+    it('gives each option the cell it is centred against, and none of the next', () => {
+      const q = extractPaper([wrapped]).questions[0]!
+      expect(q.options).toEqual([
+        { label: 'A', text: 'Copper – Bends a long way without breaking.' },
+        { label: 'B', text: 'Cast iron – Snaps under a low bending force.' },
+        { label: 'C', text: 'Mild steel – Resists a load and returns to shape.' },
+        { label: 'D', text: 'Lead – Deforms and stays deformed.' },
+      ])
+    })
+
+    it('leaves the column headings in the stem, since they are above the block', () => {
+      const q = extractPaper([wrapped]).questions[0]!
+      expect(q.text).toContain('Material Property')
+      expect(q.text).not.toContain('Bends')
+    })
+
+    it('says so, because the headings are no longer over their columns', () => {
+      const q = extractPaper([wrapped]).questions[0]!
+      expect(q.notes.join(' ')).toMatch(/printed as a table/)
+    })
+
+    it('joins the cells of a row printed on one baseline the same way', () => {
+      const paper = extractPaper([
+        page(
+          2,
+          'Section I',
+          stem(1, 'Which row of the table gives the property of each material?'),
+          '',
+          '                    Material            Property',
+          '          A.   Copper          Bends',
+          '          B.   Cast iron       Snaps',
+          '          C.   Mild steel      Springs',
+          '          D.   Lead            Deforms',
+        ),
+      ])
+      expect(paper.questions[0]!.options).toEqual([
+        { label: 'A', text: 'Copper – Bends' },
+        { label: 'B', text: 'Cast iron – Snaps' },
+        { label: 'C', text: 'Mild steel – Springs' },
+        { label: 'D', text: 'Lead – Deforms' },
+      ])
+    })
+
+    it('does not read a line justified to both margins as a row of columns', () => {
+      // One option set flush to both margins has word gaps of its own, and the
+      // 2017 paper prints exactly one. A single row of wide gaps is not a table:
+      // it takes four rows agreeing on their columns to make one.
+      const paper = extractPaper([
+        page(
+          2,
+          'Section I',
+          stem(1, 'What should a designer do first?'),
+          '     A.     Sketch',
+          '     B.     Model',
+          '     C.     Test',
+          '     D.     Conduct  research  into  the  amount  and  timing  of  use',
+        ),
+      ])
+      const q = paper.questions[0]!
+      expect(q.options![3]).toEqual({
+        label: 'D',
+        text: 'Conduct research into the amount and timing of use',
+      })
+      expect(q.notes).toEqual([])
+    })
+
+    it('still continues an ordinary option that wraps over three lines', () => {
+      const paper = extractPaper([
+        page(
+          2,
+          'Section I',
+          stem(1, 'Which statement best describes the process?'),
+          '     A.     A short one',
+          '     B.     A long option that runs on and on across the',
+          '            width of the page and then keeps going for',
+          '            one more line after that',
+          '     C.     Another short one',
+          '     D.     And a fourth',
+        ),
+      ])
+      const q = paper.questions[0]!
+      expect(q.options![1]!.text).toBe(
+        'A long option that runs on and on across the width of the page and then keeps going for one more line after that',
+      )
+      expect(q.options![2]!.text).toBe('Another short one')
+      expect(q.notes).toEqual([])
+    })
+  })
 
   it('reads the (A) labels used up to 2016', () => {
     const paper = extractPaper([
@@ -157,6 +305,111 @@ describe('Section I objective questions', () => {
       page(2, 'Section I', stem(1, 'Only three offered?'), '     A.     One', '     B.     Two', '     C.     Three'),
     ])
     expect(paper.questions[0]!.notes.join(' ')).toMatch(/Read 3 options rather than four/)
+  })
+})
+
+describe('a table printed inside a question', () => {
+  const around = (...table: string[]) => [
+    'Section II',
+    'Question 11 (5 marks)',
+    '',
+    'The table shows what four timbers cost.',
+    '',
+    ...table,
+    '',
+    marked('Explain which timber suits an outdoor bench.', 5),
+  ]
+
+  it('keeps the columns, and the prose either side of them', () => {
+    const paper = extractPaper([
+      page(
+        5,
+        ...around(
+          '          Timber          Hardness        Cost',
+          '          Pine            Low             Low',
+          '          Jarrah          High            High',
+        ),
+      ),
+    ])
+
+    expect(paper.questions[0]!.text).toBe(
+      [
+        'The table shows what four timbers cost.',
+        '',
+        '| Timber | Hardness | Cost |',
+        '| --- | --- | --- |',
+        '| Pine | Low | Low |',
+        '| Jarrah | High | High |',
+        '',
+        'Explain which timber suits an outdoor bench.',
+      ].join('\n'),
+    )
+  })
+
+  it('puts a heading printed over two lines back on one row', () => {
+    // The shape the 2025 Biology paper prints: two of the three headings run to
+    // a second line, which lands under them as a row of its own and would
+    // otherwise be read as the first row of data.
+    const paper = extractPaper([
+      page(
+        5,
+        ...around(
+          '          Timber          Cost per        Load per',
+          '                          metre           metre',
+          '          Pine            Low             Low',
+          '          Jarrah          High            High',
+        ),
+      ),
+    ])
+
+    expect(paper.questions[0]!.text).toContain('| Timber | Cost per metre | Load per metre |')
+    expect(paper.questions[0]!.text).not.toContain('| metre | metre |')
+  })
+
+  it('does not take a graph key for a table, because it is two rows', () => {
+    // The 2025 D&T paper prints one: two rows of three legend entries, which is
+    // table-shaped and is not a table. Every real table in the corpus has three.
+    const paper = extractPaper([
+      page(
+        5,
+        ...around(
+          '          Cost to make    Price to buy    Cost to nature',
+          '          Function        Aesthetics',
+        ),
+      ),
+    ])
+
+    expect(paper.questions[0]!.text).not.toContain('|')
+  })
+
+  it('does not take a list of two columns for a table', () => {
+    const paper = extractPaper([
+      page(
+        5,
+        ...around(
+          '          1.     Sketch the idea',
+          '          2.     Model the idea',
+          '          3.     Test the model',
+        ),
+      ),
+    ])
+
+    expect(paper.questions[0]!.text).not.toContain('|')
+  })
+
+  it('escapes a pipe that was printed in a cell', () => {
+    const paper = extractPaper([
+      page(
+        5,
+        ...around(
+          '          Timber          Grade           Cost',
+          '          Pine            A|B             Low',
+          '          Jarrah          High            High',
+        ),
+      ),
+    ])
+
+    expect(paper.questions[0]!.text).toContain('| Pine | A\\|B | Low |')
   })
 })
 

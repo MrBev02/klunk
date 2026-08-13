@@ -167,6 +167,29 @@ export interface QuestionSource {
 
 /* ------------------------------------------------------------------ into lines */
 
+/**
+ * One run of text on a row, with the horizontal span it occupies.
+ *
+ * A row is joined into a single `text` because that is what every rule about
+ * what a question *says* wants. But a page also says things with position: a
+ * table's columns are the only thing that tells `8 am 41.1 18.8` from a
+ * sentence, and an option printed as a table row is told from a wrapped one by
+ * which column its continuation starts in (#85). Keeping the spans costs
+ * nothing and is the only way to ask.
+ */
+/** Where something sits across the page, in points. */
+export interface Span {
+  left: number
+  right: number
+}
+
+export interface LineCell {
+  left: number
+  /** The end of the run, so two cells can be asked whether they overlap. */
+  right: number
+  text: string
+}
+
 export interface Line {
   page: number
   y: number
@@ -182,6 +205,13 @@ export interface Line {
    */
   x: number
   text: string
+  /**
+   * The row's runs, grouped into columns. One cell for ordinary prose.
+   *
+   * `text` is these joined, and stays exactly what it always was — nothing that
+   * reads a line has to know this is here.
+   */
+  cells: LineCell[]
   /** A bare number alone in the right margin: marks for the block being read. */
   marginMark?: number
   /**
@@ -222,6 +252,31 @@ const MARGIN_FROM = 0.75
 const SPACE_GAP = 1
 
 /**
+ * Two pieces further apart than this are in different columns.
+ *
+ * Measured over the twelve papers rather than picked, and the first guess of 6
+ * was wrong in a way only the measurement showed. **A justified line's word
+ * gaps are wide.** The 2017 D&T paper sets one option flush to both margins,
+ * and at 6 points it shattered into a cell per word, so an option printed as
+ * plain prose would have come back as `Conduct – research – into – the`.
+ *
+ * Every gap in the corpus with a word on each side of it was measured: the
+ * widest inside running prose is **8.4** (2018 D&T, and the 2017 line sits
+ * under it). The narrowest real column boundary is **22**, an option label
+ * against its own text — `A.` ends at x=111 and `Ectotherm` starts at x=133.
+ * The four gaps between 8.4 and 22 are all genuine columns.
+ *
+ * Fourteen sits in the middle of that gap. Below it, pdf.js's own splitting
+ * survives too: it breaks a run at a font change with no gap at all (`The fruit
+ * fly,` then `Drosophila melanogaster`) and emits a piece per character for
+ * `Q , S , R , T`, whose widest gap is 3.
+ */
+const CELL_GAP = 14
+
+/** Two left edges this close are the same column. */
+const SAME_COLUMN = 2
+
+/**
  * A ruled line for the student to write on, printed as a run of dots.
  *
  * Dropped per piece rather than per line. A whole row of them is easy to spot,
@@ -252,6 +307,40 @@ function marginMark(piece: TextPiece, pageWidth: number, bands: boolean): [numbe
   if (!bands) return null
   const band = BAND.exec(text)
   return band ? [Number(band[1]), Number(band[2])] : null
+}
+
+/**
+ * Group a row's pieces into the columns they were printed in.
+ *
+ * Pieces must already be sorted by x. A cell's text is joined the way `join`
+ * joins a whole row, so a cell of one word and a row of one cell agree.
+ */
+function cellsOf(pieces: TextPiece[]): LineCell[] {
+  const cells: { pieces: TextPiece[]; left: number; right: number }[] = []
+  for (const piece of pieces) {
+    const last = cells[cells.length - 1]
+    if (last && piece.x - last.right < CELL_GAP) {
+      last.pieces.push(piece)
+      last.right = Math.max(last.right, piece.x + piece.width)
+      continue
+    }
+    cells.push({ pieces: [piece], left: piece.x, right: piece.x + piece.width })
+  }
+  return cells
+    .map((cell) => ({ left: cell.left, right: cell.right, text: join(cell.pieces) }))
+    .filter((cell) => cell.text !== '')
+}
+
+/**
+ * Are these two cells in the same column?
+ *
+ * By whether their spans overlap, and deliberately not by their left edges. A
+ * column is centred as often as it is ranged left: on the 2025 Biology paper
+ * `Body temperature` starts at x=247 and the `41.3` below it at x=280, so left
+ * edges say they are different columns and the overlap says what the page says.
+ */
+export function sameColumn(a: Span, b: Span): boolean {
+  return Math.min(a.right, b.right) > Math.max(a.left, b.left)
 }
 
 function join(pieces: TextPiece[]): string {
@@ -298,6 +387,7 @@ export function toLines(page: PageText, options: LineOptions = {}): Line[] {
       y: row.y,
       x: rest.length > 0 ? Math.min(...rest.map((p) => p.x)) : Number.POSITIVE_INFINITY,
       text: join(rest),
+      cells: cellsOf(rest),
     }
     // Only when it is the sole mark on the row. Two numbers in the margin of one
     // row is not something this understands, and guessing would be worse.
@@ -339,6 +429,10 @@ const FURNITURE: RegExp[] = [
   /^Use the multiple-choice answer sheet/i,
   /^In your answer you will be assessed on/i,
   /^Please turn over$/i,
+  // The page NESA leaves empty. It costs nothing on the 2015 D&T paper, where
+  // both of them fall between questions, and on the 2025 Biology paper it falls
+  // straight after the last objective question and was read onto option D (#86).
+  /^BLANK PAGE$/i,
   /^[.…_\s]{10,}$/, // ruled answer lines
   /Used by permission\.?$/i,
 ]
@@ -432,9 +526,23 @@ function atLeftEdge(line: Line, leftOf: Map<number, number>): boolean {
  * which 33 are the credit alone, seven are the page number and the notice, and
  * one is Biology's part (b).
  */
-function withoutCredit(text: string): string {
-  const at = text.indexOf('©')
-  return at === -1 ? text : text.slice(0, at).trim()
+function withoutCredit(line: Line): Line {
+  const at = line.text.indexOf('©')
+  if (at === -1) return line
+  // The cells have to be cut with the text, or a rule that reads columns sees a
+  // credit that the rules reading the row no longer can.
+  const cells: LineCell[] = []
+  for (const cell of line.cells) {
+    const mark = cell.text.indexOf('©')
+    if (mark === -1) {
+      cells.push(cell)
+      continue
+    }
+    const kept = cell.text.slice(0, mark).trim()
+    if (kept) cells.push({ ...cell, text: kept })
+    break
+  }
+  return { ...line, text: line.text.slice(0, at).trim(), cells }
 }
 
 function isFurniture(text: string): boolean {
@@ -552,7 +660,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
   let year: number | undefined
   for (const page of pages) {
     for (const found of toLines(page)) {
-      const line = { ...found, text: withoutCredit(found.text) }
+      const line = withoutCredit(found)
       // Taken on the way past, from a line that is furniture and is dropped a
       // moment later. It is the only place the paper says which year it is.
       const stamped = YEAR.exec(line.text)
@@ -568,7 +676,7 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
         // wrapped text lands on a line of its own, which is an empty line and
         // so furniture by every other measure; dropping it loses the mark and
         // the part it belongs to then fails to add up.
-        lines.push({ ...line, text: '' })
+        lines.push({ ...line, text: '', cells: [] })
       }
     }
   }
@@ -676,7 +784,11 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
           marks: 1,
           section: 'I',
           pages: new Set([line.page]),
-          body: [{ ...line, text: objective[2]! }],
+          // The number is its own cell — x=71 against x=99 on every paper read
+          // — so it comes off the cells at the same time as the text. Checked
+          // rather than assumed, because a narrower gap would merge the two and
+          // slicing would then throw the question away.
+          body: [{ ...line, text: objective[2]!, cells: withoutNumber(line.cells, objective[1]!) }],
           all: [line],
           notes: [],
         }
@@ -768,11 +880,19 @@ function finish(building: Building): ExtractedQuestion {
   }
 
   if (section === 'I') {
-    const { stem, options } = splitOptions(building.body)
+    const { stem, options, tabular } = splitOptions(building.body)
     question.text = stem
     question.options = options
     if (options.length !== 4) {
       notes.push(`Read ${options.length} options rather than four. Check this question against the paper.`)
+    }
+    // The teacher is the one who can see the page, and a table is where an
+    // option is most easily read into the wrong row (#85). The column headings
+    // stay in the stem, so what is on screen is not quite what is on the page.
+    if (tabular) {
+      notes.push(
+        'These options were printed as a table, and each row\'s cells have been joined into one line. Check them against the paper.',
+      )
     }
     return question
   }
@@ -806,6 +926,11 @@ function finish(building: Building): ExtractedQuestion {
   return question
 }
 
+/** The cells of a Section I question's first line, without the number itself. */
+function withoutNumber(cells: LineCell[], number: string): LineCell[] {
+  return cells[0]?.text === number ? cells.slice(1) : cells
+}
+
 /** How far down each page a question's own lines reach. */
 function spansOf(lines: Line[]): QuestionSpan[] {
   const byPage = new Map<number, QuestionSpan>()
@@ -820,28 +945,359 @@ function spansOf(lines: Line[]): QuestionSpan[] {
   return [...byPage.values()].sort((a, b) => a.page - b.page)
 }
 
-function splitOptions(body: Line[]): { stem: string; options: ExtractedOption[] } {
-  const stem: string[] = []
-  const options: ExtractedOption[] = []
-  for (const line of body) {
-    const option = OPTION.exec(line.text)
-    if (option) {
-      options.push({ label: option[1]!, text: option[2]!.trim() })
-      continue
+/* --------------------------------------------------------- tables in a stem */
+
+/**
+ * A run of lines that were printed as a table.
+ *
+ * Two consecutive rows agreeing on two columns, with at least one row of three
+ * columns somewhere in the run. Both halves of that are load-bearing and both
+ * were measured over the twelve papers rather than reasoned about.
+ *
+ * **Two cells are not enough on their own.** A list of four options is `A.` and
+ * its text on every row, at the same two columns every time; so is a numbered
+ * list of five steps. Requiring a three-cell row somewhere refuses all of them
+ * and keeps every real table, because a table of two columns is a list.
+ *
+ * **A two-cell row still belongs, in the middle of a run.** A wrapped header
+ * cell puts its second line alone in its own column — the 2025 Biology paper
+ * prints `Time | Body temperature | Air temperature` and then `(°C) | (°C)` —
+ * and gating those out would break the run and lose the headings.
+ *
+ * **Three rows, not two.** Two was measured and was wrong: a graph's key is two
+ * rows of three, and the 2025 D&T paper prints one. Every real table in the
+ * twelve papers has at least three rows and every two-row block claimed was a
+ * legend. It also recovers a table nobody knew was being lost — the 2022 D&T
+ * paper sets a question on a two-by-two matrix of market demand against cost.
+ *
+ * What this cannot do is tell a table from a diagram whose labels happen to line
+ * up. Two survive the gate, both on the 2025 Biology paper and both also offered
+ * as a picture: a four-step diagram's captions, and the labels around a cell
+ * division diagram. Neither loses anything that was read before — the same words
+ * were already in the stem, in the same order, run together. That is why what
+ * comes out is a proposal the teacher can edit rather than a fact (#88).
+ */
+export interface TableBlock {
+  /** Index into the lines it was found in, so the prose around it can be kept. */
+  from: number
+  /** One past the last row. */
+  to: number
+  rows: LineCell[][]
+}
+
+export function tableBlocks(lines: Line[]): TableBlock[] {
+  const out: TableBlock[] = []
+  let from = 0
+  const flush = (to: number) => {
+    const rows = lines.slice(from, to).map((l) => l.cells)
+    // A run of two-column rows is a list, and a run of two rows is a legend.
+    if (rows.length >= 3 && rows.some((r) => r.length >= 3)) {
+      out.push({ from, to, rows: withHeadingJoined(rows) })
     }
-    // A wrapped option continues the one before it, not the stem.
-    if (options.length > 0) {
-      const last = options[options.length - 1]!
-      last.text = `${last.text} ${line.text}`.trim()
-      continue
-    }
-    stem.push(line.text)
   }
-  return { stem: stem.join(' ').trim(), options }
+  for (let at = 0; at < lines.length; at += 1) {
+    const cells = lines[at]!.cells
+    if (cells.length < 2) {
+      flush(at)
+      from = at + 1
+      continue
+    }
+    if (at > from && shared(lines[at - 1]!.cells, cells) < 2) {
+      flush(at)
+      from = at
+    }
+  }
+  flush(lines.length)
+  return out
+}
+
+/**
+ * Put a wrapped heading back onto the heading it belongs to.
+ *
+ * `Time | Body temperature | Air temperature` and `(°C) | (°C)` are one row of
+ * headings printed over two lines, and left apart they become a row of the data.
+ * Only the second row and only when it is narrower than the first: the 2022 D&T
+ * matrix ends with a two-cell row of axis labels under two three-cell rows, and
+ * folding that into the row above it would be the same mistake the other way up.
+ */
+function withHeadingJoined(rows: LineCell[][]): LineCell[][] {
+  const [head, next] = rows
+  if (!head || !next) return rows
+  if (next.length >= head.length) return rows
+  if (!next.every((cell) => head.some((other) => sameColumn(cell, other)))) return rows
+  const joined = head.map((cell) => {
+    const under = next.filter((other) => sameColumn(cell, other))
+    return under.length === 0
+      ? cell
+      : { ...cell, text: [cell.text, ...under.map((u) => u.text)].join(' ') }
+  })
+  return [joined, ...rows.slice(2)]
+}
+
+/** How many of these two rows' cells stand in the same column. */
+function shared(above: LineCell[], below: LineCell[]): number {
+  return above.filter((cell) => below.some((other) => sameColumn(cell, other))).length
+}
+
+/**
+ * The columns a block's rows stand in.
+ *
+ * Built from the widest rows first, and a cell overlapping two established
+ * columns is left where it is rather than widening either. Without that a
+ * heading spanning two columns — `Group A` over `Animal | Number of eggs` on the
+ * 2025 Biology paper — would weld them into one and take every row with it.
+ */
+function columnsOf(rows: LineCell[][]): Span[] {
+  const columns: Span[] = []
+  for (const row of [...rows].sort((a, b) => b.length - a.length)) {
+    for (const cell of row) {
+      const hit = columns.filter((c) => sameColumn(c, cell))
+      if (hit.length === 0) {
+        columns.push({ left: cell.left, right: cell.right })
+        continue
+      }
+      if (hit.length === 1) {
+        hit[0]!.left = Math.min(hit[0]!.left, cell.left)
+        hit[0]!.right = Math.max(hit[0]!.right, cell.right)
+      }
+    }
+  }
+  return columns.sort((a, b) => a.left - b.left)
+}
+
+/** How much of the page these two spans have in common. */
+function overlap(a: Span, b: Span): number {
+  return Math.min(a.right, b.right) - Math.max(a.left, b.left)
+}
+
+/**
+ * A block as the pipe table Klunk stores a table as.
+ *
+ * The first row is the heading, because that is what these documents print and
+ * what the format requires. A pipe inside a cell is escaped, so a cell that
+ * genuinely holds one survives a round trip through the editor.
+ */
+export function pipeTable(rows: LineCell[][]): string {
+  const columns = columnsOf(rows)
+  const grid = rows.map((row) => {
+    const cells = columns.map(() => [] as string[])
+    for (const cell of row) {
+      let best = 0
+      for (let i = 1; i < columns.length; i += 1) {
+        if (overlap(columns[i]!, cell) > overlap(columns[best]!, cell)) best = i
+      }
+      cells[best]!.push(cell.text.replace(/\|/g, '\\|'))
+    }
+    return cells.map((c) => c.join(' '))
+  })
+  const line = (cells: string[]) => `| ${cells.join(' | ')} |`
+  return [line(grid[0]!), line(columns.map(() => '---')), ...grid.slice(1).map(line)].join('\n')
+}
+
+/**
+ * A question's stem, with any table in it kept as a table.
+ *
+ * Paragraphs are separated by a blank line and a table stands between them,
+ * which is where the paper printed it. Everything that reads a stem goes through
+ * `RichText` or `plainText`, so this is the one place the shape is decided.
+ */
+function stemFrom(lines: Line[]): string {
+  const blocks = tableBlocks(lines)
+  const parts: string[] = []
+  let prose: string[] = []
+  const closeProse = () => {
+    if (prose.length > 0) parts.push(prose.join(' ').trim())
+    prose = []
+  }
+  for (let at = 0; at < lines.length; at += 1) {
+    const block = blocks.find((b) => b.from === at)
+    if (block) {
+      closeProse()
+      parts.push(pipeTable(block.rows))
+      at = block.to - 1
+      continue
+    }
+    if (lines[at]!.text !== '') prose.push(lines[at]!.text)
+  }
+  closeProse()
+  return parts.filter(Boolean).join('\n\n').trim()
+}
+
+/** What a column boundary becomes in an option read out of a table row. */
+const CELL_JOIN = ' – '
+
+interface OptionLabel {
+  /** Where in `body` it was found, which is reading order and crosses pages. */
+  at: number
+  y: number
+  page: number
+  label: string
+  /** The line's cells with the label taken off, or null where it was not its own. */
+  own: LineCell[] | null
+  /** Today's reading: everything after the label, as one string. */
+  flat: string
+}
+
+/**
+ * Split a Section I question into its stem and its four options.
+ *
+ * Two shapes, and until #85 only one of them was read. Ordinarily an option is a
+ * label and a run of prose that wraps at the same column it started in, and a
+ * wrapped line simply continues the option above it.
+ *
+ * **An option can also be a row of a table**, and then the geometry is the one
+ * `guide.ts` already knows: where a cell wraps, the label is centred against it
+ * and therefore lands on its own baseline *between* the two halves. Appending
+ * each line to the option above it then gave every option the second half of its
+ * own cell and the first half of the next one's — four options that each read
+ * plausibly and were each wrong.
+ *
+ * So a line that is not a label belongs to the option above it **only when it
+ * starts in that option's own text column**, which is what a wrapped option is.
+ * A line starting right of that column, inside the run of labels, is a table
+ * cell and goes to the label nearest it. Measured on the 2025 Biology paper: the
+ * labels sit at x=99 with their first cell at x=133, an ordinary wrap continues
+ * at x=127, and a wrapped cell is at x=235.
+ */
+function splitOptions(body: Line[]): {
+  stem: string
+  options: ExtractedOption[]
+  tabular: boolean
+} {
+  const labels: OptionLabel[] = []
+  body.forEach((line, at) => {
+    const option = OPTION.exec(line.text)
+    if (!option) return
+    const first = line.cells[0]
+    // The 2015 and 2016 papers set `(A)` close enough to its own text that the
+    // two are one run. Nothing is lost by saying so: neither year prints an
+    // option table, and this is what stops a column being invented from a
+    // label's own left edge.
+    const own = first && first.text === `${option[1]}.` ? line.cells.slice(1) : null
+    labels.push({
+      at,
+      y: line.y,
+      page: line.page,
+      label: option[1]!,
+      own: own && own.length > 0 ? own : null,
+      flat: option[2]!.trim(),
+    })
+  })
+
+  /**
+   * Are the options themselves a table, rather than one carrying a table cell?
+   *
+   * Every row has to agree, because one row of columns is not a table: a line
+   * justified to both margins has word gaps of its own, and the 2017 D&T paper
+   * prints exactly one such option. Agreement across four rows cannot happen
+   * that way.
+   */
+  const tabularRows =
+    labels.length >= 2 &&
+    labels.every((l) => l.own !== null && l.own.length === labels[0]!.own!.length) &&
+    labels[0]!.own!.length >= 2 &&
+    labels[0]!.own!.every((cell, at) => labels.every((l) => sameColumn(l.own![at]!, cell)))
+
+  const cells = labels.map((l) =>
+    tabularRows
+      ? l.own!.map((cell) => ({ ...cell }))
+      : // Collapsed back to one cell, so an option that is not a table row comes
+        // out exactly as it always did, whatever its own gaps happen to be.
+        [
+          {
+            left: l.own ? Math.min(...l.own.map((c) => c.left)) : Number.POSITIVE_INFINITY,
+            right: l.own ? Math.max(...l.own.map((c) => c.right)) : Number.POSITIVE_INFINITY,
+            text: l.flat,
+          },
+        ],
+  )
+
+  /**
+   * The column an ordinary wrapped option continues in.
+   *
+   * Infinity when any label shares a run with its own text, since then there is
+   * nothing to measure and no line should ever be taken for a cell. The block is
+   * scoped to one page for the same reason a guide's tables are settled per
+   * section: y means nothing across a page break.
+   */
+  const onePage = labels.length >= 2 && labels.every((l) => l.page === labels[0]!.page)
+  const textColumn =
+    onePage && labels.every((l) => l.own !== null)
+      ? Math.min(...cells.map((c) => c[0]!.left))
+      : Number.POSITIVE_INFINITY
+
+  // Half the label spacing above the first and below the last. On the 2025
+  // Biology paper the labels are 33 points apart, so the block reaches 16.5
+  // above the first: far enough for the cell line printed 7 points above its own
+  // label, and not far enough for the column headings 27.8 above it.
+  const spacing =
+    labels.length >= 2 ? (labels[0]!.y - labels[labels.length - 1]!.y) / (labels.length - 1) : 0
+  const top = labels.length >= 2 ? labels[0]!.y + spacing / 2 : Number.NEGATIVE_INFINITY
+  const bottom = labels.length >= 2 ? labels[labels.length - 1]!.y - spacing / 2 : Number.NEGATIVE_INFINITY
+
+  const stem: Line[] = []
+  let tabular = tabularRows
+  body.forEach((line, at) => {
+    if (labels.some((l) => l.at === at) || line.text === '') return
+
+    const cell =
+      Number.isFinite(textColumn) &&
+      line.page === labels[0]?.page &&
+      line.y <= top &&
+      line.y >= bottom &&
+      line.x > textColumn + SAME_COLUMN
+    if (cell) {
+      let best = 0
+      for (let i = 1; i < labels.length; i += 1) {
+        if (Math.abs(labels[i]!.y - line.y) < Math.abs(labels[best]!.y - line.y)) best = i
+      }
+      addCells(cells[best]!, line.cells)
+      tabular = true
+      return
+    }
+
+    // Reading order, not position: a wrapped option continues the option above
+    // it, and on the page after it that is still the one before it in the body.
+    let above = -1
+    labels.forEach((l, i) => {
+      if (l.at < at) above = i
+    })
+    if (above >= 0) {
+      const held = cells[above]!
+      const last = held[held.length - 1]!
+      last.text = `${last.text} ${line.text}`.trim()
+      last.right = Math.max(last.right, ...line.cells.map((c) => c.right))
+      return
+    }
+    stem.push(line)
+  })
+
+  const options = labels.map((l, at) => ({
+    label: l.label,
+    text: cells[at]!
+      .map((c) => c.text)
+      .filter(Boolean)
+      .join(CELL_JOIN),
+  }))
+  return { stem: stemFrom(stem), options, tabular }
+}
+
+/** Put a table row's cells into the option they belong to, column by column. */
+function addCells(held: LineCell[], incoming: LineCell[]): void {
+  for (const cell of incoming) {
+    const same = held.find((c) => sameColumn(c, cell))
+    if (same) {
+      same.text = `${same.text} ${cell.text}`.trim()
+      same.right = Math.max(same.right, cell.right)
+      continue
+    }
+    held.push({ ...cell })
+    held.sort((a, b) => a.left - b.left)
+  }
 }
 
 function splitParts(body: Line[]): { stem: string; parts: ExtractedPart[] } {
-  const stem: string[] = []
+  const stem: Line[] = []
   const parts: ExtractedPart[] = []
 
   for (const line of body) {
@@ -858,8 +1314,8 @@ function splitParts(body: Line[]): { stem: string; parts: ExtractedPart[] } {
       if (line.marginMark !== undefined && last.marks === 0) last.marks = line.marginMark
       continue
     }
-    if (line.text) stem.push(line.text)
+    if (line.text) stem.push(line)
   }
 
-  return { stem: stem.join(' ').trim(), parts }
+  return { stem: stemFrom(stem), parts }
 }

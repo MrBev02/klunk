@@ -14,6 +14,7 @@ import { useState } from 'preact/hooks'
 import { unresolvedAgainst, type ModelIds } from './modelcheck'
 import { rowAnswers, shuffledChoices } from './paper'
 import { markRange } from './render'
+import { RichText } from './richtext'
 import { joinPath } from './storage'
 import type { Stimulus } from './types'
 import { QUESTION_TYPE_LABELS, questionLabel, type Question, type QuestionRef } from './types'
@@ -113,7 +114,12 @@ export function QuestionDetail({
 }) {
   return (
     <>
-      {showStem && <p class="det__stem">{questionLabel(q)}</p>}
+      {showStem &&
+        (q.questionText.trim() ? (
+          <RichText text={q.questionText} class="det__stem" />
+        ) : (
+          <p class="det__stem">{questionLabel(q)}</p>
+        ))}
 
       {q.stimulus?.length ? (
         <div class="det">

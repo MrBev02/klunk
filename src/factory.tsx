@@ -28,6 +28,7 @@ import {
 import { ingestQuestions, AI_TAG, type Draft, type Ingest, type IngestContext } from './ingest'
 import { buildPrompt, outcomesFor } from './prompt'
 import { QuestionDetail } from './question'
+import { hasMarkup } from './richtext'
 import { ProfileInstaller } from './setup'
 import {
   allQuestions,
@@ -752,7 +753,9 @@ function DraftCard({
 
       {open && (
         <div class="qrow__detail">
-          <QuestionDetail question={q} showStem={false} />
+          {/* As in the extractor: the heading has said the stem already, unless
+              the stem holds a table it cannot show (#88). */}
+          <QuestionDetail question={q} showStem={hasMarkup(q.questionText)} />
         </div>
       )}
     </li>
