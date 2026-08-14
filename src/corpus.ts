@@ -83,6 +83,23 @@ export const BIOLOGY_MARKING_GUIDE = `${SOURCE}/2025-hsc-biology-mg.pdf`
 export const EC_2025_SCAN = `${SOURCE}/enterprise-computing-2025-year11-scan.pdf`
 export const EC_2024_SCAN = `${SOURCE}/enterprise-computing-2024-year11-scan.pdf`
 
+/**
+ * The 2025 paper's marking guide, scanned on the same copier (#94).
+ *
+ * The first scanned *guide* the corpus has ever held, and until it arrived the
+ * guide half of the rule was resting on papers: `readMarkingGuide` was fed the
+ * two above, which are the right shape of document to refuse and the wrong kind
+ * of file. Ten pages, none with any text.
+ *
+ * It is also the richest answer key anywhere here, which is the reason it is
+ * worth more than a third row in one table. Section I is printed as three
+ * separate grids: single letters for questions 1 to 9, several letters each for
+ * 10 to 12, and `1C 2F 3A` links for 13 to 15. That is `multiple_choice`,
+ * `multiple_response` and `matching` in one document, which is exactly what #32
+ * built and what an `ExtractedGuide` cannot hold.
+ */
+export const EC_2025_SCAN_MG = `${SOURCE}/enterprise-computing-2025-year11-scan_mg.pdf`
+
 /* --------------------------------------------------------- NESA syllabuses */
 
 export const DT_SYLLABUS = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
@@ -192,8 +209,8 @@ export const SUITES: Record<string, CorpusSuite> = {
     docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, ENTERPRISE, VISUAL_ARTS, DT_SYLLABUS],
   },
   'textlayer.corpus': {
-    what: 'refusing a scan for holding no text, over two documents that have none',
-    docs: [EC_2025_SCAN, EC_2024_SCAN],
+    what: 'refusing a scan for holding no text, over three documents that have none',
+    docs: [EC_2025_SCAN, EC_2024_SCAN, EC_2025_SCAN_MG],
   },
   'ibdt.corpus': {
     what: 'the IB syllabus map reader',

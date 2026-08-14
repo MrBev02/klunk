@@ -56,12 +56,19 @@ export function hasNoText(pages: PageText[]): boolean {
  * "The original file" rather than the original PDF: these arrived as a scan of a
  * school's own exam, which was written in Word and is somewhere on the school's
  * drive.
+ *
+ * **Both of these sent the teacher off to do by hand what the panel directly
+ * below now offers to do**, and the guide's was the worse of the two: *set the
+ * answers yourself as you check each question*, printed above a step that reads
+ * the whole marking guide. The wording is #89's, written when the refusal was
+ * the end of the screen, and driving the real scanned pair is what showed it
+ * still standing there (#94).
  */
 export const NO_TEXT_IN_PAPER =
-  'This PDF holds no text, only a picture of each page. Use the original file if you ' +
-  'have one, or write the questions yourself on the Write a question tab.'
+  'This PDF holds no text, only a picture of each page. Transcribe it with an AI below, ' +
+  'or use the original file if you have one.'
 
 /** The same for a marking guide, where the answers are what is lost. */
 export const NO_TEXT_IN_GUIDE =
-  'This PDF holds no text, only a picture of each page. Use the original file if you ' +
-  'have one, or set the answers yourself as you check each question.'
+  'This PDF holds no text, only a picture of each page. Read it with an AI below, or use ' +
+  'the original file if you have one.'

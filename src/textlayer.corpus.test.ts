@@ -15,7 +15,7 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { EC_2024_SCAN, EC_2025_SCAN, have } from './corpus'
+import { EC_2024_SCAN, EC_2025_SCAN, EC_2025_SCAN_MG, have } from './corpus'
 import { NotAPaperError } from './extract'
 import { NotAGuideError } from './guide'
 import { readMarkingGuide } from './guideformats'
@@ -33,6 +33,9 @@ async function pagesOf(path: string) {
 const SCANS = [
   { path: EC_2025_SCAN, what: 'the 2025 paper, A4 and upside down', pages: 24 },
   { path: EC_2024_SCAN, what: 'the 2024 paper, A3 and two pages to a sheet', pages: 10 },
+  // The guide half of the rule rested on papers until this arrived: the right
+  // shape of document to refuse, and the wrong kind of file (#94).
+  { path: EC_2025_SCAN_MG, what: "the 2025 paper's marking guide", pages: 10 },
 ]
 
 describe('a scanned paper holds no text', () => {
