@@ -40,7 +40,7 @@
  */
 
 import { useMemo, useState } from 'preact/hooks'
-import { adoptPaper, type Adopted } from './adopt'
+import { adoptPaper, applyMarking, type Adopted } from './adopt'
 import type { Editing } from './editor'
 import { NotAPaperError, stampSource, type ExtractedQuestion, type PageText } from './extract'
 import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
@@ -56,7 +56,10 @@ import {
 import { historyOf, type DocumentNote } from './manifest'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
+import { readMarking } from './guideingest'
+import { buildGuidePrompt } from './guideprompt'
 import { ingestQuestions, type Draft } from './ingest'
+import { markingFromGuide, skeletonFor, type MarkingSkeleton } from './marking'
 import { buildPaperPrompt } from './paperprompt'
 import { cutOut, picturesFor, type Cutout } from './pdfimage'
 import { hasMarkup } from './richtext'
@@ -205,14 +208,27 @@ export function Extractor({
   const [reading, setReading] = useState(false)
   const [failed, setFailed] = useState('')
   /**
-   * This document is a picture of a paper, so no reader can ever have it (#89).
+   * No reader would take this paper, so the AI route is offered (#89, #94).
    *
    * Set only after every reader has already refused, which is what makes it a
-   * second route rather than a guess about the file.
+   * second route rather than a guess about the file. `scanned` separates the two
+   * ways a document arrives here: a picture of a paper, which no parser can ever
+   * read, and a paper of a shape none of the readers knows. The teacher can see
+   * which it is, so telling them the wrong one is what makes a refusal read as a
+   * fault in Klunk.
    */
-  const [noText, setNoText] = useState(false)
+  const [transcribe, setTranscribe] = useState<{ scanned: boolean } | null>(null)
   /** The reply to the transcription prompt, as pasted. */
   const [pasted, setPasted] = useState('')
+  /**
+   * The marking guide could not be read either, so it gets the same route.
+   *
+   * The prompt for it is built from the questions on screen, so this panel can
+   * only appear once there are some, whether Klunk read them or an AI did.
+   */
+  const [markingAsk, setMarkingAsk] = useState<{ scanned: boolean; path: string } | null>(null)
+  const [pastedGuide, setPastedGuide] = useState('')
+  const [guideFailed, setGuideFailed] = useState('')
   /**
    * The year every question carries, as typed.
    *
@@ -228,6 +244,8 @@ export function Extractor({
     /** Which reader claimed it. Absent where none did and an AI transcribed it. */
     format?: PaperFormat
     guideFormat?: GuideFormat
+    /** The marking guide was transcribed by an AI rather than read by Klunk. */
+    markedByAi?: boolean
     year?: number
   } | null>(
     null,
@@ -318,7 +336,9 @@ export function Extractor({
     setDiscarded([])
     setRenamed({})
     setRead(null)
-    setNoText(false)
+    setTranscribe(null)
+    setMarkingAsk(null)
+    setGuideFailed('')
     // Held outside the try so the refusal below can say what kind of document
     // this is, rather than only that no reader wanted it.
     let pages: PageText[] = []
@@ -331,22 +351,26 @@ export function Extractor({
       remember({ path: paperPath, read: 'paper', when: today })
       let paper = readAs
       let guideFormat: GuideFormat | undefined
-      let guideFailed = ''
+      let refusedGuide = ''
       if (guidePath) {
         // A marking guide Klunk cannot read must not take the paper down with
-        // it. The questions are still worth having and the answers can be set by
-        // hand, so this is reported against the paper as a whole rather than
-        // thrown: losing thirty read questions because the second file was the
-        // wrong one would be the worse trade.
+        // it. The questions are still worth having, so this is reported against
+        // the paper as a whole rather than thrown: losing thirty read questions
+        // because the second file was the wrong one would be the worse trade.
+        const guidePages = await readPdf(await readBytes(folder, guidePath))
         try {
-          const reading = readMarkingGuide(await readPdf(await readBytes(folder, guidePath)))
+          const reading = readMarkingGuide(guidePages)
           guideFormat = reading.format
           paper = applyGuide(paper, reading.guide)
           remember({ path: guidePath, read: 'marking guide', when: today })
         } catch (err) {
           if (!(err instanceof NotAGuideError)) throw err
-          guideFailed = `${guidePath}: ${err.message}`
+          refusedGuide = `${guidePath}: ${err.message}`
           remember({ path: guidePath, refused: 'marking guide', when: today })
+          // The answers are in there, they are simply not in a shape any reader
+          // knows. Setting fifteen of them by hand was the only route out of
+          // this until #94.
+          setMarkingAsk({ scanned: hasNoText(guidePages), path: guidePath })
         }
       }
       const year = paper.year
@@ -392,7 +416,7 @@ export function Extractor({
       }, cutouts)
 
       const notes = [...paper.notes]
-      if (guideFailed) notes.push(guideFailed)
+      if (refusedGuide) notes.push(refusedGuide)
       // A missing year is no longer a note. It used to say "add the year in the
       // editor", which named the wrong screen and a hidden field; it is a box on
       // the review panel now, so the panel says it rather than the notes list.
@@ -411,9 +435,14 @@ export function Extractor({
       // that threw says nothing about what the document is.
       if (err instanceof NotAPaperError) {
         remember({ path: paperPath, refused: 'paper', when: today })
-        // The questions are in there, they are simply not text, so this is the
-        // one refusal that opens a second route instead of closing the screen.
-        if (hasNoText(pages)) setNoText(true)
+        // The questions are in there, so this is the refusal that opens a second
+        // route instead of closing the screen. #89 opened it only for a document
+        // holding no text, to keep a shape worth a reader from being sent to an
+        // AI instead. It opens on any refusal now: a paper that is neither
+        // NESA's nor a plain numbered list is most school papers, there is no
+        // publisher standard to write that reader against, and a reader has
+        // already refused by the time this runs.
+        setTranscribe({ scanned: hasNoText(pages) })
       }
       setFailed((err as Error).message)
     } finally {
@@ -436,15 +465,41 @@ export function Extractor({
   )
 
   const transcribePrompt = useMemo(() => {
-    if (!noText) return ''
+    if (!transcribe) return ''
     return buildPaperPrompt({
       examination: paperName.trim() || 'Past paper',
       year: typedYear,
       profile: transcribeProfile,
       syllabus: chosen?.syllabus,
       course: chosen?.course,
+      scanned: transcribe.scanned,
     })
-  }, [noText, paperName, typedYear, transcribeProfile, chosen])
+  }, [transcribe, paperName, typedYear, transcribeProfile, chosen])
+
+  /**
+   * The prompt for the marking guide, built from the questions on screen.
+   *
+   * Deliberately not from the paper: what goes in it is the skeleton of what was
+   * actually read or transcribed, so a question Klunk lost is a question the
+   * guide is not asked about, and the numbers match what the teacher is looking
+   * at (#94).
+   */
+  const markingPrompt = useMemo(() => {
+    if (!markingAsk || !read) return ''
+    const questions = read.adopted
+      .filter((a) => !discarded.includes(a.question.id))
+      .map((a) => skeletonFor(a.question))
+      .filter((s): s is MarkingSkeleton => s !== undefined)
+    if (questions.length === 0) return ''
+    return buildGuidePrompt({
+      examination: paperName.trim() || 'Past paper',
+      year: typedYear,
+      questions,
+      syllabus: chosen?.syllabus,
+      course: chosen?.course,
+      scanned: markingAsk.scanned,
+    })
+  }, [markingAsk, read, discarded, paperName, typedYear, chosen])
 
   /**
    * Read back what the teacher's AI made of the paper.
@@ -454,7 +509,7 @@ export function Extractor({
    * provenance. Content points are deliberately not offered: a course can carry
    * hundreds, and tagging is by topic here (#89).
    */
-  const readReply = () => {
+  const readReply = async () => {
     setFailed('')
     const examination = paperName.trim() || 'Past paper'
     const out = ingestQuestions(pasted, {
@@ -476,14 +531,87 @@ export function Extractor({
       return
     }
 
+    let adopted = out.drafts.map(asAdopted)
+    const notes = [
+      ...out.notes,
+      ...out.rejected.map((r) => `Entry ${r.at + 1} was not a question: ${r.why}`),
+    ]
+
+    // The marking guide was never opened on this route until #94: `readPaper`
+    // throws before it reaches the guide, so a teacher who chose both files got
+    // the paper transcribed and the second file ignored without a word. It is
+    // tried here, and a guide Klunk can read needs no AI at all.
+    let guideFormat: GuideFormat | undefined
+    if (guidePath) {
+      try {
+        const guidePages = await readPdf(await readBytes(folder, guidePath))
+        try {
+          const reading = readMarkingGuide(guidePages)
+          guideFormat = reading.format
+          const applied = applyMarking(adopted, markingFromGuide(reading.guide), {
+            inBank: new Set(
+              (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+            ),
+            inFolder: questionIds(index),
+          })
+          adopted = applied.adopted
+          notes.push(...applied.notes)
+          remember({ path: guidePath, read: 'marking guide', when: today })
+        } catch (err) {
+          if (!(err instanceof NotAGuideError)) throw err
+          notes.push(`${guidePath}: ${err.message}`)
+          remember({ path: guidePath, refused: 'marking guide', when: today })
+          setMarkingAsk({ scanned: hasNoText(guidePages), path: guidePath })
+        }
+      } catch (err) {
+        notes.push(`${guidePath} could not be opened: ${(err as Error).message}`)
+      }
+    }
+
     setRead({
-      adopted: out.drafts.map(asAdopted),
-      notes: [
-        ...out.notes,
-        ...out.rejected.map((r) => `Entry ${r.at + 1} was not a question: ${r.why}`),
-      ],
+      adopted,
+      notes,
+      ...(guideFormat === undefined ? {} : { guideFormat }),
       ...(typedYear === undefined ? {} : { year: typedYear }),
     })
+  }
+
+  /**
+   * Read back what the teacher's AI made of the marking guide.
+   *
+   * Applied to the questions on screen rather than to the paper, which is what
+   * makes one path serve a paper Klunk read and a paper an AI transcribed. Every
+   * answer that lands says on its own question that a model read it.
+   */
+  const readMarkingReply = () => {
+    setGuideFailed('')
+    if (!read) return
+    const marking = readMarking(pastedGuide, {
+      outcomes: (chosen?.course.outcomes ?? []).map((o) => o.code),
+    })
+    if (marking.entries.length === 0) {
+      setGuideFailed(marking.failure ?? 'That reply held no answers.')
+      return
+    }
+
+    const applied = applyMarking(read.adopted, marking, {
+      inBank: new Set(
+        (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+      ),
+      inFolder: questionIds(index),
+    })
+    setRead({
+      ...read,
+      adopted: applied.adopted,
+      markedByAi: true,
+      notes: [
+        ...read.notes,
+        ...applied.notes,
+        ...marking.rejected.map((r) => `Entry ${r.at + 1} was not an answer: ${r.why}`),
+      ],
+    })
+    setMarkingAsk(null)
+    setPastedGuide('')
   }
 
   // Worked out from the folder rather than remembered, so a question sent to the
@@ -749,7 +877,7 @@ export function Extractor({
         )}
       </section>
 
-      {noText && (
+      {transcribe && (
         <TranscribePanel
           paperPath={paperPath}
           prompt={transcribePrompt}
@@ -761,15 +889,30 @@ export function Extractor({
           onYear={setYearText}
           pasted={pasted}
           onPasted={setPasted}
-          onRead={readReply}
+          onRead={() => void readReply()}
+        />
+      )}
+
+      {markingAsk && read && (
+        <MarkingPanel
+          guidePath={markingAsk.path}
+          prompt={markingPrompt}
+          step={transcribe ? 3 : 2}
+          pasted={pastedGuide}
+          onPasted={setPastedGuide}
+          onRead={readMarkingReply}
+          failed={guideFailed}
+          onSkip={() => setMarkingAsk(null)}
         />
       )}
 
       {read && (
         <section class="panel">
           <p class="panel__title">
-            <span class="step">{read.format === undefined ? 3 : 2}</span> Review every question
-               before saving
+            <span class="step">
+              {2 + (transcribe ? 1 : 0) + (markingAsk ? 1 : 0)}
+            </span>{' '}
+            Review every question before saving
           </p>
           <p class="hint">
             Check each question against the paper. Anything Klunk was unsure about is
@@ -868,10 +1011,12 @@ export function Extractor({
               below are what look wrong, and this line is what says why. */}
           <p class="hint">
             {read.format === undefined
-              ? 'An AI transcribed these from the scan. Klunk did not read the paper itself.'
+              ? 'An AI transcribed these questions. Klunk did not read the paper itself.'
               : `Klunk read this as ${PAPER_FORMAT_DESCRIPTIONS[read.format]}.`}
             {read.guideFormat !== undefined &&
               ` The marking guide is ${GUIDE_FORMAT_DESCRIPTIONS[read.guideFormat]}.`}
+            {read.markedByAi === true &&
+              ' An AI transcribed the marking guide. Check every answer against it.'}
           </p>
 
           <ol class="drafts">
@@ -1161,6 +1306,100 @@ function TranscribePanel({
           Read the reply
         </button>
       </div>
+    </section>
+  )
+}
+
+/**
+ * The second route in for a marking guide, and the other half of #89.
+ *
+ * It stands below the questions rather than beside the paper, because the
+ * prompt is built from them: a guide can only be keyed to questions that exist,
+ * and until they do there is nothing to ask about. So a scanned pair reads in
+ * two passes, the paper first and its guide second, which is also the order the
+ * teacher has the two files in.
+ *
+ * The privacy line differs from the paper panel's by one sentence, and the
+ * sentence is the point: the guide leaves the computer and the questions do not.
+ */
+function MarkingPanel({
+  guidePath,
+  prompt,
+  step,
+  pasted,
+  onPasted,
+  onRead,
+  failed,
+  onSkip,
+}: {
+  guidePath: string
+  prompt: string
+  step: number
+  pasted: string
+  onPasted: (v: string) => void
+  onRead: () => void
+  failed: string
+  onSkip: () => void
+}) {
+  return (
+    <section class="panel">
+      <p class="panel__title">
+        <span class="step">{step}</span> Read the marking guide with an AI
+      </p>
+
+      {/* A prompt with no questions in it is the fault this screen is most
+          likely to hide: the panel would simply not appear, and a teacher
+          holding a marking guide would be left with no route and no reason. */}
+      {prompt === '' ? (
+        <p class="missing">
+          None of the questions read from this paper carries a question number, so nothing
+             in the marking guide can be matched to them. Set the answers yourself as you
+             check each question.
+        </p>
+      ) : (
+        <>
+      <p class="hint">
+        Copy the prompt, attach {guidePath} in whatever AI your school pays for, and paste
+           the reply into the box below.
+      </p>
+      <p class="hint">
+        You attach the marking guide yourself, so all of it leaves your computer. The
+           questions stay here: the prompt lists their numbers and marks only.
+      </p>
+
+      <div class="panel__head panel__head--sub">
+        <p class="panel__title">The prompt</p>
+        <CopyButton text={prompt} />
+      </div>
+      <pre class="promptbox">{prompt}</pre>
+
+      <Field label="Paste the reply here" for="mg-reply">
+        <textarea
+          id="mg-reply"
+          class="input"
+          rows={6}
+          value={pasted}
+          placeholder="Paste the whole reply, code block and all."
+          onInput={(e) => onPasted((e.target as HTMLTextAreaElement).value)}
+        />
+      </Field>
+
+      {failed && (
+        <div class="panel panel--bad">
+          <p>{failed}</p>
+        </div>
+      )}
+
+      <div class="panel__act">
+        <button class="btn" onClick={onSkip}>
+          Set the answers myself
+        </button>
+        <button class="btn btn--primary" disabled={!pasted.trim()} onClick={onRead}>
+          Read the reply
+        </button>
+      </div>
+        </>
+      )}
     </section>
   )
 }

@@ -56,6 +56,18 @@ export interface PaperPromptSpec {
   /** The model to tag against, when the teacher chose a course. */
   syllabus?: Syllabus | undefined
   course?: SyllabusCourse | undefined
+  /**
+   * Whether the document holds no text at all.
+   *
+   * #89 opened this route only for a scan, on the argument that a paper of an
+   * unknown shape is a reader worth writing rather than a document to send to an
+   * AI. #94 widened it to any paper both readers refuse: outside NESA and the
+   * IB there is no standard to write that reader against, and a reader has
+   * already refused by the time the route is offered. So the opening line has to
+   * say which document this is, and telling a teacher their text-bearing paper
+   * is a scan is what makes a refusal read as a fault in Klunk.
+   */
+  scanned: boolean
   /** The teacher's own instruction, passed through verbatim. */
   extra?: string | undefined
 }
@@ -82,10 +94,17 @@ function opening(spec: PaperPromptSpec): string {
   return [
     `Transcribe ${which} into JSON.`,
     '',
-    'The document is a scan with no text in it, so every page is a picture. Some',
-    'pages may be upside down, and one image may hold two pages side by side. Read',
-    'them anyway. Do not describe the document, do not summarise it, and do not',
-    'comment on the scan quality.',
+    ...(spec.scanned
+      ? [
+          'The document is a scan with no text in it, so every page is a picture. Some',
+          'pages may be upside down, and one image may hold two pages side by side. Read',
+          'them anyway. Do not describe the document, do not summarise it, and do not',
+          'comment on the scan quality.',
+        ]
+      : [
+          'Do not describe the document and do not summarise it. Transcribe the questions',
+          'it prints.',
+        ]),
     '',
     'Answer with JSON and nothing else: one ```json code block holding an array of',
     'objects, with no text before or after it.',

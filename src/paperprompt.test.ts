@@ -13,7 +13,11 @@ import { describe, expect, it } from 'vitest'
 import { buildPaperPrompt, type PaperPromptSpec } from './paperprompt'
 import type { Profile, Syllabus, SyllabusCourse } from './types'
 
-const BASE: PaperPromptSpec = { examination: 'Enterprise Computing Year 11', year: 2025 }
+const BASE: PaperPromptSpec = {
+  examination: 'Enterprise Computing Year 11',
+  year: 2025,
+  scanned: true,
+}
 
 /** The ```json block of the built prompt, parsed. */
 function exampleIn(prompt: string): unknown {

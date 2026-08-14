@@ -561,9 +561,29 @@ function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] 
   const sample = asString(g.sampleAnswer) ?? asString(g.answer) ?? asString(g.modelAnswer)
   if (sample) out.sampleAnswer = sample
 
+  const criteria = readCriteria(g.criteria ?? g.bands, repairs)
+  if (criteria.length > 0) out.criteria = criteria
+
+  const notes = asString(g.notes)
+  if (notes) out.notes = notes
+
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * The rows of a criteria table, however they were written.
+ *
+ * Shared with `guideingest.ts`, which reads the same rows off a marking guide
+ * rather than out of a draft. **`marksTo` was being dropped here**, and silently:
+ * `prompt.ts` asks an extended response for bands, `looksBanded` then sees marks
+ * that descend and validation passes, so a band arrived as its bottom number
+ * alone and printed `13` where the examination prints `13–15`. It is asked for
+ * in both prompts now and kept here.
+ */
+export function readCriteria(value: unknown, repairs: string[]): MarkCriterion[] {
   const criteria: MarkCriterion[] = []
   let malformed = 0
-  for (const entry of asArray(g.criteria ?? g.bands)) {
+  for (const entry of asArray(value)) {
     if (typeof entry !== 'object' || entry === null) {
       malformed += 1
       continue
@@ -575,7 +595,14 @@ function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] 
       malformed += 1
       continue
     }
-    criteria.push({ marks, description })
+    const to = asNumber(c.marksTo ?? c.marksUpTo)
+    // A band written the wrong way round is a band, so the pair is ordered
+    // rather than refused; one written as a single mark repeated is not a band.
+    if (to !== undefined && to !== marks) {
+      criteria.push({ marks: Math.min(marks, to), marksTo: Math.max(marks, to), description })
+    } else {
+      criteria.push({ marks, description })
+    }
   }
   if (malformed > 0) {
     repairs.push(
@@ -583,12 +610,7 @@ function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] 
         'with no marks or no description.',
     )
   }
-  if (criteria.length > 0) out.criteria = criteria
-
-  const notes = asString(g.notes)
-  if (notes) out.notes = notes
-
-  return Object.keys(out).length > 0 ? out : undefined
+  return criteria
 }
 
 /**
@@ -1125,7 +1147,7 @@ function readSpace(value: unknown): [number, number] | undefined {
 
 /* ---------------------------------------------------------------- coercions */
 
-function asString(value: unknown): string | undefined {
+export function asString(value: unknown): string | undefined {
   if (typeof value === 'string') {
     const trimmed = value.trim()
     return trimmed ? trimmed : undefined
@@ -1134,7 +1156,7 @@ function asString(value: unknown): string | undefined {
   return undefined
 }
 
-function asNumber(value: unknown): number | undefined {
+export function asNumber(value: unknown): number | undefined {
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
   if (typeof value !== 'string') return undefined
   // "3 marks" is a number with a word after it, not a number.
@@ -1144,12 +1166,12 @@ function asNumber(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-function asArray(value: unknown): unknown[] {
+export function asArray(value: unknown): unknown[] {
   if (Array.isArray(value)) return value
   return value === undefined || value === null ? [] : [value]
 }
 
-function strings(value: unknown): string[] {
+export function strings(value: unknown): string[] {
   const out: string[] = []
   for (const entry of asArray(value)) {
     const text = asString(entry)

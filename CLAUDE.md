@@ -69,6 +69,11 @@ klunk/                     this repo - app and tools only, public
     guide.ts               the NESA marking guide reader
     answerkey.ts           the grid-of-answers markscheme reader
     guideformats.ts        picks the guide reader that fits the document
+    paperprompt.ts         the prompt for a paper no reader would take
+    marking.ts             what a marking guide says, and the skeleton of the
+                           questions a prompt for one is built from
+    guideprompt.ts         the prompt for a marking guide no reader would take
+    guideingest.ts         reading that reply back, repairing or refusing
     richtext.tsx           the paragraphs and pipe tables a question's text may
                            carry, and taking them back out again
     syllabusedit.ts        correcting a parsed model, pure and testable
@@ -1504,6 +1509,88 @@ loop first looked, so it read the previous run's cards and format line. A probe
 straight at `readAnswerKey` showed zero matches and a refusal. **Wait for the
 old result to clear before waiting for the new one**, or the check confirms the
 run before it.
+
+**A marking guide no reader knows goes to an AI too, and it can be measured
+against a reader in a way the paper side never could** (#94). The other half of
+#89: `guideformats.ts` already asked `hasNoText` after both readers refused, and
+the refusal opened onto nothing. Three things were established building it.
+
+- **The gate is now any refusal, on both sides.** #89 opened the paper route only
+  for a document holding no text, so that a shape worth a reader was never sent
+  to an AI instead. That holds for NESA and the IB and for nobody else: outside
+  them there is no publisher standard to write a reader against, and a reader has
+  already refused by the time the route is offered. `scanned` therefore only
+  changes the opening line of the prompt, and telling a teacher their
+  text-bearing paper is a scan is what would make a refusal read as a fault.
+- **A scanned pair lost its marking guide in silence.** `readPaper` reads the
+  paper first and the guide inside the same `try`, so a refused paper threw
+  before `guidePath` was touched: the file sat in its box and nothing said it had
+  been ignored. `readReply` reads it now, and `markingFromGuide` puts a guide
+  Klunk *can* read onto questions an AI transcribed, which is the pairing that
+  had no route at all.
+- **The prompt carries no question text, and that is what keeps the privacy
+  claim where #89 left it.** Klunk holds the questions, so the skeleton is
+  number, marks, type, part labels and how many options there are to choose
+  between. The guide prints the same numbers on its own pages. The teacher
+  attaches the guide and nothing else leaves the machine.
+
+**Measured against `guide.ts` on the 2019 D&T guide**, which is the check #89
+could not have: an AI transcription of that document put **the same ten answers,
+the same outcomes on all fourteen questions, and the same criteria including
+every band** (Q13's `2–3` and Q14's five) onto the paper as the deterministic
+reader. Both paths ended with zero questions in error, and the reader's own
+output through the new path is identical to `applyGuide`'s. The two differences
+were the AI being the more faithful of the two: a line break `guide.ts` flattens,
+and `Answers could include:` arriving as its ten entries rather than as one
+paragraph in `sampleAnswer`.
+
+Three decisions worth not reversing.
+
+- **`Marking` is not `ExtractedGuide`.** Reusing it was the first design and it
+  is a NESA Section I: `answerKey` is one letter per question, and the two
+  scanned Enterprise Computing papers set six of their fifteen objective
+  questions as multiple response or matching. It would have thrown away the
+  answers to 40% of Section I on the documents this was built for.
+- **`applyMarking` works after adoption, not before.** That is the one point both
+  routes into the screen have in common, and it is `applyYear`'s reason: re-reading
+  would throw away every picture already dropped and every question already
+  discarded. `applyGuide` is untouched and still runs before adoption for a paper
+  and guide Klunk both read.
+- **Nothing invents an answer, and every answer that lands says a model read it.**
+  Absent stays absent, an empty list is nothing stated rather than "none of
+  these", a letter naming an option the paper never printed is reported instead
+  of resolved, and two answers on a one-answer question are refused rather than
+  chosen between. #66 published something false quietly from an empty file; a
+  model is a more confident source than that.
+
+Two faults were found by driving it and neither is visible in the source. **A
+reply that marks one question twice** had its second entry dropped by a `find`,
+which is where a contradiction between two readings would hide. And
+**`answersCouldInclude` printed on the marking guide and appeared nowhere on
+screen**, so the longest part of a NESA guide could not be read before saving,
+which is this screen's one rule. Nothing had ever populated the field before
+this, which is why it had gone unnoticed.
+
+One fix came out of it that has nothing to do with marking guides: **`ingest.ts`
+dropped `marksTo`**, so a drafted extended response arrived with its bands
+collapsed to their bottom marks. `looksBanded` then saw marks descending and
+validation passed, and the printed guide said `13` where the examination prints
+`13–15`. `prompt.ts` never asked for the field either, and its worked example
+taught the collapse.
+
+Verified by driving it on `../klunk-content`: the 2019 paper read with the IB
+subject guide in the marking guide slot, which every reader refuses; the panel
+offered the prompt built from the real fourteen questions with the outcome codes
+of the HSC course; a reply pasted back put B on Question 1 as
+`Water-saving capabilities (correct)`, the part criteria on Question 11, the
+bands on 13 and 14, and `ANSWERS COULD INCLUDE` on the review card; a `Z` answer
+on a short-answer question was refused by name, a second entry for Question 1 was
+reported rather than dropped, and an entry for a Question 15 that does not exist
+was named. Fourteen questions and forty marks saved to
+`bank/issue-94-guide-check.json`, which validates against `bank.schema.json` with
+the ten answers matching the printed key and both bands intact. The subject guide
+fed to the *paper* slot now opens the transcription route as well, with a prompt
+that does not call it a scan.
 
 **Pictures come too** (#24). The page is rendered and the picture cut out of the
 band where the text is not, as a proposal the teacher keeps or drops before

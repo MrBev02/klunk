@@ -404,7 +404,7 @@ function imageUrl(
 
 function Guide({ question: q }: { question: Question }) {
   const g = q.markingGuide
-  if (!g || (!g.criteria?.length && !g.sampleAnswer && !g.notes)) {
+  if (!g || (!g.criteria?.length && !g.sampleAnswer && !g.answersCouldInclude?.length && !g.notes)) {
     // A question marked part by part keeps everything on its parts, which the
     // parts list has already shown. Asking for criteria directly underneath a
     // table of them is the kind of nagging that teaches a teacher to ignore
@@ -458,6 +458,24 @@ function Guide({ question: q }: { question: Question }) {
           {sum !== undefined && sum !== q.marks && !looksBanded(g.criteria ?? []) && (
             <p class="missing">Criteria total {sum}, but the question is worth {q.marks}.</p>
           )}
+        </>
+      ) : null}
+
+      {/* It prints on the marking guide and had nowhere to be read before
+          saving, which is this screen's one rule. Nothing populated it until
+          #94: `guide.ts` puts the whole `Answers could include:` block into the
+          sample answer as one paragraph, and an AI transcription returns it as
+          the list the guide prints. */}
+      {g.answersCouldInclude?.length ? (
+        <>
+          <p class="det__label" style={{ marginTop: '0.7rem' }}>
+            Answers could include
+          </p>
+          <ul class="plain">
+            {g.answersCouldInclude.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
         </>
       ) : null}
 

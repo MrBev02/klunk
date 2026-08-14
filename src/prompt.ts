@@ -350,6 +350,9 @@ function guideFields(type: QuestionType): string[] {
     '  markingGuide   { "sampleAnswer": "...",',
     '                   "criteria": [ { "marks": 2, "description": "..." } ],',
     '                   "notes": "..." }',
+    '                 A criterion covering a range of marks carries "marksTo" as',
+    '                 well, so a band of 13 to 15 is { "marks": 13, "marksTo": 15,',
+    '                 "description": "..." }.',
   ]
 }
 
@@ -431,7 +434,10 @@ function guideNotes(type: QuestionType, marks: number): string[] {
       return [
         'The criteria for an extended response are bands, not components. List four or',
         'five, highest marks first, each one describing a whole response at that',
-        `standard, and start at ${marks}. They are alternatives, so they do not add up.`,
+        `standard, and reach ${marks} at the top.`,
+        'They are alternatives, so they do not add up.',
+        'A band covers a range of marks, so give each one "marks" and "marksTo",',
+        'and leave no mark between 1 and the top uncovered.',
       ]
     case 'table':
       return [
@@ -613,10 +619,10 @@ const EXAMPLES: Record<QuestionType, string> = {
   "outcomes": ["H2.1"],
   "markingGuide": {
     "criteria": [
-      { "marks": 15, "description": "Sustains a judgement about the influence of emerging technologies, supported throughout by specific evidence from a named field of design." },
-      { "marks": 11, "description": "Makes a judgement supported by evidence from a named field, with some points developed further than others." },
-      { "marks": 7, "description": "Describes the influence of emerging technologies with some reference to a field of design." },
-      { "marks": 3, "description": "Makes general statements about technology and design with little reference to any field." }
+      { "marks": 13, "marksTo": 15, "description": "Sustains a judgement about the influence of emerging technologies, supported throughout by specific evidence from a named field of design." },
+      { "marks": 9, "marksTo": 12, "description": "Makes a judgement supported by evidence from a named field, with some points developed further than others." },
+      { "marks": 5, "marksTo": 8, "description": "Describes the influence of emerging technologies with some reference to a field of design." },
+      { "marks": 1, "marksTo": 4, "description": "Makes general statements about technology and design with little reference to any field." }
     ],
     "notes": "Any field of design is acceptable provided the evidence is specific to it."
   },
