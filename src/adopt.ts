@@ -235,10 +235,11 @@ export function applyMarking(
   adopted: Adopted[],
   marking: Marking,
   ctx: { inBank: Set<string>; inFolder: Set<string> },
-): { adopted: Adopted[]; notes: string[] } {
+): { adopted: Adopted[]; notes: string[]; marked: number } {
   const notes: string[] = [...marking.notes]
   const covered = new Set<number>()
   let answered = 0
+  let marked = 0
 
   const out = adopted.map((item) => {
     const number = numberOf(item.question)
@@ -289,14 +290,17 @@ export function applyMarking(
 
     // The notes above are gone the moment this is saved and the marking is not,
     // so what a model supplied has to be recorded on the question itself.
-    if (marking.byAi && changed(item.question, question)) {
-      question = { ...question, tags: withTag(question.tags, AI_MARKED_TAG) }
+    if (changed(item.question, question)) {
+      marked += 1
+      if (marking.byAi) question = { ...question, tags: withTag(question.tags, AI_MARKED_TAG) }
     }
 
     return {
       ...item,
       question,
-      notes: own,
+      // A second guide can be read over the first, which is the only way out of
+      // having pasted the wrong reply, so the same note must not stack up.
+      notes: [...new Set(own)],
       faults: validateQuestion(question, { inBank: ctx.inBank, inFolder: ctx.inFolder }),
     }
   })
@@ -309,9 +313,9 @@ export function applyMarking(
     }
   }
   notes.push(
-    `${covered.size} of the ${adopted.length} questions were marked, ${answered} of them with an answer.`,
+    `${marked} of the ${adopted.length} questions were marked, ${answered} of them with an answer.`,
   )
-  return { adopted: out, notes }
+  return { adopted: out, notes, marked }
 }
 
 /**

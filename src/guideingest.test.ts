@@ -87,13 +87,22 @@ describe('the answers', () => {
     expect(out.entries[0]!.criteria).toHaveLength(1)
   })
 
+  // Each of these carries a criterion as well, so the entry survives its answer
+  // being dropped and the drop itself is what is asserted. An entry left with
+  // nothing at all is refused outright, which is the case below.
   it('treats an empty list as nothing stated rather than as none of these', () => {
-    const out = readMarking('[{"number": 7, "answers": []}]', NONE)
+    const out = readMarking(
+      '[{"number": 7, "answers": [], "criteria": [{"marks": 1, "description": "x"}]}]',
+      NONE,
+    )
     expect(out.entries[0]!.answers).toBeUndefined()
   })
 
   it('drops an answer that names no option, and says so', () => {
-    const out = readMarking('[{"number": 7, "answer": "see the criteria"}]', NONE)
+    const out = readMarking(
+      '[{"number": 7, "answer": "see the criteria", "criteria": [{"marks": 1, "description": "x"}]}]',
+      NONE,
+    )
     expect(out.entries[0]!.answers).toBeUndefined()
     expect(out.notes.join(' ')).toContain('named no option')
   })
@@ -124,7 +133,10 @@ describe('the links', () => {
   })
 
   it('drops a link with no item number and says so', () => {
-    const out = readMarking('[{"number": 13, "links": [{"options": ["A"]}]}]', NONE)
+    const out = readMarking(
+      '[{"number": 13, "links": [{"options": ["A"]}], "criteria": [{"marks": 1, "description": "x"}]}]',
+      NONE,
+    )
     expect(out.entries[0]!.links).toBeUndefined()
     expect(out.notes.join(' ')).toContain('dropped a link')
   })
@@ -173,7 +185,9 @@ describe('the criteria', () => {
 describe('the parts', () => {
   it('keys a part alongside its question, however it was written', () => {
     const out = readMarking(
-      '[{"number": 21, "part": "(a)"}, {"number": 21, "part": "b)"}, {"number": 21, "part": "C"}]',
+      '[{"number": 21, "part": "(a)", "sampleAnswer": "one"},' +
+        ' {"number": 21, "part": "b)", "sampleAnswer": "two"},' +
+        ' {"number": 21, "part": "C", "sampleAnswer": "three"}]',
       NONE,
     )
     expect(out.entries.map((e) => e.part)).toEqual(['a', 'b', 'c'])
@@ -219,5 +233,37 @@ describe('what it says about itself', () => {
     const out = readMarking('[{"answer": "A"}, {"number": 2, "answer": "B"}]', NONE)
     expect(out.rejected).toEqual([{ at: 0, why: 'no question number, so there is nothing here to mark' }])
     expect(out.entries).toHaveLength(1)
+  })
+})
+
+describe('a reply that is not a marking guide', () => {
+  /**
+   * The paper's own transcription pasted into the marking guide box. Every
+   * question of it carries a `number`, so all 30 arrived as entries, nothing
+   * landed on anything, and the panel closed reporting no error at all.
+   */
+  it('refuses an entry that names a question and says nothing about it', () => {
+    const out = readMarking(
+      '[{"number": 1, "questionType": "multiple_choice", "questionText": "Which of these?", "marks": 1}]',
+      NONE,
+    )
+    expect(out.entries).toHaveLength(0)
+    expect(out.rejected[0]!.why).toBe('named Question 1 and said nothing about it')
+  })
+
+  it('keeps an entry that says only that it could not be read', () => {
+    const out = readMarking('[{"number": 5, "unreadable": "the criteria table"}]', NONE)
+    expect(out.entries).toHaveLength(1)
+  })
+
+  it('refuses a part with nothing on it, a key being no claim', () => {
+    const out = readMarking('[{"number": 21, "part": "a"}]', NONE)
+    expect(out.entries).toHaveLength(0)
+  })
+
+  it('keeps the real answers in a reply that is half empty', () => {
+    const out = readMarking('[{"number": 1, "answer": "B"}, {"number": 2}]', NONE)
+    expect(out.entries).toHaveLength(1)
+    expect(out.rejected).toHaveLength(1)
   })
 })

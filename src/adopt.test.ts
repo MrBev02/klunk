@@ -305,3 +305,32 @@ describe('who supplied the marking', () => {
     expect(out.adopted[0]!.question.tags).toEqual(['ai-transcribed', AI_MARKED_TAG])
   })
 })
+
+describe('what actually landed', () => {
+  it('counts the questions it changed, not the ones an entry named', () => {
+    const out = applyMarking(
+      [adopted(choiceQuestion('1')), adopted(choiceQuestion('2'))],
+      marking([{ number: 1, answers: ['B'] }, { number: 2, outcomes: [] }]),
+      CTX,
+    )
+    expect(out.marked).toBe(1)
+    expect(out.notes.join(' ')).toContain('1 of the 2 questions were marked')
+  })
+
+  it('reports nothing landed when a reply is for another paper', () => {
+    const out = applyMarking(
+      [adopted(choiceQuestion('1'))],
+      marking([{ number: 40, answers: ['B'] }]),
+      CTX,
+    )
+    expect(out.marked).toBe(0)
+  })
+
+  it('does not stack the same note when a second guide is read over the first', () => {
+    const once = applyMarking([adopted(choiceQuestion('1'))], marking([{ number: 1, answers: ['B'] }]), CTX)
+    const twice = applyMarking(once.adopted, marking([{ number: 1, answers: ['C'] }]), CTX)
+    expect(twice.adopted[0]!.question.config!.correctAnswer).toBe(2)
+    expect(twice.adopted[0]!.notes.filter((n) => n === CHECK_THE_ANSWER)).toHaveLength(1)
+    expect(twice.adopted[0]!.question.tags).toEqual([AI_MARKED_TAG])
+  })
+})

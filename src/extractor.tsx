@@ -229,6 +229,8 @@ export function Extractor({
   const [markingAsk, setMarkingAsk] = useState<{ scanned: boolean; path: string } | null>(null)
   const [pastedGuide, setPastedGuide] = useState('')
   const [guideFailed, setGuideFailed] = useState('')
+  /** What the last marking reply did, so a second one can be judged against it. */
+  const [markingRead, setMarkingRead] = useState('')
   /**
    * The year every question carries, as typed.
    *
@@ -590,7 +592,7 @@ export function Extractor({
       outcomes: (chosen?.course.outcomes ?? []).map((o) => o.code),
     })
     if (marking.entries.length === 0) {
-      setGuideFailed(marking.failure ?? 'That reply held no answers.')
+      setGuideFailed(nothingRead(marking))
       return
     }
 
@@ -600,18 +602,46 @@ export function Extractor({
       ),
       inFolder: questionIds(index),
     })
+
+    // A reply can parse, hold entries, and put nothing on any question: entries
+    // numbered for a different paper, or answers naming options these questions
+    // do not have. Writing that up as a success was how pasting the wrong reply
+    // looked exactly like pasting the right one.
+    if (applied.marked === 0) {
+      // Two different mistakes end here and the count tells them apart: a reply
+      // for another paper, whose numbers match nothing, and a reply that is not
+      // a marking guide, whose entries name questions and say nothing about them.
+      const refused = marking.rejected.length
+      setGuideFailed(
+        'Nothing in that reply landed on a question of this paper' +
+          (refused > 0
+            ? `: ${refused} of its ${refused + marking.entries.length} entries named a question ` +
+              'and said nothing about it.'
+            : '.') +
+          ' Check that you pasted the marking guide reply rather than the paper one.',
+      )
+      return
+    }
+
     setRead({
       ...read,
       adopted: applied.adopted,
-      markedByAi: true,
+      markedByAi: marking.byAi,
       notes: [
         ...read.notes,
         ...applied.notes,
         ...marking.rejected.map((r) => `Entry ${r.at + 1} was not an answer: ${r.why}`),
       ],
     })
-    setMarkingAsk(null)
+    // The panel stays. Reading a marking guide is the one step here a teacher
+    // can get wrong invisibly by pasting the wrong reply, and closing it left
+    // them with no way to paste the right one. A second read lands over the
+    // first.
     setPastedGuide('')
+    setMarkingRead(
+      `${applied.marked} question${applied.marked === 1 ? '' : 's'} marked. Paste a different ` +
+        'reply to read the guide again.',
+    )
   }
 
   // Worked out from the folder rather than remembered, so a question sent to the
@@ -871,7 +901,7 @@ export function Extractor({
         </div>
 
         {failed && (
-          <div class="panel panel--bad" style={{ marginTop: '0.8rem' }}>
+          <div class="panel panel--alert" style={{ marginTop: '0.8rem' }}>
             <p>{failed}</p>
           </div>
         )}
@@ -902,6 +932,7 @@ export function Extractor({
           onPasted={setPastedGuide}
           onRead={readMarkingReply}
           failed={guideFailed}
+          done={markingRead}
           onSkip={() => setMarkingAsk(null)}
         />
       )}
@@ -1311,6 +1342,27 @@ function TranscribePanel({
 }
 
 /**
+ * Why a reply held no answers, in enough detail to act on.
+ *
+ * The bare failure covers a reply that is not JSON. A reply that parses and whose
+ * every entry was refused is the more likely mistake and needs naming: pasting
+ * the paper's own transcription into this box gives 30 entries that name a
+ * question and say nothing about it, and *That reply held no answers* alone
+ * would leave a teacher with no idea which file they had pasted.
+ */
+function nothingRead(marking: { failure?: string; rejected: { why: string }[] }): string {
+  if (marking.failure && marking.rejected.length === 0) return marking.failure
+
+  const n = marking.rejected.length
+  const why = [...new Set(marking.rejected.map((r) => r.why))]
+  return (
+    `That reply held no answers. ${n} entr${n === 1 ? 'y' : 'ies'} could not be read: ` +
+    `${why.slice(0, 2).join('; ')}. Check that you pasted the marking guide reply rather ` +
+    'than the paper one.'
+  )
+}
+
+/**
  * The second route in for a marking guide, and the other half of #89.
  *
  * It stands below the questions rather than beside the paper, because the
@@ -1330,6 +1382,7 @@ function MarkingPanel({
   onPasted,
   onRead,
   failed,
+  done,
   onSkip,
 }: {
   guidePath: string
@@ -1339,6 +1392,8 @@ function MarkingPanel({
   onPasted: (v: string) => void
   onRead: () => void
   failed: string
+  /** What the last read did, once one has succeeded. */
+  done: string
   onSkip: () => void
 }) {
   return (
@@ -1385,14 +1440,20 @@ function MarkingPanel({
       </Field>
 
       {failed && (
-        <div class="panel panel--bad">
+        <div class="panel panel--alert">
           <p>{failed}</p>
+        </div>
+      )}
+
+      {done && !failed && (
+        <div class="panel panel--ok">
+          <p>{done}</p>
         </div>
       )}
 
       <div class="panel__act">
         <button class="btn" onClick={onSkip}>
-          Set the answers myself
+          {done ? 'Done with the marking guide' : 'Set the answers myself'}
         </button>
         <button class="btn btn--primary" disabled={!pasted.trim()} onClick={onRead}>
           Read the reply

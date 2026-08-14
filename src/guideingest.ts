@@ -200,6 +200,16 @@ function readEntry(
   const unreadable = asString(src.unreadable)
   if (unreadable !== undefined) entry.unreadable = unreadable
 
+  // An entry that names a question and says nothing about it is not an entry.
+  // The prompt asks for exactly that: "An entry the guide says nothing about is
+  // left out altogether." Accepting them is how a reply that is not a marking
+  // guide at all reads as a success: the paper's own transcription pasted into
+  // this box has a `number` on all 30 of its questions, so all 30 arrived,
+  // nothing landed on anything, and the panel closed reporting no error (#94).
+  if (!saysSomething(entry)) {
+    return { why: `named Question ${number} and said nothing about it` }
+  }
+
   const unknown = Object.keys(src).filter((k) => !KNOWN_FIELDS.has(k))
   if (unknown.length > 0) {
     notes.push(
@@ -209,6 +219,26 @@ function readEntry(
   }
 
   return entry
+}
+
+/**
+ * Does this entry carry anything a marking guide states?
+ *
+ * `unreadable` counts: an entry saying only that the criteria for question 5
+ * could not be made out is the model doing what it was asked to do. A `part` on
+ * its own does not, being a key rather than a claim.
+ */
+function saysSomething(entry: MarkingEntry): boolean {
+  return (
+    entry.answers !== undefined ||
+    entry.links !== undefined ||
+    entry.trueFalse !== undefined ||
+    entry.criteria !== undefined ||
+    entry.sampleAnswer !== undefined ||
+    entry.answersCouldInclude !== undefined ||
+    entry.outcomes !== undefined ||
+    entry.unreadable !== undefined
+  )
 }
 
 /** `(a)`, `a)` and `A` are all the part a guide calls `a`. */
