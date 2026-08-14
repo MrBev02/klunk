@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { applyMarking, NO_ANSWER_KEY, type Adopted } from './adopt'
-import { CHECK_THE_ANSWER, type Marking } from './marking'
+import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking } from './marking'
 import type { Question } from './types'
 import { validateQuestion } from './validate'
 
@@ -27,8 +27,8 @@ function adopted(question: Question, notes: string[] = []): Adopted {
   }
 }
 
-function marking(entries: Marking['entries']): Marking {
-  return { entries, notes: [], rejected: [] }
+function marking(entries: Marking['entries'], byAi = true): Marking {
+  return { entries, byAi, notes: [], rejected: [] }
 }
 
 function choiceQuestion(number: string, answer?: number): Question {
@@ -270,5 +270,38 @@ describe('a reply that marks one question twice', () => {
     )
     expect(out.adopted[0]!.question.config!.correctAnswer).toBe(1)
     expect(out.adopted[0]!.notes.join(' ')).toContain('marks this question 2 times')
+  })
+})
+
+describe('who supplied the marking', () => {
+  it('tags a question a model answered, because the notes do not survive saving', () => {
+    const out = applyMarking([adopted(choiceQuestion('1'))], marking([{ number: 1, answers: ['B'] }]), CTX)
+    expect(out.adopted[0]!.question.tags).toContain(AI_MARKED_TAG)
+  })
+
+  /**
+   * `markingFromGuide` sends Klunk's own reading through this same function, and
+   * saying an AI transcribed it is a false statement about Klunk's own work.
+   */
+  it('says nothing about an AI when one of Klunk\'s own readers supplied it', () => {
+    const out = applyMarking(
+      [adopted(choiceQuestion('1'))],
+      marking([{ number: 1, answers: ['B'] }], false),
+      CTX,
+    )
+    expect(out.adopted[0]!.question.config!.correctAnswer).toBe(1)
+    expect(out.adopted[0]!.question.tags ?? []).not.toContain(AI_MARKED_TAG)
+    expect(out.adopted[0]!.notes).not.toContain(CHECK_THE_ANSWER)
+  })
+
+  it('does not tag a question the guide could not answer', () => {
+    const out = applyMarking([adopted(choiceQuestion('1'))], marking([{ number: 1, answers: ['E'] }]), CTX)
+    expect(out.adopted[0]!.question.tags ?? []).not.toContain(AI_MARKED_TAG)
+  })
+
+  it('keeps the tags a question already had', () => {
+    const question = { ...choiceQuestion('1'), tags: ['ai-transcribed'] }
+    const out = applyMarking([adopted(question)], marking([{ number: 1, answers: ['B'] }]), CTX)
+    expect(out.adopted[0]!.question.tags).toEqual(['ai-transcribed', AI_MARKED_TAG])
   })
 })

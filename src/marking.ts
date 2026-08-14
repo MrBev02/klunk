@@ -107,6 +107,16 @@ export interface MarkingEntry {
 
 export interface Marking {
   entries: MarkingEntry[]
+  /**
+   * Whether a model produced these, or one of Klunk's own readers did.
+   *
+   * `applyMarking` serves both and cannot tell them apart from the entries,
+   * which are identical by design. Without this it said *This answer was
+   * transcribed by an AI* over a guide `guide.ts` had read perfectly well, which
+   * is a false statement in the direction that matters least but is still one
+   * Klunk made about its own work.
+   */
+  byAi: boolean
   /** What it took to find the JSON, and what was repaired or dropped. */
   notes: string[]
   /** Entries that were not entries, and why. */
@@ -125,6 +135,17 @@ export interface Marking {
  */
 export const CHECK_THE_ANSWER =
   'This answer was transcribed by an AI from the marking guide. Check it against the guide.'
+
+/**
+ * Stamped where a model supplied the marking, and it outlives the review panel.
+ *
+ * `CHECK_THE_ANSWER` is a note, and a note is gone the moment the question is
+ * saved. The answers and criteria are not: they print on a marking guide months
+ * later, and a teacher asking where a criterion came from has nothing else to
+ * read. The question itself may be Klunk's own reading of a paper, so this says
+ * only what it says.
+ */
+export const AI_MARKED_TAG = 'ai-marked'
 
 /* ------------------------------------------- a guide Klunk read for itself */
 
@@ -173,5 +194,6 @@ export function markingFromGuide(guide: {
     made.outcomes = [...new Set([...(made.outcomes ?? []), ...row.outcomes])]
   }
 
-  return { entries: [...byKey.values()], notes: [], rejected: [] }
+  // Klunk's own reading, so nothing here is an AI's claim.
+  return { entries: [...byKey.values()], byAi: false, notes: [], rejected: [] }
 }

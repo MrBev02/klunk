@@ -63,7 +63,7 @@ export function readMarking(pasted: string, ctx: MarkingContext): Marking {
   const rejected: { at: number; why: string }[] = []
 
   const found = extractJson(pasted)
-  if ('failure' in found) return { entries: [], rejected, notes, failure: found.failure }
+  if ('failure' in found) return { entries: [], byAi: true, rejected, notes, failure: found.failure }
   if (found.note) notes.push(found.note)
 
   let value: unknown
@@ -72,6 +72,7 @@ export function readMarking(pasted: string, ctx: MarkingContext): Marking {
   } catch (err) {
     return {
       entries: [],
+      byAi: true,
       rejected,
       notes,
       failure:
@@ -82,7 +83,7 @@ export function readMarking(pasted: string, ctx: MarkingContext): Marking {
   }
 
   const list = entriesFrom(value)
-  if ('failure' in list) return { entries: [], rejected, notes, failure: list.failure }
+  if ('failure' in list) return { entries: [], byAi: true, rejected, notes, failure: list.failure }
   if (list.note) notes.push(list.note)
 
   const entries: MarkingEntry[] = []
@@ -101,9 +102,9 @@ export function readMarking(pasted: string, ctx: MarkingContext): Marking {
   })
 
   if (entries.length === 0 && rejected.length === 0) {
-    return { entries, rejected, notes, failure: 'That JSON parsed, but holds no answers.' }
+    return { entries, byAi: true, rejected, notes, failure: 'That JSON parsed, but holds no answers.' }
   }
-  return { entries, rejected, notes }
+  return { entries, byAi: true, rejected, notes }
 }
 
 function unreadablePages(raw: unknown): string | undefined {

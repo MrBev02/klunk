@@ -1011,12 +1011,12 @@ export function Extractor({
               below are what look wrong, and this line is what says why. */}
           <p class="hint">
             {read.format === undefined
-              ? 'An AI transcribed these questions. Klunk did not read the paper itself.'
+              ? 'An AI transcribed these questions, so they are tagged ai-transcribed. Klunk did not read the paper itself.'
               : `Klunk read this as ${PAPER_FORMAT_DESCRIPTIONS[read.format]}.`}
             {read.guideFormat !== undefined &&
               ` The marking guide is ${GUIDE_FORMAT_DESCRIPTIONS[read.guideFormat]}.`}
             {read.markedByAi === true &&
-              ' An AI transcribed the marking guide. Check every answer against it.'}
+              ' An AI transcribed the marking guide, so what it answered is tagged ai-marked. Check every answer against it.'}
           </p>
 
           <ol class="drafts">

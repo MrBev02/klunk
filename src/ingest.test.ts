@@ -9,7 +9,13 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { AI_TAG, extractJson, ingestQuestions, type IngestContext } from './ingest'
+import {
+  AI_TAG,
+  AI_TRANSCRIBED_TAG,
+  extractJson,
+  ingestQuestions,
+  type IngestContext,
+} from './ingest'
 
 function ctx(over: Partial<IngestContext> = {}): IngestContext {
   return {
@@ -176,9 +182,38 @@ describe('the fields Klunk keeps for itself', () => {
     expect(draft.question.syllabus?.courseId).toBe('hsc')
   })
 
-  it('tags everything it reads as drafted by a model', () => {
+  it('tags a question the model wrote as drafted by a model', () => {
     const { draft } = first(ONE_SHORT_ANSWER)
     expect(draft.question.tags).toContain(AI_TAG)
+    expect(draft.question.tags).not.toContain(AI_TRANSCRIBED_TAG)
+  })
+
+  /**
+   * The distinction a teacher asks about later is where a question came from,
+   * and a transcription wearing the drafting tag loses it: the wording, the
+   * marks and the options are the examination's, and the model read a picture
+   * of them.
+   */
+  it('tags a question transcribed off a paper as transcribed, not drafted', () => {
+    const { draft } = first(
+      ONE_SHORT_ANSWER,
+      ctx({ paper: { examination: 'Enterprise Computing Year 11', year: 2025 } }),
+    )
+    expect(draft.question.tags).toContain(AI_TRANSCRIBED_TAG)
+    expect(draft.question.tags).not.toContain(AI_TAG)
+  })
+
+  it('refuses the model its own claim about which of the two it is', () => {
+    const { draft } = first(
+      answer({ tags: ['ai-drafted', 'ergonomics'] }),
+      ctx({ paper: { examination: 'Enterprise Computing Year 11' } }),
+    )
+    expect(draft.question.tags).toEqual(['ergonomics', AI_TRANSCRIBED_TAG])
+  })
+
+  it('keeps the model\'s other tags either way', () => {
+    const { draft } = first(answer({ tags: ['ergonomics', 'year-11'] }))
+    expect(draft.question.tags).toEqual(['ergonomics', 'year-11', AI_TAG])
   })
 
   it('throws away a provenance the model made up, and says so', () => {

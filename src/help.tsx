@@ -265,6 +265,18 @@ export function Help({ onClose }: { onClose: () => void }) {
           each question number against its answer. It says which it read, and says so plainly
           when a document is neither.
         </p>
+
+        <p>
+          <strong>A paper Klunk cannot read.</strong> A scan or a photograph has no text in
+          it, and a school's own paper may be a shape Klunk does not know. Either way it
+          offers you a prompt to transcribe the paper with an AI, and a second one for the
+          marking guide once the questions are on screen. You attach the file yourself, so
+          all of it leaves your computer: the guide prompt lists only the question numbers
+          and marks. Questions that come back this way are tagged{' '}
+          <code>ai-transcribed</code>, and any question whose answers or criteria came from
+          an AI reading of a guide is tagged <code>ai-marked</code>. Check every answer
+          against the guide before you save.
+        </p>
       </section>
 
       <section id="help-papers" class="help__sec">

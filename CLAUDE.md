@@ -1369,7 +1369,9 @@ something it cannot trust and says so, or refuses.
 
 The decisions worth not reversing: Klunk assigns question ids and stamps
 `syllabusId`/`courseId` itself, so the model can only *choose among* the ids the
-prompt listed; every ingested question is tagged `ai-drafted`; a question with an
+prompt listed; every ingested question is tagged by what the model actually did,
+`ai-drafted` where it wrote the question and `ai-transcribed` where it copied one
+off a document Klunk could not read; a question with an
 error cannot be saved from the paste panel and goes to the question editor instead
 (`Editing.fresh` only changes what that form says); the whole prompt is on screen
 before it is copied, which is what makes "you decide what leaves your machine" true;
@@ -1570,6 +1572,29 @@ which is where a contradiction between two readings would hide. And
 screen**, so the longest part of a NESA guide could not be read before saving,
 which is this screen's one rule. Nothing had ever populated the field before
 this, which is why it had gone unnoticed.
+
+**A tag says what a model did, not that one was involved.** #89 raised this and
+#94 made it sharper by adding a third case. There are now three claims and they
+are three tags: `ai-drafted` where the model wrote the question, `ai-transcribed`
+where it copied one off a document Klunk could not read, and `ai-marked` where it
+supplied the answers or the criteria.
+
+- **The signal is `ctx.paper`, which is already what turns a question number into
+  provenance**, so nothing new had to be passed in. An AI tag the model wrote
+  itself is dropped before Klunk's own is added: a transcription arriving claiming
+  to be drafted is claiming something Klunk is in a position to know is false.
+- **`ai-marked` exists because a note does not survive saving.** `CHECK_THE_ANSWER`
+  is on screen for as long as the review panel is; the answers and criteria print
+  on a marking guide months later, and a teacher asking where a criterion came
+  from has nothing else to read. It is stamped only where the marking actually
+  changed the question, since an entry that answers nothing supplied nothing.
+- **`Marking.byAi` had to exist for any of it to be true.** `applyMarking` serves
+  both an AI's reading and `markingFromGuide`, which is Klunk's own, and the
+  entries are identical by design. Without it a guide `guide.ts` read perfectly
+  well was stamped *This answer was transcribed by an AI* — Klunk making a false
+  statement about its own work, in the one direction nobody would think to check.
+- Banks written before this keep the tag they were written with. Klunk does not
+  rewrite a bank, and a tag records what was believed when the question was saved.
 
 One fix came out of it that has nothing to do with marking guides: **`ingest.ts`
 dropped `marksTo`**, so a drafted extended response arrived with its bands

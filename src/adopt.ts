@@ -18,7 +18,7 @@
  */
 
 import type { ExtractedPaper, ExtractedQuestion } from './extract'
-import { CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
+import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
 import type { Cutout } from './pdfimage'
 import type { Check } from './paper'
 import { QUESTION_TYPE_LABELS, type Question, type QuestionConfig, type QuestionPart } from './types'
@@ -275,7 +275,7 @@ export function applyMarking(
       question = set.question
       if (set.answered) {
         answered += 1
-        own.push(CHECK_THE_ANSWER)
+        if (marking.byAi) own.push(CHECK_THE_ANSWER)
         // The note saying nobody answered this question is now false, and the
         // answer it names is the one this has just replaced.
         for (let i = own.length - 1; i >= 0; i -= 1) {
@@ -286,6 +286,12 @@ export function applyMarking(
     }
 
     question = withParts(question, entries, own)
+
+    // The notes above are gone the moment this is saved and the marking is not,
+    // so what a model supplied has to be recorded on the question itself.
+    if (marking.byAi && changed(item.question, question)) {
+      question = { ...question, tags: withTag(question.tags, AI_MARKED_TAG) }
+    }
 
     return {
       ...item,
@@ -306,6 +312,24 @@ export function applyMarking(
     `${covered.size} of the ${adopted.length} questions were marked, ${answered} of them with an answer.`,
   )
   return { adopted: out, notes }
+}
+
+/**
+ * Did anything the guide said actually land on this question?
+ *
+ * An entry naming a question it cannot answer, or repeating what was already
+ * there, leaves it untouched, and tagging that would say a model supplied
+ * marking it did not supply.
+ */
+function changed(before: Question, after: Question): boolean {
+  return JSON.stringify(before) !== JSON.stringify(after)
+}
+
+/** One tag added once, within the twenty a bank allows. */
+function withTag(tags: string[] | undefined, tag: string): string[] {
+  const out = [...(tags ?? [])]
+  if (!out.includes(tag)) out.push(tag)
+  return out.slice(0, 20)
 }
 
 /** The number printed on the paper, which is what a guide keys against. */
