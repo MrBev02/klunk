@@ -149,7 +149,19 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
   // set grows as the batch is read.
   const taken = new Set(ctx.inFolder)
   const drafts: Draft[] = []
+  const questions: unknown[] = []
   list.items.forEach((raw, at) => {
+    // The last object of a long reply is the model saying what it could not
+    // read, which `paperprompt.ts` asks for in exactly this shape. Read as a
+    // question it is rejected for having no text, so a model reporting a sheet
+    // the scanner ate was told it had made a mistake and the report was thrown
+    // away. `guideingest.ts` has always read it; this side never did.
+    const pages = unreadablePages(raw)
+    if (pages !== undefined) {
+      notes.push(`Some of the document could not be read: ${pages} Check the paper for anything missing.`)
+      return
+    }
+    questions.push(raw)
     const read = readQuestion(raw, ctx, taken)
     if ('why' in read) rejected.push({ at, why: read.why })
     else drafts.push(read)
@@ -159,7 +171,7 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
   // sections, so there is nowhere on a question to keep this and every question
   // of a transcribed paper carries one: as a per-question repair it buried the
   // four that mattered under thirty that did not.
-  if (list.items.some((raw) => hasSection(raw))) {
+  if (questions.some((raw) => hasSection(raw))) {
     notes.push(
       'Each question said which section of the paper it came from. A bank does not ' +
         'record sections, so that was not kept.',
@@ -170,6 +182,20 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
     return { drafts, rejected, notes, failure: 'That JSON parsed, but holds no questions.' }
   }
   return { drafts, rejected, notes }
+}
+
+/**
+ * A page the model could not read, reported for the batch rather than a question.
+ *
+ * `number` is what tells it from a question: the prompt asks for one final
+ * object carrying nothing else, and a question carrying its own `unreadable`
+ * field says what it could not read within itself.
+ */
+function unreadablePages(raw: unknown): string | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+  const obj = raw as Record<string, unknown>
+  if (obj.number !== undefined || obj.questionText !== undefined) return undefined
+  return asString(obj.unreadablePages)
 }
 
 /** Did the model say which section this question came from? */
@@ -488,15 +514,24 @@ function readSyllabus(
     points.push(onlyPoint.id)
     topics.add(onlyPoint.topicId)
     repairs.push('Tagged it against the only content point the prompt offered.')
-  } else if (points.length === 0) {
-    repairs.push(
-      'Named no content point Klunk recognised, so it is untagged. It will show ' +
-        'under "Only untagged" in the library until you fix that.',
-    )
   }
 
   const onlyTopic = ctx.topicIds.length === 1 ? ctx.topicIds[0] : undefined
   if (topics.size === 0 && onlyTopic) topics.add(onlyTopic)
+
+  // A question is untagged when it names neither a point nor a topic, which is
+  // exactly what the library's "Only untagged" filter asks (`app.tsx`). Keying
+  // this on the point alone was written when drafting was the only caller and
+  // its prompt always offers points; `paperprompt.ts` offers topics and no
+  // points at all, deliberately, so a transcribed paper got this note on every
+  // question — saying it was untagged with its topic chip printed beside it,
+  // and burying the notes that meant something under thirty that did not.
+  if (points.length === 0 && topics.size === 0) {
+    repairs.push(
+      'Named no syllabus topic or content point Klunk recognised, so it is untagged. ' +
+        'It will show under "Only untagged" in the library until you fix that.',
+    )
+  }
 
   const out: NonNullable<Question['syllabus']> = {}
   if (ctx.syllabusId) out.syllabusId = ctx.syllabusId

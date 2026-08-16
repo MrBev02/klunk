@@ -251,6 +251,34 @@ describe('syllabus tagging', () => {
     expect(draft.repairs.join(' ')).toContain('untagged')
   })
 
+  // The prompt asks for this object by name and it is the only thing in a
+  // transcription that can say a sheet went through the scanner blank. It was
+  // being rejected as a question with no text, which reads as the model having
+  // made a mistake.
+  it('reads a final unreadablePages object as a note rather than rejecting it', () => {
+    const reply = JSON.stringify([
+      ...(JSON.parse(ONE_SHORT_ANSWER) as unknown[]),
+      { unreadablePages: 'Page 1 of 20 is blank in the scan.' },
+    ])
+    const out = ingestQuestions(reply, ctx())
+    expect(out.drafts).toHaveLength(1)
+    expect(out.rejected).toHaveLength(0)
+    expect(out.notes.join(' ')).toContain('Page 1 of 20 is blank in the scan.')
+  })
+
+  // `paperprompt.ts` offers topics and no content points, so every transcribed
+  // question named a topic and no point. Keyed on the point alone, this note
+  // fired on all thirty questions of a paper and said each was untagged with
+  // its topic chip printed beside it.
+  it('does not call a question untagged when it named a topic and no point', () => {
+    const { draft } = first(
+      answer({ syllabus: undefined, topicIds: ['HSC-13'] }),
+      ctx({ topicIds: ['HSC-01', 'HSC-13'], points: [] }),
+    )
+    expect(draft.question.syllabus?.topicIds).toEqual(['HSC-13'])
+    expect(draft.repairs.join(' ')).not.toContain('untagged')
+  })
+
   it('tags the only point there was when the prompt offered exactly one', () => {
     const { draft } = first(
       answer({ syllabus: undefined }),
