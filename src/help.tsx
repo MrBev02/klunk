@@ -255,6 +255,26 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p>
+          <strong>Pictures and passages.</strong> Click <strong>Attach an image</strong> or{' '}
+          <strong>Add a text stimulus</strong> in the <strong>Stimulus</strong> panel. An image
+          is copied into <code>bank/stimulus/</code> when you save the question. Fill in a
+          description for a screen reader, a caption if it needs one, and choose{' '}
+          <strong>Left</strong>, <strong>Centre</strong> or <strong>Right</strong> for where it
+          sits across the page. It is <strong>Centre</strong> unless you change it. The
+          millimetre box beside that caps how tall it prints. A text stimulus prints as a block
+          quote with a rule down it.
+        </p>
+
+        <p>
+          Choose the part a picture belongs to under <strong>Belongs to</strong>, which appears
+          once a question has parts. A part's picture prints between what that part asks and
+          its answer space. Leave it on <strong>The whole question</strong> for anything the
+          question asks as a whole. The <strong>From a past paper</strong> tab offers the same
+          choice over every picture it keeps, but not the alignment, so a picture read out of a
+          past paper prints centred until you open the question and change it.
+        </p>
+
+        <p>
           <strong>Draft with AI.</strong> Klunk has no AI key and never contacts an AI
           service, so the tab works in three steps instead. You choose the topics and
           content points. Klunk writes a prompt with the topic ids, what a mark is worth in
@@ -411,7 +431,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           <dd>
             That is your browser, not the paper. In the print dialog open{' '}
             <strong>More settings</strong> and untick <strong>Headers and footers</strong>.
-            Chrome remembers it, so you only do it once.
+            Your browser remembers it, so you only do it once.
           </dd>
 
           <dt>The student number box prints on top of the questions</dt>
@@ -420,6 +440,13 @@ export function Help({ onClose }: { onClose: () => void }) {
             <strong>Default</strong> rather than <strong>None</strong>. Klunk asks for a deeper
             top margin on any paper that repeats something on every page, and setting margins to
             None throws that away.
+          </dd>
+
+          <dt>Everything prints too small, inside a wide white border</dt>
+          <dd>
+            Open <strong>More settings</strong> in the print dialog and set{' '}
+            <strong>Scale</strong> back to 100%. <strong>Fit to printable area</strong> shrinks
+            the whole paper, including the ruled lines and the drawing space.
           </dd>
 
           <dt>"… is no longer on this computer"</dt>

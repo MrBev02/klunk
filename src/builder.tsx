@@ -154,10 +154,12 @@ export function Builder({
             </button>
           </div>
         </div>
-        {/* Chrome prints the date, the page title and the address across the
-            top and bottom of every page unless this is unticked, and it reads
-            as something Klunk put there. No page can turn it off: it is the
-            browser's own setting and it is remembered once it is changed. */}
+        {/* Chrome and Edge both print the date, the page title and the address
+            across the top and bottom of every page unless this is unticked, and
+            it reads as something Klunk put there. No page can turn it off: it is
+            the browser's own setting and it is remembered once it is changed.
+            The copy therefore names the control, which the two agree on, and not
+            the browser. */}
         <p class="preview__tip">
           In the print dialog, open <strong>More settings</strong> and untick{' '}
           <strong>Headers and footers</strong>. That stops your browser printing the date and
