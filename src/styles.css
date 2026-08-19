@@ -884,6 +884,42 @@ textarea.input {
   }
 }
 
+/* A row that carries a control beside the row button. */
+.qrow__line {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.3rem;
+}
+
+/* `min-width: 0` because the row button is itself a grid, and a grid's automatic
+   minimum size would otherwise refuse to shrink and push the ✕ off the line. */
+.qrow__line .qrow__head {
+  flex: 1;
+  min-width: 0;
+}
+
+/* On every row rather than revealed on hover. The whole complaint was that a
+   paper created by mistake could not be removed, and a control nobody finds
+   answers none of it. Muted until it is pointed at, so a list of papers still
+   reads as a list. */
+.qrow__drop {
+  flex: none;
+  color: var(--ink-faint);
+  border-color: transparent;
+  background: none;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.qrow__line:hover .qrow__drop {
+  border-color: var(--rule-strong);
+}
+
+.qrow__drop:hover:not(:disabled) {
+  color: var(--red);
+  border-color: var(--red);
+}
+
 .qrow__head {
   display: grid;
   grid-template-columns: 2.6rem minmax(0, 1fr) auto;
@@ -2110,6 +2146,12 @@ code,
   border-radius: var(--r);
   margin: 0 0.75rem 0.85rem 2.9rem;
   padding: 0.9rem 1.1rem;
+}
+
+/* A block that is asking before it destroys something, rather than showing what
+   is in a question. */
+.qrow__detail--danger {
+  border-left-color: var(--red);
 }
 
 /* Full ink for anything that is actually read, rather than the muted grey that

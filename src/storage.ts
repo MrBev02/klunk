@@ -1099,6 +1099,56 @@ export async function savePaper(
   return { path }
 }
 
+/**
+ * Delete a paper, unless the file no longer holds it.
+ *
+ * `savePaper`'s check the other way up, and for the same reason: the list a
+ * teacher clicks in is the last scan, and on a shared drive the file may have
+ * been replaced since. Writing over the wrong paper is recoverable by whoever
+ * wrote the version that went; deleting the wrong one is not, because papers are
+ * in no history. So the folder is read first and the file has to still hold the
+ * paper on the row.
+ *
+ * Matched on the title rather than on the whole file, because the title is what
+ * the teacher read on the row and a paper's id is only its title slugged, so two
+ * different papers cannot occupy this path without differing in it. A paper
+ * edited and saved by somebody else under the same title is still that paper.
+ */
+export async function deletePaper(
+  dir: FileSystemDirectoryHandle,
+  paper: Paper,
+): Promise<{ path: string }> {
+  const path = `papers/${paper.id}.json`
+  const existing = await readJson(dir, path).catch(() => null)
+
+  if (existing === null) {
+    throw new Error(`${path} is no longer in this folder, so nothing was deleted.`)
+  }
+  if (!isPaper(existing)) {
+    throw new Error(`${path} is not a paper, so nothing was deleted.`)
+  }
+  if (existing.title !== paper.title) {
+    throw new Error(
+      `${path} now holds "${existing.title}" rather than "${paper.title}", so nothing was ` +
+        'deleted. Close this folder and open it again to see what is there.',
+    )
+  }
+
+  await removeFile(dir, path)
+  return { path }
+}
+
+/** Delete a file. Missing directories on the way throw, as a missing file does. */
+async function removeFile(dir: FileSystemDirectoryHandle, path: string): Promise<void> {
+  const parts = path.split('/').filter(Boolean)
+  const filename = parts.pop()
+  if (!filename) throw new Error(`not a file path: ${path}`)
+
+  let target = dir
+  for (const part of parts) target = await target.getDirectoryHandle(part)
+  await target.removeEntry(filename)
+}
+
 /* ------------------------------------------------------------------ querying */
 
 /**

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useState } from 'preact/hooks'
 import { Field, patched, type Patch } from './fields'
 import {
   addRef,
@@ -15,7 +15,7 @@ import {
 import { QuestionDetail, shortType } from './question'
 import { PrintablePaper, type PrintMode } from './render'
 import { ProfileInstaller, profilesOnOffer } from './setup'
-import { allQuestions, savePaper, type ContentIndex } from './storage'
+import { allQuestions, deletePaper, savePaper, type ContentIndex } from './storage'
 import {
   QUESTION_TYPE_LABELS,
   questionHaystack,
@@ -92,6 +92,7 @@ export function Builder({
         onEditProfile={onEditProfile}
         onEditCover={onEditCover}
         onInstalled={onSaved}
+        onDeleted={onSaved}
       />
     )
   }
@@ -700,6 +701,7 @@ function StartPaper({
   onEditProfile,
   onEditCover,
   onInstalled,
+  onDeleted,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
@@ -710,9 +712,26 @@ function StartPaper({
   onEditProfile: (profile: Profile, path: string) => void
   onEditCover: () => void
   onInstalled: () => void
+  /** Re-read the folder, so a deleted paper leaves the list. */
+  onDeleted: () => void
 }) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
   const [title, setTitle] = useState('Trial HSC Examination')
+  // Which paper is waiting on a second click, by path. Deleting one is not
+  // undoable and papers are in no history, so the first click only asks.
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [failed, setFailed] = useState('')
+
+  // A rescan is the folder being read again, which is what every failure here
+  // asks for, so both the open confirm and the message go with it. Found by
+  // driving it: a refusal naming the paper the file used to hold stayed on
+  // screen under a row that had since changed to the paper it now holds.
+  useEffect(() => {
+    setConfirming(null)
+    setFailed('')
+  }, [papers])
+
   const school = index.schools[0]
   const slug = useMemo(
     () =>
@@ -725,6 +744,22 @@ function StartPaper({
 
   /** The paper this title would write over, if the folder already holds one. */
   const taken = papers.find((p) => p.data.id === slug)
+
+  const remove = async (target: Paper) => {
+    setDeleting(true)
+    setFailed('')
+    try {
+      await deletePaper(folder, target)
+      setConfirming(null)
+      onDeleted()
+    } catch (err) {
+      // Left on screen with the confirm still open, because every reason this
+      // fails is the folder disagreeing with the list the click came from.
+      setFailed((err as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   if (profiles.length === 0) {
     return (
@@ -904,21 +939,66 @@ function StartPaper({
                   key={p.path}
                   style={{ animationDelay: `${Math.min(i, 6) * 10}ms` }}
                 >
-                  <button class="qrow__head" onClick={() => onStart(p.data)}>
-                    <span class="qrow__marks">{p.data.sections.length}§</span>
-                    <span class="qrow__stem">
-                      {p.data.title}
-                      <br />
-                      <span class="muted mono" style={{ fontSize: '0.75rem' }}>
-                        {p.path}
+                  {/* The ✕ is a sibling of the row button rather than inside it,
+                      since a button cannot hold another one. */}
+                  <div class="qrow__line">
+                    <button class="qrow__head" onClick={() => onStart(p.data)}>
+                      <span class="qrow__marks">{p.data.sections.length}§</span>
+                      <span class="qrow__stem">
+                        {p.data.title}
+                        <br />
+                        <span class="muted mono" style={{ fontSize: '0.75rem' }}>
+                          {p.path}
+                        </span>
                       </span>
-                    </span>
-                    <span class="qrow__tail">
-                      {p.data.status === 'used' && <span class="chip chip--flag">already sat</span>}
-                      {p.data.status === 'final' && <span class="chip">final</span>}
-                      <span class="qrow__caret">›</span>
-                    </span>
-                  </button>
+                      <span class="qrow__tail">
+                        {p.data.status === 'used' && (
+                          <span class="chip chip--flag">already sat</span>
+                        )}
+                        {p.data.status === 'final' && <span class="chip">final</span>}
+                        <span class="qrow__caret">›</span>
+                      </span>
+                    </button>
+                    <button
+                      class="btn btn--icon qrow__drop"
+                      title={`Delete ${p.data.title}`}
+                      onClick={() => {
+                        setFailed('')
+                        setConfirming(confirming === p.path ? null : p.path)
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {confirming === p.path && (
+                    <div class="qrow__detail qrow__detail--danger">
+                      <p>
+                        Deleting <strong>{p.data.title}</strong> removes{' '}
+                        <span class="mono">{p.path}</span> from this folder. The questions
+                           stay in your banks.
+                      </p>
+                      {/* A paper students have sat is a record of an exam rather
+                          than a draft, and the row's chip is above the fold of
+                          this panel once it is open. */}
+                      {p.data.status === 'used' && (
+                        <p class="setup__problem">Students have sat this paper.</p>
+                      )}
+                      {failed && <p class="setup__problem">{failed}</p>}
+                      <div class="rowbtns">
+                        <button class="btn" onClick={() => setConfirming(null)}>
+                          Cancel
+                        </button>
+                        <button
+                          class="btn btn--primary"
+                          disabled={deleting}
+                          onClick={() => void remove(p.data)}
+                        >
+                          {deleting ? 'Deleting…' : 'Delete this paper'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

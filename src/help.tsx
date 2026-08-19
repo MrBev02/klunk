@@ -309,6 +309,12 @@ export function Help({ onClose }: { onClose: () => void }) {
           anything throws them away.
         </p>
 
+        <p>
+          Click the <strong>✕</strong> at the right of a row in{' '}
+          <strong>Papers in this folder</strong> to delete that paper. Klunk names the file
+          and asks first, and the questions stay in your banks.
+        </p>
+
         <h3 class="setup__head">The cover sheet</h3>
 
         <p>

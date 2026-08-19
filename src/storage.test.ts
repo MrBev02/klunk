@@ -13,6 +13,7 @@ import {
   allQuestions,
   copyFileInto,
   copyFileIntoUnlessThere,
+  deletePaper,
   emptyIndex,
   folderIsMissing,
   inCourse,
@@ -122,6 +123,10 @@ function dirHandle(node: Directory, name = 'content'): FileSystemDirectoryHandle
         throw new Error(`${child} is a directory`)
       }
       return fileHandle(node, child)
+    },
+    async removeEntry(child: string) {
+      if (!node.has(child)) throw new Error(`no such entry: ${child}`)
+      node.delete(child)
     },
   }
   return handle as unknown as FileSystemDirectoryHandle
@@ -878,6 +883,69 @@ describe('savePaper', () => {
     for (const [name, node] of appeared) files.set(name, node)
 
     await expect(savePaper(dir, paperNamed('trial', 'Mine'))).rejects.toThrow(/holds "Theirs"/)
+  })
+})
+
+/**
+ * The other write nobody can undo, and the worse of the two.
+ *
+ * A save that goes to the wrong file destroys work whoever wrote it still has
+ * open; a delete that goes to the wrong file destroys work nobody has. So every
+ * refusal here is checked for what it left on disk, not only for its message.
+ */
+describe('deletePaper', () => {
+  const paperNamed = (id: string, title: string): Paper => ({
+    formatVersion: '1',
+    type: 'klunk_paper',
+    id,
+    title,
+    profileId: 'nsw-hsc-design-technology',
+    sections: [{ profileSectionId: 'I', refs: [`bank/design.json#${id}`] }],
+  })
+
+  it('deletes the paper, and leaves the rest of the folder alone', async () => {
+    const mine = paperNamed('trial', 'Trial')
+    const files = tree({
+      'papers/trial.json': JSON.stringify(mine),
+      'papers/yearly.json': JSON.stringify(paperNamed('yearly', 'Yearly')),
+      'bank/design.json': JSON.stringify({ type: 'klunk_bank', questions: [] }),
+    })
+
+    const { path } = await deletePaper(dirHandle(files), mine)
+
+    expect(path).toBe('papers/trial.json')
+    expect(read(files, 'papers/trial.json')).toBeUndefined()
+    expect(read(files, 'papers/yearly.json')).toBeDefined()
+    expect(read(files, 'bank/design.json')).toBeDefined()
+  })
+
+  // The other teacher on the shared drive, who saved a different paper to this
+  // path between the scan the click came from and the click.
+  it('refuses when the file now holds a different paper, and names both', async () => {
+    const theirs = paperNamed('trial', 'Theirs')
+    const files = tree({ 'papers/trial.json': JSON.stringify(theirs) })
+
+    await expect(deletePaper(dirHandle(files), paperNamed('trial', 'Mine'))).rejects.toThrow(
+      /now holds "Theirs" rather than "Mine"/,
+    )
+    expect(readJson(files, 'papers/trial.json')).toEqual(theirs)
+  })
+
+  it('refuses a file that is not a paper', async () => {
+    const files = tree({ 'papers/trial.json': JSON.stringify({ type: 'klunk_bank' }) })
+
+    await expect(deletePaper(dirHandle(files), paperNamed('trial', 'Trial'))).rejects.toThrow(
+      /is not a paper/,
+    )
+    expect(read(files, 'papers/trial.json')).toBeDefined()
+  })
+
+  it('says so when the file has already gone', async () => {
+    const files = tree({ 'bank/design.json': '{}' })
+
+    await expect(deletePaper(dirHandle(files), paperNamed('trial', 'Trial'))).rejects.toThrow(
+      /no longer in this folder/,
+    )
   })
 })
 
