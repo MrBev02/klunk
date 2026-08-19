@@ -195,6 +195,51 @@ describe('scanFolder image loading', () => {
     expect(index.problems).toHaveLength(0)
   })
 
+  // A picture can hang off a part (#100), and one that is not loaded prints as a
+  // grey box naming a file that is sitting in the folder, with nothing on screen
+  // to say why.
+  it("loads an image a part points at, as well as the question's own", async () => {
+    const bank: Bank = {
+      formatVersion: '1',
+      type: 'klunk_bank',
+      questions: [
+        {
+          id: 'q1',
+          questionType: 'short_answer',
+          questionText: 'Look at the two chairs.',
+          marks: 4,
+          stimulus: [{ kind: 'image', file: 'stimulus/chairs.png' }],
+          config: {
+            parts: [
+              { label: '(a)', text: 'Name the joint shown.', marks: 1 },
+              {
+                label: '(b)',
+                text: 'Evaluate it.',
+                marks: 3,
+                stimulus: [{ kind: 'image', file: 'stimulus/joint.png' }],
+              },
+            ],
+          },
+        },
+      ],
+    }
+    const index = await scanFolder(
+      dirHandle(
+        tree({
+          'bank/design.json': JSON.stringify(bank),
+          'bank/stimulus/chairs.png': 'not really a png',
+          'bank/stimulus/joint.png': 'not really a png either',
+        }),
+      ),
+    )
+
+    expect([...index.images.keys()].sort()).toEqual([
+      'bank/stimulus/chairs.png',
+      'bank/stimulus/joint.png',
+    ])
+    expect(index.problems).toHaveLength(0)
+  })
+
   it('reports a referenced image that is not there rather than failing', async () => {
     const bank: Bank = {
       formatVersion: '1',

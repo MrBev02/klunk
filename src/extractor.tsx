@@ -78,7 +78,9 @@ import {
 } from './storage'
 import {
   QUESTION_TYPE_LABELS,
+  placeStimulus,
   questionLabel,
+  stimulusList,
   type DocumentPurpose,
   type Manifest,
   type Question,
@@ -743,7 +745,12 @@ export function Extractor({
     )
   }
 
-  const togglePicture = (id: string, at: number) => {
+  /** Change one picture of one question, keeping everything else as it was. */
+  const changePicture = (
+    id: string,
+    n: number,
+    patch: (p: Adopted['pictures'][number]) => Adopted['pictures'][number],
+  ) => {
     setRead((r) =>
       r === null
         ? r
@@ -752,10 +759,7 @@ export function Extractor({
             adopted: r.adopted.map((a) =>
               a.question.id !== id
                 ? a
-                : {
-                    ...a,
-                    pictures: a.pictures.map((p, i) => (i === at ? { ...p, keep: !p.keep } : p)),
-                  },
+                : { ...a, pictures: a.pictures.map((p, i) => (i === n ? patch(p) : p)) },
             ),
           },
     )
@@ -771,25 +775,29 @@ export function Extractor({
         // a question pointing at a file that was never written prints a
         // placeholder naming a file nobody has.
         const kept = item.pictures.filter((p) => p.keep)
-        const stimulus = []
-        for (const [at, picture] of kept.entries()) {
-          const name = `${item.question.id}${kept.length > 1 ? `-${at + 1}` : ''}.png`
+        // Seeded with what the question already carries, since a transcription
+        // can arrive holding a text stimulus the model read off the page and no
+        // crops at all (a scan has no text for a band to be bounded by).
+        const stimulus = stimulusList(item.question)
+        for (const [n, picture] of kept.entries()) {
+          const name = `${item.question.id}${kept.length > 1 ? `-${n + 1}` : ''}.png`
           const written = await copyFileInto(folder, imageDirectory(bankPath), name, picture.cutout.blob)
           stimulus.push({
-            kind: 'image' as const,
-            // Stored relative to the bank, which is how every other stimulus is
-            // stored and what lets the whole folder be moved.
-            file: relativeToBank(bankPath, imageDirectory(bankPath), written),
-            // Built in two pieces rather than interpolating a possibly-absent
-            // year, which left "of the  paper" with a hole in it once a paper
-            // without one could be read at all.
-            alt: altFor(item.question),
+            at: picture.at,
+            item: {
+              kind: 'image' as const,
+              // Stored relative to the bank, which is how every other stimulus is
+              // stored and what lets the whole folder be moved.
+              file: relativeToBank(bankPath, imageDirectory(bankPath), written),
+              // Built in two pieces rather than interpolating a possibly-absent
+              // year, which left "of the  paper" with a hole in it once a paper
+              // without one could be read at all.
+              alt: altFor(item.question),
+            },
           })
         }
 
-        const question = stimulus.length > 0
-          ? { ...item.question, stimulus }
-          : item.question
+        const question = placeStimulus(item.question, stimulus)
         const written = await saveQuestion(folder, bankPath, cleanQuestion(question), {
           syllabusId: chosen?.syllabus.id,
           // Only used when the bank does not exist yet; `saveQuestion` creates it
@@ -1057,7 +1065,12 @@ export function Extractor({
                 item={item}
                 at={i}
                 bankPath={bankPath}
-                onTogglePicture={(n) => togglePicture(item.question.id, n)}
+                onTogglePicture={(n) =>
+                  changePicture(item.question.id, n, (p) => ({ ...p, keep: !p.keep }))
+                }
+                onPictureBelongsTo={(n, at) =>
+                  changePicture(item.question.id, n, (p) => ({ ...p, at }))
+                }
                 saved={alreadySaved.has(savedAs(item))}
                 savedAs={renamed[item.question.id]}
                 onEdit={() =>
@@ -1486,6 +1499,7 @@ function ExtractedCard({
   onEdit,
   onDiscard,
   onTogglePicture,
+  onPictureBelongsTo,
 }: {
   item: Adopted
   at: number
@@ -1495,9 +1509,11 @@ function ExtractedCard({
   onEdit: () => void
   onDiscard: () => void
   onTogglePicture: (at: number) => void
+  onPictureBelongsTo: (at: number, part: number | null) => void
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
+  const parts = q.config?.parts ?? []
   const errors = item.faults.filter((f) => f.severity === 'error')
   const state = saved ? 'saved' : errors.length > 0 ? 'bad' : 'ready'
 
@@ -1542,6 +1558,12 @@ function ExtractedCard({
             Drop any picture that is not part of the question. Klunk cuts these from the
                page, so some will be wrong.
           </p>
+          {parts.length > 0 && (
+            <p class="hint">
+              Choose the part a picture belongs to. Klunk reads the parts, not where a
+              picture sits between them.
+            </p>
+          )}
           <ul class="cutouts">
             {item.pictures.map((picture, n) => (
               <li key={n} class={picture.keep ? '' : 'cutouts--dropped'}>
@@ -1549,6 +1571,25 @@ function ExtractedCard({
                 <button class="btn btn--small" onClick={() => onTogglePicture(n)} disabled={saved}>
                   {picture.keep ? 'Drop this one' : 'Keep it after all'}
                 </button>
+                {parts.length > 0 && picture.keep && (
+                  <select
+                    class="input input--sub"
+                    title="Which part this picture belongs to"
+                    value={picture.at === null ? '' : String(picture.at)}
+                    disabled={saved}
+                    onChange={(e) => {
+                      const value = (e.target as HTMLSelectElement).value
+                      onPictureBelongsTo(n, value === '' ? null : Number(value))
+                    }}
+                  >
+                    <option value="">The whole question</option>
+                    {parts.map((p, j) => (
+                      <option key={j} value={String(j)}>
+                        Part {p.label.trim() || `(${j + 1})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </li>
             ))}
           </ul>

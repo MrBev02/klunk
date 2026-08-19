@@ -18,6 +18,7 @@ import {
   readManifest,
   type DocumentNote,
 } from './manifest'
+import { everyStimulus } from './types'
 import type {
   Bank,
   Loaded,
@@ -216,7 +217,10 @@ async function loadImages(
 
   for (const bank of index.banks) {
     for (const question of bank.data.questions) {
-      for (const s of question.stimulus ?? []) {
+      // A part's pictures as well as the question's, which is what
+      // `everyStimulus` exists to say once rather than in each place that walks
+      // them.
+      for (const s of everyStimulus(question)) {
         if (s.kind === 'image' && s.file) {
           want(joinPath(bank.path, s.file), 'image referenced by a question is missing')
         }

@@ -26,7 +26,7 @@ import {
 import { RichText } from './richtext'
 import { joinPath } from './storage'
 import { alignOf, printsInline } from './types'
-import type { MarkCriterion, Profile, Question, Stimulus } from './types'
+import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
 
@@ -372,7 +372,7 @@ function QuestionBlock({
       )}
 
       <div class={asHeading ? 'q-print__answer q-print__answer--full' : 'q-print__answer'}>
-        <QuestionBody item={item} mode={mode} profile={profile} />
+        <QuestionBody item={item} mode={mode} profile={profile} images={images} />
       </div>
 
       {mode === 'guide' && <GuideBlock question={q} />}
@@ -427,21 +427,49 @@ function StimulusBlock({
   )
 }
 
+/**
+ * What one part refers to, between what it asks and where the answer goes.
+ *
+ * Indented to the part's own text column rather than the question's, so it reads
+ * as belonging to `(b)` and not to the question. Alignment then works inside that
+ * narrower column, which is what makes left mean "under the part's first word".
+ */
+function PartStimulus({
+  part,
+  bankFile,
+  images,
+}: {
+  part: QuestionPart
+  bankFile: string
+  images: Map<string, string>
+}) {
+  if (!part.stimulus?.length) return null
+  return (
+    <div class="parts__stim">
+      {part.stimulus.map((s, i) => (
+        <StimulusBlock key={i} stimulus={s} bankFile={bankFile} images={images} />
+      ))}
+    </div>
+  )
+}
+
 function QuestionBody({
   item,
   mode,
   profile,
+  images,
 }: {
   item: ResolvedQuestion
   mode: PrintMode
   profile?: Profile | undefined
+  images: Map<string, string>
 }) {
   const q = item.question
 
   // The marking guide is a different document, not the paper with annotations.
   // A marker already has the paper in front of them, so repeating every option
   // and every blank line just buries the answer.
-  if (mode === 'guide') return <GuideAnswer item={item} />
+  if (mode === 'guide') return <GuideAnswer item={item} images={images} />
 
   switch (q.questionType) {
     case 'multiple_choice': {
@@ -523,6 +551,7 @@ function QuestionBody({
                     ({part.marks} mark{part.marks === 1 ? '' : 's'})
                   </span>
                 </div>
+                <PartStimulus part={part} bankFile={item.file} images={images} />
                 <Lines n={part.answerLines ?? Math.max(2, Math.round(part.marks * 2))} />
               </li>
             ))}
@@ -538,7 +567,13 @@ function QuestionBody({
  * What a marker actually needs: the answer, why it is the answer, and what a
  * response worth the marks looks like.
  */
-function GuideAnswer({ item }: { item: ResolvedQuestion }) {
+function GuideAnswer({
+  item,
+  images,
+}: {
+  item: ResolvedQuestion
+  images: Map<string, string>
+}) {
   const q = item.question
 
   switch (q.questionType) {
@@ -626,6 +661,11 @@ function GuideAnswer({ item }: { item: ResolvedQuestion }) {
                   ({part.marks} mark{part.marks === 1 ? '' : 's'})
                 </span>
               </div>
+              {/* The question's own pictures already print on the guide, above
+                  the stem, so a part's print here for the same reason: a
+                  criterion about "the joint shown" is unmarkable months later
+                  without it, and the marker may be holding only this. */}
+              <PartStimulus part={part} bankFile={item.file} images={images} />
               {part.sampleAnswer && <p class="guide__sample">{part.sampleAnswer}</p>}
               {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>

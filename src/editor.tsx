@@ -41,6 +41,9 @@ import {
   STIMULUS_ALIGNS,
   STIMULUS_ALIGN_LABELS,
   alignOf,
+  placeStimulus,
+  stimulusList,
+  stimulusOwner,
   type MarkCriterion,
   type Question,
   type MatchItem,
@@ -69,6 +72,19 @@ const DRAWING_SUBTYPES = ['sketch', 'diagram', 'flowchart', 'orthographic', 'fre
  */
 interface StimulusDraft {
   item: Stimulus
+  /**
+   * Which part it prints under, by index, or null for the question itself.
+   *
+   * One flat list with an owner rather than a list per part: the file picker, the
+   * object URLs and the copy-on-save all happen once, and a picture is moved
+   * between the question and a part by changing one select rather than by
+   * removing it and attaching it again.
+   *
+   * An index and not the part's label, because a label is a field the teacher is
+   * editing at the same time. The cost is that removing a part has to remap what
+   * points past it, which `removePart` does.
+   */
+  at: number | null
   pending?: File
   /**
    * An object URL for a file not yet copied into the folder, so the preview can
@@ -109,8 +125,8 @@ export function QuestionEditor({
   const [draft, setDraft] = useState<Question>(
     () => editing?.question ?? blankQuestion('short_answer'),
   )
-  const [stimuli, setStimuli] = useState<StimulusDraft[]>(
-    () => (editing?.question.stimulus ?? []).map((item) => ({ item })),
+  const [stimuli, setStimuli] = useState<StimulusDraft[]>(() =>
+    editing ? stimulusList(editing.question) : [],
   )
   /** The bank to write to, or null for one that does not exist yet. */
   const [bank, setBank] = useState<string | null>(
@@ -146,10 +162,7 @@ export function QuestionEditor({
     setDraft((d) => ({ ...d, id: suggestQuestionId(bankPath, d.questionType, folderIds) }))
   }, [idTouched, bankPath, draft.questionType, folderIds])
 
-  const question = useMemo((): Question => {
-    const items = stimuli.map((s) => s.item)
-    return items.length > 0 ? { ...draft, stimulus: items } : omitStimulus(draft)
-  }, [draft, stimuli])
+  const question = useMemo(() => placeStimulus(draft, stimuli), [draft, stimuli])
 
   // The preview showed `Image: stimulus/handle.png` where the picture belongs,
   // because it was given no images to look in. That was tolerable while nothing
@@ -194,6 +207,37 @@ export function QuestionEditor({
   const setConfig = (patch: Patch<QuestionConfig>) =>
     setDraft((d) => ({ ...d, config: patched(d.config ?? {}, patch) }))
 
+  const changeType = (type: QuestionType) => {
+    setDraft((d) => retype(d, type, marksTouched))
+    // `retype` drops the parts where the new type has none, so their pictures
+    // come back to the question rather than pointing at a part that has gone.
+    if (!holdsParts(type)) {
+      setStimuli((list) => list.map((s) => (s.at === null ? s : { ...s, at: null })))
+    }
+  }
+
+  /**
+   * Remove a part, and move the pictures that pointed at it.
+   *
+   * An owner is an index, so everything pointing past this part has to come down
+   * one with it; without that a picture attached to (c) would print under what
+   * used to be (d), which reads plausibly and is wrong. The removed part's own
+   * pictures go back to the question, where they are on screen and can be dropped
+   * deliberately, rather than being deleted by a click on the part's ✕.
+   */
+  const removePart = (at: number) => {
+    setConfig({ parts: (draft.config?.parts ?? []).filter((_, j) => j !== at) })
+    setStimuli((list) =>
+      list.map((s) =>
+        s.at === null || s.at < at
+          ? s
+          : s.at === at
+            ? { ...s, at: null }
+            : { ...s, at: s.at - 1 },
+      ),
+    )
+  }
+
   /** Save, then either close or clear the form for the next question. */
   const save = async (andAnother: boolean) => {
     setSaving(true)
@@ -205,19 +249,19 @@ export function QuestionEditor({
       // an orphan image behind instead, which is the lesser of the two but
       // still litter.
       const directory = imageDirectoryFor(bankPath)
-      const copied: Stimulus[] = []
+      const copied: StimulusDraft[] = []
       for (const s of stimuli) {
         if (!s.pending) {
-          copied.push(s.item)
+          copied.push(s)
           continue
         }
         const name = await copyFileInto(folder, directory, s.pending.name, s.pending)
-        copied.push({ ...s.item, file: `${IMAGE_SUBDIR}/${name}` })
+        copied.push({ ...s, item: { ...s.item, file: `${IMAGE_SUBDIR}/${name}` } })
       }
 
-      const finished = cleanQuestion(
-        copied.length > 0 ? { ...draft, stimulus: copied } : omitStimulus(draft),
-      )
+      // The same routing the preview used, so what is written is what was on
+      // screen rather than a second arrangement of it.
+      const finished = cleanQuestion(placeStimulus(draft, copied))
       // A question sent here from the prompt factory is `fresh`: it is not in
       // the bank yet, so saving adds it rather than replacing anything, and it
       // must not claim the id of whatever happens to hold it now.
@@ -270,11 +314,7 @@ export function QuestionEditor({
                 id="q-type"
                 class="input"
                 value={draft.questionType}
-                onChange={(e) =>
-                  setDraft((d) =>
-                    retype(d, (e.target as HTMLSelectElement).value as QuestionType, marksTouched),
-                  )
-                }
+                onChange={(e) => changeType((e.target as HTMLSelectElement).value as QuestionType)}
               >
                 {QUESTION_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -328,12 +368,18 @@ export function QuestionEditor({
           </Field>
         </section>
 
-        <TypeFields question={draft} setConfig={setConfig} setDraft={setDraft} />
+        <TypeFields
+          question={draft}
+          setConfig={setConfig}
+          setDraft={setDraft}
+          removePart={removePart}
+        />
 
         <StimulusFields
           stimuli={stimuli}
           setStimuli={setStimuli}
           directory={imageDirectoryFor(bankPath)}
+          parts={draft.config?.parts ?? []}
         />
 
         <GuideFields question={draft} setDraft={setDraft} />
@@ -429,10 +475,13 @@ function TypeFields({
   question,
   setConfig,
   setDraft,
+  removePart,
 }: {
   question: Question
   setConfig: (patch: Patch<QuestionConfig>) => void
   setDraft: (fn: (d: Question) => Question) => void
+  /** Held by the editor, since removing a part also moves its pictures. */
+  removePart: (at: number) => void
 }) {
   const cfg = question.config ?? {}
 
@@ -546,7 +595,15 @@ function TypeFields({
       )
 
     default:
-      return <WrittenFields question={question} cfg={cfg} setConfig={setConfig} setDraft={setDraft} />
+      return (
+        <WrittenFields
+          question={question}
+          cfg={cfg}
+          setConfig={setConfig}
+          setDraft={setDraft}
+          removePart={removePart}
+        />
+      )
   }
 }
 
@@ -1025,11 +1082,13 @@ function WrittenFields({
   cfg,
   setConfig,
   setDraft,
+  removePart,
 }: {
   question: Question
   cfg: QuestionConfig
   setConfig: (patch: Patch<QuestionConfig>) => void
   setDraft: (fn: (d: Question) => Question) => void
+  removePart: (at: number) => void
 }) {
   const parts = cfg.parts ?? []
 
@@ -1112,7 +1171,7 @@ function WrittenFields({
                 <button
                   class="btn btn--icon"
                   title="Remove this part"
-                  onClick={() => setConfig({ parts: parts.filter((_, j) => j !== i) })}
+                  onClick={() => removePart(i)}
                 >
                   ✕
                 </button>
@@ -1150,15 +1209,21 @@ function StimulusFields({
   stimuli,
   setStimuli,
   directory,
+  parts,
 }: {
   stimuli: StimulusDraft[]
   setStimuli: (fn: (s: StimulusDraft[]) => StimulusDraft[]) => void
   directory: string
+  /** What a picture can belong to besides the question. Empty on most types. */
+  parts: QuestionPart[]
 }) {
   const [picking, setPicking] = useState('')
 
   const change = (i: number, patch: Patch<Stimulus>) =>
     setStimuli((list) => list.map((s, j) => (i === j ? { ...s, item: patched(s.item, patch) } : s)))
+
+  const rehome = (i: number, at: number | null) =>
+    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, at } : s)))
 
   const attach = async () => {
     setPicking('')
@@ -1182,6 +1247,7 @@ function StimulusFields({
         // is only discovered when the copy happens.
         {
           item: { kind: 'image', file: `${IMAGE_SUBDIR}/${safeFilename(file.name)}` },
+          at: null,
           pending: file,
           previewUrl: URL.createObjectURL(file),
         },
@@ -1200,6 +1266,12 @@ function StimulusFields({
         Images are copied into <span class="mono">{directory}</span> when the question is
         saved.
       </p>
+      {parts.length > 0 && (
+        <p class="hint">
+          Choose the part a picture belongs to. A part's picture prints between what that
+          part asks and its answer space.
+        </p>
+      )}
 
       {stimuli.length > 0 && (
         <ol class="editrows">
@@ -1207,6 +1279,25 @@ function StimulusFields({
             <li key={i} class="editrow">
               <span class="editrow__letter">{s.item.kind === 'image' ? '▣' : '¶'}</span>
               <div class="editrow__body">
+                {parts.length > 0 && (
+                  <Field label="Belongs to">
+                    <select
+                      class="input input--sub"
+                      value={stimulusOwner(s.at, parts.length) === null ? '' : String(s.at)}
+                      onChange={(e) => {
+                        const value = (e.target as HTMLSelectElement).value
+                        rehome(i, value === '' ? null : Number(value))
+                      }}
+                    >
+                      <option value="">The whole question</option>
+                      {parts.map((p, j) => (
+                        <option key={j} value={String(j)}>
+                          Part {p.label.trim() || `(${j + 1})`}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
                 {s.item.kind === 'image' ? (
                   <p class="mono editor__file">
                     {s.item.file}
@@ -1292,7 +1383,9 @@ function StimulusFields({
         </button>
         <button
           class="btn btn--small"
-          onClick={() => setStimuli((list) => [...list, { item: { kind: 'text', text: '' } }])}
+          onClick={() =>
+            setStimuli((list) => [...list, { item: { kind: 'text', text: '' }, at: null }])
+          }
         >
           Add a text stimulus
         </button>
@@ -1904,7 +1997,7 @@ function defaultConfig(type: QuestionType): QuestionConfig {
  * worth four marks, because short answer is the type the form opens on.
  */
 function retype(draft: Question, type: QuestionType, marksTouched: boolean): Question {
-  const written = (t: QuestionType) => t === 'short_answer' || t === 'extended_response'
+  const written = holdsParts
   const marks = marksTouched ? draft.marks : defaultMarks(type)
   if (written(draft.questionType) && written(type)) {
     return { ...draft, questionType: type, marks }
@@ -1912,10 +2005,9 @@ function retype(draft: Question, type: QuestionType, marksTouched: boolean): Que
   return { ...draft, questionType: type, marks, config: defaultConfig(type) }
 }
 
-function omitStimulus(question: Question): Question {
-  const out = { ...question }
-  delete out.stimulus
-  return out
+/** Only these two types have parts, which is what `retype` keeps config for. */
+function holdsParts(type: QuestionType): boolean {
+  return type === 'short_answer' || type === 'extended_response'
 }
 
 /** The folder images go in, beside the bank that references them. */

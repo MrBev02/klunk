@@ -44,8 +44,14 @@ export interface Adopted {
    * A crop is a proposal: it was worked out from where the text is not, which is
    * a good guess and not a fact. The teacher keeps or drops each one before
    * anything is written, the same as everything else here.
+   *
+   * `at` is the part it belongs to, and it starts as null on every crop. Nothing
+   * here can work it out: `ExtractedQuestion` carries `spans`, so a band can be
+   * placed inside a question, and `ExtractedPart` carries no position at all. The
+   * 2025 Biology paper prints Question 28 with one picture before part (a), one
+   * inside (a) and one inside (b), so the teacher says which (#100).
    */
-  pictures: { cutout: Cutout; keep: boolean }[]
+  pictures: { cutout: Cutout; keep: boolean; at: number | null }[]
   /** Where it came from in the PDF, so a doubtful one can be checked against the paper. */
   pages: number[]
   /** What the readers noticed, in the teacher's words. */
@@ -73,7 +79,11 @@ export function adoptPaper(
       // Kept by default. A question that had a picture on the page almost always
       // needs it, and a teacher scanning fifteen of these should be undoing the
       // rare wrong one rather than ticking every right one.
-      pictures: (cutouts.get(extracted) ?? []).map((cutout) => ({ cutout, keep: true })),
+      pictures: (cutouts.get(extracted) ?? []).map((cutout) => ({
+        cutout,
+        keep: true,
+        at: null,
+      })),
       pages: extracted.pages,
       notes: [...extracted.notes, ...describeLosses(extracted, (cutouts.get(extracted) ?? []).length)],
       faults: validateQuestion(question, {

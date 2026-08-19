@@ -465,6 +465,47 @@ describe('stimulus', () => {
       expect(errors(q)).toEqual([])
     }
   })
+
+  // A picture can hang off a part, and the same rules have to reach it there:
+  // the whole point of #100 is that a part's picture is one Klunk prints.
+  it("holds a part's pictures to the same rules", () => {
+    const q = question({
+      marks: 4,
+      config: {
+        parts: [
+          { label: '(a)', text: 'Name the joint shown.', marks: 1 },
+          {
+            label: '(b)',
+            text: 'Evaluate it.',
+            marks: 3,
+            stimulus: [{ kind: 'image' }, { kind: 'text', text: '' }],
+          },
+        ],
+      },
+    })
+    expect(errors(q).join(' ')).toContain('needs a file')
+    expect(errors(q).join(' ')).toContain('needs some text')
+  })
+
+  // "Stimulus 2 has no alt text" is no help on a question carrying six pictures
+  // across three parts.
+  it('names the part a fault is on', () => {
+    const q = question({
+      marks: 4,
+      config: {
+        parts: [
+          { label: '(a)', text: 'Name it.', marks: 2 },
+          {
+            label: '(b)',
+            text: 'Evaluate it.',
+            marks: 2,
+            stimulus: [{ kind: 'image', file: 'stimulus/joint.png' }],
+          },
+        ],
+      },
+    })
+    expect(warnings(q).join(' ')).toContain('Part (b), stimulus 1')
+  })
 })
 
 describe('bands', () => {
@@ -698,6 +739,29 @@ describe('cleanQuestion', () => {
     const right = question({ stimulus: [{ kind: 'image', file: 'a.png', align: 'right' }] })
     expect(cleanQuestion(right).stimulus).toEqual([
       { kind: 'image', file: 'a.png', align: 'right' },
+    ])
+  })
+
+  it("cleans a part's pictures exactly as it cleans the question's", () => {
+    const q = question({
+      marks: 3,
+      config: {
+        parts: [
+          {
+            label: '(a)',
+            text: 'Evaluate the joint shown.',
+            marks: 3,
+            stimulus: [
+              { kind: 'image', file: ' stimulus/joint.png ', alt: ' A joint ', align: 'centre' },
+              // Added and never filled in, so it never reaches the bank.
+              { kind: 'image' },
+            ],
+          },
+        ],
+      },
+    })
+    expect(cleanQuestion(q).config?.parts?.[0]?.stimulus).toEqual([
+      { kind: 'image', file: 'stimulus/joint.png', alt: 'A joint' },
     ])
   })
 

@@ -131,38 +131,70 @@ export function QuestionDetail({
       {q.stimulus?.length ? (
         <div class="det">
           <p class="det__label">Stimulus</p>
-          {q.stimulus.map((s, i) =>
-            s.kind === 'text' ? (
-              <p key={i} class="sample">
-                {s.text}
-                {s.caption && <em>. {s.caption}</em>}
-              </p>
-            ) : imageUrl(s, bankFile, images) ? (
-              // The alignment shows here too, because otherwise the only way to
-              // see what the field did is to print the paper.
-              <figure key={i} class={`stim-figure stim-figure--${alignOf(s)}`}>
-                <img src={imageUrl(s, bankFile, images)} alt={s.alt ?? ''} />
-                {s.caption && <figcaption>{s.caption}</figcaption>}
-              </figure>
-            ) : (
-              <p key={i} class="stim-note">
-                Image: <span class="mono">{s.file ?? 'unnamed'}</span>
-                {s.alt ? `. ${s.alt}` : ''}
-                {s.caption ? ` (${s.caption})` : ''}
-              </p>
-            ),
-          )}
+          <StimulusItems items={q.stimulus} bankFile={bankFile} images={images} />
         </div>
       ) : null}
 
-      <Body question={q} />
+      <Body question={q} bankFile={bankFile} images={images} />
       <Guide question={q} />
       <Tags question={q} known={known} />
     </>
   )
 }
 
-function Body({ question: q }: { question: Question }) {
+/**
+ * A list of stimulus entries as they read on screen.
+ *
+ * One component for the question's and for a part's, so the two cannot come to
+ * show a picture differently — which would make the panel a worse guide to what
+ * prints than the paper itself.
+ */
+function StimulusItems({
+  items,
+  bankFile,
+  images,
+}: {
+  items: Stimulus[]
+  bankFile: string | undefined
+  images: Map<string, string> | undefined
+}) {
+  return (
+    <>
+      {items.map((s, i) =>
+        s.kind === 'text' ? (
+          <p key={i} class="sample">
+            {s.text}
+            {s.caption && <em>. {s.caption}</em>}
+          </p>
+        ) : imageUrl(s, bankFile, images) ? (
+          // The alignment shows here too, because otherwise the only way to see
+          // what the field did is to print the paper.
+          <figure key={i} class={`stim-figure stim-figure--${alignOf(s)}`}>
+            <img src={imageUrl(s, bankFile, images)} alt={s.alt ?? ''} />
+            {s.caption && <figcaption>{s.caption}</figcaption>}
+          </figure>
+        ) : (
+          <p key={i} class="stim-note">
+            Image: <span class="mono">{s.file ?? 'unnamed'}</span>
+            {s.alt ? `. ${s.alt}` : ''}
+            {s.caption ? ` (${s.caption})` : ''}
+          </p>
+        ),
+      )}
+    </>
+  )
+}
+
+function Body({
+  question: q,
+  bankFile,
+  images,
+}: {
+  question: Question
+  /** Both only for a part's pictures; the question's are shown above this. */
+  bankFile?: string | undefined
+  images?: Map<string, string> | undefined
+}) {
   switch (q.questionType) {
     case 'multiple_choice': {
       const { choices, correctIndex } = shuffledChoices(q)
@@ -366,6 +398,11 @@ function Body({ question: q }: { question: Question }) {
                 <span class="parts-list__label">{p.label}</span>
                 <span>{p.text}</span>
                 <span class="parts-list__marks">{p.marks}m</span>
+                {p.stimulus?.length ? (
+                  <div class="parts-list__stim">
+                    <StimulusItems items={p.stimulus} bankFile={bankFile} images={images} />
+                  </div>
+                ) : null}
                 {p.sampleAnswer && <p class="parts-list__sample">{p.sampleAnswer}</p>}
                 {p.criteria?.length ? (
                   <table class="crit crit--part">

@@ -333,6 +333,16 @@ export interface QuestionPart {
   sampleAnswer?: string
   /** A marking guide marks part by part, under its own `Question 11 (a)` heading. */
   criteria?: MarkCriterion[]
+  /**
+   * What this part alone refers to, printed between what it asks and its lines.
+   *
+   * The 2025 HSC Biology paper prints Question 28 with one picture before part
+   * (a), one inside (a) and one inside (b), on three pages; a question-level list
+   * cannot say that, and prints all three above the stem. On the part for the
+   * reason `criteria` are on it — a pointer from a stimulus to a part label can
+   * dangle, and a part deleted would leave one behind.
+   */
+  stimulus?: Stimulus[]
 }
 
 /** Every wording a marker should accept in one cell of a table. */
@@ -595,6 +605,72 @@ export function questionHaystack(q: Question): string {
     .map(plainText)
     .join(' ')
     .toLowerCase()
+}
+
+/**
+ * Every stimulus a question carries, its parts' included.
+ *
+ * One place knows that a picture can hang off a part, so the next thing that has
+ * to find them all cannot quietly miss half. That is not hypothetical: an image
+ * `scanFolder` does not load prints as a grey box naming a file that is sitting
+ * right there in the folder, which is a fault with nothing on screen to explain
+ * it. Where an entry belongs matters to the renderer and to nothing else, so this
+ * flattens.
+ */
+export function everyStimulus(q: Question): Stimulus[] {
+  return [...(q.stimulus ?? []), ...(q.config?.parts ?? []).flatMap((p) => p.stimulus ?? [])]
+}
+
+/**
+ * The part an owner names, or null where nothing answers to it.
+ *
+ * A picture is attached to a part by index rather than by label, because a label
+ * is a field the teacher is editing at the same moment. An index can go stale —
+ * the type changes away from a written one and the parts go with it — and the
+ * answer then is the question rather than nothing, so a picture is never lost by
+ * a change made somewhere else on the form.
+ */
+export function stimulusOwner(at: number | null, parts: number): number | null {
+  return at !== null && at >= 0 && at < parts ? at : null
+}
+
+/** One entry per stimulus, each saying what it hangs off. `placeStimulus` undoes it. */
+export function stimulusList(q: Question): { item: Stimulus; at: number | null }[] {
+  return [
+    ...(q.stimulus ?? []).map((item) => ({ item, at: null })),
+    ...(q.config?.parts ?? []).flatMap((p, at) => (p.stimulus ?? []).map((item) => ({ item, at }))),
+  ]
+}
+
+/**
+ * Put each stimulus where it belongs: on the question, or on one of its parts.
+ *
+ * Both routes into a bank come through here, the question editor's list and the
+ * extractor's crops, so a picture cannot sit in one place on screen and another
+ * in the file. A part is rewritten either way, since a picture moved *off* a part
+ * has to come off it as well as land somewhere else.
+ */
+export function placeStimulus(
+  question: Question,
+  items: { item: Stimulus; at: number | null }[],
+): Question {
+  const parts = question.config?.parts ?? []
+  const out = { ...question }
+  const own = items.filter((s) => stimulusOwner(s.at, parts.length) === null).map((s) => s.item)
+  if (own.length > 0) out.stimulus = own
+  else delete out.stimulus
+  if (parts.length === 0) return out
+  out.config = {
+    ...(out.config ?? {}),
+    parts: parts.map((part, i) => {
+      const mine = items.filter((s) => stimulusOwner(s.at, parts.length) === i).map((s) => s.item)
+      const next: QuestionPart = { ...part }
+      if (mine.length > 0) next.stimulus = mine
+      else delete next.stimulus
+      return next
+    }),
+  }
+  return out
 }
 
 export function refKey(ref: PaperRef): string {

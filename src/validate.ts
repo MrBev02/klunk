@@ -123,25 +123,12 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 
   /* --------------------------------------------------------------- stimulus */
 
-  question.stimulus?.forEach((s, i) => {
-    const where = `Stimulus ${i + 1}`
-    if (s.kind === 'image') {
-      if (!s.file?.trim()) err('An image stimulus needs a file to point at.', where)
-      // Beyond the schema, which only notes that alt text is needed if the paper
-      // is ever read by a screen reader. Warned rather than blocked.
-      else if (!s.alt?.trim()) warn('No alt text, so the image is invisible to a screen reader.', where)
-    } else if (!s.text?.trim()) {
-      err('A text stimulus needs some text.', where)
-    }
-    if (s.maxHeightMm !== undefined && !(s.maxHeightMm > 0)) {
-      err('Printed height must be above zero.', where)
-    }
-    // Only reachable from a hand-edited file, since the editor offers a list of
-    // three. Named rather than ignored: an image that silently refuses to move
-    // reads as Klunk not honouring the field at all.
-    if (s.align !== undefined && !STIMULUS_ALIGNS.includes(s.align)) {
-      err(`"${String(s.align)}" is not left, centre or right.`, where)
-    }
+  validateStimulus(question.stimulus, 'Stimulus', err, warn)
+  // A part's pictures are the same rules under the part's own name, because
+  // "Stimulus 2 has no alt text" is no help on a question carrying six of them
+  // across three parts.
+  ;(question.config?.parts ?? []).forEach((p, i) => {
+    validateStimulus(p.stimulus, `Part ${p.label.trim() || i + 1}, stimulus`, err, warn)
   })
 
   /* ---------------------------------------------------------- marking guide */
@@ -199,6 +186,41 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 }
 
 type Report = (message: string, where?: string) => void
+
+/**
+ * The stimulus rules, wherever a list of them hangs.
+ *
+ * `prefix` is what the fault is called, so a question's own images read
+ * `Stimulus 2` and a part's read `Part (b), stimulus 1`. One function rather than
+ * two, because two would come to disagree about which of these is a warning.
+ */
+function validateStimulus(
+  items: Stimulus[] | undefined,
+  prefix: string,
+  err: Report,
+  warn: Report,
+): void {
+  items?.forEach((s, i) => {
+    const where = `${prefix} ${i + 1}`
+    if (s.kind === 'image') {
+      if (!s.file?.trim()) err('An image stimulus needs a file to point at.', where)
+      // Beyond the schema, which only notes that alt text is needed if the paper
+      // is ever read by a screen reader. Warned rather than blocked.
+      else if (!s.alt?.trim()) warn('No alt text, so the image is invisible to a screen reader.', where)
+    } else if (!s.text?.trim()) {
+      err('A text stimulus needs some text.', where)
+    }
+    if (s.maxHeightMm !== undefined && !(s.maxHeightMm > 0)) {
+      err('Printed height must be above zero.', where)
+    }
+    // Only reachable from a hand-edited file, since the editor offers a list of
+    // three. Named rather than ignored: an image that silently refuses to move
+    // reads as Klunk not honouring the field at all.
+    if (s.align !== undefined && !STIMULUS_ALIGNS.includes(s.align)) {
+      err(`"${String(s.align)}" is not left, centre or right.`, where)
+    }
+  })
+}
 
 function validateCriterion(c: MarkCriterion, where: string, err: Report): void {
   if (!c.description.trim()) err('A criterion needs a description.', where)
@@ -1004,10 +1026,8 @@ export function cleanQuestion(draft: Question): Question {
   const tags = list(draft.tags)
   if (tags) out.tags = tags
 
-  const stimulus = (draft.stimulus ?? [])
-    .map(cleanStimulus)
-    .filter((s) => s.file !== undefined || s.text !== undefined)
-  if (stimulus.length) out.stimulus = stimulus
+  const stimulus = cleanStimuli(draft.stimulus)
+  if (stimulus) out.stimulus = stimulus
 
   const guide = compact({
     sampleAnswer: text(draft.markingGuide?.sampleAnswer),
@@ -1119,6 +1139,20 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
   }
 }
 
+/**
+ * A list of stimulus entries, or nothing where none of them says anything.
+ *
+ * An entry with neither a file nor any text is a row the teacher opened and left
+ * blank, and writing it would put `{"kind":"image"}` in the bank. Shared with the
+ * parts, so a part's pictures are trimmed exactly as the question's are.
+ */
+function cleanStimuli(items: Stimulus[] | undefined): Stimulus[] | undefined {
+  const out = (items ?? [])
+    .map(cleanStimulus)
+    .filter((s) => s.file !== undefined || s.text !== undefined)
+  return out.length > 0 ? out : undefined
+}
+
 function cleanStimulus(s: Stimulus): Stimulus {
   const out: Stimulus = { kind: s.kind }
   if (s.kind === 'image') {
@@ -1161,6 +1195,8 @@ function cleanPart(p: QuestionPart): QuestionPart {
   if (sample) out.sampleAnswer = sample
   const criteria = cleanCriteria(p.criteria)
   if (criteria) out.criteria = criteria
+  const stimulus = cleanStimuli(p.stimulus)
+  if (stimulus) out.stimulus = stimulus
   return out
 }
 

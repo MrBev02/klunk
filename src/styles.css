@@ -1078,6 +1078,12 @@ textarea.input {
   margin: 0.25rem 0 0;
 }
 
+/* A part's own pictures, in the part's column rather than the row's, which is
+   the printed page's arrangement in screen units. */
+.parts-list__stim {
+  grid-column: 2 / -1;
+}
+
 .crit {
   width: 100%;
   border-collapse: collapse;
@@ -1676,6 +1682,12 @@ textarea.input {
 
 .editrow__body.withbtn {
   flex-direction: row;
+}
+
+/* A labelled control inside a repeatable row. The panel spacing a field carries
+   is too loose in a list, where the row itself already provides the gap. */
+.editrow__body > .field {
+  margin-bottom: 0;
 }
 
 .editrow__letter {

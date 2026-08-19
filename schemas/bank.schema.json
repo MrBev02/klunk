@@ -368,6 +368,11 @@
                 "type": "array",
                 "description": "A NESA marking guide marks part by part, under its own 'Question 11 (a)' heading. Flattening those into the question's own criteria loses which part each one belongs to, and then the printed guide puts them in the wrong place.",
                 "items": { "$ref": "#/$defs/criterion" }
+              },
+              "stimulus": {
+                "type": "array",
+                "description": "Images or source material this part alone refers to, printed between what the part asks and its answer space. The 2025 HSC Biology paper prints Question 28 with one picture before part (a), one inside (a) and one inside (b), which a question-level list cannot express. On the part rather than a pointer from the stimulus to a label, for the reason criteria are: a label reference can dangle and nothing here can check it.",
+                "items": { "$ref": "#/$defs/stimulus" }
               }
             }
           }
