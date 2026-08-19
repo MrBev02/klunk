@@ -62,6 +62,7 @@ export function buildPrompt(spec: PromptSpec): string {
     conventions(spec),
     alreadyWritten(spec),
     shape(spec),
+    markupRules('A question\'s text, a part\'s text and an option\'s text'),
     example(spec),
   ]
   return blocks.filter(Boolean).join('\n\n').trimEnd() + '\n'
@@ -472,6 +473,46 @@ function guideNotes(type: QuestionType, marks: number): string[] {
     case 'true_false':
       return []
   }
+}
+
+/* ------------------------------------------------------------- the markup */
+
+/**
+ * The markup a reply may carry, shared by all three prompts.
+ *
+ * One copy, because two would drift and the whole point is that the vocabulary
+ * a model is told matches the one `richtext.tsx` reads. Nothing had ever told a
+ * model any of it: a paper printing a table of readings came back as a
+ * paragraph of loose values, which is exactly the fault #88 built the pipe
+ * table to fix, arriving through the one route that route never covered (#101).
+ *
+ * `where` names the fields, because they differ: a marking guide's markup lives
+ * on a criterion and a sample answer, not on a question stem.
+ */
+export function markupRules(where: string): string {
+  return [
+    '## Markup',
+    '',
+    `${where} may carry a little markup, and no other markup is read.`,
+    '',
+    '- A line break is written \\n inside a JSON string, so text of several',
+    '  paragraphs is still one string. A blank line starts a new paragraph.',
+    '- A table is written as a pipe table, with the row of dashes under the',
+    '  headings:',
+    '',
+    '      | Time | Temperature (\u00b0C) |',
+    '      | --- | --- |',
+    '      | 4 am | 18.8 |',
+    '      | 8 am | 21.4 |',
+    '',
+    '  Keep every column and every row. Never flatten a table into a sentence or',
+    '  a run of values.',
+    '- **bold**, *italic* and <u>underline</u>, where the text is printed that',
+    '  way.',
+    '- Write \\*, \\| or \\< for one of those characters where it is not markup.',
+    '',
+    'No headings, no bullet lists, no links, no images.',
+  ].join('\n')
 }
 
 /* ----------------------------------------------------------------- an example */

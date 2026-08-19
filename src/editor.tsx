@@ -356,7 +356,11 @@ export function QuestionEditor({
             </Field>
           </div>
 
-          <Field label="What the question asks" for="q-text">
+          <Field
+            label="What the question asks"
+            for="q-text"
+            hint="**bold**, *italic*, <u>underline</u>. A blank line starts a paragraph, and a table goes in as | pipe | rows |."
+          >
             <textarea
               id="q-text"
               class="input"

@@ -237,6 +237,24 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p>
+          <strong>Bold, italics and tables.</strong> Type <code>**bold**</code>,{' '}
+          <code>*italic*</code> and <code>&lt;u&gt;underline&lt;/u&gt;</code> straight into
+          the question text. A blank line starts a new paragraph. A table of data goes in as
+          pipe rows, and the dashed row under the headings is what makes it a table:
+        </p>
+
+        <pre class="help__sample">{`| Time | Temperature (°C) |
+| --- | --- |
+| 8 am | 18.8 |
+| 12 noon | 27.1 |`}</pre>
+
+        <p>
+          Write <code>\*</code>, <code>\|</code> or <code>\&lt;</code> for one of those
+          characters where you do not mean markup. The same markup works in a part, an
+          option and a marking criterion, and the AI prompts ask for it too.
+        </p>
+
+        <p>
           <strong>Draft with AI.</strong> Klunk has no AI key and never contacts an AI
           service, so the tab works in three steps instead. You choose the topics and
           content points. Klunk writes a prompt with the topic ids, what a mark is worth in

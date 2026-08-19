@@ -311,3 +311,15 @@ describe('a syllabus that nests its content (#78)', () => {
     expect(build(['Y11-01.01'])).toContain('Inquiry question: What is the evidence for evolution?')
   })
 })
+
+describe('the markup', () => {
+  // One copy of these rules serves all three prompts, so each one is checked to
+  // be carrying it rather than trusted to (#101).
+  it('is in the drafting prompt, naming the fields it applies to', () => {
+    const prompt = buildPrompt(spec())
+    expect(prompt).toContain('## Markup')
+    expect(prompt).toContain("A question's text, a part's text and an option's text")
+    expect(prompt).toContain('pipe table')
+    expect(prompt).toContain('**bold**, *italic* and <u>underline</u>')
+  })
+})

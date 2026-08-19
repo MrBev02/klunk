@@ -14,7 +14,7 @@ import { useState } from 'preact/hooks'
 import { unresolvedAgainst, type ModelIds } from './modelcheck'
 import { optionLetter, rowAnswers, shuffledChoices, shuffledMatching, shuffledResponses } from './paper'
 import { markRange } from './render'
-import { RichText } from './richtext'
+import { Inline, RichText } from './richtext'
 import { joinPath } from './storage'
 import type { Stimulus } from './types'
 import {
@@ -163,7 +163,7 @@ function StimulusItems({
       {items.map((s, i) =>
         s.kind === 'text' ? (
           <p key={i} class="sample">
-            {s.text}
+            <Inline text={s.text ?? ''} />
             {s.caption && <em>. {s.caption}</em>}
           </p>
         ) : imageUrl(s, bankFile, images) ? (
@@ -206,10 +206,14 @@ function Body({
               <li key={i} class={i === correctIndex ? 'is-correct' : ''}>
                 <span class="opts__letter">{LETTERS[i]}</span>
                 <span>
-                  {c.text}
+                  <Inline text={c.text} />
                   {i === correctIndex && <strong class="muted"> (correct)</strong>}
                 </span>
-                {c.feedback && <span class="opts__why">{c.feedback}</span>}
+                {c.feedback && (
+                  <span class="opts__why">
+                    <Inline text={c.feedback} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -229,12 +233,16 @@ function Body({
               <tbody>
                 {q.config?.feedbackTrue && (
                   <tr>
-                    <td>If true: {q.config.feedbackTrue}</td>
+                    <td>
+                      If true: <Inline text={q.config.feedbackTrue} />
+                    </td>
                   </tr>
                 )}
                 {q.config?.feedbackFalse && (
                   <tr>
-                    <td>If false: {q.config.feedbackFalse}</td>
+                    <td>
+                      If false: <Inline text={q.config.feedbackFalse} />
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -257,10 +265,14 @@ function Body({
               <li key={i} class={isAnswer.has(i) ? 'is-correct' : ''}>
                 <span class="opts__letter">{optionLetter(i)}</span>
                 <span>
-                  {c.text}
+                  <Inline text={c.text} />
                   {isAnswer.has(i) && <strong class="muted"> (an answer)</strong>}
                 </span>
-                {c.feedback && <span class="opts__why">{c.feedback}</span>}
+                {c.feedback && (
+                  <span class="opts__why">
+                    <Inline text={c.feedback} />
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -303,7 +315,9 @@ function Body({
                       {item ? (
                         <>
                           <td class="matchdet__key">{i + 1}</td>
-                          <td class="matchdet__cell">{item.text}</td>
+                          <td class="matchdet__cell">
+                            <Inline text={item.text} />
+                          </td>
                         </>
                       ) : (
                         <>
@@ -320,7 +334,9 @@ function Body({
                       {option ? (
                         <>
                           <td class="matchdet__key">{optionLetter(i)}</td>
-                          <td class="matchdet__cell">{option.text}</td>
+                          <td class="matchdet__cell">
+                            <Inline text={option.text} />
+                          </td>
                         </>
                       ) : (
                         <>
@@ -348,7 +364,9 @@ function Body({
             <thead>
               <tr>
                 {cols.map((c, i) => (
-                  <th key={i}>{c}</th>
+                  <th key={i}>
+                    <Inline text={c} />
+                  </th>
                 ))}
                 <th>Marks</th>
               </tr>
@@ -356,9 +374,13 @@ function Body({
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i}>
-                  <td>{r.label}</td>
+                  <td>
+                    <Inline text={r.label} />
+                  </td>
                   {cols.slice(1).map((_, j) => (
-                    <td key={j}>{rowAnswers(r, j).join(' / ')}</td>
+                    <td key={j}>
+                      <Inline text={rowAnswers(r, j).join(' / ')} />
+                    </td>
                   ))}
                   <td class="mono">{r.marks ?? ''}</td>
                 </tr>
@@ -374,7 +396,11 @@ function Body({
       return (
         <div class="det">
           <p class="det__label">Drawing task</p>
-          {q.config?.instructions && <p>{q.config.instructions}</p>}
+          {q.config?.instructions && (
+            <p>
+              <Inline text={q.config.instructions} />
+            </p>
+          )}
           <p class="muted">
             {q.config?.subtype ?? 'sketch'} · {w}mm × {h}mm of space
             {q.config?.grid ? ' · gridded' : ''}
@@ -396,20 +422,28 @@ function Body({
             {parts.map((p, i) => (
               <li key={i}>
                 <span class="parts-list__label">{p.label}</span>
-                <span>{p.text}</span>
+                <span>
+                  <Inline text={p.text} />
+                </span>
                 <span class="parts-list__marks">{p.marks}m</span>
                 {p.stimulus?.length ? (
                   <div class="parts-list__stim">
                     <StimulusItems items={p.stimulus} bankFile={bankFile} images={images} />
                   </div>
                 ) : null}
-                {p.sampleAnswer && <p class="parts-list__sample">{p.sampleAnswer}</p>}
+                {p.sampleAnswer && (
+                  <p class="parts-list__sample">
+                    <Inline text={p.sampleAnswer} />
+                  </p>
+                )}
                 {p.criteria?.length ? (
                   <table class="crit crit--part">
                     <tbody>
                       {p.criteria.map((c, j) => (
                         <tr key={j}>
-                          <td>{c.description}</td>
+                          <td>
+                            <Inline text={c.description} />
+                          </td>
                           <td>{markRange(c)}</td>
                         </tr>
                       ))}
@@ -474,7 +508,9 @@ function Guide({ question: q }: { question: Question }) {
       {g.sampleAnswer && (
         <>
           <p class="det__label">Sample answer</p>
-          <p class="sample">{g.sampleAnswer}</p>
+          <p class="sample">
+            <Inline text={g.sampleAnswer} />
+          </p>
         </>
       )}
 
@@ -487,7 +523,9 @@ function Guide({ question: q }: { question: Question }) {
             <tbody>
               {g.criteria.map((c, i) => (
                 <tr key={i}>
-                  <td>{c.description}</td>
+                  <td>
+                    <Inline text={c.description} />
+                  </td>
                   <td>{markRange(c)}</td>
                 </tr>
               ))}
@@ -513,13 +551,19 @@ function Guide({ question: q }: { question: Question }) {
           </p>
           <ul class="plain">
             {g.answersCouldInclude.map((point, i) => (
-              <li key={i}>{point}</li>
+              <li key={i}>
+                <Inline text={point} />
+              </li>
             ))}
           </ul>
         </>
       ) : null}
 
-      {g.notes && <p class="muted">{g.notes}</p>}
+      {g.notes && (
+        <p class="muted">
+          <Inline text={g.notes} />
+        </p>
+      )}
     </div>
   )
 }

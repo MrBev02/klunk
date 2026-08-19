@@ -39,7 +39,7 @@
 
 import type { MarkingSkeleton } from './marking'
 import type { Syllabus, SyllabusCourse } from './types'
-import { plain } from './prompt'
+import { markupRules, plain } from './prompt'
 
 export interface GuidePromptSpec {
   /** What the teacher says the paper is, printed so the reply can be checked. */
@@ -72,6 +72,7 @@ export function buildGuidePrompt(spec: GuidePromptSpec): string {
     howToTranscribe(spec),
     outcomes(spec),
     shape(spec),
+    markupRules('A criterion\'s description, a sample answer and each point of "answersCouldInclude"'),
     example(spec),
     ownInstruction(spec),
   ]

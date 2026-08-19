@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { buildPaperPrompt, type PaperPromptSpec } from './paperprompt'
+import { blocksOf } from './richtext'
 import type { Profile, Syllabus, SyllabusCourse } from './types'
 
 const BASE: PaperPromptSpec = {
@@ -147,5 +148,45 @@ describe('the copy', () => {
     const prompt = buildPaperPrompt(BASE)
     expect(prompt).toMatch(/upside down/)
     expect(prompt).toMatch(/two pages side by side/)
+  })
+})
+
+/**
+ * The markup, which is the second thing a description alone did not carry.
+ *
+ * A real import came back with a question's table flattened into a paragraph of
+ * values, because no prompt had ever mentioned that Klunk reads a pipe table
+ * (#101). The example is checked through `blocksOf` rather than by eye: a
+ * prompt teaching a shape the reader does not read is worse than one teaching
+ * nothing.
+ */
+describe('the markup', () => {
+  const prompt = buildPaperPrompt(BASE)
+
+  it('asks for a table as a table, and for the three marks', () => {
+    expect(prompt).toContain('pipe table')
+    expect(prompt).toContain('Never flatten a table into a sentence')
+    expect(prompt).toContain('**bold**, *italic* and <u>underline</u>')
+  })
+
+  it('says how a line break is written, since the whole table is one JSON string', () => {
+    expect(prompt).toContain('\\n inside a JSON string')
+  })
+
+  it('shows a table that Klunk itself reads as a table', () => {
+    const questions = exampleIn(prompt) as Record<string, string>[]
+    const withTable = questions.find((q) => (q['questionText'] ?? '').includes('|'))
+    expect(withTable, 'the example must demonstrate a table').toBeTruthy()
+
+    const blocks = blocksOf(withTable!['questionText']!)
+    expect(blocks.map((b) => b.kind)).toEqual(['text', 'table', 'text'])
+    const table = blocks[1]!
+    if (table.kind !== 'table') throw new Error('unreachable')
+    expect(table.head).toEqual(['Time', 'Temperature (\u00b0C)'])
+    expect(table.rows).toHaveLength(3)
+  })
+
+  it('keeps the fill-in table type apart from a table the student only reads', () => {
+    expect(prompt).toContain('A table the student only reads is not this')
   })
 })

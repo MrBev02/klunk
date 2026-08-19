@@ -39,7 +39,7 @@
  */
 
 import type { Profile, Syllabus, SyllabusCourse, SyllabusTopic } from './types'
-import { plain } from './prompt'
+import { markupRules, plain } from './prompt'
 
 export interface PaperPromptSpec {
   /** What the teacher says this document is, printed so the reply can be checked. */
@@ -79,6 +79,7 @@ export function buildPaperPrompt(spec: PaperPromptSpec): string {
     howToTranscribe(spec),
     tagging(spec),
     shape(spec),
+    markupRules("A question's text, a part's text and an option's text"),
     example(spec),
     ownInstruction(spec),
   ]
@@ -245,7 +246,9 @@ function shape(spec: PaperPromptSpec): string {
     '  the numbered column in "items" and the lettered one in "options", each in',
     '  the order printed. Do not put either column in "questionText".',
     '- Use "table" where the student completes a table, and put the column',
-    '  headings in "questionText".',
+    '  headings in "questionText". A table the student only reads is not this',
+    '  type: transcribe it into "questionText" as a pipe table and give the',
+    '  question whatever type it would have without it.',
     '',
     'Leave out "id", "syllabusId" and "courseId".',
   ].join('\n')
@@ -299,6 +302,13 @@ const EXAMPLE = `[
     "section": "II",
     "stimulusNote": "The stimulus is a network diagram showing a router, a switch and four workstations.",
     "unreadable": "The labels on two of the workstations could not be read."
+  },
+  {
+    "number": 4,
+    "questionType": "short_answer",
+    "questionText": "The table shows the temperature recorded in the workshop.\\n\\n| Time | Temperature (\u00b0C) |\\n| --- | --- |\\n| 8 am | 18.8 |\\n| 12 noon | 27.1 |\\n| 4 pm | 24.6 |\\n\\nIdentify the **greatest** change between two readings.",
+    "marks": 2,
+    "section": "II"
   }
 ]`
 
@@ -312,7 +322,8 @@ function example(spec: PaperPromptSpec): string {
     '',
     'Note where "choices" and "parts" sit: inside "config", not beside it. Note',
     'that no question carries "correctAnswer", because a question paper does not',
-    'print the answers.',
+    'print the answers. Note that question 4 keeps its table as a table, in',
+    '"questionText", between the two paragraphs it is printed between.',
     spec.range
       ? `Return only questions ${spec.range.from} to ${spec.range.to}, in one array.`
       : 'Return every question of the paper in one array.',

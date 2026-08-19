@@ -2022,6 +2022,19 @@ button.chip {
   min-width: 0;
 }
 
+/* The one sample of markup on the help page. A table has to be shown as the
+   characters a teacher types, so it keeps its own line breaks and spacing. */
+.help__sample {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  margin: 0 0 0.9rem;
+  overflow-x: auto;
+  padding: 0.6rem 0.75rem;
+}
+
 /* Identifiers, paths and tags have no spaces to break at, so they need explicit
    permission to break mid-token rather than running past the edge. */
 code,

@@ -194,3 +194,12 @@ describe('the house rules', () => {
     expect(prompt).not.toMatch(/[—–]/)
   })
 })
+
+describe('the markup', () => {
+  it('names the guide\'s own fields, not a question stem', () => {
+    const prompt = buildGuidePrompt(BASE)
+    expect(prompt).toContain('## Markup')
+    expect(prompt).toContain("A criterion's description, a sample answer")
+    expect(prompt).toContain('pipe table')
+  })
+})

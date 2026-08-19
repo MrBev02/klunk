@@ -74,8 +74,9 @@ klunk/                     this repo - app and tools only, public
                            questions a prompt for one is built from
     guideprompt.ts         the prompt for a marking guide no reader would take
     guideingest.ts         reading that reply back, repairing or refusing
-    richtext.tsx           the paragraphs and pipe tables a question's text may
-                           carry, and taking them back out again
+    richtext.tsx           the paragraphs, pipe tables and three inline marks a
+                           question's prose may carry, and taking them back out
+                           again
     syllabusedit.ts        correcting a parsed model, pure and testable
     syllabusreview.tsx     every topic on screen, to correct or only to read
     syllabusmodels.tsx     the models already in the folder, read-only
@@ -324,14 +325,15 @@ untouched.
   rather than four`, so it is loud rather than silent.
 
 **A table in a question is a pipe table in `questionText`, and the markup is
-deliberately tiny** (#88). Blank-line paragraphs and pipe tables, nothing else —
-no bold, no lists, no links.
+deliberately tiny** (#88, widened once by #101). Blank-line paragraphs, pipe
+tables and three inline marks. No lists, no links, no headings.
 
 - **Why markup rather than a field.** The table is printed *between* two
   paragraphs of the question, and `stimulus` renders in one fixed place, so a
-  field would mean splitting the stem and deciding where the split falls. It is
-  also what an AI draft already comes back as, so `ingest.ts` needs nothing:
-  `asString` trims the ends and keeps interior newlines.
+  field would mean splitting the stem and deciding where the split falls.
+  `ingest.ts` needs nothing either way: `asString` trims the ends and keeps
+  interior newlines. The reason first written here, *it is also what an AI draft
+  already comes back as*, was an assumption and was false; see #101.
 - **`src/richtext.tsx` is written by hand**, about 130 lines. A markdown library
   would be a third dependency, would bring far more syntax than this wants, and
   would need a sanitiser behind it. The precedent is `CriterionPoints`.
@@ -356,6 +358,71 @@ on the marking guide, Q27's four columns surviving their spanning header, and th
 answer key still marking C. The 2019 D&T paper reads to fourteen questions and
 forty marks with no table anywhere; the 2022 one to fifteen and forty with its
 matrix recovered.
+
+**Nothing had ever told a model that any of that markup exists, and a real
+import lost a table because of it** (#101). Reported off a paper transcribed
+through the AI route: a question carrying a table of data came back as a
+paragraph of loose values. `richtext.tsx` had read and printed a pipe table
+since #88, and `paperprompt.ts`, `prompt.ts` and `guideprompt.ts` all described
+`questionText` as "the question exactly as a student reads it" and stopped
+there. The only thing that had ever produced a pipe table was `extract.ts`'s own
+table recovery, which is why it went unnoticed: every table Klunk had seen came
+from a reader rather than from a reply.
+
+- **The claim in `richtext.tsx`'s header was the fault in one line.** *It is also
+  what an AI draft already comes back as, so `ingest.ts` needs nothing.* The
+  second half is true and the first half was never checked. A format only one
+  half of the system knows is a format the other half destroys.
+- **Bold, italic and underline are what was missing next**, and they are not
+  decoration: an examination prints `Outline **TWO** benefits`, a species name in
+  italics, an underlined instruction, and a transcription that drops them is not
+  a transcription. `**bold**` and `*italic*` are standard, so a model emits them
+  untaught.
+- **Underline is `<u>…</u>`, and `__x__` was refused twice over.** A model
+  writing `__x__` means bold everywhere else in the world, so Klunk would print
+  an underline where bold was meant; and a fill-in-the-blank line,
+  `The process of ________ is used.`, parses as an underline of nothing. Both
+  print wrongly and quietly on an exam paper, which is what #88 exists to avoid.
+  `<u>` is matched as a token by the parser and no HTML is ever interpreted.
+- **An unmatched delimiter prints literally**, which is markdown's flanking rule
+  and is what keeps `Calculate 2 * 3 and then 4 * 5` out of trouble: a mark opens
+  only where something closes it and neither end sits against a space. `\*`,
+  `\|` and `\<` escape, as `\|` already did inside a cell. Nothing in the whole
+  content folder carries an asterisk, so this cost no existing question anything;
+  that was checked rather than assumed.
+- **A mark is span-level, so it goes everywhere prose prints, and that breadth is
+  required rather than generous.** Once a model is told the marks exist it will
+  bold a word inside a part, an option or a criterion, and a call site rendering
+  the raw string prints `**TWO**` on an examination paper. So `Inline` is wired
+  through every such site in `render.tsx` and `question.tsx`: parts, options,
+  matching cells, table headings and row labels, stimulus text, criteria, sample
+  answers, `answersCouldInclude` and the guide's notes. `RichText` uses it for
+  each paragraph and each table cell.
+- **`hasMarkup` deliberately does not count an inline mark.** `plainText` takes
+  them off, so a clamped two-line summary still reads as the sentence it
+  summarises, where a flattened table is nonsense. Counting them would print the
+  whole stem twice for every question carrying one bold word.
+- **One copy of the rules, in `markupRules`**, which all three prompts call. Two
+  copies drift, and the whole point is that the vocabulary a model is told
+  matches the one `richtext.tsx` reads. The paper prompt's worked example carries
+  a real table, and its test parses that example and runs it back through
+  `blocksOf`: a prompt teaching a shape the reader does not read would be worse
+  than one teaching nothing.
+- **The prompt says a line break is `\n` inside a JSON string.** The whole table
+  is one string, and a model that gets that wrong returns something that does not
+  parse at all.
+- **A table the student only reads is not the `table` question type**, which now
+  had two plausible readings for the first time. The paper prompt says so.
+
+Driven end to end on `../klunk-content` afterwards: a question written in the
+editor with a table, `**greatest**`, `*Acacia*` and `<u>not</u>` previewed
+correctly and saved to `bank/issue-101-markup.json` with the markup verbatim on
+disk; the library row showed the stem flattened to its cells with `2 * 3` and the
+escaped `|` intact; the printed student paper and the marking guide both carried
+the table, the emphasis, an underlined `TWO` inside part (a) and a bold sample
+answer; the drafting prompt and the transcription prompt both carried the markup
+section on screen; and a reply pasted back holding a pipe table arrived with the
+table whole and rendered as a table on the review card.
 
 **Six of the fifteen objective questions on an Enterprise Computing Year 11
 paper had no type, and the workaround was already written down in this

@@ -23,7 +23,7 @@ import {
   type ResolvedPaper,
   type ResolvedQuestion,
 } from './paper'
-import { RichText } from './richtext'
+import { Inline, RichText } from './richtext'
 import { joinPath } from './storage'
 import { alignOf, printsInline } from './types'
 import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from './types'
@@ -392,7 +392,7 @@ function StimulusBlock({
   if (stimulus.kind === 'text') {
     return (
       <blockquote class="stimulus">
-        {stimulus.text}
+        <Inline text={stimulus.text ?? ''} />
         {stimulus.caption && <cite>{stimulus.caption}</cite>}
       </blockquote>
     )
@@ -479,7 +479,9 @@ function QuestionBody({
           {choices.map((c, i) => (
             <li key={i}>
               <span class="choices__letter">{letters[i]}.</span>
-              <span>{c.text}</span>
+              <span>
+                <Inline text={c.text} />
+              </span>
             </li>
           ))}
         </ol>
@@ -502,7 +504,9 @@ function QuestionBody({
             {choices.map((c, i) => (
               <li key={i}>
                 <span class="choices__letter">{optionLetter(i)}.</span>
-                <span>{c.text}</span>
+                <span>
+                <Inline text={c.text} />
+              </span>
               </li>
             ))}
           </ol>
@@ -528,7 +532,11 @@ function QuestionBody({
       const [w, h] = q.config?.spaceMm ?? [160, 90]
       return (
         <>
-          {q.config?.instructions && <p class="q-print__hint">{q.config.instructions}</p>}
+          {q.config?.instructions && (
+            <p class="q-print__hint">
+              <Inline text={q.config.instructions} />
+            </p>
+          )}
           <div
             class={`drawbox ${q.config?.grid ? 'drawbox--grid' : ''}`}
             style={{ width: `${w}mm`, height: `${h}mm` }}
@@ -546,7 +554,9 @@ function QuestionBody({
               <li key={i}>
                 <div class="parts__head">
                   <span class="parts__label">{part.label}</span>
-                  <span class="parts__text">{part.text}</span>
+                  <span class="parts__text">
+                    <Inline text={part.text} />
+                  </span>
                   <span class="parts__marks">
                     ({part.marks} mark{part.marks === 1 ? '' : 's'})
                   </span>
@@ -584,9 +594,15 @@ function GuideAnswer({
         <>
           <p class="answer">
             <strong>Answer: {letters[correctIndex]}</strong>
-            {correct ? `. ${correct.text}` : ''}
+            {correct ? (
+              <>
+                . <Inline text={correct.text} />
+              </>
+            ) : (
+              ''
+            )}
           </p>
-          {correct?.feedback && <p class="why">{correct.feedback}</p>}
+          {correct?.feedback && <p class="why"><Inline text={correct.feedback} /></p>}
         </>
       )
     }
@@ -611,8 +627,13 @@ function GuideAnswer({
             {correctIndexes.map((i) => (
               <li key={i}>
                 <span class="choices__letter">{optionLetter(i)}.</span>
-                <span>{choices[i]?.text}</span>
-                {choices[i]?.feedback && <span class="why"> {choices[i]?.feedback}</span>}
+                <span>
+                  <Inline text={choices[i]?.text ?? ''} />
+                </span>
+                {choices[i]?.feedback && <span class="why">
+                    {' '}
+                    <Inline text={choices[i]?.feedback ?? ''} />
+                  </span>}
               </li>
             ))}
           </ul>
@@ -631,7 +652,11 @@ function GuideAnswer({
           <p class="answer">
             <strong>Answer: {yes ? 'TRUE' : 'FALSE'}</strong>
           </p>
-          {why && <p class="why">{why}</p>}
+          {why && (
+            <p class="why">
+              <Inline text={why} />
+            </p>
+          )}
         </>
       )
     }
@@ -643,7 +668,9 @@ function GuideAnswer({
       return q.config?.instructions ? (
         <>
           <p class="guide__head">Expected response</p>
-          <p>{q.config.instructions}</p>
+          <p>
+            <Inline text={q.config.instructions} />
+          </p>
         </>
       ) : null
 
@@ -656,7 +683,9 @@ function GuideAnswer({
             <li key={i}>
               <div class="parts__head">
                 <span class="parts__label">{part.label}</span>
-                <span class="parts__text">{part.text}</span>
+                <span class="parts__text">
+                    <Inline text={part.text} />
+                  </span>
                 <span class="parts__marks">
                   ({part.marks} mark{part.marks === 1 ? '' : 's'})
                 </span>
@@ -666,7 +695,9 @@ function GuideAnswer({
                   criterion about "the joint shown" is unmarkable months later
                   without it, and the marker may be holding only this. */}
               <PartStimulus part={part} bankFile={item.file} images={images} />
-              {part.sampleAnswer && <p class="guide__sample">{part.sampleAnswer}</p>}
+              {part.sampleAnswer && <p class="guide__sample">
+                  <Inline text={part.sampleAnswer} />
+                </p>}
               {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>
           ))}
@@ -736,7 +767,9 @@ function MatchingBody({ question, mode }: { question: Question; mode: PrintMode 
                 {item ? (
                   <>
                     <td class="matching__key">{i + 1}</td>
-                    <td class="matching__cell">{item.text}</td>
+                    <td class="matching__cell">
+                      <Inline text={item.text} />
+                    </td>
                   </>
                 ) : (
                   <>
@@ -751,7 +784,9 @@ function MatchingBody({ question, mode }: { question: Question; mode: PrintMode 
                 {option ? (
                   <>
                     <td class="matching__key">{optionLetter(i)}</td>
-                    <td class="matching__cell">{option.text}</td>
+                    <td class="matching__cell">
+                      <Inline text={option.text} />
+                    </td>
                   </>
                 ) : (
                   <>
@@ -778,17 +813,21 @@ function TableBody({ question, mode }: { question: Question; mode: PrintMode }) 
       <thead>
         <tr>
           {columns.map((c, i) => (
-            <th key={i}>{c}</th>
+            <th key={i}>
+              <Inline text={c} />
+            </th>
           ))}
         </tr>
       </thead>
       <tbody>
         {rows.map((row, i) => (
           <tr key={i}>
-            <td>{row.label}</td>
+            <td>
+              <Inline text={row.label} />
+            </td>
             {columns.slice(1).map((_, j) => (
               <td key={j} class="answertable__blank">
-                {mode === 'guide' ? rowAnswers(row, j).join(' / ') : ''}
+                {mode === 'guide' ? <Inline text={rowAnswers(row, j).join(' / ')} /> : ''}
               </td>
             ))}
           </tr>
@@ -828,7 +867,9 @@ function GuideBlock({ question }: { question: Question }) {
       {guide?.sampleAnswer ? (
         <>
           <p class="guide__head">Sample answer</p>
-          <p class="guide__sample">{guide.sampleAnswer}</p>
+          <p class="guide__sample">
+            <Inline text={guide.sampleAnswer} />
+          </p>
         </>
       ) : showMissing ? (
         <p class="guide__missing">
@@ -852,13 +893,19 @@ function GuideBlock({ question }: { question: Question }) {
           <p class="guide__head">Answers could include</p>
           <ul class="guide__points">
             {guide.answersCouldInclude.map((point, i) => (
-              <li key={i}>{point}</li>
+              <li key={i}>
+                <Inline text={point} />
+              </li>
             ))}
           </ul>
         </>
       ) : null}
 
-      {guide?.notes && <p class="guide__notes">{guide.notes}</p>}
+      {guide?.notes && (
+        <p class="guide__notes">
+          <Inline text={guide.notes} />
+        </p>
+      )}
     </div>
   )
 }
@@ -907,11 +954,13 @@ function CriterionPoints({ description }: { description: string }) {
     .map((line) => line.trim())
     .filter(Boolean)
 
-  if (points.length <= 1) return <>{points[0] ?? ''}</>
+  if (points.length <= 1) return <Inline text={points[0] ?? ''} />
   return (
     <ul class="guide__points">
       {points.map((point, i) => (
-        <li key={i}>{point}</li>
+        <li key={i}>
+                <Inline text={point} />
+              </li>
       ))}
     </ul>
   )
