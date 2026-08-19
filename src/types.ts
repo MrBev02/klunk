@@ -265,13 +265,43 @@ export interface Profile {
 
 /* ---------------------------------------------------------------------- bank */
 
+/**
+ * Where an image sits across the text column.
+ *
+ * Australian English, because this is Klunk's own schema and not CSS. Absent
+ * means `centre`: it is what the examinations print, so it is the value nobody
+ * has to write down, and a bank written before the field existed takes it.
+ */
+export type StimulusAlign = 'left' | 'centre' | 'right'
+
+export const STIMULUS_ALIGNS: readonly StimulusAlign[] = ['left', 'centre', 'right'] as const
+
+export const STIMULUS_ALIGN_LABELS: Record<StimulusAlign, string> = {
+  left: 'Left',
+  centre: 'Centre',
+  right: 'Right',
+}
+
 export interface Stimulus {
   kind: 'image' | 'text'
   file?: string
   text?: string
   caption?: string
   alt?: string
+  /** Images only. A text stimulus prints as a block quote with a rule down it. */
+  align?: StimulusAlign
   maxHeightMm?: number
+}
+
+/**
+ * Where this image prints, resolved.
+ *
+ * The default lives here rather than in each of the three places that render an
+ * image, so the printed paper, the printed marking guide and the preview cannot
+ * come to different answers about a field none of them wrote.
+ */
+export function alignOf(stimulus: Stimulus): StimulusAlign {
+  return stimulus.align ?? 'centre'
 }
 
 export interface MarkCriterion {

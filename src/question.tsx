@@ -19,6 +19,7 @@ import { joinPath } from './storage'
 import type { Stimulus } from './types'
 import {
   QUESTION_TYPE_LABELS,
+  alignOf,
   questionLabel,
   type Question,
   type QuestionRef,
@@ -137,7 +138,9 @@ export function QuestionDetail({
                 {s.caption && <em>. {s.caption}</em>}
               </p>
             ) : imageUrl(s, bankFile, images) ? (
-              <figure key={i} class="stim-figure">
+              // The alignment shows here too, because otherwise the only way to
+              // see what the field did is to print the paper.
+              <figure key={i} class={`stim-figure stim-figure--${alignOf(s)}`}>
                 <img src={imageUrl(s, bankFile, images)} alt={s.alt ?? ''} />
                 {s.caption && <figcaption>{s.caption}</figcaption>}
               </figure>

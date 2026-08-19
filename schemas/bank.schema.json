@@ -205,6 +205,11 @@
         "text": { "type": "string" },
         "caption": { "type": "string" },
         "alt": { "type": "string", "description": "Required for images if the paper is ever read by a screen reader." },
+        "align": {
+          "type": "string",
+          "enum": ["left", "centre", "right"],
+          "description": "Where an image sits across the text column. Absent means centre, which is what the examinations do, so the default is never written down. Ignored on a text stimulus, which prints as a block quote."
+        },
         "maxHeightMm": {
           "type": "number",
           "description": "Printed height cap. A tall diagram shrinks to an unreadable width on A4, so landscape is usually right."

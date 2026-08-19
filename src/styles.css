@@ -1625,6 +1625,13 @@ textarea.input {
   font-variant-numeric: tabular-nums;
 }
 
+/* A select rather than a number: it has to hold its longest label and a browser's
+   own dropdown arrow, neither of which fits the width a millimetre count wants. */
+.input--align {
+  flex: 0 0 6.4rem;
+  width: 6.4rem;
+}
+
 .input--label {
   flex: 0 0 3.2rem;
   width: 3.2rem;
@@ -2443,6 +2450,21 @@ code,
   height: auto;
   border: 1px solid var(--rule);
   background: #fff;
+  display: block;
+}
+/* The same three rules the printed page uses, so the preview is showing what
+   will print rather than its own arrangement. */
+.stim-figure--centre {
+  text-align: center;
+}
+.stim-figure--centre img {
+  margin-inline: auto;
+}
+.stim-figure--right {
+  text-align: right;
+}
+.stim-figure--right img {
+  margin-inline: auto 0;
 }
 .stim-figure figcaption {
   font-size: 0.88rem;

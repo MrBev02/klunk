@@ -449,6 +449,22 @@ describe('stimulus', () => {
       warnings(question({ stimulus: [{ kind: 'image', file: 'stimulus/a.png' }] })).join(' '),
     ).toContain('screen reader')
   })
+
+  // Only a hand-edited file can hold one, since the editor offers a list of
+  // three. Silence would read as Klunk ignoring the field altogether.
+  it('names an alignment that is not one of the three', () => {
+    const q = question({
+      stimulus: [{ kind: 'image', file: 'a.png', align: 'middle' as never }],
+    })
+    expect(errors(q).join(' ')).toContain('not left, centre or right')
+  })
+
+  it('takes all three, and centre with them', () => {
+    for (const align of ['left', 'centre', 'right'] as const) {
+      const q = question({ stimulus: [{ kind: 'image', file: 'a.png', alt: 'A', align }] })
+      expect(errors(q)).toEqual([])
+    }
+  })
 })
 
 describe('bands', () => {
@@ -670,6 +686,26 @@ describe('cleanQuestion', () => {
   it('drops a stimulus row that was added and never filled in', () => {
     const q = question({ stimulus: [{ kind: 'text' }, { kind: 'image' }] })
     expect(cleanQuestion(q).stimulus).toBeUndefined()
+  })
+
+  // Centre is what absence means, so writing it would put a field saying the
+  // default into every bank, and every bank written before the field existed
+  // would then disagree with every bank written after it about nothing.
+  it('writes an alignment only where it is not the default', () => {
+    const centred = question({ stimulus: [{ kind: 'image', file: 'a.png', align: 'centre' }] })
+    expect(cleanQuestion(centred).stimulus).toEqual([{ kind: 'image', file: 'a.png' }])
+
+    const right = question({ stimulus: [{ kind: 'image', file: 'a.png', align: 'right' }] })
+    expect(cleanQuestion(right).stimulus).toEqual([
+      { kind: 'image', file: 'a.png', align: 'right' },
+    ])
+  })
+
+  it('drops an alignment off a text stimulus, which does not move', () => {
+    const q = question({
+      stimulus: [{ kind: 'text', text: 'Read this.', align: 'right' }],
+    })
+    expect(cleanQuestion(q).stimulus).toEqual([{ kind: 'text', text: 'Read this.' }])
   })
 
   it('writes a config for every type that the schema requires one for', () => {

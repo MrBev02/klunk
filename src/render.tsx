@@ -25,7 +25,7 @@ import {
 } from './paper'
 import { RichText } from './richtext'
 import { joinPath } from './storage'
-import { printsInline } from './types'
+import { alignOf, printsInline } from './types'
 import type { MarkCriterion, Profile, Question, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
@@ -399,12 +399,13 @@ function StimulusBlock({
   }
 
   const src = stimulus.file ? images.get(joinPath(bankFile, stimulus.file)) : undefined
+  const where = `stimulus stimulus--image stimulus--${alignOf(stimulus)}`
 
   // A missing image prints as a placeholder naming the file, not blank space.
   // Better to see it on the proof than in the exam room.
   if (!src) {
     return (
-      <figure class="stimulus stimulus--image">
+      <figure class={where}>
         <div class="stimulus__missing" style={{ minHeight: `${stimulus.maxHeightMm ?? 60}mm` }}>
           Missing image: {stimulus.file ?? 'unnamed'}
         </div>
@@ -414,7 +415,7 @@ function StimulusBlock({
   }
 
   return (
-    <figure class="stimulus stimulus--image">
+    <figure class={where}>
       <img
         class="stimulus__img"
         src={src}

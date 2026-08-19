@@ -612,6 +612,27 @@
   padding-left: 0;
 }
 
+/* An image is a replaced element, so `width: auto` resolves to its own width
+   rather than filling the column: `margin-inline: auto` therefore centres it,
+   which it would not do for an ordinary block. The caption follows the image it
+   belongs to, and the missing-image placeholder does not move because it fills
+   the column already. */
+.stimulus--centre {
+  text-align: center;
+}
+
+.stimulus--centre .stimulus__img {
+  margin-inline: auto;
+}
+
+.stimulus--right {
+  text-align: right;
+}
+
+.stimulus--right .stimulus__img {
+  margin-inline: auto 0;
+}
+
 .stimulus__missing {
   border: 0.8pt dashed #000;
   display: flex;

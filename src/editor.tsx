@@ -13,7 +13,7 @@
  * visible from a form full of empty boxes.
  */
 
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import {
   bankPathFault,
   Faults,
@@ -28,6 +28,7 @@ import {
 import { QuestionDetail } from './question'
 import {
   copyFileInto,
+  joinPath,
   questionIds,
   safeFilename,
   saveQuestion,
@@ -37,6 +38,9 @@ import {
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
+  STIMULUS_ALIGNS,
+  STIMULUS_ALIGN_LABELS,
+  alignOf,
   type MarkCriterion,
   type Question,
   type MatchItem,
@@ -44,6 +48,7 @@ import {
   type QuestionPart,
   type QuestionType,
   type Stimulus,
+  type StimulusAlign,
   type SyllabusCourse,
   type TableCell,
   type TableRow,
@@ -65,6 +70,15 @@ const DRAWING_SUBTYPES = ['sketch', 'diagram', 'flowchart', 'orthographic', 'fre
 interface StimulusDraft {
   item: Stimulus
   pending?: File
+  /**
+   * An object URL for a file not yet copied into the folder, so the preview can
+   * show the picture rather than its name.
+   *
+   * Made once when the file is attached rather than per render, and given back
+   * when the row is removed or the editor closes. The folder's own images come
+   * from `index.images`, which `scanFolder` owns.
+   */
+  previewUrl?: string
 }
 
 export interface Editing {
@@ -136,6 +150,29 @@ export function QuestionEditor({
     const items = stimuli.map((s) => s.item)
     return items.length > 0 ? { ...draft, stimulus: items } : omitStimulus(draft)
   }, [draft, stimuli])
+
+  // The preview showed `Image: stimulus/handle.png` where the picture belongs,
+  // because it was given no images to look in. That was tolerable while nothing
+  // about an image could be changed here; it is not now that its alignment can,
+  // since the control would move something the teacher cannot see.
+  const previewImages = useMemo(() => {
+    const map = new Map(index.images)
+    for (const s of stimuli) {
+      if (s.previewUrl && s.item.file) map.set(joinPath(bankPath, s.item.file), s.previewUrl)
+    }
+    return map
+  }, [index.images, stimuli, bankPath])
+
+  // Held in a ref because the cleanup runs at unmount, when the state it has to
+  // release is whatever the list ended up as. Removing one row releases its own.
+  const stimuliRef = useRef(stimuli)
+  stimuliRef.current = stimuli
+  useEffect(
+    () => () => {
+      for (const s of stimuliRef.current) if (s.previewUrl) URL.revokeObjectURL(s.previewUrl)
+    },
+    [],
+  )
 
   const faults = useMemo(() => {
     const inBank = new Set(
@@ -376,7 +413,7 @@ export function QuestionEditor({
         <div class="panel editor__preview">
           <p class="panel__title">As it will read</p>
           {draft.questionText.trim() ? (
-            <QuestionDetail question={question} />
+            <QuestionDetail question={question} bankFile={bankPath} images={previewImages} />
           ) : (
             <p class="muted">The preview appears once the question has some text in it.</p>
           )}
@@ -1143,7 +1180,11 @@ function StimulusFields({
         ...list,
         // The name shown is the one that will be used, bar a collision, which
         // is only discovered when the copy happens.
-        { item: { kind: 'image', file: `${IMAGE_SUBDIR}/${safeFilename(file.name)}` }, pending: file },
+        {
+          item: { kind: 'image', file: `${IMAGE_SUBDIR}/${safeFilename(file.name)}` },
+          pending: file,
+          previewUrl: URL.createObjectURL(file),
+        },
       ])
     } catch (err) {
       // Closing the dialog is not a fault.
@@ -1198,21 +1239,45 @@ function StimulusFields({
                     onInput={(e) => change(i, { caption: (e.target as HTMLInputElement).value })}
                   />
                   {s.item.kind === 'image' && (
-                    <NumField
-                      class="input input--narrow"
-                      value={s.item.maxHeightMm}
-                      min={0}
-                      placeholder="mm"
-                      title="Tallest it may print"
-                      onChange={(n) => change(i, { maxHeightMm: n })}
-                    />
+                    <>
+                      <select
+                        class="input input--align"
+                        title="Where it sits across the page"
+                        value={alignOf(s.item)}
+                        onChange={(e) =>
+                          change(i, {
+                            align: (e.target as HTMLSelectElement).value as StimulusAlign,
+                          })
+                        }
+                      >
+                        {STIMULUS_ALIGNS.map((a) => (
+                          <option key={a} value={a}>
+                            {STIMULUS_ALIGN_LABELS[a]}
+                          </option>
+                        ))}
+                      </select>
+                      <NumField
+                        class="input input--narrow"
+                        value={s.item.maxHeightMm}
+                        min={0}
+                        placeholder="mm"
+                        title="Tallest it may print"
+                        onChange={(n) => change(i, { maxHeightMm: n })}
+                      />
+                    </>
                   )}
                 </div>
               </div>
               <button
                 class="btn btn--icon"
                 title="Remove this stimulus"
-                onClick={() => setStimuli((list) => list.filter((_, j) => j !== i))}
+                onClick={() =>
+                  setStimuli((list) => {
+                    const going = list[i]
+                    if (going?.previewUrl) URL.revokeObjectURL(going.previewUrl)
+                    return list.filter((_, j) => j !== i)
+                  })
+                }
               >
                 ✕
               </button>

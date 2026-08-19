@@ -15,6 +15,7 @@
  */
 
 import type { Check } from './paper'
+import { STIMULUS_ALIGNS } from './types'
 import type {
   IdentificationField,
   MarkCriterion,
@@ -134,6 +135,12 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
     }
     if (s.maxHeightMm !== undefined && !(s.maxHeightMm > 0)) {
       err('Printed height must be above zero.', where)
+    }
+    // Only reachable from a hand-edited file, since the editor offers a list of
+    // three. Named rather than ignored: an image that silently refuses to move
+    // reads as Klunk not honouring the field at all.
+    if (s.align !== undefined && !STIMULUS_ALIGNS.includes(s.align)) {
+      err(`"${String(s.align)}" is not left, centre or right.`, where)
     }
   })
 
@@ -1119,6 +1126,10 @@ function cleanStimulus(s: Stimulus): Stimulus {
     const alt = text(s.alt)
     if (file) out.file = file
     if (alt) out.alt = alt
+    // Centre is the default, so writing it would put a field in every bank that
+    // says what absence already says. Dropped off a text stimulus entirely, the
+    // way `file` and `alt` are, since a block quote does not move.
+    if (s.align !== undefined && s.align !== 'centre') out.align = s.align
   } else {
     const body = text(s.text)
     if (body) out.text = body
