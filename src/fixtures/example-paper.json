@@ -30,7 +30,11 @@
       "refs": [
         "src/fixtures/example-bank.json#ex-sa-01",
         "src/fixtures/example-bank.json#ex-tbl-01",
-        { "file": "src/fixtures/example-bank.json", "questionId": "ex-drw-01", "note": "Swap the stimulus image before use." }
+        {
+          "file": "src/fixtures/example-bank.json",
+          "questionId": "ex-drw-01",
+          "note": "Swap the stimulus image before use."
+        }
       ]
     },
     {

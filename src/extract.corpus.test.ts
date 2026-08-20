@@ -85,7 +85,12 @@ function tablesIn(text: string): string[][][] {
       block
         .split('\n')
         .filter((row) => !/^\|(\s*---\s*\|)+$/.test(row))
-        .map((row) => row.slice(1, -1).split('|').map((cell) => cell.trim())),
+        .map((row) =>
+          row
+            .slice(1, -1)
+            .split('|')
+            .map((cell) => cell.trim()),
+        ),
     )
 }
 
@@ -121,7 +126,7 @@ describe('the 2015-2025 corpus', () => {
     const paper = have(dtPaper(year))
     const guide = have(dtMarkingGuide(year))
 
-    it.skipIf(!(paper))(`${year}: reads the whole paper and totals 40 marks`, async () => {
+    it.skipIf(!paper)(`${year}: reads the whole paper and totals 40 marks`, async () => {
       const paper = await read(year)
 
       const one = paper.questions.filter((q) => q.section === 'I')
@@ -141,12 +146,10 @@ describe('the 2015-2025 corpus', () => {
       expect(total).toBe(40)
 
       // Numbering must be unbroken: 1..10 objective, then Section II and III.
-      expect(paper.questions.map((q) => q.number)).toEqual(
-        paper.questions.map((_, i) => i + 1),
-      )
+      expect(paper.questions.map((q) => q.number)).toEqual(paper.questions.map((_, i) => i + 1))
     })
 
-    it.skipIf(!(paper))(`${year}: every question was read and every part adds up`, async () => {
+    it.skipIf(!paper)(`${year}: every question was read and every part adds up`, async () => {
       const paper = await read(year)
       for (const q of paper.questions) {
         // Not "has text": 2016, 2018 and 2019 each print a Section II question
@@ -166,32 +169,35 @@ describe('the 2015-2025 corpus', () => {
       }
     })
 
-    it.skipIf(!(paper))(`${year}: no question carries the paper's furniture in its text`, async () => {
-      // The structural checks above all passed while Question 11 read as
-      // "…in this…area. Of…". Marks added up, parts were present, nothing looked
-      // wrong — because none of it looks at what the words are. The paper prints
-      // "Do NOT write in this area." sideways up the margin, one word per ruled
-      // line, so those words landed on the same rows as the rules beside them.
-      const paper = await read(year)
-      const texts = paper.questions.flatMap((q) => [
-        q.text,
-        ...(q.parts ?? []).map((p) => p.text),
-        ...(q.options ?? []).map((o) => o.text),
-      ])
-      for (const text of texts) {
-        expect(text, 'a ruled answer line was read as question text').not.toMatch(/[.…_]{4,}/)
-        expect(text, 'the sideways margin notice was read as question text').not.toMatch(
-          /Do NOT write|Office Use Only/i,
-        )
-        expect(text, 'a copyright notice was read as question text').not.toMatch(/©/)
-        expect(text, 'the answer booklet front matter was read as question text').not.toMatch(
-          /Answer Booklet|Centre Number|Student Number/i,
-        )
-        expect(text, 'a page number was read as question text').not.toMatch(/–\s*\d+\s*–/)
-      }
+    it.skipIf(!paper)(
+      `${year}: no question carries the paper's furniture in its text`,
+      async () => {
+        // The structural checks above all passed while Question 11 read as
+        // "…in this…area. Of…". Marks added up, parts were present, nothing looked
+        // wrong — because none of it looks at what the words are. The paper prints
+        // "Do NOT write in this area." sideways up the margin, one word per ruled
+        // line, so those words landed on the same rows as the rules beside them.
+        const paper = await read(year)
+        const texts = paper.questions.flatMap((q) => [
+          q.text,
+          ...(q.parts ?? []).map((p) => p.text),
+          ...(q.options ?? []).map((o) => o.text),
+        ])
+        for (const text of texts) {
+          expect(text, 'a ruled answer line was read as question text').not.toMatch(/[.…_]{4,}/)
+          expect(text, 'the sideways margin notice was read as question text').not.toMatch(
+            /Do NOT write|Office Use Only/i,
+          )
+          expect(text, 'a copyright notice was read as question text').not.toMatch(/©/)
+          expect(text, 'the answer booklet front matter was read as question text').not.toMatch(
+            /Answer Booklet|Centre Number|Student Number/i,
+          )
+          expect(text, 'a page number was read as question text').not.toMatch(/–\s*\d+\s*–/)
+        }
 
-      for (const q of paper.questions) noOptionHoldsTheNext(q)
-    })
+        for (const q of paper.questions) noOptionHoldsTheNext(q)
+      },
+    )
 
     it.skipIf(!paper)(`${year}: only the one paper that prints a table has one`, async () => {
       const paper = await read(year)
@@ -209,73 +215,85 @@ describe('the 2015-2025 corpus', () => {
       }
     })
 
-    it.skipIf(!(guide))(`${year}: the marking guide gives an answer key, criteria and outcomes`, async () => {
-      const guide = await readGuide(year)
+    it.skipIf(!guide)(
+      `${year}: the marking guide gives an answer key, criteria and outcomes`,
+      async () => {
+        const guide = await readGuide(year)
 
-      // Ten objective questions in every year, so ten answers, each a real label.
-      expect(Object.keys(guide.answerKey)).toHaveLength(10)
-      for (let n = 1; n <= 10; n += 1) {
-        expect(guide.answerKey[n], `no answer for Q${n}`).toMatch(/^[A-D]$/)
-      }
-
-      expect(guide.year).toBe(year)
-      expect(guide.entries.length).toBeGreaterThan(0)
-
-      for (const entry of guide.entries) {
-        const where = entry.part ? `Q${entry.number}(${entry.part})` : `Q${entry.number}`
-        expect(entry.criteria.length, `${where} has no criteria`).toBeGreaterThan(0)
-        expect(entry.criteria.every((c) => c.description !== '')).toBe(true)
-        // A criterion worth nothing means a mark was missed, not that NESA wrote one.
-        expect(entry.criteria.every((c) => c.marks > 0), `${where} has a zero criterion`).toBe(true)
-      }
-
-      // The mapping grid covers every question in the paper, the ten objective
-      // ones included, so it is a second independent reading of the whole thing.
-      for (const row of guide.mapping) {
-        const where = row.part ? `Q${row.number}(${row.part})` : `Q${row.number}`
-        expect(row.outcomes.length, `${where} has no outcomes`).toBeGreaterThan(0)
-        expect(
-          row.outcomes.every((o) => /^[A-Z]\d+\.\d+$/.test(o)),
-          `${where}: ${row.outcomes.join(', ')}`,
-        ).toBe(true)
-      }
-      expect(guide.notes).toEqual([])
-
-      // 2016 is the one year that leaves a cell of the grid blank — its Section
-      // III row gives no marks — so it is the one year the grid is not a
-      // complete second reading of the paper.
-      const total = guide.mapping.reduce((sum, m) => sum + (m.marks ?? 0), 0)
-      expect(total).toBe(year === 2016 ? 25 : 40)
-
-      // The extended response is banded rather than marked criterion by
-      // criterion, and it is always the last entry. Banding is *not* unique to
-      // it: from 2018 a Section II question carries a `2–3` band too, so
-      // "only Section III is banded" is not a rule and is not tested as one.
-      const last = guide.entries[guide.entries.length - 1]!
-      expect(last.criteria.every((c) => c.marksTo !== undefined), `${year} Q${last.number}`).toBe(true)
-      expect(Math.max(...last.criteria.map((c) => c.marksTo ?? 0))).toBe(15)
-    })
-
-    it.skipIf(!(paper && guide))(`${year}: the guide goes back onto the paper without a mismatch`, async () => {
-      const marked = applyGuide(await read(year), await readGuide(year))
-
-      expect(marked.notes, `${year} paper-level notes`).toEqual([])
-
-      for (const q of marked.questions) {
-        if (q.section === 'I') {
-          expect(q.answer, `Q${q.number} has no answer`).toMatch(/^[A-D]$/)
-          expect(q.options?.some((o) => o.label === q.answer)).toBe(true)
-          continue
+        // Ten objective questions in every year, so ten answers, each a real label.
+        expect(Object.keys(guide.answerKey)).toHaveLength(10)
+        for (let n = 1; n <= 10; n += 1) {
+          expect(guide.answerKey[n], `no answer for Q${n}`).toMatch(/^[A-D]$/)
         }
-        expect(q.outcomes?.length, `Q${q.number} has no outcomes`).toBeGreaterThan(0)
-        // Criteria live on the question, or on each of its parts, never nowhere.
-        const marks = q.parts
-          ? q.parts.every((p) => (p.criteria?.length ?? 0) > 0)
-          : (q.criteria?.length ?? 0) > 0
-        expect(marks, `Q${q.number} has no criteria`).toBe(true)
-        expect(q.notes.filter((n) => /marking guide|answer key/i.test(n))).toEqual([])
-      }
-    })
+
+        expect(guide.year).toBe(year)
+        expect(guide.entries.length).toBeGreaterThan(0)
+
+        for (const entry of guide.entries) {
+          const where = entry.part ? `Q${entry.number}(${entry.part})` : `Q${entry.number}`
+          expect(entry.criteria.length, `${where} has no criteria`).toBeGreaterThan(0)
+          expect(entry.criteria.every((c) => c.description !== '')).toBe(true)
+          // A criterion worth nothing means a mark was missed, not that NESA wrote one.
+          expect(
+            entry.criteria.every((c) => c.marks > 0),
+            `${where} has a zero criterion`,
+          ).toBe(true)
+        }
+
+        // The mapping grid covers every question in the paper, the ten objective
+        // ones included, so it is a second independent reading of the whole thing.
+        for (const row of guide.mapping) {
+          const where = row.part ? `Q${row.number}(${row.part})` : `Q${row.number}`
+          expect(row.outcomes.length, `${where} has no outcomes`).toBeGreaterThan(0)
+          expect(
+            row.outcomes.every((o) => /^[A-Z]\d+\.\d+$/.test(o)),
+            `${where}: ${row.outcomes.join(', ')}`,
+          ).toBe(true)
+        }
+        expect(guide.notes).toEqual([])
+
+        // 2016 is the one year that leaves a cell of the grid blank — its Section
+        // III row gives no marks — so it is the one year the grid is not a
+        // complete second reading of the paper.
+        const total = guide.mapping.reduce((sum, m) => sum + (m.marks ?? 0), 0)
+        expect(total).toBe(year === 2016 ? 25 : 40)
+
+        // The extended response is banded rather than marked criterion by
+        // criterion, and it is always the last entry. Banding is *not* unique to
+        // it: from 2018 a Section II question carries a `2–3` band too, so
+        // "only Section III is banded" is not a rule and is not tested as one.
+        const last = guide.entries[guide.entries.length - 1]!
+        expect(
+          last.criteria.every((c) => c.marksTo !== undefined),
+          `${year} Q${last.number}`,
+        ).toBe(true)
+        expect(Math.max(...last.criteria.map((c) => c.marksTo ?? 0))).toBe(15)
+      },
+    )
+
+    it.skipIf(!(paper && guide))(
+      `${year}: the guide goes back onto the paper without a mismatch`,
+      async () => {
+        const marked = applyGuide(await read(year), await readGuide(year))
+
+        expect(marked.notes, `${year} paper-level notes`).toEqual([])
+
+        for (const q of marked.questions) {
+          if (q.section === 'I') {
+            expect(q.answer, `Q${q.number} has no answer`).toMatch(/^[A-D]$/)
+            expect(q.options?.some((o) => o.label === q.answer)).toBe(true)
+            continue
+          }
+          expect(q.outcomes?.length, `Q${q.number} has no outcomes`).toBeGreaterThan(0)
+          // Criteria live on the question, or on each of its parts, never nowhere.
+          const marks = q.parts
+            ? q.parts.every((p) => (p.criteria?.length ?? 0) > 0)
+            : (q.criteria?.length ?? 0) > 0
+          expect(marks, `Q${q.number} has no criteria`).toBe(true)
+          expect(q.notes.filter((n) => /marking guide|answer key/i.test(n))).toEqual([])
+        }
+      },
+    )
   }
 })
 
@@ -321,29 +339,35 @@ describe('the 2025 Biology paper', () => {
     for (const q of read.questions) {
       expect(q.text !== '' || (q.parts?.length ?? 0) > 0, `Q${q.number} read as empty`).toBe(true)
       if (q.parts) {
-        expect(q.parts.reduce((s, part) => s + part.marks, 0), `Q${q.number} parts sum`).toBe(q.marks)
+        expect(
+          q.parts.reduce((s, part) => s + part.marks, 0),
+          `Q${q.number} parts sum`,
+        ).toBe(q.marks)
         expect(q.parts.every((part) => part.text !== '')).toBe(true)
       }
     }
   })
 
-  it.skipIf(!paper)('gives every option its own row of the table and none of the next (#85)', async () => {
-    const read = await readBiology()
-    for (const q of read.questions) noOptionHoldsTheNext(q)
+  it.skipIf(!paper)(
+    'gives every option its own row of the table and none of the next (#85)',
+    async () => {
+      const read = await readBiology()
+      for (const q of read.questions) noOptionHoldsTheNext(q)
 
-    // Five of the twenty objective questions lay their options out as a table.
-    // Four print each row on one baseline; the fifth wraps a cell, which is the
-    // one that centred its labels and scrambled every option.
-    const tables = read.questions.filter((q) => q.notes.some((n) => /printed as a table/.test(n)))
-    expect(tables).toHaveLength(5)
+      // Five of the twenty objective questions lay their options out as a table.
+      // Four print each row on one baseline; the fifth wraps a cell, which is the
+      // one that centred its labels and scrambled every option.
+      const tables = read.questions.filter((q) => q.notes.some((n) => /printed as a table/.test(n)))
+      expect(tables).toHaveLength(5)
 
-    for (const q of tables) {
-      // They are rows of one table, so they have the same number of columns.
-      const columns = q.options!.map((o) => o.text.split(' – ').length)
-      expect(new Set(columns).size, `Q${q.number} rows disagree on their columns`).toBe(1)
-      expect(columns[0]).toBeGreaterThan(1)
-    }
-  })
+      for (const q of tables) {
+        // They are rows of one table, so they have the same number of columns.
+        const columns = q.options!.map((o) => o.text.split(' – ').length)
+        expect(new Set(columns).size, `Q${q.number} rows disagree on their columns`).toBe(1)
+        expect(columns[0]).toBeGreaterThan(1)
+      }
+    },
+  )
 
   it.skipIf(!paper)('keeps a table printed inside a question as a table (#88)', async () => {
     const read = await readBiology()
@@ -370,7 +394,7 @@ describe('the 2025 Biology paper', () => {
     ])
   })
 
-  it.skipIf(!paper)('carries none of the paper\'s furniture in its text', async () => {
+  it.skipIf(!paper)("carries none of the paper's furniture in its text", async () => {
     const read = await readBiology()
     const texts = read.questions.flatMap((q) => [
       q.text,

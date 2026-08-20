@@ -138,28 +138,61 @@
 
       "allOf": [
         {
-          "if": { "properties": { "questionType": { "const": "multiple_choice" } }, "required": ["questionType"] },
-          "then": { "properties": { "config": { "$ref": "#/$defs/multipleChoiceConfig" } }, "required": ["config"] }
+          "if": {
+            "properties": { "questionType": { "const": "multiple_choice" } },
+            "required": ["questionType"]
+          },
+          "then": {
+            "properties": { "config": { "$ref": "#/$defs/multipleChoiceConfig" } },
+            "required": ["config"]
+          }
         },
         {
-          "if": { "properties": { "questionType": { "const": "multiple_response" } }, "required": ["questionType"] },
-          "then": { "properties": { "config": { "$ref": "#/$defs/multipleResponseConfig" } }, "required": ["config"] }
+          "if": {
+            "properties": { "questionType": { "const": "multiple_response" } },
+            "required": ["questionType"]
+          },
+          "then": {
+            "properties": { "config": { "$ref": "#/$defs/multipleResponseConfig" } },
+            "required": ["config"]
+          }
         },
         {
-          "if": { "properties": { "questionType": { "const": "matching" } }, "required": ["questionType"] },
-          "then": { "properties": { "config": { "$ref": "#/$defs/matchingConfig" } }, "required": ["config"] }
+          "if": {
+            "properties": { "questionType": { "const": "matching" } },
+            "required": ["questionType"]
+          },
+          "then": {
+            "properties": { "config": { "$ref": "#/$defs/matchingConfig" } },
+            "required": ["config"]
+          }
         },
         {
-          "if": { "properties": { "questionType": { "const": "true_false" } }, "required": ["questionType"] },
-          "then": { "properties": { "config": { "$ref": "#/$defs/trueFalseConfig" } }, "required": ["config"] }
+          "if": {
+            "properties": { "questionType": { "const": "true_false" } },
+            "required": ["questionType"]
+          },
+          "then": {
+            "properties": { "config": { "$ref": "#/$defs/trueFalseConfig" } },
+            "required": ["config"]
+          }
         },
         {
-          "if": { "properties": { "questionType": { "const": "drawing" } }, "required": ["questionType"] },
+          "if": {
+            "properties": { "questionType": { "const": "drawing" } },
+            "required": ["questionType"]
+          },
           "then": { "properties": { "config": { "$ref": "#/$defs/drawingConfig" } } }
         },
         {
-          "if": { "properties": { "questionType": { "const": "table" } }, "required": ["questionType"] },
-          "then": { "properties": { "config": { "$ref": "#/$defs/tableConfig" } }, "required": ["config"] }
+          "if": {
+            "properties": { "questionType": { "const": "table" } },
+            "required": ["questionType"]
+          },
+          "then": {
+            "properties": { "config": { "$ref": "#/$defs/tableConfig" } },
+            "required": ["config"]
+          }
         },
         {
           "if": {
@@ -204,7 +237,10 @@
         },
         "text": { "type": "string" },
         "caption": { "type": "string" },
-        "alt": { "type": "string", "description": "Required for images if the paper is ever read by a screen reader." },
+        "alt": {
+          "type": "string",
+          "description": "Required for images if the paper is ever read by a screen reader."
+        },
         "align": {
           "type": "string",
           "enum": ["left", "centre", "right"],
@@ -238,7 +274,11 @@
             }
           }
         },
-        "correctAnswer": { "type": "integer", "minimum": 0, "description": "Zero-based index into choices." },
+        "correctAnswer": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based index into choices."
+        },
         "shuffle": {
           "type": "boolean",
           "default": true,
@@ -384,7 +424,10 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "subtype": { "type": "string", "enum": ["sketch", "diagram", "flowchart", "orthographic", "freehand"] },
+        "subtype": {
+          "type": "string",
+          "enum": ["sketch", "diagram", "flowchart", "orthographic", "freehand"]
+        },
         "instructions": { "type": "string" },
         "spaceMm": {
           "type": "array",

@@ -83,7 +83,9 @@ describe('refusing a scanned paper', () => {
 
   it('never takes a paper away from a reader that claims it', () => {
     // The text-recognised scan: it reads, so nothing here may fire.
-    const paper = readPastPaper(Array.from({ length: 6 }, (_, i) => page(i + 1, ...question(i + 1))))
+    const paper = readPastPaper(
+      Array.from({ length: 6 }, (_, i) => page(i + 1, ...question(i + 1))),
+    )
     expect(paper.format).toBe('objective')
     expect(paper.paper.questions).toHaveLength(6)
   })

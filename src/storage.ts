@@ -176,10 +176,7 @@ export function releaseImages(index: ContentIndex): void {
   index.images.clear()
 }
 
-async function fileAt(
-  dir: FileSystemDirectoryHandle,
-  path: string,
-): Promise<File | null> {
+async function fileAt(dir: FileSystemDirectoryHandle, path: string): Promise<File | null> {
   const parts = path.split('/').filter(Boolean)
   const name = parts.pop()
   if (!name) return null
@@ -202,10 +199,7 @@ async function fileAt(
  * missing picture should be obvious on the proof rather than discovered in the
  * exam room.
  */
-async function loadImages(
-  dir: FileSystemDirectoryHandle,
-  index: ContentIndex,
-): Promise<void> {
+async function loadImages(dir: FileSystemDirectoryHandle, index: ContentIndex): Promise<void> {
   // Keyed by path so one picture used by two questions is read once, and holding
   // what referenced it so a missing one can be reported in those terms. A cover
   // that prints a grey box saying "logo.png" is a different thing to fix from a
@@ -474,7 +468,8 @@ export interface FolderProblem {
  */
 export function folderProblem(err: unknown, name?: string): FolderProblem {
   const which = name ? `“${name}”` : 'that folder'
-  const kind = typeof err === 'object' && err !== null ? (err as { name?: unknown }).name : undefined
+  const kind =
+    typeof err === 'object' && err !== null ? (err as { name?: unknown }).name : undefined
 
   if (kind === 'NotFoundError') {
     return { message: `${which} is no longer on this computer, so there is nothing to read.` }
@@ -651,8 +646,7 @@ function looksLikeContentPath(path: string): boolean {
   // papers/. A malformed one would otherwise be skipped in silence and the cover
   // would print with no branding and no explanation.
   return (
-    /(^|\/)(bank|banks|papers|profiles|syllabus)\//i.test(path) ||
-    /(^|\/)school\.json$/i.test(path)
+    /(^|\/)(bank|banks|papers|profiles|syllabus)\//i.test(path) || /(^|\/)school\.json$/i.test(path)
   )
 }
 
@@ -851,10 +845,7 @@ export async function exists(dir: FileSystemDirectoryHandle, path: string): Prom
  * held, because a past paper is a megabyte and a folder may hold twenty-two of
  * them; keeping them all in memory to open one would be a poor trade.
  */
-export async function readBytes(
-  dir: FileSystemDirectoryHandle,
-  path: string,
-): Promise<Uint8Array> {
+export async function readBytes(dir: FileSystemDirectoryHandle, path: string): Promise<Uint8Array> {
   const file = await fileAt(dir, path)
   if (!file) throw new Error(`There is no file at ${path} any more.`)
   return new Uint8Array(await file.arrayBuffer())
@@ -1012,7 +1003,7 @@ export async function saveProfile(
     throw new Error(
       isProfile(existing)
         ? `${path} is already there and holds another profile, "${existing.name}". ` +
-          'Give this one a different id.'
+            'Give this one a different id.'
         : `${path} is already there and is not a profile`,
     )
   }
@@ -1093,7 +1084,7 @@ export async function savePaper(
       throw new Error(
         isPaper(existing)
           ? `${path} is already there and holds "${existing.title}". Retitle this paper, ` +
-            'or close it and open that one to add to it.'
+              'or close it and open that one to add to it.'
           : `${path} is already there and is not a paper`,
       )
     }

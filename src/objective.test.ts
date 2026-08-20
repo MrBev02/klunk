@@ -128,7 +128,9 @@ describe('reading a numbered multiple-choice paper', () => {
 
     // `2000 N…` does not open question 2: only the next number in sequence does.
     expect(paper.questions).toHaveLength(6)
-    expect(paper.questions[0]?.text).toBe('What load does it carry? 2000 N is applied to the joint.')
+    expect(paper.questions[0]?.text).toBe(
+      'What load does it carry? 2000 N is applied to the joint.',
+    )
   })
 })
 
@@ -146,7 +148,10 @@ describe('the running head and foot', () => {
 
     // The foot falls after option D, so without this rule it welds onto it.
     expect(paper.questions[0]?.options?.[3]?.text).toBe('The fourth option')
-    const everything = paper.questions.flatMap((q) => [q.text, ...(q.options ?? []).map((o) => o.text)])
+    const everything = paper.questions.flatMap((q) => [
+      q.text,
+      ...(q.options ?? []).map((o) => o.text),
+    ])
     expect(everything.join(' ')).not.toMatch(/revisiondojo|Downloaded by/)
   })
 
@@ -177,9 +182,9 @@ describe('the running head and foot', () => {
       'Cannot be determined',
     ])
     // The footer still goes, on the same pages, by the same rule.
-    expect(paper.questions.flatMap((q) => (q.options ?? []).map((o) => o.text)).join(' ')).not.toMatch(
-      /somepaper/,
-    )
+    expect(
+      paper.questions.flatMap((q) => (q.options ?? []).map((o) => o.text)).join(' '),
+    ).not.toMatch(/somepaper/)
   })
 
   it('keeps a line that repeats on only a few of many pages', () => {
@@ -241,10 +246,7 @@ describe('refusing what it does not recognise', () => {
   })
 
   it('reads the paper but reports a question that has three options', () => {
-    const pages = [
-      page(1, '1. Which one?', 'A. One', 'B. Two', 'C. Three'),
-      ...paperOf(6).slice(1),
-    ]
+    const pages = [page(1, '1. Which one?', 'A. One', 'B. Two', 'C. Three'), ...paperOf(6).slice(1)]
     const paper = readObjectivePaper(pages)
 
     // Reported on the question, not fatal to the document: a real paper prints
@@ -257,11 +259,7 @@ describe('refusing what it does not recognise', () => {
 describe('the stated total', () => {
   it('says so when the total disagrees with how many were read', () => {
     const pages = paperOf(6)
-    pages[0] = page(
-      1,
-      'The maximum mark for the examination paper is [30 marks].',
-      ...question(1),
-    )
+    pages[0] = page(1, 'The maximum mark for the examination paper is [30 marks].', ...question(1))
     const paper = readObjectivePaper(pages)
     expect(paper.notes.join(' ')).toMatch(/says it is worth 30 marks and Klunk read 6 questions/)
   })

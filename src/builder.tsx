@@ -140,13 +140,11 @@ export function Builder({
           </button>
           <span class="muted">
             {preview === 'paper' ? 'Student paper' : 'Marking guide'}
-            {errors.length > 0 && ` · ${errors.length} unresolved problem${errors.length === 1 ? '' : 's'}`}
+            {errors.length > 0 &&
+              ` · ${errors.length} unresolved problem${errors.length === 1 ? '' : 's'}`}
           </span>
           <div class="preview__actions">
-            <button
-              class="btn"
-              onClick={() => setPreview(preview === 'paper' ? 'guide' : 'paper')}
-            >
+            <button class="btn" onClick={() => setPreview(preview === 'paper' ? 'guide' : 'paper')}>
               Show {preview === 'paper' ? 'marking guide' : 'student paper'}
             </button>
             <button class="btn btn--primary" onClick={() => printPaper(paper.title, preview)}>
@@ -162,8 +160,8 @@ export function Builder({
             the browser. */}
         <p class="preview__tip">
           In the print dialog, open <strong>More settings</strong> and untick{' '}
-          <strong>Headers and footers</strong>. That stops your browser printing the date and
-          the web address on every page. You only have to do it once.
+          <strong>Headers and footers</strong>. That stops your browser printing the date and the
+          web address on every page. You only have to do it once.
         </p>
         <PrintablePaper resolved={resolved} mode={preview} />
       </div>
@@ -308,7 +306,9 @@ export function Builder({
                 <span class="sec__rule">
                   {countRule(spec, section.refs.length)}
                   {' · '}
-                  <strong style={{ color: want !== undefined && got !== want ? 'var(--red)' : 'inherit' }}>
+                  <strong
+                    style={{ color: want !== undefined && got !== want ? 'var(--red)' : 'inherit' }}
+                  >
                     {got}
                     {want !== undefined ? `/${want}` : ''} marks
                   </strong>
@@ -335,7 +335,9 @@ export function Builder({
                         <span class="picked__n">{rq?.number ?? '·'}</span>
                         <span class="picked__marks">{rq ? `${rq.marks}m` : '?'}</span>
                         <span class="picked__text">
-                          {rq ? questionLabel(rq.question) : (
+                          {rq ? (
+                            questionLabel(rq.question)
+                          ) : (
                             <em class="missing">missing: {refKey(ref)}</em>
                           )}
                         </span>
@@ -447,8 +449,8 @@ function CoverFields({
       {open && (
         <div class="papercover__body">
           <p class="hint">
-            Your school's name, logo and the boxes a student fills in are the same on every paper
-            in this folder.{' '}
+            Your school's name, logo and the boxes a student fills in are the same on every paper in
+            this folder.{' '}
             <button class="btn btn--small" onClick={onEditCover}>
               Edit the cover sheet
             </button>
@@ -558,8 +560,8 @@ function BankRail({
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
         </div>
         <p class="bank__empty">
-          Start this paper again from a profile that has sections. This one has none, so
-             there is nowhere to put a question.
+          Start this paper again from a profile that has sections. This one has none, so there is
+          nowhere to put a question.
         </p>
       </aside>
     )
@@ -577,8 +579,8 @@ function BankRail({
         )}
         {onLinkSyllabus && (
           <p class="bank__unlinked">
-            This paper's profile does not say which subject it is for, so every question in
-               the folder is offered here, including any from another subject.{' '}
+            This paper's profile does not say which subject it is for, so every question in the
+            folder is offered here, including any from another subject.{' '}
             <button class="btn btn--small" onClick={onLinkSyllabus}>
               Link a syllabus
             </button>
@@ -586,8 +588,8 @@ function BankRail({
         )}
         {linkCourse && (
           <p class="bank__unlinked">
-            This paper's profile does not say which course of {linkCourse.subject} it is for,
-               so questions from every course in it are offered here.{' '}
+            This paper's profile does not say which course of {linkCourse.subject} it is for, so
+            questions from every course in it are offered here.{' '}
             <button class="btn btn--small" onClick={linkCourse.onEdit}>
               Choose a course
             </button>
@@ -771,8 +773,8 @@ function StartPaper({
             something to pick, which for every subject but Design and Technology
             there is not (#48). */}
         <p>
-          A profile says how a paper is built: how many sections, what each is worth, which
-             question types belong where.
+          A profile says how a paper is built: how many sections, what each is worth, which question
+          types belong where.
           {profilesOnOffer(index).offered.length > 0
             ? ' Pick the exam you are building towards and Klunk writes it into profiles/ here.'
             : ''}
@@ -845,8 +847,8 @@ function StartPaper({
               has to say which. */}
           {taken ? (
             <div class="setup__problem" style={{ fontSize: '0.8rem' }}>
-              <span class="mono">papers/{slug}.json</span> already holds "{taken.data.title}".
-                 Give this paper a different title, or open the one already there.
+              <span class="mono">papers/{slug}.json</span> already holds "{taken.data.title}". Give
+              this paper a different title, or open the one already there.
               <div class="rowbtns" style={{ marginTop: '0.5rem' }}>
                 <button class="btn btn--small" onClick={() => onStart(taken.data)}>
                   Open "{taken.data.title}"
@@ -927,8 +929,8 @@ function StartPaper({
           <section class="hero">
             <h2>No papers yet</h2>
             <p>
-              Start one on the left. Klunk fills in the sections your profile expects, then you
-                 pick questions into them.
+              Start one on the left. Klunk fills in the sections your profile expects, then you pick
+              questions into them.
             </p>
           </section>
         ) : (
@@ -977,8 +979,8 @@ function StartPaper({
                     <div class="qrow__detail qrow__detail--danger">
                       <p>
                         Deleting <strong>{p.data.title}</strong> removes{' '}
-                        <span class="mono">{p.path}</span> from this folder. The questions
-                           stay in your banks.
+                        <span class="mono">{p.path}</span> from this folder. The questions stay in
+                        your banks.
                       </p>
                       {/* A paper students have sat is a record of an exam rather
                           than a draft, and the row's chip is above the fold of
@@ -1053,10 +1055,7 @@ function countRule(
   return `${actual} question${actual === 1 ? '' : 's'} (${lo}${hi ? `-${hi}` : '+'})`
 }
 
-function describeSpec(spec: {
-  questionTypes?: string[]
-  marksPerQuestion?: number
-}): string {
+function describeSpec(spec: { questionTypes?: string[]; marksPerQuestion?: number }): string {
   const bits: string[] = []
   if (spec.questionTypes?.length) {
     bits.push(

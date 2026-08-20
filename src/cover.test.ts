@@ -184,7 +184,9 @@ describe('identification fields', () => {
       resolved({
         school: folderFields,
         schoolPath: 'school.json',
-        profile: profile({ cover: { identification: [{ label: 'Student number', kind: 'boxes' }] } }),
+        profile: profile({
+          cover: { identification: [{ label: 'Student number', kind: 'boxes' }] },
+        }),
       }),
     )
     expect(model.identification.map((f) => f.label)).toEqual(['Student number'])
@@ -265,9 +267,9 @@ describe('reading and working time', () => {
 
 describe('instructions', () => {
   it("use the paper's, falling back to the profile's", () => {
-    expect(coverModel(resolved({ profile: profile({ instructions: ['Use black pen'] }) })).instructions).toEqual([
-      'Use black pen',
-    ])
+    expect(
+      coverModel(resolved({ profile: profile({ instructions: ['Use black pen'] }) })).instructions,
+    ).toEqual(['Use black pen'])
 
     const paper = { ...resolved().paper, instructions: ['Answer all questions'] }
     expect(
@@ -297,7 +299,10 @@ describe('the marks breakdown', () => {
     const model = coverModel(
       resolved({
         sections: [
-          { ...section('Section I', 10, [1, 2, 3]), profileSection: { id: 'I', name: 'Section I', marks: 10, suggestedMinutes: 15 } },
+          {
+            ...section('Section I', 10, [1, 2, 3]),
+            profileSection: { id: 'I', name: 'Section I', marks: 10, suggestedMinutes: 15 },
+          },
           section('Section II', 20, [4, 5]),
         ],
         totalMarks: 30,

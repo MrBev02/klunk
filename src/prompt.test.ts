@@ -60,7 +60,13 @@ const profile: Profile = {
   paper: {
     totalMarks: 40,
     sections: [
-      { id: 'I', name: 'Section I', marks: 10, questionTypes: ['multiple_choice'], questionCount: 10 },
+      {
+        id: 'I',
+        name: 'Section I',
+        marks: 10,
+        questionTypes: ['multiple_choice'],
+        questionCount: 10,
+      },
       {
         id: 'II',
         name: 'Section II',
@@ -199,7 +205,9 @@ describe('marksGuidance', () => {
   })
 
   it('describes what a student does at this mark value', () => {
-    expect(marksGuidance({ questionType: 'short_answer', marks: 2 })).toContain('outlines or describes')
+    expect(marksGuidance({ questionType: 'short_answer', marks: 2 })).toContain(
+      'outlines or describes',
+    )
     expect(marksGuidance({ questionType: 'extended_response', marks: 15 })).toContain(
       'sustained argument',
     )
@@ -307,7 +315,7 @@ describe('a syllabus that nests its content (#78)', () => {
     expect(text).toContain('Y11-01.02  the cane toad')
   })
 
-  it('states the topic\'s inquiry question, which says what the topic is for', () => {
+  it("states the topic's inquiry question, which says what the topic is for", () => {
     expect(build(['Y11-01.01'])).toContain('Inquiry question: What is the evidence for evolution?')
   })
 })

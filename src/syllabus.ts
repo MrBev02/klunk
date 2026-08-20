@@ -156,7 +156,12 @@ export function tidyName(heading: string): string {
  */
 export function focusAreaName(captured: string): string {
   const name = captured.replace(COURSE_SUFFIX_RE, '')
-  return name.split(/\s+/).join(' ').trim().replace(/[:;.,]+$/, '').trim()
+  return name
+    .split(/\s+/)
+    .join(' ')
+    .trim()
+    .replace(/[:;.,]+$/, '')
+    .trim()
 }
 
 /**
@@ -402,14 +407,12 @@ export function parseSyllabusTables(xml: string): TableReading {
   return {
     courses: [...courses.values()]
       .sort((a, b) => (order[a.id] ?? 9) - (order[b.id] ?? 9))
-      .map(
-        (c): SyllabusCourse => ({
-          id: c.id,
-          name: c.name,
-          outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
-          topics: c.topics,
-        }),
-      ),
+      .map((c): SyllabusCourse => ({
+        id: c.id,
+        name: c.name,
+        outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
+        topics: c.topics,
+      })),
     suspects,
     groupLabel,
   }
@@ -446,8 +449,7 @@ export interface SyllabusIdentity {
   licence?: string
 }
 
-const DEFAULT_LICENCE =
-  'NSW Education Standards Authority, Crown copyright. Not redistributable.'
+const DEFAULT_LICENCE = 'NSW Education Standards Authority, Crown copyright. Not redistributable.'
 
 /** Assemble the model, matching `schemas/syllabus.schema.json`. */
 export function toSyllabus(courses: SyllabusCourse[], who: SyllabusIdentity): Syllabus {

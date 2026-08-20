@@ -23,7 +23,13 @@
 
 import { taggedIds } from './modelcheck'
 import { inSyllabus, syllabusIdsOf } from './storage'
-import type { QuestionRef, SyllabusCourse, SyllabusOutcome, SyllabusPoint, SyllabusTopic } from './types'
+import type {
+  QuestionRef,
+  SyllabusCourse,
+  SyllabusOutcome,
+  SyllabusPoint,
+  SyllabusTopic,
+} from './types'
 
 export class SyllabusEditError extends Error {}
 
@@ -304,9 +310,7 @@ export function mergeTopicUp(
       }
     }
     if (child.capabilities?.length) {
-      merged.capabilities = [
-        ...new Set([...(merged.capabilities ?? []), ...child.capabilities]),
-      ]
+      merged.capabilities = [...new Set([...(merged.capabilities ?? []), ...child.capabilities])]
     }
     if (child.skills?.length) merged.skills = [...(merged.skills ?? []), ...child.skills]
 

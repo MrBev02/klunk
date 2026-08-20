@@ -60,8 +60,7 @@ const A4_PRINTABLE_MM = { width: 180, height: 240 }
 
 export function validateQuestion(question: Question, ids: IdContext): Check[] {
   const out: Check[] = []
-  const err = (message: string, where?: string) =>
-    out.push({ severity: 'error', message, where })
+  const err = (message: string, where?: string) => out.push({ severity: 'error', message, where })
   const warn = (message: string, where?: string) =>
     out.push({ severity: 'warning', message, where })
 
@@ -168,7 +167,8 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
       validateMatching(cfg, err, warn)
       break
     case 'true_false':
-      if (typeof cfg.correctAnswer !== 'boolean') err('Choose true or false as the answer.', 'Answer')
+      if (typeof cfg.correctAnswer !== 'boolean')
+        err('Choose true or false as the answer.', 'Answer')
       break
     case 'table':
       validateTable(cfg, question.marks, err, warn)
@@ -206,7 +206,8 @@ function validateStimulus(
       if (!s.file?.trim()) err('An image stimulus needs a file to point at.', where)
       // Beyond the schema, which only notes that alt text is needed if the paper
       // is ever read by a screen reader. Warned rather than blocked.
-      else if (!s.alt?.trim()) warn('No alt text, so the image is invisible to a screen reader.', where)
+      else if (!s.alt?.trim())
+        warn('No alt text, so the image is invisible to a screen reader.', where)
     } else if (!s.text?.trim()) {
       err('A text stimulus needs some text.', where)
     }
@@ -231,7 +232,10 @@ function validateCriterion(c: MarkCriterion, where: string, err: Report): void {
     } else if (c.marksTo <= c.marks) {
       // Beyond the schema, which can only say both are numbers. A band that runs
       // backwards prints as "15–13" and reads as a typing mistake, because it is.
-      err(`A band runs from the lower mark to the higher one, so ${c.marks}–${c.marksTo} is backwards.`, where)
+      err(
+        `A band runs from the lower mark to the higher one, so ${c.marks}–${c.marksTo} is backwards.`,
+        where,
+      )
     }
   }
 }
@@ -316,7 +320,8 @@ function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void 
   const options = cfg.options ?? []
 
   if (items.length < 2) err('A matching question needs at least two numbered items.', 'Matching')
-  if (options.length < 2) err('A matching question needs at least two lettered options.', 'Matching')
+  if (options.length < 2)
+    err('A matching question needs at least two lettered options.', 'Matching')
 
   items.forEach((item, i) => {
     if (!item.text.trim()) err('This item is empty.', `Item ${i + 1}`)
@@ -342,9 +347,7 @@ function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void 
     return
   }
 
-  const unlinked = items
-    .map((item, i) => (item.matches?.length ? 0 : i + 1))
-    .filter((n) => n > 0)
+  const unlinked = items.map((item, i) => (item.matches?.length ? 0 : i + 1)).filter((n) => n > 0)
   if (unlinked.length > 0) {
     // Not an error: the 2024 paper's rubric allows an item to link to anything
     // or nothing. But a question where some items are linked and others are not
@@ -374,7 +377,8 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
   rows.forEach((r, i) => {
     const where = `Row ${i + 1}`
     if (!r.label.trim()) err('This row has no label, so the student sees a blank line.', where)
-    if (r.marks !== undefined && r.marks < 0) err('A row cannot be worth less than zero marks.', where)
+    if (r.marks !== undefined && r.marks < 0)
+      err('A row cannot be worth less than zero marks.', where)
 
     // A row carrying more cells than there are columns means answers that will
     // never print, which is silent on the page and wrong in the marking guide.
@@ -389,16 +393,14 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
 
   const blank = rows.filter((r) => !(r.cells ?? []).some((c) => (c.answers ?? []).length > 0))
   if (answerColumns > 0 && blank.length === rows.length && rows.length > 0) {
-    warn(
-      'No row has an expected answer, so the marking guide prints an empty table.',
-      'Table',
-    )
+    warn('No row has an expected answer, so the marking guide prints an empty table.', 'Table')
   }
 
   const marked = rows.filter((r) => r.marks !== undefined)
   if (marked.length === rows.length && rows.length > 0) {
     const sum = marked.reduce((t, r) => t + (r.marks ?? 0), 0)
-    if (sum !== marks) warn(`The rows total ${sum} marks, but the question is worth ${marks}.`, 'Table')
+    if (sum !== marks)
+      warn(`The rows total ${sum} marks, but the question is worth ${marks}.`, 'Table')
   }
 }
 
@@ -415,17 +417,20 @@ function validateDrawing(cfg: QuestionConfig, err: Report, warn: Report): void {
       return
     }
     if (w > A4_PRINTABLE_MM.width || h > A4_PRINTABLE_MM.height) {
-      warn(
-        `${w}mm × ${h}mm is wider or taller than the printable area of an A4 page.`,
-        'Drawing',
-      )
+      warn(`${w}mm × ${h}mm is wider or taller than the printable area of an A4 page.`, 'Drawing')
     }
   }
 }
 
 function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void {
-  if (cfg.answerLines !== undefined && (!Number.isInteger(cfg.answerLines) || cfg.answerLines < 0)) {
-    err('Answer lines must be a whole number, or left blank to work it out from the marks.', 'Answer lines')
+  if (
+    cfg.answerLines !== undefined &&
+    (!Number.isInteger(cfg.answerLines) || cfg.answerLines < 0)
+  ) {
+    err(
+      'Answer lines must be a whole number, or left blank to work it out from the marks.',
+      'Answer lines',
+    )
   }
 
   const parts = cfg.parts ?? []
@@ -433,7 +438,8 @@ function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void 
     const where = `Part ${p.label.trim() || i + 1}`
     if (!p.label.trim()) err('A part needs a label, such as (a).', where)
     if (!p.text.trim()) err('A part needs something to ask.', where)
-    if (!Number.isFinite(p.marks) || p.marks <= 0) err('A part must be worth more than nothing.', where)
+    if (!Number.isFinite(p.marks) || p.marks <= 0)
+      err('A part must be worth more than nothing.', where)
     if (p.answerLines !== undefined && (!Number.isInteger(p.answerLines) || p.answerLines < 0)) {
       err('Answer lines must be a whole number.', where)
     }
@@ -520,8 +526,7 @@ export function validateProfile(
   syllabuses?: Syllabus[],
 ): Check[] {
   const out: Check[] = []
-  const err = (message: string, where?: string) =>
-    out.push({ severity: 'error', message, where })
+  const err = (message: string, where?: string) => out.push({ severity: 'error', message, where })
   const warn = (message: string, where?: string) =>
     out.push({ severity: 'warning', message, where })
 
@@ -611,10 +616,7 @@ export function validateProfile(
         // fine and cannot be filled.
         const offered = questionCount ?? maxQuestions
         if (offered !== undefined && chooseCount > offered) {
-          err(
-            `A student answers ${chooseCount} of these and only ${offered} are printed`,
-            where,
-          )
+          err(`A student answers ${chooseCount} of these and only ${offered} are printed`, where)
         }
         if (offered !== undefined && chooseCount === offered) {
           warn(
@@ -648,11 +650,7 @@ export function validateProfile(
       )
     }
 
-    if (
-      minQuestions !== undefined &&
-      maxQuestions !== undefined &&
-      minQuestions > maxQuestions
-    ) {
+    if (minQuestions !== undefined && maxQuestions !== undefined && minQuestions > maxQuestions) {
       err(`The fewest questions (${minQuestions}) is more than the most (${maxQuestions})`, where)
     }
 
@@ -694,9 +692,7 @@ export function validateProfile(
   })
 
   if (sections.length > 0 && paper.totalMarks > 0 && total !== paper.totalMarks) {
-    err(
-      `The sections add up to ${total} marks, but the paper is set to ${paper.totalMarks}`,
-    )
+    err(`The sections add up to ${total} marks, but the paper is set to ${paper.totalMarks}`)
   }
 
   const margins = profile.print?.marginsMm
@@ -827,8 +823,7 @@ const MAX_BOXES = 20
  */
 export function validateSchool(school: School): Check[] {
   const out: Check[] = []
-  const err = (message: string, where?: string) =>
-    out.push({ severity: 'error', message, where })
+  const err = (message: string, where?: string) => out.push({ severity: 'error', message, where })
   const warn = (message: string, where?: string) =>
     out.push({ severity: 'warning', message, where })
 
@@ -866,11 +861,7 @@ export function validateSchool(school: School): Check[] {
  * override of it. Both write the same shape and a rule enforced in one place
  * only is how the second copy quietly loses it.
  */
-function validateIdentification(
-  field: IdentificationField,
-  where: string,
-  err: Report,
-): void {
+function validateIdentification(field: IdentificationField, where: string, err: Report): void {
   if (!field.label?.trim()) {
     err('This needs a label, because it prints as the words above the writing space', where)
   }
@@ -884,7 +875,10 @@ function validateIdentification(
     if (!isWholeAtLeastOne(field.boxes)) {
       err('A row of boxes has to be a whole number of boxes, one or more', where)
     } else if (field.boxes > MAX_BOXES) {
-      err(`${field.boxes} boxes is more than fits across the cover. Use ${MAX_BOXES} or fewer.`, where)
+      err(
+        `${field.boxes} boxes is more than fits across the cover. Use ${MAX_BOXES} or fewer.`,
+        where,
+      )
     }
   }
 }
@@ -892,8 +886,7 @@ function validateIdentification(
 /** The same beyond-the-schema rules, for the copy a profile may carry. */
 export function validateCoverOverride(fields: IdentificationField[]): Check[] {
   const out: Check[] = []
-  const err = (message: string, where?: string) =>
-    out.push({ severity: 'error', message, where })
+  const err = (message: string, where?: string) => out.push({ severity: 'error', message, where })
   fields.forEach((field, i) => {
     validateIdentification(field, field.label?.trim() || `Box ${i + 1}`, err)
   })
@@ -1102,7 +1095,9 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
               ? { text: item.text.trim() }
               : { text: item.text.trim(), matches: [...item.matches].sort((a, b) => a - b) },
           ),
-        options: (cfg.options ?? []).filter((o) => o.text.trim()).map((o) => ({ text: o.text.trim() })),
+        options: (cfg.options ?? [])
+          .filter((o) => o.text.trim())
+          .map((o) => ({ text: o.text.trim() })),
         ...(cfg.shuffle === false ? { shuffle: false } : {}),
       }
 

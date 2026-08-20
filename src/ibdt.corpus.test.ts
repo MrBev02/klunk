@@ -50,8 +50,22 @@ describeIfPresent('IB DP Design Technology syllabus map', () => {
     // thirteen. HL is not "the extra eleven": it is the whole syllabus, which
     // is why the same topic id appears in both courses.
     expect(summary).toEqual([
-      { courseId: 'sl', courseName: 'Standard level', topics: 13, points: 79, outcomes: 0, groups: THEMES },
-      { courseId: 'hl', courseName: 'Higher level', topics: 24, points: 161, outcomes: 0, groups: THEMES },
+      {
+        courseId: 'sl',
+        courseName: 'Standard level',
+        topics: 13,
+        points: 79,
+        outcomes: 0,
+        groups: THEMES,
+      },
+      {
+        courseId: 'hl',
+        courseName: 'Higher level',
+        topics: 24,
+        points: 161,
+        outcomes: 0,
+        groups: THEMES,
+      },
     ])
   })
 

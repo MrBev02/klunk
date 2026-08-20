@@ -30,12 +30,7 @@ import {
   type FolderProblem,
   type RememberedFolder,
 } from './storage'
-import {
-  QUESTION_TYPE_LABELS,
-  questionHaystack,
-  type Paper,
-  type QuestionRef,
-} from './types'
+import { QUESTION_TYPE_LABELS, questionHaystack, type Paper, type QuestionRef } from './types'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
 type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
@@ -460,7 +455,6 @@ export function App() {
           of something, and a batch of AI drafts or a half-built paper has to
           still be there when they come back. */}
       <div hidden={help}>
-
         {pending && paper && (
           <section class="panel panel--alert">
             {/* The paper is named in the heading rather than the sentence. Putting
@@ -472,13 +466,13 @@ export function App() {
               {pending.what}{' '}
               {paperIsSaved(index, paper) ? (
                 <>
-                  will discard everything you have changed since you last saved. The
-                  version in <code>papers/</code> is unchanged.
+                  will discard everything you have changed since you last saved. The version in{' '}
+                  <code>papers/</code> is unchanged.
                 </>
               ) : (
                 <>
-                  will discard the whole paper. It has never been saved, so there is no
-                  copy in this folder's <code>papers/</code> to come back to.
+                  will discard the whole paper. It has never been saved, so there is no copy in this
+                  folder's <code>papers/</code> to come back to.
                 </>
               )}
             </p>
@@ -505,13 +499,14 @@ export function App() {
         {phase === 'error' && (
           <section class="panel panel--alert">
             <p class="panel__title">
-              {gone ? `${gone.name} is no longer on this computer` : 'Klunk could not open that folder'}
+              {gone
+                ? `${gone.name} is no longer on this computer`
+                : 'Klunk could not open that folder'}
             </p>
             {gone ? (
               <p>
-                This folder has been renamed, moved or deleted since Klunk last opened it, so
-                   there is nothing left to read. Forgetting it stops Klunk offering it, and
-                   deletes nothing.
+                This folder has been renamed, moved or deleted since Klunk last opened it, so there
+                is nothing left to read. Forgetting it stops Klunk offering it, and deletes nothing.
               </p>
             ) : (
               <>
@@ -801,7 +796,11 @@ function Switcher({
           {entry.permission !== 'granted' && <span class="folder-name__lock">·</span>}
         </button>
       ))}
-      <button class="btn btn--small" onClick={onAdd} title="Point Klunk at another subject's folder">
+      <button
+        class="btn btn--small"
+        onClick={onAdd}
+        title="Point Klunk at another subject's folder"
+      >
         Add folder
       </button>
     </div>
@@ -826,13 +825,12 @@ function Welcome({
       <section class="panel panel--alert">
         <p class="panel__title">Klunk needs Chrome or Edge</p>
         <p>
-          Open the same link in Chrome or Edge to carry on. Klunk works by opening a
-             folder on your computer and writing to it, and only those two browsers can do
-             that.
+          Open the same link in Chrome or Edge to carry on. Klunk works by opening a folder on your
+          computer and writing to it, and only those two browsers can do that.
         </p>
         <p class="muted">
-          You lose nothing by switching. Your banks and papers are ordinary files in your
-             own folder, so the other browser reads exactly the same ones.
+          You lose nothing by switching. Your banks and papers are ordinary files in your own
+          folder, so the other browser reads exactly the same ones.
         </p>
         {insecure && <p class="muted">{insecure}</p>}
       </section>
@@ -848,16 +846,12 @@ function Welcome({
         <h2>Welcome back</h2>
         <p>
           Your browser needs you to confirm access again before Klunk can read{' '}
-          {folders.length === 1 ? 'your folder' : 'these folders'}. It is one click for each
-             folder, and only once this session.
+          {folders.length === 1 ? 'your folder' : 'these folders'}. It is one click for each folder,
+          and only once this session.
         </p>
         <div class="hero__folders">
           {folders.map((entry) => (
-            <button
-              key={entry.handle.name}
-              class="btn btn--primary"
-              onClick={() => onOpen(entry)}
-            >
+            <button key={entry.handle.name} class="btn btn--primary" onClick={() => onOpen(entry)}>
               Open {entry.handle.name}
             </button>
           ))}
@@ -875,14 +869,13 @@ function Welcome({
     <section class="hero">
       <h2>Choose your folder</h2>
       <p>
-        Point Klunk at the folder holding one subject's question banks and papers,
-           usually a OneDrive or Teams folder. Use one folder per subject: the access you
-           give then covers only the subject you are working on, and swapping to another
-           one later takes a single click.
+        Point Klunk at the folder holding one subject's question banks and papers, usually a
+        OneDrive or Teams folder. Use one folder per subject: the access you give then covers only
+        the subject you are working on, and swapping to another one later takes a single click.
       </p>
       <p class="muted">
-        Klunk copies nothing anywhere else, and nothing leaves your computer. Your
-           browser remembers the folder, so you only do this once per subject.
+        Klunk copies nothing anywhere else, and nothing leaves your computer. Your browser remembers
+        the folder, so you only do this once per subject.
       </p>
       <div class="rowbtns" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
         <button class="btn btn--primary" onClick={onChoose}>
@@ -974,19 +967,19 @@ function Library({
             ? canGiveProfile
               ? 'This folder is empty. Klunk can give you one of the two things it needs, and you build the other yourself.'
               : 'This folder is empty. It needs a paper profile and a syllabus model, and you build both yourself.'
-               : needsProfile
-                 ? canGiveProfile
-                   ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
-                   : 'The syllabus model is in place. This folder still needs a paper profile, which you describe yourself.'
-                 : 'The profile is in place. The syllabus model is the one you build yourself.'}
+            : needsProfile
+              ? canGiveProfile
+                ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
+                : 'The syllabus model is in place. This folder still needs a paper profile, which you describe yourself.'
+              : 'The profile is in place. The syllabus model is the one you build yourself.'}
         </p>
 
         {needsProfile && (
           <>
             <h3 class="setup__head">{both && '1 · '}A paper profile</h3>
             <p>
-              A profile is the exam structure: how many sections, what each is worth, which
-                 question types belong where. The checker compares your paper against it.
+              A profile is the exam structure: how many sections, what each is worth, which question
+              types belong where. The checker compares your paper against it.
             </p>
             <ProfileInstaller
               index={index}
@@ -1129,8 +1122,7 @@ function Library({
         {index.problems.length > 0 && (
           <section class="panel panel--alert">
             <p class="panel__title">
-              {index.problems.length} file{index.problems.length === 1 ? '' : 's'} could not
-              be read
+              {index.problems.length} file{index.problems.length === 1 ? '' : 's'} could not be read
             </p>
             <ul class="plain">
               {index.problems.slice(0, 8).map((p) => (
@@ -1148,13 +1140,13 @@ function Library({
             <p>
               {d.models.map((m) => m.path).join(' and ')} were both built from{' '}
               <span class="mono">{d.source}</span>. Questions tagged against one of them do not
-                 count towards the other, so a paper built from the wrong one looks uncovered.
+              count towards the other, so a paper built from the wrong one looks uncovered.
             </p>
             <p>
-              Keep the one your questions are tagged against and delete the other from this
-                 folder. If you meant to keep two because Year 11 and Year 12 are on different
-                 editions of this syllabus, build the second one from that edition's own
-                 document rather than from this one.
+              Keep the one your questions are tagged against and delete the other from this folder.
+              If you meant to keep two because Year 11 and Year 12 are on different editions of this
+              syllabus, build the second one from that edition's own document rather than from this
+              one.
             </p>
           </section>
         ))}
@@ -1164,8 +1156,8 @@ function Library({
             <p class="panel__title">No questions found</p>
             <p>
               Klunk read {index.scanned} file{index.scanned === 1 ? '' : 's'} in this folder, and
-                 none of them holds questions. Write your first question and Klunk makes the bank
-                 for it.
+              none of them holds questions. Write your first question and Klunk makes the bank for
+              it.
             </p>
             <div class="rowbtns">
               <button class="btn btn--primary" onClick={onNew}>

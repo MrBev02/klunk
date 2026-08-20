@@ -40,8 +40,7 @@ import type { ComponentChildren } from 'preact'
 const SEPARATOR = /^\|(?:\s*:?-{3,}:?\s*\|)+$/
 
 export type Block =
-  | { kind: 'text'; text: string }
-  | { kind: 'table'; head: string[]; rows: string[][] }
+  { kind: 'text'; text: string } | { kind: 'table'; head: string[]; rows: string[][] }
 
 /** A stretch of one paragraph, with whatever emphasis is on it. */
 export interface Run {

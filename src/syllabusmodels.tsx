@@ -36,8 +36,8 @@ export function SyllabusModels({ index }: { index: ContentIndex }) {
       <section class="panel">
         <p class="panel__title">No syllabus model in this folder yet</p>
         <p class="hint">
-          Klunk ships none, because a syllabus is copyright and this folder is yours. Build
-             one below from your own copy of the document, and it will appear here.
+          Klunk ships none, because a syllabus is copyright and this folder is yours. Build one
+          below from your own copy of the document, and it will appear here.
         </p>
       </section>
     )
@@ -47,8 +47,8 @@ export function SyllabusModels({ index }: { index: ContentIndex }) {
     <section class="panel">
       <p class="panel__title">The syllabus models in this folder</p>
       <p class="hint">
-        This is what your questions are tagged against. Open one to read every course, topic
-           and content point in it, with the ids a question uses.
+        This is what your questions are tagged against. Open one to read every course, topic and
+        content point in it, with the ids a question uses.
       </p>
 
       <ul class="modellist">

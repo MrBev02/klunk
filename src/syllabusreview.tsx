@@ -246,8 +246,8 @@ function CourseReview({
             ))}
             {(course.outcomes ?? []).length === 0 && (
               <li class="muted">
-                This syllabus sets its outcomes against the course as a whole rather than
-                   against each topic, so the model carries none.
+                This syllabus sets its outcomes against the course as a whole rather than against
+                each topic, so the model carries none.
               </li>
             )}
           </ul>
@@ -256,9 +256,7 @@ function CourseReview({
 
       {showOutcomes && apply && (
         <div class="det">
-          <p class="hint">
-            Deleting an outcome here also takes it off every topic that lists it.
-          </p>
+          <p class="hint">Deleting an outcome here also takes it off every topic that lists it.</p>
           <ul class="plain review__outcomes">
             {(course.outcomes ?? []).map((outcome) => (
               <li key={outcome.code}>
@@ -405,12 +403,11 @@ function TopicRow({
 
           {suspect && (
             <p class="review__suspect">
-              In the document this line is set as a bullet, not as a heading, and it starts a
-                 fresh page. That is what a topic looks like when it runs past the bottom of a
-                 page and carries on overleaf, so this may belong to{' '}
-              {at > 0 ? `"${course.topics[at - 1]?.name}"` : 'the topic above'} rather than
-                 standing on its own. Read it against the document, and use Join to the topic
-                 above if it does.
+              In the document this line is set as a bullet, not as a heading, and it starts a fresh
+              page. That is what a topic looks like when it runs past the bottom of a page and
+              carries on overleaf, so this may belong to{' '}
+              {at > 0 ? `"${course.topics[at - 1]?.name}"` : 'the topic above'} rather than standing
+              on its own. Read it against the document, and use Join to the topic above if it does.
             </p>
           )}
 
@@ -448,9 +445,7 @@ function TopicRow({
                       <span>
                         {point.text}
                         {(point.capabilities ?? []).length > 0 && (
-                          <span class="review__caps">
-                            {(point.capabilities ?? []).join(' · ')}
-                          </span>
+                          <span class="review__caps">{(point.capabilities ?? []).join(' · ')}</span>
                         )}
                       </span>
                     </li>
@@ -459,7 +454,7 @@ function TopicRow({
               ) : (
                 <p class="muted">
                   This topic has no content points, so a question tags itself against the topic
-                     itself.
+                  itself.
                 </p>
               )}
 
@@ -526,12 +521,7 @@ function FixTopic({
             onInput={(e) =>
               apply(
                 (all) =>
-                  renameTopic(
-                    all,
-                    course.id,
-                    topic.id,
-                    (e.target as HTMLInputElement).value,
-                  ),
+                  renameTopic(all, course.id, topic.id, (e.target as HTMLInputElement).value),
                 `Renamed ${topic.id}`,
               )
             }
@@ -550,12 +540,7 @@ function FixTopic({
             onInput={(e) =>
               apply(
                 (all) =>
-                  setTopicGroup(
-                    all,
-                    course.id,
-                    topic.id,
-                    (e.target as HTMLInputElement).value,
-                  ),
+                  setTopicGroup(all, course.id, topic.id, (e.target as HTMLInputElement).value),
                 `Set the ${lowerLabel(label)} on ${topic.id}`,
               )
             }

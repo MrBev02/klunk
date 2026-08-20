@@ -21,7 +21,12 @@ import type { ExtractedPaper, ExtractedQuestion } from './extract'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
 import type { Cutout } from './pdfimage'
 import type { Check } from './paper'
-import { QUESTION_TYPE_LABELS, type Question, type QuestionConfig, type QuestionPart } from './types'
+import {
+  QUESTION_TYPE_LABELS,
+  type Question,
+  type QuestionConfig,
+  type QuestionPart,
+} from './types'
 import { suggestQuestionId, validateQuestion } from './validate'
 
 export interface AdoptContext {
@@ -85,7 +90,10 @@ export function adoptPaper(
         at: null,
       })),
       pages: extracted.pages,
-      notes: [...extracted.notes, ...describeLosses(extracted, (cutouts.get(extracted) ?? []).length)],
+      notes: [
+        ...extracted.notes,
+        ...describeLosses(extracted, (cutouts.get(extracted) ?? []).length),
+      ],
       faults: validateQuestion(question, {
         inBank: ctx.inBank,
         inFolder: ctx.inFolder,
@@ -107,7 +115,11 @@ const SHOWS_A_PICTURE =
 
 function describeLosses(q: ExtractedQuestion, kept: number): string[] {
   const out: string[] = []
-  const words = [q.text, ...(q.parts ?? []).map((p) => p.text), ...(q.options ?? []).map((o) => o.text)].join(' ')
+  const words = [
+    q.text,
+    ...(q.parts ?? []).map((p) => p.text),
+    ...(q.options ?? []).map((o) => o.text),
+  ].join(' ')
 
   // The figure warning used to hang off the words "Figure N", which exactly one
   // question in eleven years uses. Twelve others say "the images show two
@@ -151,11 +163,7 @@ function describeLosses(q: ExtractedQuestion, kept: number): string[] {
  */
 export const NO_ANSWER_KEY = 'No answer key was read for this question'
 
-function toQuestion(
-  extracted: ExtractedQuestion,
-  ctx: AdoptContext,
-  taken: Set<string>,
-): Question {
+function toQuestion(extracted: ExtractedQuestion, ctx: AdoptContext, taken: Set<string>): Question {
   const question: Question = {
     id: suggestQuestionId(ctx.bankPath, extracted.questionType, taken),
     questionType: extracted.questionType,
@@ -373,7 +381,10 @@ function applyAnswer(
       notes.push('The guide gives true or false for a question that does not ask for one.')
       return { question, answered: false }
     }
-    return { question: { ...question, config: { ...config, correctAnswer: entry.trueFalse } }, answered: true }
+    return {
+      question: { ...question, config: { ...config, correctAnswer: entry.trueFalse } },
+      answered: true,
+    }
   }
 
   if (entry.links?.length) {
@@ -412,7 +423,10 @@ function applyAnswer(
     }
     const index = indicesOf(letters, (config.choices ?? []).length, notes)[0]
     if (index === undefined) return { question, answered: false }
-    return { question: { ...question, config: { ...config, correctAnswer: index } }, answered: true }
+    return {
+      question: { ...question, config: { ...config, correctAnswer: index } },
+      answered: true,
+    }
   }
 
   if (type === 'multiple_response') {

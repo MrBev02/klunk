@@ -72,7 +72,9 @@ export function buildGuidePrompt(spec: GuidePromptSpec): string {
     howToTranscribe(spec),
     outcomes(spec),
     shape(spec),
-    markupRules('A criterion\'s description, a sample answer and each point of "answersCouldInclude"'),
+    markupRules(
+      'A criterion\'s description, a sample answer and each point of "answersCouldInclude"',
+    ),
     example(spec),
     ownInstruction(spec),
   ]
@@ -145,9 +147,7 @@ function shapeOf(q: MarkingSkeleton): string {
       bits.push(`more than one answer, options ${letterRange(q.optionCount)}`)
       break
     case 'matching':
-      bits.push(
-        `items 1 to ${q.itemCount ?? 0} matched to options ${letterRange(q.optionCount)}`,
-      )
+      bits.push(`items 1 to ${q.itemCount ?? 0} matched to options ${letterRange(q.optionCount)}`)
       break
     case 'true_false':
       bits.push('true or false')
@@ -156,9 +156,7 @@ function shapeOf(q: MarkingSkeleton): string {
       bits.push(q.questionType.replace('_', ' '))
   }
   if (q.parts?.length) {
-    bits.push(
-      `parts ${q.parts.map((p) => `(${p.label}) ${p.marks}`).join(', ')}`,
-    )
+    bits.push(`parts ${q.parts.map((p) => `(${p.label}) ${p.marks}`).join(', ')}`)
   }
   return bits.join(', ')
 }

@@ -8,9 +8,7 @@
  * resolution has to report what it could not find rather than skipping it.
  */
 
-import type {
-  ContentIndex,
-} from './storage'
+import type { ContentIndex } from './storage'
 import { knownIds, unresolvedTags, type ModelIds } from './modelcheck'
 import { allQuestions, findQuestion, inCourse, inSyllabus } from './storage'
 import type {
@@ -193,20 +191,14 @@ function earnableMarks(questions: ResolvedQuestion[], chooseCount?: number): num
     .reduce((sum, m) => sum + m, 0)
 }
 
-export function resolvePaper(
-  index: ContentIndex,
-  paper: Paper,
-  profile?: Profile,
-): ResolvedPaper {
+export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profile): ResolvedPaper {
   const missing: string[] = []
   const relocated: { from: string; to: string }[] = []
   const sat = satQuestionIds(index, paper.id)
   let number = 0
 
   const sections = paper.sections.map((section): ResolvedSection => {
-    const profileSection = profile?.paper.sections.find(
-      (s) => s.id === section.profileSectionId,
-    )
+    const profileSection = profile?.paper.sections.find((s) => s.id === section.profileSectionId)
 
     const questions: ResolvedQuestion[] = []
     for (const ref of section.refs) {
@@ -612,14 +604,15 @@ function printOrder(question: Question, n: number, seed: string): number[] {
  */
 export function shuffledChoices(question: Question, seed = ''): ShuffledChoices {
   const choices = question.config?.choices ?? []
-  const correct = typeof question.config?.correctAnswer === 'number'
-    ? question.config.correctAnswer
-    : 0
+  const correct =
+    typeof question.config?.correctAnswer === 'number' ? question.config.correctAnswer : 0
 
   const order = printOrder(question, choices.length, seed)
 
   return {
-    choices: order.map((i) => choices[i]).filter((c): c is { text: string; feedback?: string } => !!c),
+    choices: order
+      .map((i) => choices[i])
+      .filter((c): c is { text: string; feedback?: string } => !!c),
     correctIndex: order.indexOf(correct),
     letters: LETTERS,
   }
@@ -649,7 +642,9 @@ export function shuffledResponses(question: Question, seed = ''): ShuffledRespon
     .sort((a, b) => a - b)
 
   return {
-    choices: order.map((i) => choices[i]).filter((c): c is { text: string; feedback?: string } => !!c),
+    choices: order
+      .map((i) => choices[i])
+      .filter((c): c is { text: string; feedback?: string } => !!c),
     correctIndexes,
     known: stated !== undefined,
   }
@@ -845,11 +840,7 @@ export function rowAnswers(row: TableRow, at: number): string[] {
 }
 
 /** How many ruled lines a question gets when it does not say. */
-export function answerLinesFor(
-  question: Question,
-  marks: number,
-  profile?: Profile,
-): number {
+export function answerLinesFor(question: Question, marks: number, profile?: Profile): number {
   if (question.config?.answerLines !== undefined) return question.config.answerLines
   // A student answers these on the question itself — against the options, or
   // by drawing between the two columns — so ruled lines under them are space
@@ -860,10 +851,7 @@ export function answerLinesFor(
   return Math.max(2, Math.round(marks * perMark))
 }
 
-export function isTypeAllowed(
-  type: QuestionType,
-  section: ProfileSection | undefined,
-): boolean {
+export function isTypeAllowed(type: QuestionType, section: ProfileSection | undefined): boolean {
   if (!section?.questionTypes?.length) return true
   return section.questionTypes.includes(type)
 }

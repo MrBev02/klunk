@@ -120,7 +120,9 @@ export function paraText(xml: string): string {
   // A tab beside a typed space is one gap on the page, not two. Only runs of
   // ordinary spaces: a non-breaking space is published punctuation and stays
   // exactly where NESA put it.
-  return unescapeXml(out).replace(/[ \t]{2,}/g, ' ').trim()
+  return unescapeXml(out)
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
 }
 
 /**
@@ -130,15 +132,17 @@ export function paraText(xml: string): string {
  * named entities plus numeric references are the whole of what OOXML escapes.
  */
 export function unescapeXml(text: string): string {
-  return text
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    // Last, or an escaped "&amp;lt;" would decode twice.
-    .replace(/&amp;/g, '&')
+  return (
+    text
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      // Last, or an escaped "&amp;lt;" would decode twice.
+      .replace(/&amp;/g, '&')
+  )
 }
 
 /**
@@ -306,7 +310,9 @@ export function blocks(xml: string): Block[] {
  * Returns `null` when the paragraph does not open with one, which is how a
  * sub-heading is told from a section heading in a document that styles neither.
  */
-export function sectionNumber(text: string): { number: string; depth: number; rest: string } | null {
+export function sectionNumber(
+  text: string,
+): { number: string; depth: number; rest: string } | null {
   const m = SECTION_NUMBER_RE.exec(text)
   const number = m?.[1]
   // A content point may open with a figure — "12 expressive forms are…" — so a
@@ -325,5 +331,10 @@ export function sectionNumber(text: string): { number: string; depth: number; re
  * match it.
  */
 export function tidyHeading(text: string): string {
-  return text.split(/\s+/).join(' ').trim().replace(/[:;.,]+$/, '').trim()
+  return text
+    .split(/\s+/)
+    .join(' ')
+    .trim()
+    .replace(/[:;.,]+$/, '')
+    .trim()
 }

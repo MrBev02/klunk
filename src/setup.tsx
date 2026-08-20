@@ -100,10 +100,7 @@ export function ProfileInstaller({
   const [busy, setBusy] = useState('')
   const [problem, setProblem] = useState('')
 
-  const { offered, why } = useMemo(
-    () => profilesOnOffer(index, syllabusId),
-    [index, syllabusId],
-  )
+  const { offered, why } = useMemo(() => profilesOnOffer(index, syllabusId), [index, syllabusId])
 
   // Nothing to show only when there is also nothing to build. This used to
   // return null on an empty list, which is precisely the state a teacher of any
@@ -139,8 +136,8 @@ export function ProfileInstaller({
               <strong>{shipped.profile.name}</strong>
               <br />
               <span class="muted mono setup__meta">
-                {shipped.profile.paper.totalMarks} marks ·{' '}
-                {shipped.profile.paper.sections.length} section
+                {shipped.profile.paper.totalMarks} marks · {shipped.profile.paper.sections.length}{' '}
+                section
                 {shipped.profile.paper.sections.length === 1 ? '' : 's'} · writes{' '}
                 <code>{shipped.path}</code>
               </span>
@@ -197,19 +194,19 @@ export function SyllabusNote() {
   return (
     <>
       <p>
-        A syllabus model is the list of outcomes, topics and content points that you tag
-           your questions against. <strong>Klunk comes with none, because a syllabus is
-           copyright.</strong> Build your own from your own copy, into your own folder.
+        A syllabus model is the list of outcomes, topics and content points that you tag your
+        questions against. <strong>Klunk comes with none, because a syllabus is copyright.</strong>{' '}
+        Build your own from your own copy, into your own folder.
       </p>
       <p class="muted">
-        For a NSW Stage 6 syllabus, open the <strong>Syllabus</strong> tab and choose
-           the <code>.docx</code> you downloaded from NESA. Klunk can read it straight out of
-           your Downloads, so it does not have to be in this folder first. It shows you the
-           courses, topics and content points it found before it writes anything.
+        For a NSW Stage 6 syllabus, open the <strong>Syllabus</strong> tab and choose the{' '}
+        <code>.docx</code> you downloaded from NESA. Klunk can read it straight out of your
+        Downloads, so it does not have to be in this folder first. It shows you the courses, topics
+        and content points it found before it writes anything.
       </p>
       <p class="muted">
-        You can still write questions and build papers without one. You just cannot tag a
-           question to a topic, and Klunk cannot tell you what a paper covers.
+        You can still write questions and build papers without one. You just cannot tag a question
+        to a topic, and Klunk cannot tell you what a paper covers.
       </p>
     </>
   )

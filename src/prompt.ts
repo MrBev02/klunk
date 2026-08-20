@@ -62,7 +62,7 @@ export function buildPrompt(spec: PromptSpec): string {
     conventions(spec),
     alreadyWritten(spec),
     shape(spec),
-    markupRules('A question\'s text, a part\'s text and an option\'s text'),
+    markupRules("A question's text, a part's text and an option's text"),
     example(spec),
   ]
   return blocks.filter(Boolean).join('\n\n').trimEnd() + '\n'
@@ -203,7 +203,9 @@ function conventions(spec: PromptSpec): string {
  * by mark value, and the line count comes from the profile so it matches what
  * the paper will actually print.
  */
-export function marksGuidance(spec: Pick<PromptSpec, 'questionType' | 'marks' | 'profile'>): string {
+export function marksGuidance(
+  spec: Pick<PromptSpec, 'questionType' | 'marks' | 'profile'>,
+): string {
   const { marks, questionType } = spec
 
   if (questionType === 'multiple_choice') {
@@ -246,7 +248,8 @@ export function marksGuidance(spec: Pick<PromptSpec, 'questionType' | 'marks' | 
 
 function expectation(marks: number): string {
   if (marks <= 1) return 'At one mark a student identifies or names something, in a phrase.'
-  if (marks <= 3) return 'At two or three marks a student outlines or describes, and gives a reason.'
+  if (marks <= 3)
+    return 'At two or three marks a student outlines or describes, and gives a reason.'
   if (marks <= 6) {
     return (
       'At four to six marks a student explains or analyses: a position, and the ' +
@@ -340,9 +343,7 @@ function shape(spec: PromptSpec): string {
 
 function guideFields(type: QuestionType): string[] {
   if (type === 'multiple_choice' || type === 'multiple_response' || type === 'true_false') {
-    return [
-      '  markingGuide   not needed; the option feedback below does that work',
-    ]
+    return ['  markingGuide   not needed; the option feedback below does that work']
   }
   if (type === 'matching') {
     return ['  markingGuide   not needed; the links below are the whole answer']

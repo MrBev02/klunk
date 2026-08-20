@@ -229,11 +229,7 @@ export function QuestionEditor({
     setConfig({ parts: (draft.config?.parts ?? []).filter((_, j) => j !== at) })
     setStimuli((list) =>
       list.map((s) =>
-        s.at === null || s.at < at
-          ? s
-          : s.at === at
-            ? { ...s, at: null }
-            : { ...s, at: s.at - 1 },
+        s.at === null || s.at < at ? s : s.at === at ? { ...s, at: null } : { ...s, at: s.at - 1 },
       ),
     )
   }
@@ -428,11 +424,7 @@ export function QuestionEditor({
                     : 'Save and close'}
             </button>
             {!editing && (
-              <button
-                class="btn"
-                disabled={blocked || saving}
-                onClick={() => void save(true)}
-              >
+              <button class="btn" disabled={blocked || saving} onClick={() => void save(true)}>
                 Save and write another
               </button>
             )}
@@ -451,9 +443,7 @@ export function QuestionEditor({
           </div>
           <p class="muted mono editor__where">{bankPath}</p>
           {alsoSaved.length > 0 && (
-            <p class="hint">
-              Written so far: {alsoSaved.map((saved) => saved.id).join(', ')}
-            </p>
+            <p class="hint">Written so far: {alsoSaved.map((saved) => saved.id).join(', ')}</p>
           )}
           {failed && <p class="missing">{failed}</p>}
         </div>
@@ -628,8 +618,8 @@ function ChoiceFields({
     <section class="panel">
       <p class="panel__title">Options</p>
       <p class="hint">
-        Options print in a shuffled but fixed order, so the letter that is correct is the
-        same on the student paper and the marking guide.
+        Options print in a shuffled but fixed order, so the letter that is correct is the same on
+        the student paper and the marking guide.
       </p>
 
       <ol class="editrows">
@@ -723,7 +713,9 @@ function ResponseFields({
     setConfig({ choices: choices.map((c, j) => (i === j ? patched(c, patch) : c)) })
 
   const toggle = (i: number) => {
-    const next = isAnswer.has(i) ? correct.filter((n) => n !== i) : [...correct, i].sort((a, b) => a - b)
+    const next = isAnswer.has(i)
+      ? correct.filter((n) => n !== i)
+      : [...correct, i].sort((a, b) => a - b)
     setConfig({ correctAnswers: next.length ? next : undefined })
   }
 
@@ -731,8 +723,8 @@ function ResponseFields({
     <section class="panel">
       <p class="panel__title">Options</p>
       <p class="hint">
-        Tick every option that is an answer. The paper tells the student more than one may
-        be correct, without saying how many.
+        Tick every option that is an answer. The paper tells the student more than one may be
+        correct, without saying how many.
       </p>
 
       <ol class="editrows">
@@ -752,9 +744,7 @@ function ResponseFields({
               <input
                 class="input input--sub"
                 value={c.feedback ?? ''}
-                placeholder={
-                  isAnswer.has(i) ? 'Why this is an answer' : 'Why this one is not'
-                }
+                placeholder={isAnswer.has(i) ? 'Why this is an answer' : 'Why this one is not'}
                 onInput={(e) => change(i, { feedback: (e.target as HTMLInputElement).value })}
               />
             </div>
@@ -766,7 +756,9 @@ function ResponseFields({
                 setConfig({
                   choices: choices.filter((_, j) => j !== i),
                   // The answers move with the options they point into.
-                  correctAnswers: nonEmptyIndexes(correct.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n))),
+                  correctAnswers: nonEmptyIndexes(
+                    correct.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n)),
+                  ),
                 })
               }
             >
@@ -785,7 +777,9 @@ function ResponseFields({
       </button>
 
       {correct.length === 0 && (
-        <p class="hint">No answers ticked. The marking guide will say so instead of printing them.</p>
+        <p class="hint">
+          No answers ticked. The marking guide will say so instead of printing them.
+        </p>
       )}
 
       <label class="checkline">
@@ -828,8 +822,8 @@ function MatchingFields({
     <section class="panel">
       <p class="panel__title">The two columns</p>
       <p class="hint">
-        Write both columns, then click a letter to link it to that item. The lettered
-        column prints in a shuffled but fixed order.
+        Write both columns, then click a letter to link it to that item. The lettered column prints
+        in a shuffled but fixed order.
       </p>
 
       <ol class="editrows">
@@ -870,10 +864,7 @@ function MatchingFields({
         ))}
       </ol>
 
-      <button
-        class="btn btn--small"
-        onClick={() => setConfig({ items: [...items, { text: '' }] })}
-      >
+      <button class="btn btn--small" onClick={() => setConfig({ items: [...items, { text: '' }] })}>
         Add an item
       </button>
 
@@ -973,17 +964,12 @@ function TableFields({
     <section class="panel">
       <p class="panel__title">Table</p>
       <p class="hint">
-        The first column holds what the student is given. The rest print blank for them
-        to complete.
+        The first column holds what the student is given. The rest print blank for them to complete.
       </p>
 
       <div class="fieldrow">
         {columns.map((c, i) => (
-          <Field
-            key={i}
-            for={`tbl-col-${i}`}
-            label={i === 0 ? 'First column' : `Column ${i + 1}`}
-          >
+          <Field key={i} for={`tbl-col-${i}`} label={i === 0 ? 'First column' : `Column ${i + 1}`}>
             <div class="withbtn">
               <input
                 id={`tbl-col-${i}`}
@@ -1037,7 +1023,7 @@ function TableFields({
                     placeholder={
                       columns.length > 2
                         ? `${col.trim() || `Column ${j + 2}`}. Put a slash between alternatives.`
-                           : 'Accepted answers. Put a slash between alternatives.'
+                        : 'Accepted answers. Put a slash between alternatives.'
                     }
                     onInput={(e) =>
                       changeRow(i, {
@@ -1106,11 +1092,7 @@ function WrittenFields({
       <p class="panel__title">Answer space</p>
 
       {parts.length === 0 && (
-        <Field
-          label="Ruled lines"
-          for="w-lines"
-          hint="Leave blank to work it out from the marks"
-        >
+        <Field label="Ruled lines" for="w-lines" hint="Leave blank to work it out from the marks">
           <NumField
             id="w-lines"
             class="input input--narrow"
@@ -1267,13 +1249,12 @@ function StimulusFields({
     <section class="panel">
       <p class="panel__title">Stimulus</p>
       <p class="hint">
-        Images are copied into <span class="mono">{directory}</span> when the question is
-        saved.
+        Images are copied into <span class="mono">{directory}</span> when the question is saved.
       </p>
       {parts.length > 0 && (
         <p class="hint">
-          Choose the part a picture belongs to. A part's picture prints between what that
-          part asks and its answer space.
+          Choose the part a picture belongs to. A part's picture prints between what that part asks
+          and its answer space.
         </p>
       )}
 
@@ -1306,7 +1287,10 @@ function StimulusFields({
                   <p class="mono editor__file">
                     {s.item.file}
                     {s.pending && (
-                      <span class="muted"> · {Math.round(s.pending.size / 1024)} kB, not yet copied</span>
+                      <span class="muted">
+                        {' '}
+                        · {Math.round(s.pending.size / 1024)} kB, not yet copied
+                      </span>
                     )}
                   </p>
                 ) : (
@@ -1721,8 +1705,8 @@ function SourceFields({
     <section class="panel">
       <p class="panel__title">Where it came from</p>
       <p class="hint">
-        Klunk can only warn that students may have seen a question if the paper and year
-        are recorded.
+        Klunk can only warn that students may have seen a question if the paper and year are
+        recorded.
       </p>
 
       <div class="fieldrow">
@@ -1733,7 +1717,8 @@ function SourceFields({
             value={origin}
             onChange={(e) =>
               setSource({
-                origin: (e.target as HTMLSelectElement).value as 'authored' | 'extracted' | 'adapted',
+                origin: (e.target as HTMLSelectElement).value as
+                  'authored' | 'extracted' | 'adapted',
               })
             }
           >
@@ -1755,11 +1740,7 @@ function SourceFields({
               />
             </Field>
             <Field label="Year" for="sr-year">
-              <NumField
-                id="sr-year"
-                value={source.year}
-                onChange={(n) => setSource({ year: n })}
-              />
+              <NumField id="sr-year" value={source.year} onChange={(n) => setSource({ year: n })} />
             </Field>
             <Field label="Question" for="sr-number">
               <input
@@ -2019,8 +2000,6 @@ function imageDirectoryFor(bankPath: string): string {
   const parts = bankPath.split('/').slice(0, -1)
   return [...parts, IMAGE_SUBDIR].join('/')
 }
-
-
 
 function splitList(value: string): string[] {
   return value

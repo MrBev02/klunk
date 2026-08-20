@@ -126,7 +126,10 @@ describe('what came back', () => {
   })
 
   it('explains itself when the JSON is not questions at all', () => {
-    const result = ingestQuestions('{"summary":"I wrote three questions","topic":"ergonomics"}', ctx())
+    const result = ingestQuestions(
+      '{"summary":"I wrote three questions","topic":"ergonomics"}',
+      ctx(),
+    )
     expect(result.drafts).toEqual([])
     expect(result.failure).toContain('summary, topic')
   })
@@ -211,7 +214,7 @@ describe('the fields Klunk keeps for itself', () => {
     expect(draft.question.tags).toEqual(['ergonomics', AI_TRANSCRIBED_TAG])
   })
 
-  it('keeps the model\'s other tags either way', () => {
+  it("keeps the model's other tags either way", () => {
     const { draft } = first(answer({ tags: ['ergonomics', 'year-11'] }))
     expect(draft.question.tags).toEqual(['ergonomics', 'year-11', AI_TAG])
   })
@@ -242,7 +245,9 @@ describe('syllabus tagging', () => {
     expect(draft.question.outcomes).toEqual(['H1.1'])
     // "a outcome code" is what a teacher reads on the screen, so the article
     // has to follow the noun rather than be baked into the sentence.
-    expect(draft.repairs.join(' ')).toContain('Dropped an outcome code the prompt did not offer: H9.9.')
+    expect(draft.repairs.join(' ')).toContain(
+      'Dropped an outcome code the prompt did not offer: H9.9.',
+    )
   })
 
   it('says a question came back untagged rather than guessing a topic for it', () => {
@@ -681,7 +686,7 @@ describe('reading back a paper somebody transcribed', () => {
     expect(draft.question.config?.choices?.[0]?.text).toBe('The nested one')
   })
 
-  it('still reports a top-level field that is not this type of question\'s', () => {
+  it("still reports a top-level field that is not this type of question's", () => {
     const { draft } = first(flattened({ spaceMm: [180, 240] }), ctx({ expected: undefined }))
 
     expect(draft.repairs.join(' ')).toContain('spaceMm')
@@ -744,10 +749,13 @@ describe('reading back a paper somebody transcribed', () => {
 
   it('says once that sections were dropped, rather than on every question', () => {
     const two = JSON.parse(flattened()) as Record<string, unknown>[]
-    const out = ingestQuestions(JSON.stringify([two[0], { ...two[0], number: 8 }]), ctx({
-      expected: undefined,
-      paper,
-    }))
+    const out = ingestQuestions(
+      JSON.stringify([two[0], { ...two[0], number: 8 }]),
+      ctx({
+        expected: undefined,
+        paper,
+      }),
+    )
 
     expect(out.notes.filter((n) => n.includes('section'))).toHaveLength(1)
     for (const draft of out.drafts) expect(draft.repairs.join(' ')).not.toContain('section')

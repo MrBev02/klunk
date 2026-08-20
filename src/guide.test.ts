@@ -154,7 +154,14 @@ describe('criteria', () => {
         'Making a model.',
         'Surveying a niche market.',
       ),
-      page(4, 'Section III', 'Question 14', marked('•  Evaluates thoroughly', '13–15'), 'Answers could include:', 'Timing, cost and materials.'),
+      page(
+        4,
+        'Section III',
+        'Question 14',
+        marked('•  Evaluates thoroughly', '13–15'),
+        'Answers could include:',
+        'Timing, cost and materials.',
+      ),
     ])
     expect(guide.entries[0]!.sampleAnswer).toBe('Making a model. Surveying a niche market.')
     expect(guide.entries[1]!.sampleAnswer).toBe('Timing, cost and materials.')
@@ -180,7 +187,10 @@ describe('the mapping grid', () => {
 
   it('reads number, marks, content and outcomes without needing the column positions', () => {
     const guide = extractGuide([
-      grid('   1      1     Design factors                  H1.1', '  10      1     Marketing strategies            H3.2, H6.2'),
+      grid(
+        '   1      1     Design factors                  H1.1',
+        '  10      1     Marketing strategies            H3.2, H6.2',
+      ),
     ])
     expect(guide.mapping).toEqual([
       { number: 1, marks: 1, content: 'Design factors', outcomes: ['H1.1'] },
@@ -229,11 +239,7 @@ describe('the mapping grid', () => {
 describe('putting a guide back on its paper', () => {
   const paper = () =>
     extractPaper([
-      page(
-        1,
-        '2019 HIGHER SCHOOL CERTIFICATE EXAMINATION',
-        'Design and Technology',
-      ),
+      page(1, '2019 HIGHER SCHOOL CERTIFICATE EXAMINATION', 'Design and Technology'),
       page(
         2,
         'Section I',
@@ -255,12 +261,7 @@ describe('putting a guide back on its paper', () => {
 
   const guide = () =>
     extractGuide([
-      page(
-        1,
-        'Section I',
-        'Multiple-choice Answer Key',
-        '   1                B',
-      ),
+      page(1, 'Section I', 'Multiple-choice Answer Key', '   1                B'),
       page(
         2,
         'Section II',

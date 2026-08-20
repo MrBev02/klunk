@@ -82,7 +82,10 @@ describe('the answers', () => {
   })
 
   it('leaves an entry with no answer with no answer', () => {
-    const out = readMarking('[{"number": 25, "criteria": [{"marks": 3, "description": "x"}]}]', NONE)
+    const out = readMarking(
+      '[{"number": 25, "criteria": [{"marks": 3, "description": "x"}]}]',
+      NONE,
+    )
     expect(out.entries[0]!.answers).toBeUndefined()
     expect(out.entries[0]!.criteria).toHaveLength(1)
   })
@@ -108,7 +111,10 @@ describe('the answers', () => {
   })
 
   it('reads true and false rather than turning them into letters', () => {
-    const out = readMarking('[{"number": 3, "answer": "True"}, {"number": 4, "answer": false}]', NONE)
+    const out = readMarking(
+      '[{"number": 3, "answer": "True"}, {"number": 4, "answer": false}]',
+      NONE,
+    )
     expect(out.entries[0]).toMatchObject({ number: 3, trueFalse: true })
     expect(out.entries[1]).toMatchObject({ number: 4, trueFalse: false })
     expect(out.entries[0]!.answers).toBeUndefined()
@@ -231,7 +237,9 @@ describe('what it says about itself', () => {
 
   it('rejects an entry with no question number, by position', () => {
     const out = readMarking('[{"answer": "A"}, {"number": 2, "answer": "B"}]', NONE)
-    expect(out.rejected).toEqual([{ at: 0, why: 'no question number, so there is nothing here to mark' }])
+    expect(out.rejected).toEqual([
+      { at: 0, why: 'no question number, so there is nothing here to mark' },
+    ])
     expect(out.entries).toHaveLength(1)
   })
 })

@@ -251,9 +251,7 @@ export function Extractor({
     /** The marking guide was transcribed by an AI rather than read by Klunk. */
     markedByAi?: boolean
     year?: number
-  } | null>(
-    null,
-  )
+  } | null>(null)
   const [discarded, setDiscarded] = useState<string[]>([])
   const [renamed, setRenamed] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
@@ -409,15 +407,19 @@ export function Extractor({
         if (mine.length > 0) cutouts.set(question, mine)
       }
 
-      const adopted = adoptPaper(paper, {
-        bankPath,
-        inFolder: questionIds(index),
-        inBank: new Set(
-          (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
-        ),
-        syllabusId: chosen?.syllabus.id,
-        courseId: chosen?.course.id,
-      }, cutouts)
+      const adopted = adoptPaper(
+        paper,
+        {
+          bankPath,
+          inFolder: questionIds(index),
+          inBank: new Set(
+            (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+          ),
+          syllabusId: chosen?.syllabus.id,
+          courseId: chosen?.course.id,
+        },
+        cutouts,
+      )
 
       const notes = [...paper.notes]
       if (refusedGuide) notes.push(refusedGuide)
@@ -781,7 +783,12 @@ export function Extractor({
         const stimulus = stimulusList(item.question)
         for (const [n, picture] of kept.entries()) {
           const name = `${item.question.id}${kept.length > 1 ? `-${n + 1}` : ''}.png`
-          const written = await copyFileInto(folder, imageDirectory(bankPath), name, picture.cutout.blob)
+          const written = await copyFileInto(
+            folder,
+            imageDirectory(bankPath),
+            name,
+            picture.cutout.blob,
+          )
           stimulus.push({
             at: picture.at,
             item: {
@@ -828,8 +835,8 @@ export function Extractor({
           <span class="step">1</span> Choose the paper
         </p>
         <p class="hint">
-          Both files stay on your computer. Klunk reads them in the browser and sends
-             nothing anywhere.
+          Both files stay on your computer. Klunk reads them in the browser and sends nothing
+          anywhere.
         </p>
 
         <div class="slots">
@@ -895,7 +902,6 @@ export function Extractor({
                 : `Every question is saved tagged against ${chosen.syllabus.name}, ${chosen.course.name}.`}
             </p>
           </Field>
-
         </div>
 
         <div class="rowbtns">
@@ -948,14 +954,11 @@ export function Extractor({
       {read && (
         <section class="panel">
           <p class="panel__title">
-            <span class="step">
-              {2 + (transcribe ? 1 : 0) + (markingAsk ? 1 : 0)}
-            </span>{' '}
-            Review every question before saving
+            <span class="step">{2 + (transcribe ? 1 : 0) + (markingAsk ? 1 : 0)}</span> Review every
+            question before saving
           </p>
           <p class="hint">
-            Check each question against the paper. Anything Klunk was unsure about is
-               flagged below.
+            Check each question against the paper. Anything Klunk was unsure about is flagged below.
           </p>
 
           {read.notes.length > 0 && (
@@ -986,7 +989,11 @@ export function Extractor({
               </select>
             </Field>
 
-            <Field label="Year" for="ex-year" hint="So Klunk can warn that students may have seen one">
+            <Field
+              label="Year"
+              for="ex-year"
+              hint="So Klunk can warn that students may have seen one"
+            >
               <input
                 id="ex-year"
                 class="input"
@@ -1073,9 +1080,7 @@ export function Extractor({
                 }
                 saved={alreadySaved.has(savedAs(item))}
                 savedAs={renamed[item.question.id]}
-                onEdit={() =>
-                  onEdit({ question: item.question, file: bankPath, fresh: true })
-                }
+                onEdit={() => onEdit({ question: item.question, file: bankPath, fresh: true })}
                 onDiscard={() => setDiscarded((d) => [...d, item.question.id])}
               />
             ))}
@@ -1103,8 +1108,7 @@ export function Extractor({
               </button>
               {stuck > 0 && (
                 <p class="hint">
-                  {stuck} of these cannot be saved from here. Open one in the editor to
-                  finish it.
+                  {stuck} of these cannot be saved from here. Open one in the editor to finish it.
                 </p>
               )}
             </div>
@@ -1277,12 +1281,12 @@ function TranscribePanel({
       </p>
 
       <p class="hint">
-        Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste
-           the reply into the box below.
+        Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste the reply
+        into the box below.
       </p>
       <p class="hint">
-        You attach the paper yourself, so all of it leaves your computer. Klunk cannot read
-           it to show you first.
+        You attach the paper yourself, so all of it leaves your computer. Klunk cannot read it to
+        show you first.
       </p>
 
       <div class="slots">
@@ -1295,7 +1299,11 @@ function TranscribePanel({
             onInput={(e) => onExamination((e.target as HTMLInputElement).value)}
           />
         </Field>
-        <Field label="Year" for="tr-year" hint="Printed on every question, so it can be found again.">
+        <Field
+          label="Year"
+          for="tr-year"
+          hint="Printed on every question, so it can be found again."
+        >
           <input
             id="tr-year"
             class="input"
@@ -1420,58 +1428,57 @@ function MarkingPanel({
           holding a marking guide would be left with no route and no reason. */}
       {prompt === '' ? (
         <p class="missing">
-          None of the questions read from this paper carries a question number, so nothing
-             in the marking guide can be matched to them. Set the answers yourself as you
-             check each question.
+          None of the questions read from this paper carries a question number, so nothing in the
+          marking guide can be matched to them. Set the answers yourself as you check each question.
         </p>
       ) : (
         <>
-      <p class="hint">
-        Copy the prompt, attach {guidePath} in whatever AI your school pays for, and paste
-           the reply into the box below.
-      </p>
-      <p class="hint">
-        You attach the marking guide yourself, so all of it leaves your computer. The
-           questions stay here: the prompt lists their numbers and marks only.
-      </p>
+          <p class="hint">
+            Copy the prompt, attach {guidePath} in whatever AI your school pays for, and paste the
+            reply into the box below.
+          </p>
+          <p class="hint">
+            You attach the marking guide yourself, so all of it leaves your computer. The questions
+            stay here: the prompt lists their numbers and marks only.
+          </p>
 
-      <div class="panel__head panel__head--sub">
-        <p class="panel__title">The prompt</p>
-        <CopyButton text={prompt} />
-      </div>
-      <pre class="promptbox">{prompt}</pre>
+          <div class="panel__head panel__head--sub">
+            <p class="panel__title">The prompt</p>
+            <CopyButton text={prompt} />
+          </div>
+          <pre class="promptbox">{prompt}</pre>
 
-      <Field label="Paste the reply here" for="mg-reply">
-        <textarea
-          id="mg-reply"
-          class="input"
-          rows={6}
-          value={pasted}
-          placeholder="Paste the whole reply, code block and all."
-          onInput={(e) => onPasted((e.target as HTMLTextAreaElement).value)}
-        />
-      </Field>
+          <Field label="Paste the reply here" for="mg-reply">
+            <textarea
+              id="mg-reply"
+              class="input"
+              rows={6}
+              value={pasted}
+              placeholder="Paste the whole reply, code block and all."
+              onInput={(e) => onPasted((e.target as HTMLTextAreaElement).value)}
+            />
+          </Field>
 
-      {failed && (
-        <div class="panel panel--alert">
-          <p>{failed}</p>
-        </div>
-      )}
+          {failed && (
+            <div class="panel panel--alert">
+              <p>{failed}</p>
+            </div>
+          )}
 
-      {done && !failed && (
-        <div class="panel panel--ok">
-          <p>{done}</p>
-        </div>
-      )}
+          {done && !failed && (
+            <div class="panel panel--ok">
+              <p>{done}</p>
+            </div>
+          )}
 
-      <div class="panel__act">
-        <button class="btn" onClick={onSkip}>
-          {done ? 'Done with the marking guide' : 'Set the answers myself'}
-        </button>
-        <button class="btn btn--primary" disabled={!pasted.trim()} onClick={onRead}>
-          Read the reply
-        </button>
-      </div>
+          <div class="panel__act">
+            <button class="btn" onClick={onSkip}>
+              {done ? 'Done with the marking guide' : 'Set the answers myself'}
+            </button>
+            <button class="btn btn--primary" disabled={!pasted.trim()} onClick={onRead}>
+              Read the reply
+            </button>
+          </div>
         </>
       )}
     </section>
@@ -1541,9 +1548,8 @@ function ExtractedCard({
       {savedAs && (
         <div class="draft__note">
           <p>
-            <span class="mono">{q.id}</span> had been taken since you opened this folder,
-            so this went in as <span class="mono">{savedAs}</span> rather than replacing
-            theirs.
+            <span class="mono">{q.id}</span> had been taken since you opened this folder, so this
+            went in as <span class="mono">{savedAs}</span> rather than replacing theirs.
           </p>
         </div>
       )}
@@ -1555,19 +1561,22 @@ function ExtractedCard({
             {item.pictures.length === 1 ? '' : 's'} will be saved with this question
           </p>
           <p class="hint">
-            Drop any picture that is not part of the question. Klunk cuts these from the
-               page, so some will be wrong.
+            Drop any picture that is not part of the question. Klunk cuts these from the page, so
+            some will be wrong.
           </p>
           {parts.length > 0 && (
             <p class="hint">
-              Choose the part a picture belongs to. Klunk reads the parts, not where a
-              picture sits between them.
+              Choose the part a picture belongs to. Klunk reads the parts, not where a picture sits
+              between them.
             </p>
           )}
           <ul class="cutouts">
             {item.pictures.map((picture, n) => (
               <li key={n} class={picture.keep ? '' : 'cutouts--dropped'}>
-                <img src={picture.cutout.url} alt={`Picture ${n + 1} from page ${picture.cutout.region.page}`} />
+                <img
+                  src={picture.cutout.url}
+                  alt={`Picture ${n + 1} from page ${picture.cutout.region.page}`}
+                />
                 <button class="btn btn--small" onClick={() => onTogglePicture(n)} disabled={saved}>
                   {picture.keep ? 'Drop this one' : 'Keep it after all'}
                 </button>

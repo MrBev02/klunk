@@ -57,8 +57,22 @@ describeIfPresent('IB DP Design Technology subject guide', () => {
     // The same numbers the syllabus map gives, counted off the guide's own
     // Overview table and its numbered understandings.
     expect(summarise((await read()).courses)).toEqual([
-      { courseId: 'sl', courseName: 'Standard level', topics: 13, points: 79, outcomes: 0, groups: THEMES },
-      { courseId: 'hl', courseName: 'Higher level', topics: 24, points: 161, outcomes: 0, groups: THEMES },
+      {
+        courseId: 'sl',
+        courseName: 'Standard level',
+        topics: 13,
+        points: 79,
+        outcomes: 0,
+        groups: THEMES,
+      },
+      {
+        courseId: 'hl',
+        courseName: 'Higher level',
+        topics: 24,
+        points: 161,
+        outcomes: 0,
+        groups: THEMES,
+      },
     ])
   })
 

@@ -68,7 +68,9 @@ describe('the worked example', () => {
   it('shows no correctAnswer anywhere, because a question paper prints none', () => {
     for (const q of exampleIn(prompt) as Record<string, unknown>[]) {
       expect(q['correctAnswer']).toBeUndefined()
-      expect((q['config'] as Record<string, unknown> | undefined)?.['correctAnswer']).toBeUndefined()
+      expect(
+        (q['config'] as Record<string, unknown> | undefined)?.['correctAnswer'],
+      ).toBeUndefined()
     }
     expect(prompt).toMatch(/only if the paper states the answer/i)
   })

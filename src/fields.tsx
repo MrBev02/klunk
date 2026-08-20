@@ -155,7 +155,9 @@ export function DocumentOptions({
       {grouped.unknown.length > 0 && (
         <optgroup label="Not opened yet">{options(grouped.unknown)}</optgroup>
       )}
-      {grouped.other.length > 0 && <optgroup label={labels.other}>{options(grouped.other)}</optgroup>}
+      {grouped.other.length > 0 && (
+        <optgroup label={labels.other}>{options(grouped.other)}</optgroup>
+      )}
     </>
   )
 }
@@ -253,7 +255,13 @@ export function TopicChipLabel({ topic }: { topic: SyllabusTopic }) {
  * What was copied stops being what is on screen the moment the text changes, so
  * the confirmation clears with it.
  */
-export function CopyButton({ text, label = 'Copy to clipboard' }: { text: string; label?: string }) {
+export function CopyButton({
+  text,
+  label = 'Copy to clipboard',
+}: {
+  text: string
+  label?: string
+}) {
   const [said, setSaid] = useState('')
 
   useEffect(() => setSaid(''), [text])
@@ -307,9 +315,7 @@ export function Faults({ faults, pathFault }: { faults: Check[]; pathFault: stri
   return (
     <section class={`panel ${blocking > 0 ? 'panel--alert' : 'panel--note'}`}>
       <p class="panel__title">
-        {blocking > 0
-          ? `${blocking} thing${blocking === 1 ? '' : 's'} to fix`
-          : 'Worth knowing'}
+        {blocking > 0 ? `${blocking} thing${blocking === 1 ? '' : 's'} to fix` : 'Worth knowing'}
       </p>
       {pathFault && (
         <ul class="plain">

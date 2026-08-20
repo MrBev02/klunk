@@ -549,7 +549,10 @@ code,
   border-radius: var(--r);
   background: var(--paper-raised);
   cursor: pointer;
-  transition: border-color 0.12s, background 0.12s, transform 0.06s;
+  transition:
+    border-color 0.12s,
+    background 0.12s,
+    transform 0.06s;
   /* A full-size button stands beside a full-size box often enough that the two
      have to be the same height on purpose rather than by coincidence of
      padding, which is what they were. */
@@ -908,7 +911,9 @@ textarea.input {
   color: var(--ink-faint);
   border-color: transparent;
   background: none;
-  transition: color 0.12s, border-color 0.12s;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .qrow__line:hover .qrow__drop {

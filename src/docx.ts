@@ -117,12 +117,7 @@ interface Entry {
   localAt: number
 }
 
-function findEntry(
-  view: DataView,
-  directoryAt: number,
-  count: number,
-  name: string,
-): Entry | null {
+function findEntry(view: DataView, directoryAt: number, count: number, name: string): Entry | null {
   const wanted = new TextEncoder().encode(name)
   let at = directoryAt
 

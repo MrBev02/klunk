@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  emptyManifest,
-  entryFor,
-  groupFor,
-  historyOf,
-  note,
-  prune,
-  readManifest,
-} from './manifest'
+import { emptyManifest, entryFor, groupFor, historyOf, note, prune, readManifest } from './manifest'
 import type { Manifest } from './types'
 
 const DAY = '2026-08-08'

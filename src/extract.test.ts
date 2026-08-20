@@ -302,7 +302,14 @@ describe('Section I objective questions', () => {
 
   it('says so when a question does not have four options', () => {
     const paper = extractPaper([
-      page(2, 'Section I', stem(1, 'Only three offered?'), '     A.     One', '     B.     Two', '     C.     Three'),
+      page(
+        2,
+        'Section I',
+        stem(1, 'Only three offered?'),
+        '     A.     One',
+        '     B.     Two',
+        '     C.     Three',
+      ),
     ])
     expect(paper.questions[0]!.notes.join(' ')).toMatch(/Read 3 options rather than four/)
   })
@@ -573,11 +580,7 @@ describe('the variants that break a naive parser', () => {
         '2221',
         '– 4 –',
       ),
-      page(
-        5,
-        'Question 11 (5 marks)',
-        marked('(a)   Outline one benefit of the design shown.', 5),
-      ),
+      page(5, 'Question 11 (5 marks)', marked('(a)   Outline one benefit of the design shown.', 5)),
     ])
 
     expect(paper.questions).toHaveLength(1)
@@ -612,7 +615,15 @@ describe('the variants that break a naive parser', () => {
         'Section II – 15 marks (pages 5–7)',
         'Section III – 15 marks (page 9)',
       ),
-      page(2, 'Section I', '1    A real question?', '     A.     One', '     B.     Two', '     C.     Three', '     D.     Four'),
+      page(
+        2,
+        'Section I',
+        '1    A real question?',
+        '     A.     One',
+        '     B.     Two',
+        '     C.     Three',
+        '     D.     Four',
+      ),
     ])
     expect(paper.questions).toHaveLength(1)
     expect(paper.questions[0]!.section).toBe('I')
@@ -662,7 +673,9 @@ describe('what the teacher is told to check', () => {
   })
 
   it('reports a continuation whose question was never seen', () => {
-    const paper = extractPaper([page(7, 'Section II', 'Question 11 (continued)', '(b)   Second half.   3')])
+    const paper = extractPaper([
+      page(7, 'Section II', 'Question 11 (continued)', '(b)   Second half.   3'),
+    ])
     expect(paper.notes.join(' ')).toMatch(/no Question 11 had been read yet/)
   })
 })
@@ -734,9 +747,27 @@ describe('the shapes a Biology paper printed first', () => {
     // alone, so eleven years of corpus never showed this — and the whole of
     // Section II was read as multiple choice, losing every part and every mark.
     const paper = extractPaper([
-      page(2, 'Section I', stem(1, 'A question?'), '     A.  One', '     B.  Two', '     C.  Three', '     D.  Four'),
-      page(13, '2025 HIGHER SCHOOL CERTIFICATE EXAMINATION', 'Centre Number', 'Section II Answer Booklet'),
-      page(14, 'Question 21 (4 marks)', marked('(a)   Outline one process.', 2), marked('(b)   Outline another.', 2)),
+      page(
+        2,
+        'Section I',
+        stem(1, 'A question?'),
+        '     A.  One',
+        '     B.  Two',
+        '     C.  Three',
+        '     D.  Four',
+      ),
+      page(
+        13,
+        '2025 HIGHER SCHOOL CERTIFICATE EXAMINATION',
+        'Centre Number',
+        'Section II Answer Booklet',
+      ),
+      page(
+        14,
+        'Question 21 (4 marks)',
+        marked('(a)   Outline one process.', 2),
+        marked('(b)   Outline another.', 2),
+      ),
     ])
     const twentyOne = paper.questions.find((q) => q.number === 21)!
     expect(twentyOne.section).toBe('II')

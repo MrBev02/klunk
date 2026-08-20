@@ -451,14 +451,12 @@ function includedIn(block: Block): string[] | null {
 function finish(courses: Map<string, Building>): SyllabusCourse[] {
   const out = [...courses.values()]
     .filter((c) => c.topics.length > 0)
-    .map(
-      (c): SyllabusCourse => ({
-        id: c.id,
-        name: c.name,
-        outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
-        topics: c.topics,
-      }),
-    )
+    .map((c): SyllabusCourse => ({
+      id: c.id,
+      name: c.name,
+      outcomes: [...c.outcomes].map(([code, text]): SyllabusOutcome => ({ code, text })),
+      topics: c.topics,
+    }))
   if (out.length === 0) {
     throw new NotASyllabusError('no course in this document sets out any content')
   }

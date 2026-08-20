@@ -179,8 +179,7 @@ export function SyllabusReader({
   // What came of this document last time, for the teacher about to read it
   // again. Only ever about one of the folder's own: a picked file has a filename
   // and nothing else, so a match on it would be a coincidence.
-  const history =
-    chosen && chosen.file === null ? historyOf(index.manifest, chosen.path) : ''
+  const history = chosen && chosen.file === null ? historyOf(index.manifest, chosen.path) : ''
 
   const summary = useMemo(() => (found ? summarise(found.courses) : []), [found])
   const problems = useMemo(() => (found ? problemsWith(found.courses) : []), [found])
@@ -347,9 +346,9 @@ export function SyllabusReader({
           <span class="step">1</span> Pick the syllabus document
         </p>
         <p class="hint">
-          Klunk reads a NESA syllabus as a Word document, and the IB Design Technology
-             subject guide as a PDF or its old-to-new syllabus map as a spreadsheet. It works
-             out which kind you have given it.
+          Klunk reads a NESA syllabus as a Word document, and the IB Design Technology subject guide
+          as a PDF or its old-to-new syllabus map as a spreadsheet. It works out which kind you have
+          given it.
         </p>
 
         {documents.length > 0 && (
@@ -382,7 +381,9 @@ export function SyllabusReader({
           onDrop={drop}
         >
           <button class="btn" onClick={() => void pick()}>
-            {documents.length > 0 ? 'Or choose a file on this computer' : 'Choose a file on this computer'}
+            {documents.length > 0
+              ? 'Or choose a file on this computer'
+              : 'Choose a file on this computer'}
           </button>
           <p class="hint">Or drag a syllabus onto this box.</p>
         </div>
@@ -390,12 +391,12 @@ export function SyllabusReader({
         {documents.length === 0 && (
           <>
             <p class="hint">
-              This folder has no syllabus document in it. Choose one from this computer with
-                 the button above.
+              This folder has no syllabus document in it. Choose one from this computer with the
+              button above.
             </p>
             <p class="hint">
-              When NESA offers you Word or PDF, choose Word. Klunk reads a NESA syllabus only
-                 as a Word document.
+              When NESA offers you Word or PDF, choose Word. Klunk reads a NESA syllabus only as a
+              Word document.
             </p>
           </>
         )}
@@ -437,8 +438,8 @@ export function SyllabusReader({
               <span class="step">2</span> Check what was found
             </p>
             <p class="hint">
-              Check the topics below against the document itself. Anything wrong here will be
-                 wrong in every question you tag against it. Klunk read this as{' '}
+              Check the topics below against the document itself. Anything wrong here will be wrong
+              in every question you tag against it. Klunk read this as{' '}
               {FORMAT_DESCRIPTIONS[found.format]}.
             </p>
 
@@ -464,16 +465,16 @@ export function SyllabusReader({
 
             {found.courses.every((c) => c.topics.every((t) => (t.outcomes ?? []).length === 0)) && (
               <p class="hint">
-                This syllabus sets its outcomes against the course rather than against each
-                   topic, so no topic below lists any. When you write a question, Klunk offers
-                   you every outcome in the course.
+                This syllabus sets its outcomes against the course rather than against each topic,
+                so no topic below lists any. When you write a question, Klunk offers you every
+                outcome in the course.
               </p>
             )}
 
             <p class="hint">
-              Open a topic to see its content points, and use Fix this topic to change
-                 anything that came out wrong. Nothing is written into your folder until you
-                 save at the bottom of this page.
+              Open a topic to see its content points, and use Fix this topic to change anything that
+              came out wrong. Nothing is written into your folder until you save at the bottom of
+              this page.
             </p>
           </section>
 
@@ -554,19 +555,18 @@ export function SyllabusReader({
 
           {edition.trim() === '' && (
             <p class="hint">
-              Two editions of a subject can run at once, with Year 11 on the new syllabus
-                 while Year 12 finishes the old one. Filling this in is what tells your two
-                 models apart later.
+              Two editions of a subject can run at once, with Year 11 on the new syllabus while Year
+              12 finishes the old one. Filling this in is what tells your two models apart later.
             </p>
           )}
 
           {clash && replacing !== null && replacing.questions > 0 && (
             <p class="setup__problem">
               {replacing.questions} question{replacing.questions === 1 ? '' : 's'} in this folder
-                 {replacing.questions === 1 ? ' is' : ' are'} tagged against something this model
-                 does not have. Saving replaces <code>{outPath}</code>, and those tags stop
-                 matching anything: {nameSome(replacing.inUse)}. Klunk does not retag the
-                 questions for you, so open them afterwards and tag them again.
+              {replacing.questions === 1 ? ' is' : ' are'} tagged against something this model does
+              not have. Saving replaces <code>{outPath}</code>, and those tags stop matching
+              anything: {nameSome(replacing.inUse)}. Klunk does not retag the questions for you, so
+              open them afterwards and tag them again.
             </p>
           )}
 
@@ -582,18 +582,17 @@ export function SyllabusReader({
 
           {clash && replacing === null && (
             <p class="setup__problem">
-              This folder already has a syllabus with the id <code>{id}</code>, and saving
-                 replaces it. Klunk could not read the one already there, so it cannot tell you
-                 what the questions tagged against it lose. For a different subject, change the
-                 id above.
+              This folder already has a syllabus with the id <code>{id}</code>, and saving replaces
+              it. Klunk could not read the one already there, so it cannot tell you what the
+              questions tagged against it lose. For a different subject, change the id above.
             </p>
           )}
 
           {problems.length > 0 && (
             <div class="panel panel--alert">
               <p class="panel__title">
-                {problems.length} thing{problems.length === 1 ? '' : 's'} to fix before this can
-                be saved
+                {problems.length} thing{problems.length === 1 ? '' : 's'} to fix before this can be
+                saved
               </p>
               <ul class="plain">
                 {problems.map((p, i) => (

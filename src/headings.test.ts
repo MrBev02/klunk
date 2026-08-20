@@ -102,7 +102,12 @@ const STAGES = body(
   heading('Heading1', 'Example Technology 7–10 (2022)'),
   heading('Heading2', 'Table of outcomes'),
   table(
-    row(cell('Focus area'), cell('Stage 4'), cell('Stage 5'), cell('Related Life Skills for Stages 4/5')),
+    row(
+      cell('Focus area'),
+      cell('Stage 4'),
+      cell('Stage 5'),
+      cell('Related Life Skills for Stages 4/5'),
+    ),
     row(
       cell('First focus area'),
       cell('teachers may adjust the Stage 5 outcomes EX4-ADJ-01'),
@@ -409,7 +414,9 @@ describe('parseHeadingsXml on the 7–10 shape', () => {
   })
 
   it('lets no Life Skills content reach a stage', () => {
-    const points = courses.flatMap((c) => c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)))
+    const points = courses.flatMap((c) =>
+      c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)),
+    )
     expect(points).not.toContain('A Life Skills point that must not reach any course')
   })
 
@@ -506,7 +513,9 @@ describe('parseHeadingsXml on the 2017 science shape', () => {
     // other icon carries, so both spellings have to reduce to one capability,
     // and what is stored is the document's own heading rather than the alt text.
     expect(sub?.capabilities).toEqual(['Literacy', 'Work and Enterprise'])
-    expect(topic?.points?.find((p) => p.text === 'the second sub-item')?.capabilities).toBeUndefined()
+    expect(
+      topic?.points?.find((p) => p.text === 'the second sub-item')?.capabilities,
+    ).toBeUndefined()
   })
 
   it('lifts the inquiry question onto the topic, and its capability with it', () => {
@@ -556,7 +565,9 @@ describe('parseHeadingsXml on the boxed shape', () => {
     // the shape rather than the word would put NESA's licence terms into the
     // model as content — and here it is in the front matter, so it would need
     // only a course section growing one to arrive.
-    const texts = courses.flatMap((c) => c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)))
+    const texts = courses.flatMap((c) =>
+      c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)),
+    )
     expect(texts.filter((t) => /licence|NSW government schools/i.test(t))).toEqual([])
   })
 
@@ -643,7 +654,9 @@ describe('parseProseXml', () => {
   })
 
   it('reads only the numbered content section', () => {
-    const points = courses.flatMap((c) => c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)))
+    const points = courses.flatMap((c) =>
+      c.topics.flatMap((t) => (t.points ?? []).map((p) => p.text)),
+    )
     expect(points).not.toContain('Not content: this section is before the content section.')
     expect(points).not.toContain('Not content: the content section has ended.')
   })

@@ -44,9 +44,7 @@ describe.skipIf(!available)('a numbered multiple-choice paper', () => {
     const paper = readObjectivePaper(await open(PAPER))
 
     expect(paper.questions).toHaveLength(30)
-    expect(paper.questions.map((q) => q.number)).toEqual(
-      paper.questions.map((_, i) => i + 1),
-    )
+    expect(paper.questions.map((q) => q.number)).toEqual(paper.questions.map((_, i) => i + 1))
     expect(paper.questions.every((q) => q.marks === 1)).toBe(true)
     expect(paper.questions.reduce((sum, q) => sum + q.marks, 0)).toBe(30)
   })
@@ -54,8 +52,14 @@ describe.skipIf(!available)('a numbered multiple-choice paper', () => {
   it('reads four options on every question, labelled A to D', async () => {
     const paper = readObjectivePaper(await open(PAPER))
     for (const q of paper.questions) {
-      expect(q.options?.map((o) => o.label), `Q${q.number}`).toEqual(['A', 'B', 'C', 'D'])
-      expect(q.options?.every((o) => o.text.trim() !== ''), `Q${q.number}`).toBe(true)
+      expect(
+        q.options?.map((o) => o.label),
+        `Q${q.number}`,
+      ).toEqual(['A', 'B', 'C', 'D'])
+      expect(
+        q.options?.every((o) => o.text.trim() !== ''),
+        `Q${q.number}`,
+      ).toBe(true)
     }
   })
 
@@ -115,7 +119,10 @@ describe.skipIf(!available)('its markscheme', () => {
     expect(marked.questions).toHaveLength(30)
     for (const q of marked.questions) {
       expect(q.answer, `Q${q.number}`).toBeDefined()
-      expect(q.options?.some((o) => o.label === q.answer), `Q${q.number}`).toBe(true)
+      expect(
+        q.options?.some((o) => o.label === q.answer),
+        `Q${q.number}`,
+      ).toBe(true)
       expect(q.notes, `Q${q.number}`).toEqual([])
     }
 

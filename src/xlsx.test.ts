@@ -129,7 +129,9 @@ describe('readWorkbook', () => {
     // Excel writes no `<row>` at all for a blank line, so without the row
     // number two blocks either side of a gap become adjacent.
     const [mapping] = await readWorkbook(
-      book('<row r="1"><c r="A1" t="s"><v>0</v></c></row><row r="4"><c r="A4" t="s"><v>3</v></c></row>'),
+      book(
+        '<row r="1"><c r="A1" t="s"><v>0</v></c></row><row r="4"><c r="A4" t="s"><v>3</v></c></row>',
+      ),
     )
 
     expect(mapping!.rows).toHaveLength(4)
@@ -138,7 +140,9 @@ describe('readWorkbook', () => {
 
   it('reads inline and numeric cells as text', async () => {
     const [mapping] = await readWorkbook(
-      book('<row r="1"><c r="A1" t="inlineStr"><is><t>50 hours</t></is></c><c r="B1"><v>33</v></c></row>'),
+      book(
+        '<row r="1"><c r="A1" t="inlineStr"><is><t>50 hours</t></is></c><c r="B1"><v>33</v></c></row>',
+      ),
     )
 
     expect(mapping!.rows[0]).toEqual(['50 hours', '33'])
@@ -152,9 +156,7 @@ describe('readWorkbook', () => {
   })
 
   it('refuses a file that is not a zip, in the words of the file it was given', async () => {
-    await expect(readWorkbook(new Blob(['not a spreadsheet']))).rejects.toThrow(
-      /not a spreadsheet/,
-    )
+    await expect(readWorkbook(new Blob(['not a spreadsheet']))).rejects.toThrow(/not a spreadsheet/)
   })
 
   it('refuses a zip with no workbook part', async () => {
@@ -178,7 +180,15 @@ describe('carryDown', () => {
   })
 
   it('leaves a column it was not asked about alone', () => {
-    expect(carryDown([['a', 'b'], ['', '']], [0])).toEqual([
+    expect(
+      carryDown(
+        [
+          ['a', 'b'],
+          ['', ''],
+        ],
+        [0],
+      ),
+    ).toEqual([
       ['a', 'b'],
       ['a', ''],
     ])

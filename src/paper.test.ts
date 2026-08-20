@@ -101,10 +101,7 @@ function indexWith(questions: Question[]): ContentIndex {
 
 /** A paper that satisfies the profile exactly. */
 function goodPaper(): { index: ContentIndex; paper: Paper } {
-  const questions = [
-    ...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)),
-    written('f', 15),
-  ]
+  const questions = [...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), written('f', 15)]
   const index = indexWith(questions)
   let paper = newPaper(profile, 'p1', 'Test')
   for (const id of ['a', 'b', 'c', 'd', 'e']) {
@@ -143,7 +140,9 @@ describe('resolvePaper', () => {
     const overridden: Paper = {
       ...paper,
       sections: paper.sections.map((s, i) =>
-        i === 1 ? { ...s, refs: [{ file: 'bank/test.json', questionId: 'f', marksOverride: 10 }] } : s,
+        i === 1
+          ? { ...s, refs: [{ file: 'bank/test.json', questionId: 'f', marksOverride: 10 }] }
+          : s,
       ),
     }
     const resolved = resolvePaper(index, overridden, profile)
@@ -633,12 +632,9 @@ describe('pickableQuestions', () => {
   const paper = newPaper(designProfile, 'p1', 'Test')
 
   it('offers only the subject the paper assesses', () => {
-    const ids = pickableQuestions(
-      twoSubjects(),
-      paper,
-      written15,
-      designProfile.syllabusId,
-    ).map((r) => r.question.id)
+    const ids = pickableQuestions(twoSubjects(), paper, written15, designProfile.syllabusId).map(
+      (r) => r.question.id,
+    )
 
     // The Textiles question is gone; the untagged one stays, because nothing
     // about it rules it out.
@@ -666,12 +662,9 @@ describe('pickableQuestions', () => {
 
   it('drops a question already somewhere on the paper', () => {
     const used = addRef(paper, 1, 'bank/design.json#dt-written')
-    const ids = pickableQuestions(
-      twoSubjects(),
-      used,
-      written15,
-      designProfile.syllabusId,
-    ).map((r) => r.question.id)
+    const ids = pickableQuestions(twoSubjects(), used, written15, designProfile.syllabusId).map(
+      (r) => r.question.id,
+    )
     expect(ids).toEqual(['loose-written'])
   })
 })
@@ -779,10 +772,7 @@ describe('addRef out of range', () => {
 describe('rowAnswers', () => {
   const row = {
     label: 'Chopping board',
-    cells: [
-      { answers: ['High density polyethylene', 'HDPE'] },
-      { answers: ['Non-porous'] },
-    ],
+    cells: [{ answers: ['High density polyethylene', 'HDPE'] }, { answers: ['Non-porous'] }],
     marks: 2,
   }
 
@@ -950,7 +940,7 @@ describe('shuffledMatching', () => {
     }
   })
 
-  it('leaves the numbered column in the teacher\'s own order', () => {
+  it("leaves the numbered column in the teacher's own order", () => {
     // Only the letters move. The numbers carry the question's sense.
     for (const id of ['a', 'b', 'c', 'd']) {
       expect(shuffledMatching(matching(id)).items.map((i) => i.text)).toEqual([
@@ -966,7 +956,10 @@ describe('shuffledMatching', () => {
     const q = matching('many')
     q.config = {
       ...q.config,
-      items: [{ text: 'Compressed', matches: [3, 1] }, { text: 'Audio', matches: [0] }],
+      items: [
+        { text: 'Compressed', matches: [3, 1] },
+        { text: 'Audio', matches: [0] },
+      ],
     }
     const { items, options } = shuffledMatching(q)
     const letters = items[0]?.letters ?? []
@@ -993,10 +986,7 @@ describe('editing', () => {
   it('moves a question and leaves the others in order', () => {
     const { paper } = goodPaper()
     const moved = moveRef(paper, 0, 0, 1)
-    expect(moved.sections[0]?.refs.slice(0, 2)).toEqual([
-      'bank/test.json#b',
-      'bank/test.json#a',
-    ])
+    expect(moved.sections[0]?.refs.slice(0, 2)).toEqual(['bank/test.json#b', 'bank/test.json#a'])
   })
 
   it('refuses to move past the ends', () => {
@@ -1029,7 +1019,9 @@ describe('surviving a moved or renamed bank', () => {
     expect(resolved.relocated.length).toBeGreaterThan(0)
     // Recovered, and said so, rather than silently or not at all.
     const checks = checkPaper(resolved)
-    expect(checks.some((c) => c.severity === 'warning' && c.message.includes('archive/2026/test.json'))).toBe(true)
+    expect(
+      checks.some((c) => c.severity === 'warning' && c.message.includes('archive/2026/test.json')),
+    ).toBe(true)
     expect(checks.filter((c) => c.severity === 'error')).toEqual([])
   })
 
@@ -1112,9 +1104,7 @@ describe('paperIsDirty', () => {
     // Nothing stops a teacher opening papers/p1.json in an editor. Key order is
     // not part of what a paper says, so a reordered file is not a change — and
     // an indicator that says otherwise can never be cleared.
-    const reordered = Object.fromEntries(
-      Object.entries(paper).reverse(),
-    ) as unknown as Paper
+    const reordered = Object.fromEntries(Object.entries(paper).reverse()) as unknown as Paper
     expect(paperIsDirty(savedAs(index, reordered), paper)).toBe(false)
   })
 
@@ -1124,9 +1114,7 @@ describe('paperIsDirty', () => {
     // JSON.stringify drops it on the way out, so the two must compare equal.
     const onDisk = { ...paper }
     delete (onDisk as { note?: string }).note
-    expect(paperIsDirty(savedAs(index, onDisk), { ...paper, note: undefined } as Paper)).toBe(
-      false,
-    )
+    expect(paperIsDirty(savedAs(index, onDisk), { ...paper, note: undefined } as Paper)).toBe(false)
   })
 
   it('still notices a change buried in a section', () => {

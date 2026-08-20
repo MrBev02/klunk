@@ -41,13 +41,7 @@
     ]
   },
 
-  "questionTypes": [
-    "multiple_choice",
-    "short_answer",
-    "extended_response",
-    "table",
-    "drawing"
-  ],
+  "questionTypes": ["multiple_choice", "short_answer", "extended_response", "table", "drawing"],
 
   "marks": {
     "wholeNumberTotals": true,

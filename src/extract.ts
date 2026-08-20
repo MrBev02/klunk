@@ -756,7 +756,9 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
       }
       close()
       if (!section) {
-        notes.push(`Question ${number} was found before any section heading. It was put in Section I.`)
+        notes.push(
+          `Question ${number} was found before any section heading. It was put in Section I.`,
+        )
       }
       open = {
         number,
@@ -813,7 +815,9 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
     const previous = numbers[i - 1]!
     const current = numbers[i]!
     if (current !== previous + 1) {
-      notes.push(`Question ${previous} is followed by Question ${current}. A question may be missing.`)
+      notes.push(
+        `Question ${previous} is followed by Question ${current}. A question may be missing.`,
+      )
     }
   }
 
@@ -844,7 +848,9 @@ export function extractPaper(pages: PageText[]): ExtractedPaper {
  */
 export function stampSource(
   paper: ExtractedPaper,
-  details: Omit<QuestionSource, 'questionNumber' | 'origin'> & { origin?: QuestionSource['origin'] },
+  details: Omit<QuestionSource, 'questionNumber' | 'origin'> & {
+    origin?: QuestionSource['origin']
+  },
 ): ExtractedPaper {
   const { origin = 'extracted', ...rest } = details
   return {
@@ -884,14 +890,16 @@ function finish(building: Building): ExtractedQuestion {
     question.text = stem
     question.options = options
     if (options.length !== 4) {
-      notes.push(`Read ${options.length} options rather than four. Check this question against the paper.`)
+      notes.push(
+        `Read ${options.length} options rather than four. Check this question against the paper.`,
+      )
     }
     // The teacher is the one who can see the page, and a table is where an
     // option is most easily read into the wrong row (#85). The column headings
     // stay in the stem, so what is on screen is not quite what is on the page.
     if (tabular) {
       notes.push(
-        'These options were printed as a table, and each row\'s cells have been joined into one line. Check them against the paper.',
+        "These options were printed as a table, and each row's cells have been joined into one line. Check them against the paper.",
       )
     }
     return question
@@ -1233,7 +1241,8 @@ function splitOptions(body: Line[]): {
   const spacing =
     labels.length >= 2 ? (labels[0]!.y - labels[labels.length - 1]!.y) / (labels.length - 1) : 0
   const top = labels.length >= 2 ? labels[0]!.y + spacing / 2 : Number.NEGATIVE_INFINITY
-  const bottom = labels.length >= 2 ? labels[labels.length - 1]!.y - spacing / 2 : Number.NEGATIVE_INFINITY
+  const bottom =
+    labels.length >= 2 ? labels[labels.length - 1]!.y - spacing / 2 : Number.NEGATIVE_INFINITY
 
   const stem: Line[] = []
   let tabular = tabularRows
@@ -1274,8 +1283,7 @@ function splitOptions(body: Line[]): {
 
   const options = labels.map((l, at) => ({
     label: l.label,
-    text: cells[at]!
-      .map((c) => c.text)
+    text: cells[at]!.map((c) => c.text)
       .filter(Boolean)
       .join(CELL_JOIN),
   }))

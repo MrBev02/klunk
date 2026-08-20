@@ -42,24 +42,30 @@ describe('a scanned paper holds no text', () => {
   for (const scan of SCANS) {
     const there = have(scan.path)
 
-    it.skipIf(!there)(`${scan.what} has ${scan.pages} pages and no text on any of them`, async () => {
-      const pages = await pagesOf(scan.path)
+    it.skipIf(!there)(
+      `${scan.what} has ${scan.pages} pages and no text on any of them`,
+      async () => {
+        const pages = await pagesOf(scan.path)
 
-      expect(pages).toHaveLength(scan.pages)
-      // Every page, not merely the document as a whole: a single stray piece
-      // anywhere would mean the copier had run text recognition after all, and
-      // the rule would be resting on a document that no longer shows it.
-      for (const page of pages) expect(page.pieces).toHaveLength(0)
-      expect(hasNoText(pages)).toBe(true)
-    })
+        expect(pages).toHaveLength(scan.pages)
+        // Every page, not merely the document as a whole: a single stray piece
+        // anywhere would mean the copier had run text recognition after all, and
+        // the rule would be resting on a document that no longer shows it.
+        for (const page of pages) expect(page.pieces).toHaveLength(0)
+        expect(hasNoText(pages)).toBe(true)
+      },
+    )
 
-    it.skipIf(!there)(`${scan.what} is refused for holding no text, not for its shape`, async () => {
-      const pages = await pagesOf(scan.path)
+    it.skipIf(!there)(
+      `${scan.what} is refused for holding no text, not for its shape`,
+      async () => {
+        const pages = await pagesOf(scan.path)
 
-      expect(() => readPastPaper(pages)).toThrow(NotAPaperError)
-      expect(() => readPastPaper(pages)).toThrow(/holds no text/)
-      expect(() => readMarkingGuide(pages)).toThrow(NotAGuideError)
-      expect(() => readMarkingGuide(pages)).toThrow(/holds no text/)
-    })
+        expect(() => readPastPaper(pages)).toThrow(NotAPaperError)
+        expect(() => readPastPaper(pages)).toThrow(/holds no text/)
+        expect(() => readMarkingGuide(pages)).toThrow(NotAGuideError)
+        expect(() => readMarkingGuide(pages)).toThrow(/holds no text/)
+      },
+    )
   }
 })

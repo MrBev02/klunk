@@ -91,7 +91,8 @@ const LEVEL = /^([1-4])\.\s+(.+?)\s+[A-C][1-4]\.\d+\b/
  * this is checked rather than assumed — the same posture `src/ibdt.ts` takes
  * towards a topic that is half HL.
  */
-const HOURS = /^(Standard level \(SL\) and higher level \(HL\)|Higher level \(HL\)):\s*\d+\s*hours?$/
+const HOURS =
+  /^(Standard level \(SL\) and higher level \(HL\)|Higher level \(HL\)):\s*\d+\s*hours?$/
 
 /** `1.1.5 In design, consideration must be given to work envelopes…`. */
 const UNDERSTANDING = /^(\d+\.\d+\.\d+)\s+(\S.*)$/

@@ -13,20 +13,11 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-01"
-        ],
-        "pointIds": [
-          "HSC-01.07"
-        ]
+        "topicIds": ["HSC-01"],
+        "pointIds": ["HSC-01.07"]
       },
-      "outcomes": [
-        "H1.1"
-      ],
-      "tags": [
-        "factors affecting design",
-        "safety"
-      ],
+      "outcomes": ["H1.1"],
+      "tags": ["factors affecting design", "safety"],
       "source": {
         "origin": "authored"
       },
@@ -62,20 +53,11 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-13"
-        ],
-        "pointIds": [
-          "HSC-13.01"
-        ]
+        "topicIds": ["HSC-13"],
+        "pointIds": ["HSC-13.01"]
       },
-      "outcomes": [
-        "H4.2"
-      ],
-      "tags": [
-        "resources",
-        "selection"
-      ],
+      "outcomes": ["H4.2"],
+      "tags": ["resources", "selection"],
       "source": {
         "origin": "authored"
       },
@@ -118,29 +100,20 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-17"
-        ]
+        "topicIds": ["HSC-17"]
       },
-      "outcomes": [
-        "H5.2"
-      ],
+      "outcomes": ["H5.2"],
       "source": {
         "origin": "authored"
       },
       "config": {
-        "columns": [
-          "Purpose",
-          "Research method"
-        ],
+        "columns": ["Purpose", "Research method"],
         "rows": [
           {
             "label": "Measuring how long a task takes a user",
             "cells": [
               {
-                "answers": [
-                  "Observation"
-                ]
+                "answers": ["Observation"]
               }
             ],
             "marks": 1
@@ -149,10 +122,7 @@
             "label": "Gathering opinions from 200 potential buyers",
             "cells": [
               {
-                "answers": [
-                  "Survey",
-                  "Questionnaire"
-                ]
+                "answers": ["Survey", "Questionnaire"]
               }
             ],
             "marks": 1
@@ -161,10 +131,7 @@
             "label": "Comparing the strength of two materials",
             "cells": [
               {
-                "answers": [
-                  "Testing",
-                  "Experiment"
-                ]
+                "answers": ["Testing", "Experiment"]
               }
             ],
             "marks": 1
@@ -173,10 +140,7 @@
             "label": "Checking a handle is comfortable to hold",
             "cells": [
               {
-                "answers": [
-                  "User trial",
-                  "Testing"
-                ]
+                "answers": ["User trial", "Testing"]
               }
             ],
             "marks": 1
@@ -193,16 +157,10 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-01"
-        ],
-        "pointIds": [
-          "HSC-01.06"
-        ]
+        "topicIds": ["HSC-01"],
+        "pointIds": ["HSC-01.06"]
       },
-      "outcomes": [
-        "H1.1"
-      ],
+      "outcomes": ["H1.1"],
       "stimulus": [
         {
           "kind": "image",
@@ -218,10 +176,7 @@
       "config": {
         "subtype": "sketch",
         "instructions": "Annotate your sketch to identify the ergonomic improvement.",
-        "spaceMm": [
-          160,
-          90
-        ],
+        "spaceMm": [160, 90],
         "grid": false
       },
       "markingGuide": {
@@ -251,18 +206,10 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-20"
-        ]
+        "topicIds": ["HSC-20"]
       },
-      "outcomes": [
-        "H6.2",
-        "H2.2"
-      ],
-      "tags": [
-        "emerging technologies",
-        "extended response"
-      ],
+      "outcomes": ["H6.2", "H2.2"],
+      "tags": ["emerging technologies", "extended response"],
       "source": {
         "origin": "authored"
       },
@@ -300,16 +247,10 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-01"
-        ],
-        "pointIds": [
-          "HSC-01.09"
-        ]
+        "topicIds": ["HSC-01"],
+        "pointIds": ["HSC-01.09"]
       },
-      "outcomes": [
-        "H1.1"
-      ],
+      "outcomes": ["H1.1"],
       "source": {
         "origin": "authored"
       },
@@ -345,13 +286,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-12"
-        ]
+        "topicIds": ["HSC-12"]
       },
-      "outcomes": [
-        "H4.1"
-      ],
+      "outcomes": ["H4.1"],
       "source": {
         "origin": "authored"
       },
@@ -387,16 +324,10 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-01"
-        ],
-        "pointIds": [
-          "HSC-01.10"
-        ]
+        "topicIds": ["HSC-01"],
+        "pointIds": ["HSC-01.10"]
       },
-      "outcomes": [
-        "H1.1"
-      ],
+      "outcomes": ["H1.1"],
       "source": {
         "origin": "authored"
       },
@@ -432,13 +363,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-17"
-        ]
+        "topicIds": ["HSC-17"]
       },
-      "outcomes": [
-        "H5.2"
-      ],
+      "outcomes": ["H5.2"],
       "source": {
         "origin": "authored"
       },
@@ -474,13 +401,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-07"
-        ]
+        "topicIds": ["HSC-07"]
       },
-      "outcomes": [
-        "H3.1"
-      ],
+      "outcomes": ["H3.1"],
       "source": {
         "origin": "authored"
       },
@@ -516,16 +439,10 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-01"
-        ],
-        "pointIds": [
-          "HSC-01.06"
-        ]
+        "topicIds": ["HSC-01"],
+        "pointIds": ["HSC-01.06"]
       },
-      "outcomes": [
-        "H1.1"
-      ],
+      "outcomes": ["H1.1"],
       "source": {
         "origin": "authored"
       },
@@ -561,13 +478,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-06"
-        ]
+        "topicIds": ["HSC-06"]
       },
-      "outcomes": [
-        "H2.2"
-      ],
+      "outcomes": ["H2.2"],
       "source": {
         "origin": "authored"
       },
@@ -603,13 +516,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-20"
-        ]
+        "topicIds": ["HSC-20"]
       },
-      "outcomes": [
-        "H6.2"
-      ],
+      "outcomes": ["H6.2"],
       "source": {
         "origin": "authored"
       },
@@ -645,13 +554,9 @@
       "syllabus": {
         "syllabusId": "nsw-hsc-design-technology",
         "courseId": "hsc",
-        "topicIds": [
-          "HSC-16"
-        ]
+        "topicIds": ["HSC-16"]
       },
-      "outcomes": [
-        "H5.1"
-      ],
+      "outcomes": ["H5.1"],
       "source": {
         "origin": "authored"
       },

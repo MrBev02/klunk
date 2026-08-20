@@ -271,8 +271,7 @@ export function IdentificationFields({
 
       {fields.length === 0 ? (
         <p class="hint">
-          Nothing yet, so the cover prints no boxes at all. Most schools ask for a name and a
-          class.
+          Nothing yet, so the cover prints no boxes at all. Most schools ask for a name and a class.
         </p>
       ) : (
         <IdentificationPreview fields={fields} />
@@ -371,8 +370,7 @@ export function IdentificationFields({
                 <span>
                   Also print this at the top of every page
                   <span class="hint">
-                    For a number that has to be on every sheet once a paper is split up for
-                    marking.
+                    For a number that has to be on every sheet once a paper is split up for marking.
                   </span>
                 </span>
               </label>

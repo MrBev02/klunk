@@ -43,11 +43,41 @@ const SHEET = [
   HEADER,
   // Theme and level are merged down their blocks, so only the first row of
   // each carries them: every row after has them blank.
-  row({ 0: 'A. Making things up', 1: '1. People', 2: 'A1.1 Believability', 3: '1.1.1 A story holds together when nothing in it contradicts anything else.', 4: 'Students must be able to explain why an inconsistency breaks a reader out of a story.', 5: 'SL and HL', 6: '3. Narrative', 9: 'HL only' }),
-  row({ 3: '1.1.2 Detail earns trust.', 4: 'Students must be able to discuss how specific detail makes an invented world credible.', 5: 'SL and HL' }),
-  row({ 1: '2. Process', 2: 'A2.1 Drafting', 3: '2.1.1 A first draft is for finding the shape.', 4: 'Students must be able to outline why a first draft is not a final one.', 5: 'SL and HL' }),
-  row({ 0: 'B. Checking things', 1: '1. People', 2: 'B1.1 Fact-checking (HL only)', 3: '1.1.1 A claim is worth only its source.', 4: 'Students must be able to evaluate a source for reliability.', 5: 'HL' }),
-  row({ 3: '1.1.2 Two sources repeating each other are one source.', 4: 'Students must be able to identify circular sourcing.', 5: 'HL' }),
+  row({
+    0: 'A. Making things up',
+    1: '1. People',
+    2: 'A1.1 Believability',
+    3: '1.1.1 A story holds together when nothing in it contradicts anything else.',
+    4: 'Students must be able to explain why an inconsistency breaks a reader out of a story.',
+    5: 'SL and HL',
+    6: '3. Narrative',
+    9: 'HL only',
+  }),
+  row({
+    3: '1.1.2 Detail earns trust.',
+    4: 'Students must be able to discuss how specific detail makes an invented world credible.',
+    5: 'SL and HL',
+  }),
+  row({
+    1: '2. Process',
+    2: 'A2.1 Drafting',
+    3: '2.1.1 A first draft is for finding the shape.',
+    4: 'Students must be able to outline why a first draft is not a final one.',
+    5: 'SL and HL',
+  }),
+  row({
+    0: 'B. Checking things',
+    1: '1. People',
+    2: 'B1.1 Fact-checking (HL only)',
+    3: '1.1.1 A claim is worth only its source.',
+    4: 'Students must be able to evaluate a source for reliability.',
+    5: 'HL',
+  }),
+  row({
+    3: '1.1.2 Two sources repeating each other are one source.',
+    4: 'Students must be able to identify circular sourcing.',
+    5: 'HL',
+  }),
 ]
 
 function read(rows: string[][]) {
@@ -108,7 +138,13 @@ describe('readIbDesignTechnology', () => {
 
   it('finds the header wherever it sits, and skips the sheets without it', () => {
     const courses = readIbDesignTechnology([
-      { name: 'Tips', rows: [['Tip', "Why It's Useful"], ['Start early', 'Because.']] },
+      {
+        name: 'Tips',
+        rows: [
+          ['Tip', "Why It's Useful"],
+          ['Start early', 'Because.'],
+        ],
+      },
       { name: 'Mapping', rows: SHEET },
     ]).courses
 
@@ -128,7 +164,13 @@ describe('readIbDesignTechnology', () => {
   it('refuses a topic whose understandings disagree about the level of study', () => {
     const mixed = [
       HEADER,
-      row({ 0: 'A. Making things up', 1: '1. People', 2: 'A1.1 Believability', 3: '1.1.1 One.', 5: 'SL and HL' }),
+      row({
+        0: 'A. Making things up',
+        1: '1. People',
+        2: 'A1.1 Believability',
+        3: '1.1.1 One.',
+        5: 'SL and HL',
+      }),
       row({ 3: '1.1.2 Two.', 5: 'HL' }),
     ]
 
@@ -150,7 +192,14 @@ describe('readIbDesignTechnology', () => {
   it('closes an understanding that was published without a full stop', () => {
     const unstopped = [
       HEADER,
-      row({ 0: 'A. Making things up', 1: '1. People', 2: 'A1.1 Believability', 3: '1.1.1 There are four kinds of lie', 4: 'Students must be able to name them.', 5: 'SL and HL' }),
+      row({
+        0: 'A. Making things up',
+        1: '1. People',
+        2: 'A1.1 Believability',
+        3: '1.1.1 There are four kinds of lie',
+        4: 'Students must be able to name them.',
+        5: 'SL and HL',
+      }),
     ]
 
     expect(read(unstopped).courses[0]!.topics[0]!.points![0]!.text).toBe(
@@ -161,7 +210,13 @@ describe('readIbDesignTechnology', () => {
   it('keeps an understanding with no "students must" column', () => {
     const sparse = [
       HEADER,
-      row({ 0: 'A. Making things up', 1: '1. People', 2: 'A1.1 Believability', 3: '1.1.1 One.', 5: 'SL and HL' }),
+      row({
+        0: 'A. Making things up',
+        1: '1. People',
+        2: 'A1.1 Believability',
+        3: '1.1.1 One.',
+        5: 'SL and HL',
+      }),
     ]
 
     expect(read(sparse).courses[0]!.topics[0]!.points![0]!.text).toBe('1.1.1 One.')

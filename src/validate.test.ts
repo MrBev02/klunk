@@ -10,14 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type {
-  Profile,
-  Question,
-  QuestionConfig,
-  QuestionType,
-  School,
-  Syllabus,
-} from './types'
+import type { Profile, Question, QuestionConfig, QuestionType, School, Syllabus } from './types'
 import {
   cleanProfile,
   cleanQuestion,
@@ -160,9 +153,7 @@ describe('question ids', () => {
 
 describe('suggestQuestionId', () => {
   it('names an id after its bank and type', () => {
-    expect(suggestQuestionId('bank/design.json', 'multiple_choice', new Set())).toBe(
-      'design-mc-01',
-    )
+    expect(suggestQuestionId('bank/design.json', 'multiple_choice', new Set())).toBe('design-mc-01')
     expect(suggestQuestionId('preliminary.json', 'extended_response', new Set())).toBe(
       'preliminary-er-01',
     )
@@ -188,9 +179,9 @@ describe('multiple choice', () => {
     expect(errors(mc({ choices: [{ text: 'Only one' }], correctAnswer: 0 })).join(' ')).toContain(
       'at least two options',
     )
-    expect(
-      errors(mc({ choices: [{ text: 'a' }, { text: 'b' }] })).join(' '),
-    ).toContain('Mark one option')
+    expect(errors(mc({ choices: [{ text: 'a' }, { text: 'b' }] })).join(' ')).toContain(
+      'Mark one option',
+    )
   })
 
   it('refuses a correct answer that is not one of the options', () => {
@@ -283,14 +274,18 @@ describe('matching', () => {
     question({ questionType: 'matching', marks: 1, config })
 
   const twoByTwo: QuestionConfig = {
-    items: [{ text: 'Video', matches: [1] }, { text: 'Audio', matches: [0] }],
+    items: [
+      { text: 'Video', matches: [1] },
+      { text: 'Audio', matches: [0] },
+    ],
     options: [{ text: 'MP3' }, { text: 'MP4' }],
   }
 
   it('needs two of each column', () => {
     expect(
-      errors(match({ items: [{ text: 'only one' }], options: [{ text: 'a' }, { text: 'b' }] }))
-        .join(' '),
+      errors(
+        match({ items: [{ text: 'only one' }], options: [{ text: 'a' }, { text: 'b' }] }),
+      ).join(' '),
     ).toContain('at least two numbered items')
     expect(
       errors(match({ items: [{ text: 'a' }, { text: 'b' }], options: [{ text: 'a' }] })).join(' '),
@@ -299,13 +294,17 @@ describe('matching', () => {
 
   it('refuses a link to an option that is not listed', () => {
     expect(
-      errors(match({ ...twoByTwo, items: [{ text: 'Video', matches: [7] }, { text: 'Audio' }] }))
-        .join(' '),
+      errors(
+        match({ ...twoByTwo, items: [{ text: 'Video', matches: [7] }, { text: 'Audio' }] }),
+      ).join(' '),
     ).toContain('not listed')
   })
 
   it('warns rather than refuses when nothing is linked', () => {
-    const q = match({ items: [{ text: 'Video' }, { text: 'Audio' }], options: [{ text: 'MP3' }, { text: 'MP4' }] })
+    const q = match({
+      items: [{ text: 'Video' }, { text: 'Audio' }],
+      options: [{ text: 'MP3' }, { text: 'MP4' }],
+    })
     expect(errors(q)).toEqual([])
     expect(warnings(q).join(' ')).toContain('Nothing is linked')
   })
@@ -326,7 +325,10 @@ describe('matching', () => {
     // "Multiple lines can start and end from any item", printed on the 2024
     // paper. Nothing here may treat the columns as a bijection.
     const q = match({
-      items: [{ text: 'Cheap to run', matches: [0, 1] }, { text: 'Quiet', matches: [1] }],
+      items: [
+        { text: 'Cheap to run', matches: [0, 1] },
+        { text: 'Quiet', matches: [1] },
+      ],
       options: [{ text: 'Electric' }, { text: 'Hybrid' }],
     })
     expect(errors(q)).toEqual([])
@@ -588,7 +590,14 @@ describe('criteria on a part', () => {
         question({
           marks: 2,
           config: {
-            parts: [{ label: 'a', text: 'Outline one.', marks: 2, criteria: [{ marks: 2, description: ' ' }] }],
+            parts: [
+              {
+                label: 'a',
+                text: 'Outline one.',
+                marks: 2,
+                criteria: [{ marks: 2, description: ' ' }],
+              },
+            ],
           },
         }),
       ).join(' '),
@@ -703,9 +712,14 @@ describe('cleanQuestion', () => {
       tags: [' ergonomics ', 'safety'],
       outcomes: ['H1.1'],
       syllabus: { syllabusId: 's', courseId: 'hsc', topicIds: ['HSC-01'], pointIds: ['HSC-01.07'] },
-      markingGuide: { sampleAnswer: ' Because. ', criteria: [{ marks: 4, description: ' Says why. ' }] },
+      markingGuide: {
+        sampleAnswer: ' Because. ',
+        criteria: [{ marks: 4, description: ' Says why. ' }],
+      },
       source: { origin: 'adapted', paper: 'NSW HSC Design and Technology', year: 2019 },
-      stimulus: [{ kind: 'image', file: 'stimulus/handle.png', alt: 'A handle', caption: 'Figure 1' }],
+      stimulus: [
+        { kind: 'image', file: 'stimulus/handle.png', alt: 'A handle', caption: 'Figure 1' },
+      ],
     })
     const cleaned = cleanQuestion(full)
 
@@ -797,9 +811,7 @@ function profile(over: Partial<Profile> = {}): Profile {
     name: 'NSW HSC English Advanced Paper 1',
     paper: {
       totalMarks: 20,
-      sections: [
-        { id: 'I', name: 'Section I', marks: 20, questionTypes: ['short_answer'] },
-      ],
+      sections: [{ id: 'I', name: 'Section I', marks: 20, questionTypes: ['short_answer'] }],
     },
     ...over,
   }
@@ -860,9 +872,7 @@ describe('validateProfile', () => {
     const p = profile({
       paper: {
         totalMarks: 20,
-        sections: [
-          { id: 'I', name: 'Section I', marks: 20, questionCount: 4, minQuestions: 2 },
-        ],
+        sections: [{ id: 'I', name: 'Section I', marks: 20, questionCount: 4, minQuestions: 2 }],
       },
     })
     // The schema permits both. checkPaper reads questionCount first, so the
@@ -880,9 +890,7 @@ describe('validateProfile', () => {
       },
     })
     // Ten at one mark is ten, not twenty: the section could never be filled.
-    expect(messages(p).some((m) => m.includes('is 10, but this section is worth 20'))).toBe(
-      true,
-    )
+    expect(messages(p).some((m) => m.includes('is 10, but this section is worth 20'))).toBe(true)
   })
 
   it('accepts the shape of the real HSC Design and Technology paper', () => {
@@ -910,9 +918,7 @@ describe('validateProfile', () => {
     const p = profile({
       paper: {
         totalMarks: 20,
-        sections: [
-          { id: 'I', name: 'Section I', marks: 20, minQuestions: 4, maxQuestions: 2 },
-        ],
+        sections: [{ id: 'I', name: 'Section I', marks: 20, minQuestions: 4, maxQuestions: 2 }],
       },
     })
     expect(errorsOf(p)).not.toEqual([])
@@ -939,62 +945,62 @@ describe('validateProfile', () => {
    * adding up.
    */
   describe('a marking guide in the shape NESA prints one', () => {
-  it('keeps a band that is several points, and the answers-could-include list', () => {
-    // 2025 HSC Visual Arts Question 1: two points in the top band, and a
-    // ten-point list of what a marker should accept.
-    const cleaned = cleanQuestion(
-      question({
-        questionType: 'extended_response',
-        marks: 5,
-        markingGuide: {
-          criteria: [
-            {
-              marks: 5,
-              description:
-                'Provides a thorough description of Paula Rego’s artmaking practice\n' +
-                'Uses the source material in a well-reasoned way',
-            },
-          ],
-          answersCouldInclude: [
-            'Uses acrylic paint on paper laid on a large canvas',
-            '   ',
-            'Subject matter includes figures in the landscape',
-          ],
-        },
-      }),
-    )
+    it('keeps a band that is several points, and the answers-could-include list', () => {
+      // 2025 HSC Visual Arts Question 1: two points in the top band, and a
+      // ten-point list of what a marker should accept.
+      const cleaned = cleanQuestion(
+        question({
+          questionType: 'extended_response',
+          marks: 5,
+          markingGuide: {
+            criteria: [
+              {
+                marks: 5,
+                description:
+                  'Provides a thorough description of Paula Rego’s artmaking practice\n' +
+                  'Uses the source material in a well-reasoned way',
+              },
+            ],
+            answersCouldInclude: [
+              'Uses acrylic paint on paper laid on a large canvas',
+              '   ',
+              'Subject matter includes figures in the landscape',
+            ],
+          },
+        }),
+      )
 
-    expect(cleaned.markingGuide?.criteria?.[0]?.description).toContain('\n')
-    // The blank a half-filled list leaves behind goes; the rest stays in order.
-    expect(cleaned.markingGuide?.answersCouldInclude).toEqual([
-      'Uses acrylic paint on paper laid on a large canvas',
-      'Subject matter includes figures in the landscape',
-    ])
-  })
-
-  it('counts an answers list as a marking guide, so it is not reported as missing', () => {
-    const q = question({
-      questionType: 'extended_response',
-      marks: 5,
-      markingGuide: { answersCouldInclude: ['Something a marker should accept'] },
+      expect(cleaned.markingGuide?.criteria?.[0]?.description).toContain('\n')
+      // The blank a half-filled list leaves behind goes; the rest stays in order.
+      expect(cleaned.markingGuide?.answersCouldInclude).toEqual([
+        'Uses acrylic paint on paper laid on a large canvas',
+        'Subject matter includes figures in the landscape',
+      ])
     })
-    expect(hasGuide(q)).toBe(true)
-  })
 
-  it('drops the list entirely when nothing is left in it', () => {
-    const cleaned = cleanQuestion(
-      question({
+    it('counts an answers list as a marking guide, so it is not reported as missing', () => {
+      const q = question({
         questionType: 'extended_response',
         marks: 5,
-        markingGuide: { sampleAnswer: 'A response.', answersCouldInclude: ['', '  '] },
-      }),
-    )
-    expect(cleaned.markingGuide?.answersCouldInclude).toBeUndefined()
-    expect(cleaned.markingGuide?.sampleAnswer).toBe('A response.')
-  })
-})
+        markingGuide: { answersCouldInclude: ['Something a marker should accept'] },
+      })
+      expect(hasGuide(q)).toBe(true)
+    })
 
-describe('a section a student chooses from', () => {
+    it('drops the list entirely when nothing is left in it', () => {
+      const cleaned = cleanQuestion(
+        question({
+          questionType: 'extended_response',
+          marks: 5,
+          markingGuide: { sampleAnswer: 'A response.', answersCouldInclude: ['', '  '] },
+        }),
+      )
+      expect(cleaned.markingGuide?.answersCouldInclude).toBeUndefined()
+      expect(cleaned.markingGuide?.sampleAnswer).toBe('A response.')
+    })
+  })
+
+  describe('a section a student chooses from', () => {
     const choice = (over: Partial<Profile['paper']['sections'][number]> = {}) =>
       profile({
         paper: {
@@ -1022,7 +1028,9 @@ describe('a section a student chooses from', () => {
       // rejecting a section that is exactly what the examination prints.
       expect(messages(choice()).some((m) => m.includes('150'))).toBe(false)
       expect(
-        messages(choice({ chooseCount: 2 })).some((m) => m.includes('2 questions at 25 marks is 50')),
+        messages(choice({ chooseCount: 2 })).some((m) =>
+          m.includes('2 questions at 25 marks is 50'),
+        ),
       ).toBe(true)
     })
 
@@ -1207,7 +1215,9 @@ describe('validateSchool', () => {
 
   it('holds the box count to a whole number within what fits', () => {
     expect(
-      errorsIn(validateSchool(school({ identification: [{ label: 'N', kind: 'boxes', boxes: 0 }] }))),
+      errorsIn(
+        validateSchool(school({ identification: [{ label: 'N', kind: 'boxes', boxes: 0 }] })),
+      ),
     ).toHaveLength(1)
     expect(
       errorsIn(
@@ -1313,7 +1323,8 @@ describe('a profile that overrides the identification fields', () => {
         .cover,
     ).toBeUndefined()
     expect(
-      cleanProfile(profile({ paper: { ...base, cover: { marksAwardedColumn: true } } })).paper.cover,
+      cleanProfile(profile({ paper: { ...base, cover: { marksAwardedColumn: true } } })).paper
+        .cover,
     ).toEqual({ marksAwardedColumn: true })
   })
 })
@@ -1327,9 +1338,10 @@ describe('the profiles Klunk ships', () => {
     const profiles = Object.values(bundled) as Profile[]
     expect(profiles.length).toBeGreaterThan(0)
     for (const p of profiles) {
-      expect(validateProfile(p, new Set()).filter((c) => c.severity === 'error'), p.id).toEqual(
-        [],
-      )
+      expect(
+        validateProfile(p, new Set()).filter((c) => c.severity === 'error'),
+        p.id,
+      ).toEqual([])
     }
   })
 

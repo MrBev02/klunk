@@ -31,13 +31,7 @@ import { buildPrompt, outcomesFor } from './prompt'
 import { QuestionDetail } from './question'
 import { hasMarkup } from './richtext'
 import { ProfileInstaller } from './setup'
-import {
-  allQuestions,
-  inSyllabus,
-  questionIds,
-  saveQuestion,
-  type ContentIndex,
-} from './storage'
+import { allQuestions, inSyllabus, questionIds, saveQuestion, type ContentIndex } from './storage'
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
@@ -111,9 +105,7 @@ export function Factory({
 
   const existing = useMemo(
     () =>
-      includeExisting && chosen
-        ? questionsOn(index, chosen.syllabus.id, topicIds, pointIds)
-        : [],
+      includeExisting && chosen ? questionsOn(index, chosen.syllabus.id, topicIds, pointIds) : [],
     [index, chosen, topicIds, pointIds, includeExisting],
   )
 
@@ -201,9 +193,8 @@ export function Factory({
       <section class="panel">
         <p class="panel__title">No syllabus model in this folder</p>
         <p>
-          This tab writes a prompt with your syllabus already in it, so it needs a syllabus
-             model first. Build one from your own copy of the syllabus{' '}
-          <span class="mono">.docx</span> on the
+          This tab writes a prompt with your syllabus already in it, so it needs a syllabus model
+          first. Build one from your own copy of the syllabus <span class="mono">.docx</span> on the
           <strong> Syllabus</strong> tab.
         </p>
       </section>
@@ -217,8 +208,8 @@ export function Factory({
           <span class="step">1</span> Choose what to ask for
         </p>
         <p class="hint">
-          Klunk has no AI in it. It writes the prompt, you take it to whatever your school
-             pays for, and you bring the answer back.
+          Klunk has no AI in it. It writes the prompt, you take it to whatever your school pays for,
+          and you bring the answer back.
         </p>
 
         <div class="fieldrow">
@@ -262,12 +253,7 @@ export function Factory({
           </Field>
 
           <Field label="Marks each" for="pf-marks">
-            <NumField
-              id="pf-marks"
-              value={marks}
-              min={1}
-              onChange={(n) => setMarks(n ?? 1)}
-            />
+            <NumField id="pf-marks" value={marks} min={1} onChange={(n) => setMarks(n ?? 1)} />
           </Field>
 
           <Field label="How many" for="pf-count" hint={`Up to ${MAX_COUNT}`}>
@@ -329,9 +315,7 @@ export function Factory({
               <button
                 class="btn btn--small"
                 onClick={() =>
-                  setPointIds(
-                    chosenPoints.length === points.length ? [] : points.map((p) => p.id),
-                  )
+                  setPointIds(chosenPoints.length === points.length ? [] : points.map((p) => p.id))
                 }
               >
                 {chosenPoints.length === points.length ? 'None' : 'All'}
@@ -384,11 +368,10 @@ export function Factory({
             onChange={(e) => setIncludeExisting((e.target as HTMLInputElement).checked)}
           />
           <span>
-            Send the questions I already have on these topics, so it does not write them
-            again{existing.length > 0 ? ` (${existing.length})` : ''}
+            Send the questions I already have on these topics, so it does not write them again
+            {existing.length > 0 ? ` (${existing.length})` : ''}
           </span>
         </label>
-
       </section>
 
       <PromptStep
@@ -399,15 +382,12 @@ export function Factory({
         noProfile={
           chosen && !profile ? (
             <section class="panel panel--note">
-              <p class="panel__title">
-                No paper profile for {chosen.syllabus.name} in this folder
-              </p>
+              <p class="panel__title">No paper profile for {chosen.syllabus.name} in this folder</p>
               <p>
-                The prompt cannot say where this kind of question sits on the real paper,
-                   and it asks for a general two ruled lines a mark instead of this exam's own
-                   spacing. The course, the topics and the content points all still go in.
-                   Klunk leaves the rest out rather than describing another subject's exam as
-                   though it were this one.
+                The prompt cannot say where this kind of question sits on the real paper, and it
+                asks for a general two ruled lines a mark instead of this exam's own spacing. The
+                course, the topics and the content points all still go in. Klunk leaves the rest out
+                rather than describing another subject's exam as though it were this one.
               </p>
               <ProfileInstaller
                 index={index}
@@ -425,9 +405,9 @@ export function Factory({
           <span class="step">3</span> Paste the answer back
         </p>
         <p class="hint">
-          Paste the whole reply, including any chatter around it. Klunk finds the questions
-             in it, checks them against the same rules the editor uses, and shows you
-             everything it had to change before it writes anything.
+          Paste the whole reply, including any chatter around it. Klunk finds the questions in it,
+          checks them against the same rules the editor uses, and shows you everything it had to
+          change before it writes anything.
         </p>
 
         <textarea
@@ -456,15 +436,13 @@ export function Factory({
           </section>
         )}
 
-        {read && read.notes.length > 0 && (
-          <p class="hint">{read.notes.join(' ')}</p>
-        )}
+        {read && read.notes.length > 0 && <p class="hint">{read.notes.join(' ')}</p>}
 
         {read && read.rejected.length > 0 && (
           <section class="panel panel--alert">
             <p class="panel__title">
-              {read.rejected.length} entr{read.rejected.length === 1 ? 'y was' : 'ies were'}{' '}
-              not a question
+              {read.rejected.length} entr{read.rejected.length === 1 ? 'y was' : 'ies were'} not a
+              question
             </p>
             <ul class="plain">
               {read.rejected.map((r) => (
@@ -508,7 +486,7 @@ export function Factory({
             {pathFault && <p class="missing">{pathFault}</p>}
             <p class="hint">
               The ids below were worked out against that bank. Every question here is tagged{' '}
-                 <span class="mono">{AI_TAG}</span>.
+              <span class="mono">{AI_TAG}</span>.
             </p>
 
             <ul class="plain drafts">
@@ -520,9 +498,7 @@ export function Factory({
                   saved={alreadySaved.has(savedAs(draft))}
                   savedAs={renamed[draft.question.id]}
                   bankPath={bankPath}
-                  onEdit={() =>
-                    onEdit({ question: draft.question, file: bankPath, fresh: true })
-                  }
+                  onEdit={() => onEdit({ question: draft.question, file: bankPath, fresh: true })}
                   onDiscard={() => setDiscarded([...discarded, draft.question.id])}
                 />
               ))}
@@ -540,8 +516,8 @@ export function Factory({
               // the panel meant hunting back past every draft card to find it.
               <div class="panel__act">
                 <p class="hint">
-                  All {live.length} written into <span class="mono">{bankPath}</span>.
-                  They are in the Questions tab now.
+                  All {live.length} written into <span class="mono">{bankPath}</span>. They are in
+                  the Questions tab now.
                 </p>
                 <button class="btn" onClick={clearPaste}>
                   Clear this panel
@@ -562,8 +538,8 @@ export function Factory({
                 </div>
                 {stuck > 0 && (
                   <p class="hint">
-                    {stuck} of these cannot be saved from here. Open one in the editor to
-                    fix it, or discard it.
+                    {stuck} of these cannot be saved from here. Open one in the editor to fix it, or
+                    discard it.
                   </p>
                 )}
               </>
@@ -616,8 +592,8 @@ function PromptStep({
       </div>
 
       <p class="hint">
-        Read this, copy it, and paste it into whatever your school pays for. It is the whole
-           of what leaves your computer.
+        Read this, copy it, and paste it into whatever your school pays for. It is the whole of what
+        leaves your computer.
       </p>
 
       {noProfile}
@@ -627,17 +603,14 @@ function PromptStep({
           <pre class="promptbox">{prompt}</pre>
           <p class="hint">
             Includes {points} content point{points === 1 ? '' : 's'} from your syllabus
-            {stems > 0
-              ? ` and ${stems} of your own question stem${stems === 1 ? '' : 's'}`
-              : ''}
-            .
+            {stems > 0 ? ` and ${stems} of your own question stem${stems === 1 ? '' : 's'}` : ''}.
           </p>
         </>
       ) : (
         <div class="promptbox promptbox--empty">
           {topics === 0
             ? 'Add a topic above and the prompt appears here, with your syllabus in it.'
-               : 'Every content point is unticked, so there is nothing to ask about. Tick at least one.'}
+            : 'Every content point is unticked, so there is nothing to ask about. Tick at least one.'}
         </div>
       )}
     </section>
@@ -680,17 +653,16 @@ function DraftCard({
       </div>
 
       <p class="det__label">
-        <span class="mono">{bankPath}</span> ·{' '}
-        <span class="mono">{savedAs ?? q.id}</span> ·{' '}
+        <span class="mono">{bankPath}</span> · <span class="mono">{savedAs ?? q.id}</span> ·{' '}
         {QUESTION_TYPE_LABELS[q.questionType]} · {q.marks} mark{q.marks === 1 ? '' : 's'}
       </p>
 
       {savedAs && (
         <div class="draft__note">
           <p>
-            <span class="mono">{q.id}</span> had been taken by somebody else since you
-            opened this folder, so this went in as{' '}
-            <span class="mono">{savedAs}</span> rather than replacing theirs.
+            <span class="mono">{q.id}</span> had been taken by somebody else since you opened this
+            folder, so this went in as <span class="mono">{savedAs}</span> rather than replacing
+            theirs.
           </p>
         </div>
       )}

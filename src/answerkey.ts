@@ -76,7 +76,9 @@ export function readAnswerKey(pages: PageText[]): ExtractedGuide {
     }
   }
 
-  const numbers = Object.keys(answerKey).map(Number).sort((a, b) => a - b)
+  const numbers = Object.keys(answerKey)
+    .map(Number)
+    .sort((a, b) => a - b)
 
   if (numbers.length < MINIMUM || conflicts.length > 0) {
     throw new NotAGuideError(

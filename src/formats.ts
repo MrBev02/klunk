@@ -57,7 +57,10 @@ const READERS: [
   // that: Computing Technology, Biology, English Advanced and Mathematics
   // Advanced all do. Drama is read here too and divides its courses into
   // nothing, so the word never appears on its model's screen either way.
-  ['headings', (xml) => ({ courses: parseHeadingsXml(xml), suspects: [], groupLabel: 'Focus area' })],
+  [
+    'headings',
+    (xml) => ({ courses: parseHeadingsXml(xml), suspects: [], groupLabel: 'Focus area' }),
+  ],
   // Visual Arts. Its groups are 8.3 to 8.5, and the syllabus calls the things
   // those sections set out the content areas.
   ['prose', (xml) => ({ courses: parseProseXml(xml), suspects: [], groupLabel: 'Content area' })],

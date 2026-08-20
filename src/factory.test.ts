@@ -43,7 +43,11 @@ const syllabus = { id: 'bio', name: 'Biology' } as Syllabus
 
 describe('profileFor', () => {
   it('takes the one naming this very course', () => {
-    const found = profileFor(index(profile('y11', 'bio', 'y11'), profile('y12', 'bio', 'y12')), syllabus, 'y11')
+    const found = profileFor(
+      index(profile('y11', 'bio', 'y11'), profile('y12', 'bio', 'y12')),
+      syllabus,
+      'y11',
+    )
     expect(found?.id).toBe('y11')
   })
 
@@ -57,7 +61,9 @@ describe('profileFor', () => {
   })
 
   it('refuses another subject entirely', () => {
-    expect(profileFor(index(profile('dt', 'nsw-hsc-design-technology')), syllabus, 'y11')).toBeUndefined()
+    expect(
+      profileFor(index(profile('dt', 'nsw-hsc-design-technology')), syllabus, 'y11'),
+    ).toBeUndefined()
   })
 
   it('has nothing to find when no course was chosen at all', () => {

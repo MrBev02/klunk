@@ -35,12 +35,7 @@ const HOURS_SL = 'Standard level (SL) and higher level (HL): 10 hours'
 const HOURS_HL = 'Higher level (HL): 6 hours'
 
 /** One whole topic, in the order the guide prints it. */
-function topic(
-  number: string,
-  title: string,
-  hours: string,
-  ...body: string[]
-): string[] {
+function topic(number: string, title: string, hours: string, ...body: string[]): string[] {
   return [
     `${number} ${title}`,
     'Guiding question',

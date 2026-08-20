@@ -30,13 +30,7 @@ import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from '.
 
 export type PrintMode = 'paper' | 'guide'
 
-export function PrintablePaper({
-  resolved,
-  mode,
-}: {
-  resolved: ResolvedPaper
-  mode: PrintMode
-}) {
+export function PrintablePaper({ resolved, mode }: { resolved: ResolvedPaper; mode: PrintMode }) {
   const { paper, profile } = resolved
   const cover = coverModel(resolved, mode === 'guide')
 
@@ -81,12 +75,7 @@ export function PrintablePaper({
                 <h3 class="sheet__group">{q.group}</h3>
               )}
 
-              <QuestionBlock
-                item={q}
-                mode={mode}
-                profile={profile}
-                images={resolved.images}
-              />
+              <QuestionBlock item={q} mode={mode} profile={profile} images={resolved.images} />
             </Fragment>
           ))}
         </section>
@@ -177,9 +166,7 @@ function Cover({ cover }: { cover: CoverModel }) {
           {cover.schoolName && <p class="cover__school">{cover.schoolName}</p>}
         </div>
 
-        {cover.identification.length > 0 && (
-          <IdentificationBlock fields={cover.identification} />
-        )}
+        {cover.identification.length > 0 && <IdentificationBlock fields={cover.identification} />}
       </div>
 
       <h1 class="cover__title">{cover.title}</h1>
@@ -505,8 +492,8 @@ function QuestionBody({
               <li key={i}>
                 <span class="choices__letter">{optionLetter(i)}.</span>
                 <span>
-                <Inline text={c.text} />
-              </span>
+                  <Inline text={c.text} />
+                </span>
               </li>
             ))}
           </ol>
@@ -577,13 +564,7 @@ function QuestionBody({
  * What a marker actually needs: the answer, why it is the answer, and what a
  * response worth the marks looks like.
  */
-function GuideAnswer({
-  item,
-  images,
-}: {
-  item: ResolvedQuestion
-  images: Map<string, string>
-}) {
+function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<string, string> }) {
   const q = item.question
 
   switch (q.questionType) {
@@ -602,7 +583,11 @@ function GuideAnswer({
               ''
             )}
           </p>
-          {correct?.feedback && <p class="why"><Inline text={correct.feedback} /></p>}
+          {correct?.feedback && (
+            <p class="why">
+              <Inline text={correct.feedback} />
+            </p>
+          )}
         </>
       )
     }
@@ -630,10 +615,12 @@ function GuideAnswer({
                 <span>
                   <Inline text={choices[i]?.text ?? ''} />
                 </span>
-                {choices[i]?.feedback && <span class="why">
+                {choices[i]?.feedback && (
+                  <span class="why">
                     {' '}
                     <Inline text={choices[i]?.feedback ?? ''} />
-                  </span>}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -684,8 +671,8 @@ function GuideAnswer({
               <div class="parts__head">
                 <span class="parts__label">{part.label}</span>
                 <span class="parts__text">
-                    <Inline text={part.text} />
-                  </span>
+                  <Inline text={part.text} />
+                </span>
                 <span class="parts__marks">
                   ({part.marks} mark{part.marks === 1 ? '' : 's'})
                 </span>
@@ -695,9 +682,11 @@ function GuideAnswer({
                   criterion about "the joint shown" is unmarkable months later
                   without it, and the marker may be holding only this. */}
               <PartStimulus part={part} bankFile={item.file} images={images} />
-              {part.sampleAnswer && <p class="guide__sample">
+              {part.sampleAnswer && (
+                <p class="guide__sample">
                   <Inline text={part.sampleAnswer} />
-                </p>}
+                </p>
+              )}
               {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>
           ))}
@@ -873,8 +862,8 @@ function GuideBlock({ question }: { question: Question }) {
         </>
       ) : showMissing ? (
         <p class="guide__missing">
-          No sample answer recorded. Marking this consistently, or handing the
-          guide back to a class, is much harder without one.
+          No sample answer recorded. Marking this consistently, or handing the guide back to a
+          class, is much harder without one.
         </p>
       ) : null}
 
@@ -959,8 +948,8 @@ function CriterionPoints({ description }: { description: string }) {
     <ul class="guide__points">
       {points.map((point, i) => (
         <li key={i}>
-                <Inline text={point} />
-              </li>
+          <Inline text={point} />
+        </li>
       ))}
     </ul>
   )

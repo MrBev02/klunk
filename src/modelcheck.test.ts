@@ -9,7 +9,13 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { duplicateModels, knownIds, taggedIds, unresolvedAgainst, unresolvedTags } from './modelcheck'
+import {
+  duplicateModels,
+  knownIds,
+  taggedIds,
+  unresolvedAgainst,
+  unresolvedTags,
+} from './modelcheck'
 import type { Loaded, Question, QuestionRef, Syllabus, SyllabusCourse } from './types'
 
 const courses: SyllabusCourse[] = [
@@ -94,12 +100,7 @@ const shared: SyllabusCourse[] = [
 
 describe('what a model defines', () => {
   it('is its topics, its content points and its outcome codes', () => {
-    expect([...taggedIds(courses).all].sort()).toEqual([
-      'H1.1',
-      'HSC-01',
-      'HSC-01.01',
-      'HSC-01.02',
-    ])
+    expect([...taggedIds(courses).all].sort()).toEqual(['H1.1', 'HSC-01', 'HSC-01.01', 'HSC-01.02'])
   })
 
   it('keeps each course separately, so a shared id is not one id', () => {
@@ -177,9 +178,9 @@ describe('tags that name nothing', () => {
     // The id is real and is in the other course, which is exactly the case a
     // flattened model could not see (#47).
     const known = knownIds([model({ id: 'ib', courses: shared }, 'syllabus/ib.json')])
-    expect(
-      unresolvedTags(asked({ topicIds: ['A3-2'], courseId: 'sl' }, 'ib'), known),
-    ).toEqual(['A3-2'])
+    expect(unresolvedTags(asked({ topicIds: ['A3-2'], courseId: 'sl' }, 'ib'), known)).toEqual([
+      'A3-2',
+    ])
   })
 })
 

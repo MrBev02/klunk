@@ -12,7 +12,13 @@
 
 import { useState } from 'preact/hooks'
 import { unresolvedAgainst, type ModelIds } from './modelcheck'
-import { optionLetter, rowAnswers, shuffledChoices, shuffledMatching, shuffledResponses } from './paper'
+import {
+  optionLetter,
+  rowAnswers,
+  shuffledChoices,
+  shuffledMatching,
+  shuffledResponses,
+} from './paper'
 import { markRange } from './render'
 import { Inline, RichText } from './richtext'
 import { joinPath } from './storage'
@@ -327,9 +333,7 @@ function Body({
                       )}
                       {/* Only where there is an answer to show. A dash in every
                           row is a column of nothing pretending to be one. */}
-                      {known && (
-                        <td class="matchdet__answer">{item?.letters.join(', ') || '–'}</td>
-                      )}
+                      {known && <td class="matchdet__answer">{item?.letters.join(', ') || '–'}</td>}
                       <td class="matchdet__gap" />
                       {option ? (
                         <>
@@ -416,7 +420,13 @@ function Body({
       return (
         <div class="det">
           <p class="det__label">
-            Parts{sum !== q.marks && <span class="missing"> (these total {sum}, not {q.marks})</span>}
+            Parts
+            {sum !== q.marks && (
+              <span class="missing">
+                {' '}
+                (these total {sum}, not {q.marks})
+              </span>
+            )}
           </p>
           <ul class="parts-list">
             {parts.map((p, i) => (
@@ -478,7 +488,10 @@ function imageUrl(
 
 function Guide({ question: q }: { question: Question }) {
   const g = q.markingGuide
-  if (!g || (!g.criteria?.length && !g.sampleAnswer && !g.answersCouldInclude?.length && !g.notes)) {
+  if (
+    !g ||
+    (!g.criteria?.length && !g.sampleAnswer && !g.answersCouldInclude?.length && !g.notes)
+  ) {
     // A question marked part by part keeps everything on its parts, which the
     // parts list has already shown. Asking for criteria directly underneath a
     // table of them is the kind of nagging that teaches a teacher to ignore
@@ -489,8 +502,8 @@ function Guide({ question: q }: { question: Question }) {
         <div class="det">
           <p class="det__label">Marking guide</p>
           <p class="muted">
-            None yet. A {QUESTION_TYPE_LABELS[q.questionType].toLowerCase()} worth {q.marks}{' '}
-            marks is hard to mark consistently without criteria.
+            None yet. A {QUESTION_TYPE_LABELS[q.questionType].toLowerCase()} worth {q.marks} marks
+            is hard to mark consistently without criteria.
           </p>
         </div>
       )
@@ -534,7 +547,9 @@ function Guide({ question: q }: { question: Question }) {
           {/* Banded criteria describe alternatives, so only flag a mismatch when
               the criteria read as additive components. */}
           {sum !== undefined && sum !== q.marks && !looksBanded(g.criteria ?? []) && (
-            <p class="missing">Criteria total {sum}, but the question is worth {q.marks}.</p>
+            <p class="missing">
+              Criteria total {sum}, but the question is worth {q.marks}.
+            </p>
           )}
         </>
       ) : null}
@@ -607,8 +622,8 @@ function Tags({ question: q, known }: { question: Question; known?: ModelIds | u
       {dead.length > 0 && (
         <p class="tagrow__dead">
           {dead.length === 1 ? 'The struck-through tag is' : 'The struck-through tags are'} not in
-             this syllabus any more, so this question will not show as covering anything under
-             {dead.length === 1 ? ' it' : ' them'}. Open the question and tag it again.
+          this syllabus any more, so this question will not show as covering anything under
+          {dead.length === 1 ? ' it' : ' them'}. Open the question and tag it again.
         </p>
       )}
       {q.source?.origin && q.source.origin !== 'authored' && (

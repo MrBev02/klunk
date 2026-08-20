@@ -63,10 +63,7 @@ export async function readWorkbook(file: Blob): Promise<Sheet[]> {
  * Vanishingly unlikely for a syllabus map and fatal if it happened, so it costs
  * one `catch` to treat as empty rather than as a damaged file.
  */
-async function readOrEmpty(
-  read: (name: string) => Promise<string>,
-  name: string,
-): Promise<string> {
+async function readOrEmpty(read: (name: string) => Promise<string>, name: string): Promise<string> {
   try {
     return await read(name)
   } catch (err) {

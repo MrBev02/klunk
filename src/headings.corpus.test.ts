@@ -37,7 +37,6 @@ import { readZipMember } from './docx'
 import { readSyllabusXml, type SyllabusFormat } from './formats'
 import { summarise } from './syllabus'
 
-
 interface Expected {
   path: string
   format: SyllabusFormat
@@ -255,12 +254,7 @@ const EXPECTED: Record<string, Expected> = {
         topics: 14,
         points: 257,
         outcomes: 11,
-        groups: [
-          'Data science',
-          'Data visualisation',
-          'Intelligent systems',
-          'Enterprise project',
-        ],
+        groups: ['Data science', 'Data visualisation', 'Intelligent systems', 'Enterprise project'],
       },
     },
   },
@@ -380,9 +374,9 @@ describe('the heading readers against the real NESA documents', () => {
   it.skipIf(!has(EXPECTED['Mathematics Advanced 11–12 (2024)']!))(
     'recovers the formulae Word keeps in its own namespace',
     async () => {
-    // Mathematics Advanced is the only one of the six documents carrying any,
-    // and without them 159 of its 359 content points read as complete sentences
-    // with the mathematics silently missing.
+      // Mathematics Advanced is the only one of the six documents carrying any,
+      // and without them 159 of its 359 content points read as complete sentences
+      // with the mathematics silently missing.
       const { courses } = await readingOf(EXPECTED['Mathematics Advanced 11–12 (2024)']!.path)
       const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
       const quadratic = points.find((p) => p.text.includes('graph a parabola of the form'))
@@ -478,7 +472,9 @@ describe('the heading readers against the real NESA documents', () => {
       // rather than as a model that has lost what a question is tagged against.
       const { courses } = await readingOf(EXPECTED['Biology Stage 6 (2017)']!.path)
       const bare = courses.flatMap((c) =>
-        c.topics.filter((t) => (t.outcomes ?? []).length === 0).map((t) => `${c.id} ${t.id} ${t.name}`),
+        c.topics
+          .filter((t) => (t.outcomes ?? []).length === 0)
+          .map((t) => `${c.id} ${t.id} ${t.name}`),
       )
       expect(bare).toEqual([])
 

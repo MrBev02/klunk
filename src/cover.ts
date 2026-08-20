@@ -199,9 +199,7 @@ export function questionRange(numbers: number[]): string {
   if (first === undefined || last === undefined) return ''
   if (numbers.length === 1) return `Question ${first}`
   const contiguous = numbers.every((n, i) => n === first + i)
-  return contiguous
-    ? `Questions ${first}–${last}`
-    : `Questions ${numbers.join(', ')}`
+  return contiguous ? `Questions ${first}–${last}` : `Questions ${numbers.join(', ')}`
 }
 
 /** Minutes as a cover prints them. Both example papers print plain minutes. */
@@ -210,8 +208,18 @@ export function minutes(n: number): string {
 }
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
 /**

@@ -221,10 +221,7 @@ describe('a row that continues the topic above', () => {
     para('P2.1', 'explains innovations'),
     table(
       narrowHeader,
-      row(
-        cell('Innovations', 'advances in:', 'i)fibre', 'ii)yarn'),
-        cell('identify innovations'),
-      ),
+      row(cell('Innovations', 'advances in:', 'i)fibre', 'ii)yarn'), cell('identify innovations')),
       row(cell('iii)fabric', 'the advantages of:', 'the consumer'), cell('evaluate advances')),
       row(cell('Major Textiles Project', 'investigation'), cell('investigate')),
     ),
@@ -332,7 +329,11 @@ describe('what counts as a group', () => {
       para('Cutting, clicking and closing'),
       table(
         wideHeader,
-        row(cell('H1.1', 'critically analyses'), cell('emerging technologies', 'a point'), cell('x')),
+        row(
+          cell('H1.1', 'critically analyses'),
+          cell('emerging technologies', 'a point'),
+          cell('x'),
+        ),
       ),
     )
     const [course] = parseSyllabusXml(xml)
@@ -340,7 +341,11 @@ describe('what counts as a group', () => {
   })
 
   it('accepts both labels the syllabuses actually use', () => {
-    for (const label of ['Area of Study: Design', 'Focus Area: Design', '3.1 Focus Area – Design']) {
+    for (const label of [
+      'Area of Study: Design',
+      'Focus Area: Design',
+      '3.1 Focus Area – Design',
+    ]) {
       const xml = body(
         para(label),
         table(wideHeader, row(cell('H1.1', 'x'), cell('a topic', 'a point'), cell('y'))),
@@ -407,7 +412,10 @@ describe('parseSyllabusXml, the whole document', () => {
     // one just because it is a paragraph.
     const xml = body(
       para('8Content: Preliminary Course'),
-      table(wideHeader, row(cell('P1.1', 'x'), cell('Content: HSC as a topic name', 'p'), cell('y'))),
+      table(
+        wideHeader,
+        row(cell('P1.1', 'x'), cell('Content: HSC as a topic name', 'p'), cell('y')),
+      ),
     )
     const [course] = parseSyllabusXml(xml)
     expect(course?.id).toBe('pre')
@@ -519,7 +527,6 @@ describe('suggestSyllabusId', () => {
     expect(suggestSyllabusId('!!!.docx')).toBe('syllabus')
   })
 })
-
 
 describe('a topic that may be the tail of the one above (#43)', () => {
   const doc = (aboutCell: string) =>

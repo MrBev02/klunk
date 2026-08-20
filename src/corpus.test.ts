@@ -129,8 +129,6 @@ describe('the corpus', () => {
     const files = await import('node:fs').then((fs) =>
       fs.readdirSync('src').filter((f) => f.endsWith('.corpus.test.ts')),
     )
-    expect(files.map((f) => f.replace('.test.ts', '')).sort()).toEqual(
-      Object.keys(SUITES).sort(),
-    )
+    expect(files.map((f) => f.replace('.test.ts', '')).sort()).toEqual(Object.keys(SUITES).sort())
   })
 })

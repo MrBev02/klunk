@@ -82,7 +82,10 @@ export function ProfileEditor({
       const cover = patched(d.paper.cover ?? {}, patch)
       // Dropped once nothing is left in it, so a profile that overrides nothing
       // does not carry an empty `cover: {}` saying so.
-      return { ...d, paper: patched(d.paper, { cover: Object.keys(cover).length ? cover : undefined }) }
+      return {
+        ...d,
+        paper: patched(d.paper, { cover: Object.keys(cover).length ? cover : undefined }),
+      }
     })
   /** Whether this profile says anything about identification, rather than deferring. */
   const overriding = draft.paper.cover?.identification !== undefined
@@ -140,9 +143,9 @@ export function ProfileEditor({
 
       {!editing && (
         <p class="hint">
-          A profile is the exam structure: how many sections, what each is worth, which kinds
-             of question belong where. Klunk checks every paper against it, and tells the AI
-             prompt where a question sits on the real paper.
+          A profile is the exam structure: how many sections, what each is worth, which kinds of
+          question belong where. Klunk checks every paper against it, and tells the AI prompt where
+          a question sits on the real paper.
         </p>
       )}
 
@@ -204,11 +207,7 @@ export function ProfileEditor({
               all has nothing to offer, so in both cases the control would be a
               question with one answer. */}
           {courses.length > 1 && (
-            <Field
-              label="Course"
-              for="pe-course"
-              hint="Which year or level this paper is for"
-            >
+            <Field label="Course" for="pe-course" hint="Which year or level this paper is for">
               <select
                 id="pe-course"
                 class="input"
@@ -299,9 +298,7 @@ export function ProfileEditor({
               })
             }
           />
-          <span>
-            Give the marks breakdown a Marks awarded column for the marker to fill in
-          </span>
+          <span>Give the marks breakdown a Marks awarded column for the marker to fill in</span>
         </label>
       </section>
 
@@ -313,13 +310,12 @@ export function ProfileEditor({
         <>
           <IdentificationFields
             fields={draft.paper.cover?.identification ?? []}
-            setFields={(fn) => setCover({ identification: fn(draft.paper.cover?.identification ?? []) })}
+            setFields={(fn) =>
+              setCover({ identification: fn(draft.paper.cover?.identification ?? []) })
+            }
             hint="This replaces what your cover sheet asks for, on papers built to this structure only."
           />
-          <button
-            class="btn btn--small"
-            onClick={() => setCover({ identification: undefined })}
-          >
+          <button class="btn btn--small" onClick={() => setCover({ identification: undefined })}>
             Go back to the folder's cover sheet
           </button>
         </>
@@ -367,12 +363,7 @@ export function ProfileEditor({
           />
         ))}
 
-        <button
-          class="btn"
-          onClick={() =>
-            setPaperSections((s) => [...s, blankSection(s.length)])
-          }
-        >
+        <button class="btn" onClick={() => setPaperSections((s) => [...s, blankSection(s.length)])}>
           Add a section
         </button>
       </section>
@@ -472,11 +463,7 @@ function SectionFields({
         </Field>
 
         <Field label="Marks">
-          <NumField
-            value={section.marks}
-            min={1}
-            onChange={(n) => onChange({ marks: n ?? 0 })}
-          />
+          <NumField value={section.marks} min={1} onChange={(n) => onChange({ marks: n ?? 0 })} />
         </Field>
 
         <Field label="Suggested time" hint="Minutes, optional">
@@ -543,10 +530,7 @@ function SectionFields({
           </Field>
         )}
 
-        <Field
-          label="Marks each"
-          hint="Only where every question is worth the same"
-        >
+        <Field label="Marks each" hint="Only where every question is worth the same">
           <NumField
             value={section.marksPerQuestion}
             min={0}

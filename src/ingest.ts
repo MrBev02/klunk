@@ -158,7 +158,9 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
     // away. `guideingest.ts` has always read it; this side never did.
     const pages = unreadablePages(raw)
     if (pages !== undefined) {
-      notes.push(`Some of the document could not be read: ${pages} Check the paper for anything missing.`)
+      notes.push(
+        `Some of the document could not be read: ${pages} Check the paper for anything missing.`,
+      )
       return
     }
     questions.push(raw)
@@ -255,9 +257,7 @@ function parses(text: string): boolean {
   }
 }
 
-function questionsFrom(
-  value: unknown,
-): { items: unknown[]; note?: string } | { failure: string } {
+function questionsFrom(value: unknown): { items: unknown[]; note?: string } | { failure: string } {
   if (Array.isArray(value)) return { items: value }
 
   if (typeof value !== 'object' || value === null) {
@@ -323,7 +323,9 @@ function readQuestion(
   taken: Set<string>,
 ): Draft | { why: string } {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    return { why: `expected a question object, got ${Array.isArray(raw) ? 'an array' : typeof raw}` }
+    return {
+      why: `expected a question object, got ${Array.isArray(raw) ? 'an array' : typeof raw}`,
+    }
   }
   const src = raw as Record<string, unknown>
   const repairs: string[] = []
@@ -388,7 +390,9 @@ function readQuestion(
   const consumed = ctx.paper ? new Set([...lifted, 'number']) : lifted
   const ignored = Object.keys(src).filter((k) => !KNOWN_FIELDS.has(k) && !consumed.has(k))
   if (ignored.length > 0) {
-    repairs.push(`Ignored ${ignored.length === 1 ? 'a field' : 'fields'} Klunk does not store: ${ignored.join(', ')}.`)
+    repairs.push(
+      `Ignored ${ignored.length === 1 ? 'a field' : 'fields'} Klunk does not store: ${ignored.join(', ')}.`,
+    )
   }
 
   const faults = validateQuestion(question, {
@@ -435,7 +439,10 @@ function readType(value: unknown, fallback: QuestionType, repairs: string[]): Qu
     return fallback
   }
 
-  const key = raw.toLowerCase().replace(/[\s\-/]+/g, '_').replace(/[^a-z_]/g, '')
+  const key = raw
+    .toLowerCase()
+    .replace(/[\s\-/]+/g, '_')
+    .replace(/[^a-z_]/g, '')
   if ((QUESTION_TYPES as readonly string[]).includes(key)) return key as QuestionType
 
   const alias = TYPE_ALIASES[key.replace(/_/g, '')]
@@ -791,7 +798,15 @@ const DRAWING_SUBTYPES = ['sketch', 'diagram', 'flowchart', 'orthographic', 'fre
 
 /** Everything each type's config accepts, tolerated aliases included. */
 const CONFIG_FIELDS: Record<QuestionType, string[]> = {
-  multiple_choice: ['choices', 'options', 'answers', 'correctAnswer', 'correct', 'answer', 'shuffle'],
+  multiple_choice: [
+    'choices',
+    'options',
+    'answers',
+    'correctAnswer',
+    'correct',
+    'answer',
+    'shuffle',
+  ],
   multiple_response: [
     'choices',
     'options',
@@ -995,9 +1010,9 @@ function readMatching(cfg: Record<string, unknown>, repairs: string[]): Question
       typeof entry === 'string'
         ? asString(entry)
         : typeof entry === 'object' && entry !== null
-          ? asString((entry as Record<string, unknown>).text) ??
+          ? (asString((entry as Record<string, unknown>).text) ??
             asString((entry as Record<string, unknown>).option) ??
-            asString((entry as Record<string, unknown>).label)
+            asString((entry as Record<string, unknown>).label))
           : undefined
     if (text !== undefined) options.push({ text })
   })
@@ -1024,7 +1039,9 @@ function readMatching(cfg: Record<string, unknown>, repairs: string[]): Question
       if (at < 0) {
         at = options.length
         options.push({ text: partner })
-        repairs.push(`Added "${partner}" to the lettered column, from the pair given for "${text}".`)
+        repairs.push(
+          `Added "${partner}" to the lettered column, from the pair given for "${text}".`,
+        )
       }
       items.push({ text, matches: [at] })
       return
@@ -1162,7 +1179,9 @@ function readCells(r: Record<string, unknown>, flat: { count: number }): TableCe
         return one ? { answers: [one] } : {}
       }
       if (typeof c !== 'object' || c === null) return {}
-      const answers = strings((c as Record<string, unknown>).answers ?? (c as Record<string, unknown>).answer)
+      const answers = strings(
+        (c as Record<string, unknown>).answers ?? (c as Record<string, unknown>).answer,
+      )
       return answers.length > 0 ? { answers } : {}
     })
   }

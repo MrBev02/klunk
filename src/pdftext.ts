@@ -50,11 +50,9 @@ export interface PdfPageLike {
   view: number[]
   getTextContent(): Promise<{ items: unknown[] }>
   getViewport(options: { scale: number }): { width: number; height: number }
-  render(options: {
-    canvas: HTMLCanvasElement
-    viewport: unknown
-    intent?: string
-  }): { promise: Promise<void> }
+  render(options: { canvas: HTMLCanvasElement; viewport: unknown; intent?: string }): {
+    promise: Promise<void>
+  }
 }
 
 /**

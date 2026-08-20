@@ -142,21 +142,24 @@ describe('the syllabus reader against the real NESA documents', () => {
     expect(groups.filter((g) => / /.test(g))).toEqual([])
   })
 
-  it.skipIf(!textiles)('keeps the non-breaking spaces NESA published inside the content', async () => {
-    // The other half of the two cases above, and the one nothing asserted until
-    // #72. A label is tidied and a non-breaking space in one is a fault; the
-    // content itself is quoted and a non-breaking space in it is punctuation the
-    // publisher chose, so it stays exactly where NESA put it. Both
-    // implementations say so in a comment and neither was checked.
-    //
-    // Counts rather than text, as everywhere in this file: a count is a fact
-    // about the document, and the document cannot enter this repo.
-    const courses = await coursesOf(EXPECTED['Textiles and Design']!.path)
-    const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
-    const skills = courses.flatMap((c) => c.topics.flatMap((t) => t.skills ?? []))
-    expect(points.filter((p) => / /.test(p.text)).length).toBe(18)
-    expect(skills.filter((s) => / /.test(s)).length).toBe(14)
-  })
+  it.skipIf(!textiles)(
+    'keeps the non-breaking spaces NESA published inside the content',
+    async () => {
+      // The other half of the two cases above, and the one nothing asserted until
+      // #72. A label is tidied and a non-breaking space in one is a fault; the
+      // content itself is quoted and a non-breaking space in it is punctuation the
+      // publisher chose, so it stays exactly where NESA put it. Both
+      // implementations say so in a comment and neither was checked.
+      //
+      // Counts rather than text, as everywhere in this file: a count is a fact
+      // about the document, and the document cannot enter this repo.
+      const courses = await coursesOf(EXPECTED['Textiles and Design']!.path)
+      const points = courses.flatMap((c) => c.topics.flatMap((t) => t.points ?? []))
+      const skills = courses.flatMap((c) => c.topics.flatMap((t) => t.skills ?? []))
+      expect(points.filter((p) => / /.test(p.text)).length).toBe(18)
+      expect(skills.filter((s) => / /.test(s)).length).toBe(14)
+    },
+  )
 
   // #26, and the two checks a count cannot make: a count says how many topics
   // there are, never whether they are topics.
@@ -169,11 +172,14 @@ describe('the syllabus reader against the real NESA documents', () => {
       expect(names.filter((n) => /^\s*(?:[ivxlcdm]+|[a-z]|\d+)\)/.test(n))).toEqual([])
     })
 
-    it.skipIf(!has[subject])(`carries no non-breaking space into a ${subject} topic name`, async () => {
-      const courses = await coursesOf(EXPECTED[subject]!.path)
-      const names = courses.flatMap((c) => c.topics.map((t) => t.name))
-      expect(names.filter((n) => /\u00a0/.test(n))).toEqual([])
-    })
+    it.skipIf(!has[subject])(
+      `carries no non-breaking space into a ${subject} topic name`,
+      async () => {
+        const courses = await coursesOf(EXPECTED[subject]!.path)
+        const names = courses.flatMap((c) => c.topics.map((t) => t.name))
+        expect(names.filter((n) => /\u00a0/.test(n))).toEqual([])
+      },
+    )
   }
 
   /*
@@ -186,16 +192,22 @@ describe('the syllabus reader against the real NESA documents', () => {
    * `graphical` and `written`, split off by a page break. Textiles HSC has the
    * #26 case, which `CONTINUATION_RE` already merges, so no topic exists to flag.
    */
-  it.skipIf(!textiles)('points at the Textiles Preliminary row that is really a content point', async () => {
-    expect(await suspectsOf(EXPECTED['Textiles and Design']!.path)).toEqual(['PRE-05'])
-  })
+  it.skipIf(!textiles)(
+    'points at the Textiles Preliminary row that is really a content point',
+    async () => {
+      expect(await suspectsOf(EXPECTED['Textiles and Design']!.path)).toEqual(['PRE-05'])
+    },
+  )
 
-  it.skipIf(!dt)('points at nothing in Design and Technology, whose headings are all bullets', async () => {
-    // The case that rules out merging on the markup. All forty of this
-    // document's real topic headings are list items, so a reader that acted on
-    // that signal would collapse each course to a single topic.
-    expect(await suspectsOf(EXPECTED['Design and Technology']!.path)).toEqual([])
-  })
+  it.skipIf(!dt)(
+    'points at nothing in Design and Technology, whose headings are all bullets',
+    async () => {
+      // The case that rules out merging on the markup. All forty of this
+      // document's real topic headings are list items, so a reader that acted on
+      // that signal would collapse each course to a single topic.
+      expect(await suspectsOf(EXPECTED['Design and Technology']!.path)).toEqual([])
+    },
+  )
 
   for (const path of ALSO_PARSES) {
     const name = path.split('/').pop() ?? path

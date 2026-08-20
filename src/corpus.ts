@@ -109,8 +109,7 @@ export const VISUAL_ARTS = `${SOURCE}/nsw-hsc-visual-arts/visual-arts-st6-syl-am
 export const ENGLISH = `${SOURCE}/nsw-hsc-english/NESA - english_advanced_11_12_2024 (S6).docx`
 export const MATHS = `${SOURCE}/nsw-hsc-maths/NESA - mathematics_advanced_11_12_2024 (S6).docx`
 export const BIOLOGY = `${SOURCE}/nsw-hsc-biology/biology-stage-6-syllabus-2017.docx`
-export const COMPUTING =
-  `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`
+export const COMPUTING = `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`
 
 /**
  * The only document that states content inside a box rather than in a list (#93).
@@ -121,8 +120,7 @@ export const COMPUTING =
  * that came out was 140 points of real syllabus with nothing to say it was a
  * third of the document.
  */
-export const ENTERPRISE =
-  `${SOURCE}/nsw-enterprise-computing-11-12/NESA - enterprise_computing_11_12_2022 (S6).docx`
+export const ENTERPRISE = `${SOURCE}/nsw-enterprise-computing-11-12/NESA - enterprise_computing_11_12_2022 (S6).docx`
 
 export const INDUSTRIAL = `${FIXTURES}/industrial-technology-st6-syl.docx`
 export const FOOD = `${FIXTURES}/food-technology-st6-syl.docx`

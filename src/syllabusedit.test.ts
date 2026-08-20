@@ -49,7 +49,11 @@ function nested(): SyllabusCourse[] {
           outcomes: ['BIO11-8'],
           inquiryQuestion: 'What distinguishes one cell from another?',
           points: [
-            { id: 'Y11-01.01', text: 'investigate structures, including:', capabilities: ['Literacy'] },
+            {
+              id: 'Y11-01.01',
+              text: 'investigate structures, including:',
+              capabilities: ['Literacy'],
+            },
             { id: 'Y11-01.02', text: 'examining prokaryotic cells', parent: 'Y11-01.01' },
             { id: 'Y11-01.03', text: 'drawing scaled diagrams', parent: 'Y11-01.01' },
             { id: 'Y11-01.04', text: 'describe a range of technologies' },
@@ -63,7 +67,12 @@ function nested(): SyllabusCourse[] {
           inquiryQuestion: 'How do cells coordinate activities?',
           points: [
             { id: 'Y11-02.01', text: 'investigate movement, including:' },
-            { id: 'Y11-02.02', text: 'modelling diffusion', parent: 'Y11-02.01', capabilities: ['Numeracy'] },
+            {
+              id: 'Y11-02.02',
+              text: 'modelling diffusion',
+              parent: 'Y11-02.01',
+              capabilities: ['Numeracy'],
+            },
           ],
         },
       ],
@@ -400,8 +409,9 @@ describe('what replacing the model in the folder would cost', () => {
   }
 
   it('says nothing is lost when the document is simply read again', () => {
-    expect(costOfReplacing(courses(), courses(), [asked('q1', { topicIds: ['HSC-02'] })], 'textiles'))
-      .toEqual({ lost: [], questions: 0, inUse: [] })
+    expect(
+      costOfReplacing(courses(), courses(), [asked('q1', { topicIds: ['HSC-02'] })], 'textiles'),
+    ).toEqual({ lost: [], questions: 0, inUse: [] })
   })
 
   /**
@@ -531,7 +541,12 @@ describe('what replacing the model in the folder would cost', () => {
 
   it('reports an id nothing uses as lost, and no questions with it', () => {
     const after = deleteTopic(courses(), 'hsc', 'HSC-03')
-    const cost = costOfReplacing(courses(), after, [asked('q1', { topicIds: ['HSC-01'] })], 'textiles')
+    const cost = costOfReplacing(
+      courses(),
+      after,
+      [asked('q1', { topicIds: ['HSC-01'] })],
+      'textiles',
+    )
     expect(cost.lost).toEqual(['HSC-03', 'HSC-03.01'])
     expect(cost.questions).toBe(0)
     expect(cost.inUse).toEqual([])

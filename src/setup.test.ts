@@ -57,9 +57,7 @@ describe('what a folder is offered', () => {
   })
 
   it('offers nothing to a folder holding several syllabuses, rather than picking one', () => {
-    const { offered, why } = profilesOnOffer(
-      folderWith('ib-dp-design-technology', SHIPPED_FOR),
-    )
+    const { offered, why } = profilesOnOffer(folderWith('ib-dp-design-technology', SHIPPED_FOR))
     expect(offered).toEqual([])
     // Told apart from the case above, because a teacher can act on the
     // difference: this one is about the folder, not about Klunk's list.

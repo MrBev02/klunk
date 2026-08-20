@@ -82,10 +82,7 @@ describe('refusing what it does not recognise', () => {
 
   it('refuses when one question is given two different answers', () => {
     expect(() =>
-      readAnswerKey([
-        page(1, '1. A', '2. B', '3. C', '4. D', '5. A', '6. B'),
-        page(2, '3. D'),
-      ]),
+      readAnswerKey([page(1, '1. A', '2. B', '3. C', '4. D', '5. A', '6. B'), page(2, '3. D')]),
     ).toThrow(NotAGuideError)
   })
 

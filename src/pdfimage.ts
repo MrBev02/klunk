@@ -108,7 +108,17 @@ export async function cutOut(doc: PdfDocumentLike, regions: Region[]): Promise<C
       // PDF points run up from the bottom of the page and canvas pixels run down
       // from the top, so the top of the region is the page height less its top edge.
       const top = (viewport.height / SCALE - (region.y + region.height)) * SCALE
-      into.drawImage(sheet, region.x * SCALE, top, cut.width, cut.height, 0, 0, cut.width, cut.height)
+      into.drawImage(
+        sheet,
+        region.x * SCALE,
+        top,
+        cut.width,
+        cut.height,
+        0,
+        0,
+        cut.width,
+        cut.height,
+      )
 
       // A gap in the text is not always a picture. The foot of a page below the
       // last ruled line is a gap, and so is the space above a section heading,
@@ -224,7 +234,11 @@ function rowsOf(page: PageText): Row[] {
     return {
       y: row.y,
       x: row.pieces[0]!.x,
-      text: row.pieces.map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim(),
+      text: row.pieces
+        .map((p) => p.str)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
     }
   })
 }

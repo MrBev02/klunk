@@ -294,7 +294,7 @@ describe('scanFolder image loading', () => {
    * stimulus image, which is what lets it survive `build:single` on a shared
    * drive without being bundled and without touching the CSP.
    */
-  it("loads the logo school.json names, relative to school.json", async () => {
+  it('loads the logo school.json names, relative to school.json', async () => {
     const dir = dirHandle(
       tree({
         'school.json': JSON.stringify({
@@ -741,8 +741,9 @@ describe('copyFileIntoUnlessThere', () => {
     const files = tree({ 'source/2019.pdf': 'the 2019 paper' })
     const handle = dirHandle(files)
 
-    expect(await copyFileIntoUnlessThere(handle, 'source', new File(['the 2019 paper'], '2019.pdf')))
-      .toEqual({ name: '2019.pdf', wrote: false })
+    expect(
+      await copyFileIntoUnlessThere(handle, 'source', new File(['the 2019 paper'], '2019.pdf')),
+    ).toEqual({ name: '2019.pdf', wrote: false })
     expect(read(files, 'source/2019.pdf')).toBe('the 2019 paper')
     expect([...(read(files, 'source') as Map<string, unknown>).keys()]).toEqual(['2019.pdf'])
   })
@@ -753,8 +754,9 @@ describe('copyFileIntoUnlessThere', () => {
     const files = tree({ 'source/paper.pdf': 'design and technology' })
     const handle = dirHandle(files)
 
-    expect(await copyFileIntoUnlessThere(handle, 'source', new File(['textiles'], 'paper.pdf')))
-      .toEqual({ name: 'paper-1.pdf', wrote: true })
+    expect(
+      await copyFileIntoUnlessThere(handle, 'source', new File(['textiles'], 'paper.pdf')),
+    ).toEqual({ name: 'paper-1.pdf', wrote: true })
     expect(read(files, 'source/paper.pdf')).toBe('design and technology')
   })
 })
@@ -1030,8 +1032,7 @@ function folderHandle(id: string, name = id): FileSystemDirectoryHandle {
     kind: 'directory',
     name,
     id,
-    isSameEntry: async (other: FileSystemHandle) =>
-      (other as unknown as { id?: string }).id === id,
+    isSameEntry: async (other: FileSystemHandle) => (other as unknown as { id?: string }).id === id,
   }
   return handle as unknown as FileSystemDirectoryHandle
 }

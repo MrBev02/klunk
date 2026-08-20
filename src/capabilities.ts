@@ -58,7 +58,7 @@ export function insecureContextWarning(caps: Capabilities): string | null {
   if (window.isSecureContext) return null
   return (
     'This page was also loaded over an insecure connection. If you are already in ' +
-       'Chrome or Edge, that is the reason. Open Klunk over https, or open the ' +
-       'single-file copy from your own drive.'
+    'Chrome or Edge, that is the reason. Open Klunk over https, or open the ' +
+    'single-file copy from your own drive.'
   )
 }
