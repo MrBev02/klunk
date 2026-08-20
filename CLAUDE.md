@@ -1189,16 +1189,24 @@ Re-establish before relying on it, and correct the note when you do rather than
 adding a second one beside it. Anything that identifies a particular machine or
 installation stays out of this file entirely — the repo is public.
 
-**Two of these live in `.git/config` and therefore do not survive a fresh clone.**
-Both bite immediately and neither announces itself, so set them first on a new
-machine:
+**Three of these live in `.git/config` and therefore do not survive a fresh
+clone.** The first two bite immediately and neither announces itself, so set
+them first on a new machine:
 
 ```
 git config --local user.name MrBev02
 git config --local user.email 261693983+MrBev02@users.noreply.github.com
 git config --local credential.helper ""
 git config --local credential.https://github.com.helper '!gh auth git-credential'
+git config --local blame.ignoreRevsFile .git-blame-ignore-revs
 ```
+
+The third does not bite, which is why it is the one that gets forgotten. Without
+it `git blame` credits the Prettier reformat (#103) with **1,544 lines** of
+`src/` instead of the 37 it actually wrote, and says so with a straight face —
+there is no warning, just the wrong name against most of the file. GitHub's web
+blame reads `.git-blame-ignore-revs` on its own and needs no setting up; only
+local git has to be told.
 
 Without the first two, commits land under the machine's global identity, which is
 a different account. Without the last two, see the first item below.
