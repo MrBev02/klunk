@@ -302,7 +302,6 @@ export function CheckList({ checks }: { checks: Check[] }) {
 }
 
 export function Faults({ faults, pathFault }: { faults: Check[]; pathFault: string | null }) {
-  const errors = faults.filter((f) => f.severity === 'error')
   if (faults.length === 0 && !pathFault) {
     return (
       <section class="panel panel--ok">
@@ -311,12 +310,22 @@ export function Faults({ faults, pathFault }: { faults: Check[]; pathFault: stri
     )
   }
 
-  const blocking = errors.length + (pathFault ? 1 : 0)
+  // Three states rather than two since #105. A question that saves and is not
+  // finished is neither ready nor stuck, and calling it either is the fault:
+  // "3 things to fix" over a question that saves reads as a refusal, and
+  // "Worth knowing" over one reads as nothing to do.
+  const blocking =
+    faults.filter((f) => f.severity === 'error' && !f.unfinished).length + (pathFault ? 1 : 0)
+  const owed = faults.filter((f) => f.unfinished).length
+  const title =
+    blocking > 0
+      ? `${blocking} thing${blocking === 1 ? '' : 's'} to fix`
+      : owed > 0
+        ? `Saves now, with ${owed} thing${owed === 1 ? '' : 's'} left to finish`
+        : 'Worth knowing'
   return (
     <section class={`panel ${blocking > 0 ? 'panel--alert' : 'panel--note'}`}>
-      <p class="panel__title">
-        {blocking > 0 ? `${blocking} thing${blocking === 1 ? '' : 's'} to fix` : 'Worth knowing'}
-      </p>
+      <p class="panel__title">{title}</p>
       {pathFault && (
         <ul class="plain">
           <li>

@@ -32,7 +32,7 @@ import {
   type TableCell,
   type TableRow,
 } from './types'
-import { suggestQuestionId, validateQuestion } from './validate'
+import { suggestQuestionId, UNFINISHED_TAG, validateQuestion } from './validate'
 
 /**
  * Stamped where a model **wrote** the question, because a bank should say so.
@@ -49,8 +49,15 @@ export const AI_TAG = 'ai-drafted'
 /** Stamped where a model transcribed a question off a document instead. */
 export const AI_TRANSCRIBED_TAG = 'ai-transcribed'
 
-/** Both of them, so one can be swapped for the other rather than added to it. */
-const AI_TAGS = [AI_TAG, AI_TRANSCRIBED_TAG]
+/**
+ * The tags Klunk decides and a model may not claim.
+ *
+ * The two AI ones so that one can be swapped for the other rather than added
+ * to it, and `needs-finishing` because it is a fact about the question that
+ * `cleanQuestion` works out on the way to disk (#105). A reply asserting it is
+ * asserting something Klunk is in a position to know.
+ */
+const KLUNK_TAGS = [AI_TAG, AI_TRANSCRIBED_TAG, UNFINISHED_TAG]
 
 /** A content point the prompt offered, and the topic it belongs to. */
 export interface OfferedPoint {
@@ -573,16 +580,17 @@ function reportDropped(given: string[], kept: string[], what: string, repairs: s
  *
  * Which one that is depends on what was asked for, not on what came back:
  * `ctx.paper` is set only by the extraction path and is the same signal that
- * turns a question number into provenance. Any AI tag the model wrote itself is
- * dropped first, for the reason ids are never taken from a reply either. A
- * transcription that arrives claiming to be drafted is claiming something Klunk
- * is in a position to know is false.
+ * turns a question number into provenance. Any tag of Klunk's own that the
+ * model wrote itself is dropped first, for the reason ids are never taken from
+ * a reply either. A transcription that arrives claiming to be drafted is
+ * claiming something Klunk is in a position to know is false, and the same goes
+ * for a draft claiming to be finished.
  */
 function readTags(value: unknown, ctx: IngestContext): string[] {
   const mine = ctx.paper ? AI_TRANSCRIBED_TAG : AI_TAG
   const tags = strings(value)
     .map((t) => t.slice(0, 50))
-    .filter((t) => !AI_TAGS.includes(t))
+    .filter((t) => !KLUNK_TAGS.includes(t))
   const out = [...new Set(tags)]
   out.push(mine)
   return out.slice(0, 20)

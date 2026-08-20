@@ -31,6 +31,7 @@ import {
   type RememberedFolder,
 } from './storage'
 import { QUESTION_TYPE_LABELS, questionHaystack, type Paper, type QuestionRef } from './types'
+import { isUnfinished } from './validate'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
 type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
@@ -912,6 +913,7 @@ function Library({
   const [topic, setTopic] = useState('')
   const [text, setText] = useState('')
   const [untaggedOnly, setUntaggedOnly] = useState(false)
+  const [unfinishedOnly, setUnfinishedOnly] = useState(false)
 
   const groups = useMemo(() => topicOptions(index), [index])
   const chosenTopic = useMemo(
@@ -937,10 +939,14 @@ function Library({
       if (untaggedOnly && (q.syllabus?.topicIds?.length || q.syllabus?.pointIds?.length)) {
         return false
       }
+      // Computed rather than read off the `needs-finishing` tag, so a bank
+      // written before #105 or edited by hand outside Klunk is listed too. The
+      // tag is what the file records; this is what is true now.
+      if (unfinishedOnly && !isUnfinished(q)) return false
       if (needle && !questionHaystack(q).includes(needle)) return false
       return true
     })
-  }, [questions, type, chosenTopic, text, untaggedOnly])
+  }, [questions, type, chosenTopic, text, untaggedOnly, unfinishedOnly])
 
   const shownMarks = shown.reduce((sum, r) => sum + r.question.marks, 0)
 
@@ -1087,9 +1093,17 @@ function Library({
             />{' '}
             Only untagged
           </label>
+          <label class="rail__label">
+            <input
+              type="checkbox"
+              checked={unfinishedOnly}
+              onChange={(e) => setUnfinishedOnly((e.target as HTMLInputElement).checked)}
+            />{' '}
+            Only unfinished
+          </label>
         </div>
 
-        {(type || topic || text || untaggedOnly) && (
+        {(type || topic || text || untaggedOnly || unfinishedOnly) && (
           <button
             class="btn btn--small"
             onClick={() => {
@@ -1097,6 +1111,7 @@ function Library({
               setTopic('')
               setText('')
               setUntaggedOnly(false)
+              setUnfinishedOnly(false)
             }}
           >
             Clear filters

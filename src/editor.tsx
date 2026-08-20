@@ -200,7 +200,10 @@ export function QuestionEditor({
   }, [question, index, bankPath, folderIds, alsoSaved, editing])
 
   const pathFault = bankPathFault(bank ?? newBankPath)
-  const errors = faults.filter((f) => f.severity === 'error')
+  // Only what the bank file could not hold stops a save (#105). A teacher who
+  // opens an unfinished question and gets it half right has to be able to keep
+  // that, or coming back to it later is not a thing they can do.
+  const errors = faults.filter((f) => f.severity === 'error' && !f.unfinished)
   const blocked = errors.length > 0 || pathFault !== null
 
   const set = (patch: Patch<Question>) => setDraft((d) => patched(d, patch))
@@ -1692,7 +1695,11 @@ function TaggingFields({
         </>
       )}
 
-      <Field label="Your own tags" hint="Separated by commas" for="tg-tags">
+      <Field
+        label="Your own tags"
+        hint="Separated by commas. needs-finishing is Klunk's, and it is set again on every save."
+        for="tg-tags"
+      >
         <input
           id="tg-tags"
           class="input"

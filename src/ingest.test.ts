@@ -406,6 +406,17 @@ describe('multiple choice, where a model most often goes wrong', () => {
     ])
   })
 
+  it('refuses a model claiming the question is finished, or that it is not', () => {
+    // `needs-finishing` is worked out by cleaning on the way to disk, so a
+    // reply asserting it is asserting something Klunk knows for itself.
+    const { draft } = first(
+      `[{ "questionText": "Name one.", "marks": 1, "questionType": "short_answer",
+          "tags": ["needs-finishing", "ergonomics"] }]`,
+    )
+    expect(draft.question.tags).not.toContain('needs-finishing')
+    expect(draft.question.tags).toContain('ergonomics')
+  })
+
   it('leaves no answer marked, and lets validation say so, when it cannot tell', () => {
     const { draft } = first(MC('"the first one"'), mcCtx)
     expect(draft.question.config?.correctAnswer).toBeUndefined()

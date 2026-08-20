@@ -31,7 +31,14 @@ import {
   type QuestionRef,
   type QuestionType,
 } from './types'
-import { hasGuide, looksBanded, needsGuide } from './validate'
+import {
+  hasGuide,
+  isUnfinished,
+  looksBanded,
+  needsGuide,
+  unfinishedReasons,
+  UNFINISHED_TAG,
+} from './validate'
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
@@ -77,6 +84,15 @@ export function QuestionRow({
         <span class="qrow__stem">{questionLabel(q)}</span>
         <span class="qrow__tail">
           <span class="chip chip--type">{shortType(q)}</span>
+          {/* On the collapsed row and not only in the tag list below, because
+              `Tags` renders once a row is opened and a teacher scanning thirty
+              of them would otherwise click thirty times to find the one still
+              waiting on an answer. */}
+          {isUnfinished(q) && (
+            <span class="chip chip--flag" title={unfinishedReasons(q).join(' ')}>
+              needs finishing
+            </span>
+          )}
           {q.source?.origin && q.source.origin !== 'authored' && (
             <span class="chip chip--flag" title={sourceLabel(q)}>
               {q.source.year ?? q.source.origin}
@@ -613,11 +629,21 @@ function Tags({ question: q, known }: { question: Question; known?: ModelIds | u
             {o}
           </span>
         ))}
-        {tags.map((t) => (
-          <span key={t} class="chip">
-            {t}
+        {tags
+          .filter((t) => t !== UNFINISHED_TAG)
+          .map((t) => (
+            <span key={t} class="chip">
+              {t}
+            </span>
+          ))}
+        {/* Rendered from what is true rather than from the tag, so a bank
+            written before #105 shows it too, and filtered out of the list
+            above so it never prints twice. */}
+        {isUnfinished(q) && (
+          <span class="chip chip--flag" title={unfinishedReasons(q).join(' ')}>
+            needs finishing
           </span>
-        ))}
+        )}
         {topics.length + points.length === 0 && (
           <span class="chip chip--flag">not tagged to the syllabus</span>
         )}

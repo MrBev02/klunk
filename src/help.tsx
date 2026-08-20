@@ -288,8 +288,9 @@ export function Help({ onClose }: { onClose: () => void }) {
           <code>source/</code> in your folder, so it is there the next time you want it. It reads
           out the questions and their marks, takes the outcome codes from the marking guide's
           mapping grid, and offers you any pictures it can cut out. Nothing is written until you
-          have looked at every question, and anything with a problem goes to the editor instead of
-          into a bank.
+          have looked at every question. A question Klunk read only half of still saves, marked{' '}
+          <code>needs-finishing</code>; only one a bank file cannot hold at all goes to the editor
+          instead.
         </p>
 
         <p class="muted">
@@ -310,6 +311,15 @@ export function Help({ onClose }: { onClose: () => void }) {
           came from an AI reading of a guide is tagged <code>ai-marked</code>. Check every answer
           against the guide before you save.
         </p>
+
+        <p>
+          <strong>A paper with no marking guide.</strong> Save it anyway. Klunk records no answer
+          rather than inventing one, so the questions go in tagged <code>needs-finishing</code> and
+          the marking guide prints "No answer recorded" until you set them. Tick{' '}
+          <strong>Only unfinished</strong> on the Questions tab to list them, and the Checks panel
+          names any that reach a paper. Klunk sets and clears this tag itself every time a question
+          is saved, so typing it or deleting it by hand does not stick.
+        </p>
       </section>
 
       <section id="help-papers" class="help__sec">
@@ -326,7 +336,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           profile: marks, section totals and question types. It also warns you about the things you
           would want to catch anyway. A question from a public paper your students may have seen. A
           question that is already on a paper they have sat. A question belonging to another
-          subject. A question tagged to nothing.
+          subject. A question tagged to nothing. A question that is not finished.
         </p>
 
         <p>

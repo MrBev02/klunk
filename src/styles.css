@@ -2370,6 +2370,13 @@ code,
   opacity: 0.7;
 }
 
+/* Neither ready nor broken, so neither green nor red. The palette is three
+   hues by design, and a question that saves and is not finished is honestly
+   neutral rather than worth a fourth. */
+.draft--owed {
+  border-left-color: var(--rule-strong);
+}
+
 .draft__head {
   display: flex;
   align-items: baseline;
@@ -2404,6 +2411,10 @@ code,
 
 .draft--bad .draft__state {
   color: var(--red);
+}
+
+.draft--owed .draft__state {
+  color: var(--ink-soft);
 }
 
 .draft__note {

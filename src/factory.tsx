@@ -8,9 +8,10 @@
  * button would be friction for nothing.
  *
  * The screen is deliberately unhurried about the second half. Anything the
- * model got wrong is shown against the question it belongs to, and a question
- * with an error cannot be saved from here at all: it goes to the question
- * editor to be fixed, which is what the editor was built for.
+ * model got wrong is shown against the question it belongs to, and a question a
+ * bank file could not hold goes to the question editor to be fixed, which is
+ * what the editor was built for. Since #105 that is narrower than every error:
+ * a draft that is merely unfinished saves and says so.
  */
 
 import type { ComponentChildren } from 'preact'
@@ -41,7 +42,7 @@ import {
   type Syllabus,
   type SyllabusCourse,
 } from './types'
-import { cleanQuestion } from './validate'
+import { blocksSaving, cleanQuestion } from './validate'
 
 /** How many questions one prompt asks for, before quality starts to slide. */
 const MAX_COUNT = 10
@@ -163,8 +164,10 @@ export function Factory({
   const savedAs = (d: Draft) => renamed[d.question.id] ?? d.question.id
   const live = (read?.drafts ?? []).filter((d) => !discarded.includes(d.question.id))
   const unsaved = live.filter((d) => !alreadySaved.has(savedAs(d)))
-  const ready = unsaved.filter((d) => !d.faults.some((f) => f.severity === 'error'))
+  // Only what a bank file could not hold is held back (#105).
+  const ready = unsaved.filter((d) => !blocksSaving(d.faults))
   const stuck = unsaved.length - ready.length
+  const owed = ready.filter((d) => d.faults.some((f) => f.unfinished)).length
 
   const saveReady = async () => {
     setSaving(true)
@@ -536,10 +539,17 @@ export function Factory({
                       : `Save the ${ready.length} that ${ready.length === 1 ? 'is' : 'are'} ready`}
                   </button>
                 </div>
+                {owed > 0 && (
+                  <p class="hint">
+                    {owed} of these {owed === 1 ? 'is' : 'are'} not finished. They save with a{' '}
+                    <span class="mono">needs-finishing</span> mark, and the Questions tab lists
+                    them.
+                  </p>
+                )}
                 {stuck > 0 && (
                   <p class="hint">
-                    {stuck} of these cannot be saved from here. Open one in the editor to fix it, or
-                    discard it.
+                    {stuck} of these cannot go in a bank as they stand. Open one in the editor to
+                    fix it, or discard it.
                   </p>
                 )}
               </>
@@ -639,8 +649,9 @@ function DraftCard({
 }) {
   const [open, setOpen] = useState(true)
   const q = draft.question
-  const errors = draft.faults.filter((f) => f.severity === 'error')
-  const state = saved ? 'saved' : errors.length > 0 ? 'bad' : 'ready'
+  const errors = draft.faults.filter((f) => f.severity === 'error' && !f.unfinished)
+  const owed = draft.faults.filter((f) => f.unfinished).length
+  const state = saved ? 'saved' : errors.length > 0 ? 'bad' : owed > 0 ? 'owed' : 'ready'
 
   return (
     <li class={`draft draft--${state}`}>
@@ -648,7 +659,13 @@ function DraftCard({
         <span class="draft__n">{at + 1}</span>
         <span class="draft__stem">{q.questionText}</span>
         <span class="draft__state">
-          {saved ? 'Saved' : errors.length > 0 ? `${errors.length} to fix` : 'Ready'}
+          {saved
+            ? 'Saved'
+            : errors.length > 0
+              ? `${errors.length} to fix`
+              : owed > 0
+                ? `${owed} to finish`
+                : 'Ready'}
         </span>
       </div>
 
@@ -681,7 +698,11 @@ function DraftCard({
       {draft.faults.length > 0 && (
         <div class={`draft__note ${errors.length > 0 ? 'draft__note--bad' : ''}`}>
           <p class="det__label">
-            {errors.length > 0 ? 'Cannot be saved until this is fixed' : 'Worth knowing'}
+            {errors.length > 0
+              ? 'Cannot go in a bank until this is fixed'
+              : owed > 0
+                ? 'Saves now, and has to be finished'
+                : 'Worth knowing'}
           </p>
           <CheckList checks={draft.faults} />
         </div>
@@ -694,7 +715,11 @@ function DraftCard({
         {!saved && (
           <>
             <button class="btn btn--small" onClick={onEdit}>
-              {errors.length > 0 ? 'Fix it in the editor' : 'Open in the editor'}
+              {errors.length > 0
+                ? 'Fix it in the editor'
+                : owed > 0
+                  ? 'Finish it in the editor'
+                  : 'Open in the editor'}
             </button>
             <button class="btn btn--small" onClick={onDiscard}>
               Discard

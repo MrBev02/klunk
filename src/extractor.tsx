@@ -5,9 +5,13 @@
  * `adopt.ts`. What this adds is the part the issue insisted on: **nothing is
  * saved until a teacher has looked at it.** A mis-parsed question that reaches a
  * bank quietly is found in the exam room, so every question is on screen with
- * what the readers noticed about it, and a question with an error cannot be
- * saved from here at all — it goes to the question editor, exactly as a bad AI
- * draft does.
+ * what the readers noticed about it.
+ *
+ * What is held back is narrower since #105. Only a question a bank file could
+ * not hold at all goes to the editor instead; one that is merely half read
+ * saves, carries a `needs-finishing` mark, and is named on any paper it reaches.
+ * A paper with no marking guide used to lose every objective question on it,
+ * because Klunk had nowhere to put "nobody has read the answer yet".
  *
  * The papers are offered from the teacher's own folder, and since #61 from
  * anywhere on this computer as well. Only the first was true before, on the
@@ -85,7 +89,7 @@ import {
   type Manifest,
   type Question,
 } from './types'
-import { cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
+import { blocksSaving, cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
 
 /**
  * NESA was BOSTES until the end of 2016, and a copyright line naming the wrong
@@ -654,8 +658,12 @@ export function Extractor({
   const savedAs = (a: Adopted) => renamed[a.question.id] ?? a.question.id
   const live = (read?.adopted ?? []).filter((a) => !discarded.includes(a.question.id))
   const unsaved = live.filter((a) => !alreadySaved.has(savedAs(a)))
-  const ready = unsaved.filter((a) => !a.faults.some((f) => f.severity === 'error'))
+  // Everything the bank file can hold, which since #105 is nearly everything.
+  // What is left over is a question the file could not represent at all, rather
+  // than one that is merely half read.
+  const ready = unsaved.filter((a) => !blocksSaving(a.faults))
   const stuck = unsaved.length - ready.length
+  const owed = ready.filter((a) => a.faults.some((f) => f.unfinished)).length
 
   /**
    * Put the typed year on every question read, or take it off them all.
@@ -1106,9 +1114,16 @@ export function Extractor({
                   ? 'Saving…'
                   : `Save ${ready.length} question${ready.length === 1 ? '' : 's'} into this bank`}
               </button>
+              {owed > 0 && (
+                <p class="hint">
+                  {owed} of these {owed === 1 ? 'is' : 'are'} not finished. They save with a{' '}
+                  <span class="mono">needs-finishing</span> mark, and the Questions tab lists them.
+                </p>
+              )}
               {stuck > 0 && (
                 <p class="hint">
-                  {stuck} of these cannot be saved from here. Open one in the editor to finish it.
+                  {stuck} of these cannot go in a bank as they stand. Open one in the editor to
+                  finish it.
                 </p>
               )}
             </div>
@@ -1521,8 +1536,9 @@ function ExtractedCard({
   const [open, setOpen] = useState(false)
   const q = item.question
   const parts = q.config?.parts ?? []
-  const errors = item.faults.filter((f) => f.severity === 'error')
-  const state = saved ? 'saved' : errors.length > 0 ? 'bad' : 'ready'
+  const errors = item.faults.filter((f) => f.severity === 'error' && !f.unfinished)
+  const owed = item.faults.filter((f) => f.unfinished).length
+  const state = saved ? 'saved' : errors.length > 0 ? 'bad' : owed > 0 ? 'owed' : 'ready'
 
   return (
     <li class={`draft draft--${state}`}>
@@ -1530,7 +1546,13 @@ function ExtractedCard({
         <span class="draft__n">{at + 1}</span>
         <span class="draft__stem">{questionLabel(q)}</span>
         <span class="draft__state">
-          {saved ? 'Saved' : errors.length > 0 ? `${errors.length} to fix` : 'Ready'}
+          {saved
+            ? 'Saved'
+            : errors.length > 0
+              ? `${errors.length} to fix`
+              : owed > 0
+                ? `${owed} to finish`
+                : 'Ready'}
         </span>
       </div>
 
@@ -1619,7 +1641,11 @@ function ExtractedCard({
       {item.faults.length > 0 && (
         <div class={`draft__note ${errors.length > 0 ? 'draft__note--bad' : ''}`}>
           <p class="det__label">
-            {errors.length > 0 ? 'Cannot be saved until this is fixed' : 'Worth knowing'}
+            {errors.length > 0
+              ? 'Cannot go in a bank until this is fixed'
+              : owed > 0
+                ? 'Saves now, and has to be finished'
+                : 'Worth knowing'}
           </p>
           <CheckList checks={item.faults} />
         </div>
@@ -1632,7 +1658,11 @@ function ExtractedCard({
         {!saved && (
           <>
             <button class="btn btn--small" onClick={onEdit}>
-              {errors.length > 0 ? 'Fix it in the editor' : 'Open in the editor'}
+              {errors.length > 0
+                ? 'Fix it in the editor'
+                : owed > 0
+                  ? 'Finish it in the editor'
+                  : 'Open in the editor'}
             </button>
             <button class="btn btn--small" onClick={onDiscard}>
               Discard
