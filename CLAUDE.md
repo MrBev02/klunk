@@ -585,6 +585,77 @@ recorded. This question was read without a markscheme.* eight times with no
 letter anywhere. The existing Trial HSC Examination is unchanged, its letters
 printing as before.
 
+**A profile is a template and a paper is an instance of it, and `newPaper` broke
+that by copying rather than pointing** (#106). Reported as a teacher editing a
+paper structure and nothing reaching the papers built against it, with no way to
+fix those papers by hand either.
+
+- **`cover.ts` stated the doctrine and `newPaper` defeated it in three lines.**
+  Three layers, each absence meaning "use the one above", implemented as
+  `paper.x ?? profile.paper.x`. `newPaper` wrote
+  `profile.paper.readingMinutes ?? 0` and `profile.paper.instructions ?? []`,
+  and `0 ?? x` is `0` while `[] ?? x` is `[]`, so **that fallback had never
+  fired for any paper Klunk created**. `help.tsx` had been telling teachers the
+  opposite for months.
+- **Two papers in the content folder printed "Reading time: 0 minutes"**, their
+  profile setting none. Five of the six held an override identical to their
+  profile's, which looks fine and stops being fine the moment the profile is
+  edited.
+- **The vocabulary is inherit and override**, in the code and on screen. "Copy"
+  and "drop" were tried first and cost several rounds of explanation; the moment
+  it was framed as a class and an instance it needed none.
+- **An override identical to the profile's is removed by `cleanPaper` on the
+  next save.** It changes nothing that prints, provably, since both sides
+  resolve to the same value, and it is the one thing stopping a later profile
+  edit reaching that paper. Doing it silently is safe *because* they match;
+  where they differ the panel offers and the teacher decides. The one thing it
+  costs is a deliberate override that happens to equal the profile's value,
+  which Klunk cannot tell from a leftover.
+- **A stored `0` survives cleaning and an empty instruction list does not.**
+  Zero is a real answer, a paper with no reading time, and removing it would
+  make that unsayable and would reinterpret a saved file. An empty list is what
+  a cleared textarea leaves (`value.split('\n')` gives `['']`), and keeping it
+  shadowed the profile for ever.
+- **`cleanPaper` passes `sections` through by reference rather than rebuilding
+  them**, unlike `cleanProfile`. A ref carries `marksOverride`, `group` and
+  `note` and a section carries its own title and instructions, none of which
+  that function owns; rebuilding a structure you do not own is how a field
+  disappears on the next save with nothing to recover it from.
+- **`checkPaper` had never called `validateQuestion` or looked at sections at
+  all.** A section the profile gained showed up only as "Paper totals 25 marks,
+  profile expects 40", which sends a teacher looking at questions. A section the
+  profile lost showed up as nothing: `if (!spec) continue` skipped marks, count,
+  types and `chooseCount` while its questions still counted towards the total,
+  so a paper could add up correctly with a whole section unchecked.
+- **`dirty` and `owns` must keep reading the raw paper**, never the cleaned one.
+  A paper opened from disk is byte-identical to its file and must keep showing
+  Saved; reading the cleaned copy would make every existing paper look changed
+  at mount, `owns` would go false, and the next save would be refused as a
+  duplicate filename. `resolvePaper` takes the cleaned one, so clearing a box
+  previews the inherited value at once.
+- **`ref` is a reserved prop name in Preact.** A component taking one receives a
+  string where it expects a callback and throws before anything renders. It
+  typechecks perfectly, because TypeScript knows nothing about the reservation,
+  and the symptom is a blank page.
+
+**Deleting three lines from the function every paper is made by broke no test at
+all, and that is the finding.** Nineteen call sites used `newPaper` and not one
+asserted what it wrote. It is #105's lesson in the same shape: *a test covering
+only the path where a value arrives cannot see the path where it is invented.*
+The two that would have caught it start from `newPaper` rather than from a paper
+literal, and are in `cover.test.ts`.
+
+Driven end to end on `../klunk-content`: the reported symptom named by the panel
+and cleared in one press; a profile edited to 100 minutes reaching an already
+open paper without touching it; a section added to a profile reported by both
+the checker and the panel and inserted in the profile's order; the same section
+removed again reported as an orphan where it had previously been silent; a typed
+zero printing "0 minutes" against a blank box printing no line; a section
+heading, a section instruction, a group heading and a marks override all
+printing; a reference carrying overrides written as an object and dropping back
+to a plain string when cleared; and Trial HSC Examination, untouched, printing
+exactly what it printed before.
+
 **A section can be a set of alternatives, and until #52 Klunk could not say so.**
 Established from the 2025 Visual Arts HSC Trial (Redlands), the same document
 #51's cover work came from:
