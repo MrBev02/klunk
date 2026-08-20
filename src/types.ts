@@ -677,6 +677,21 @@ export function refKey(ref: PaperRef): string {
   return typeof ref === 'string' ? ref : `${ref.file}#${ref.questionId}`
 }
 
+/**
+ * Whether two instruction lists would print identically.
+ *
+ * Blank lines are what a textarea leaves behind and `cover.ts` drops them before
+ * printing, so they cannot count as a difference. Here rather than in `paper.ts`
+ * because `validate.ts` needs it too, and `paper.ts` already imports from
+ * `validate.ts` at runtime.
+ */
+export function sameLines(a?: string[], b?: string[]): boolean {
+  const tidy = (list?: string[]) => (list ?? []).map((line) => line.trim()).filter(Boolean)
+  const left = tidy(a)
+  const right = tidy(b)
+  return left.length === right.length && left.every((line, i) => line === right[i])
+}
+
 export function parseRef(ref: PaperRef): { file: string; questionId: string } | null {
   if (typeof ref !== 'string') return { file: ref.file, questionId: ref.questionId }
   const hash = ref.lastIndexOf('#')

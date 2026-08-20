@@ -23,7 +23,7 @@ import type {
   School,
   TableRow,
 } from './types'
-import { parseRef, printsInline, refKey } from './types'
+import { parseRef, printsInline, refKey, sameLines } from './types'
 
 export interface ResolvedQuestion {
   question: Question
@@ -213,7 +213,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
   const sat = satQuestionIds(index, paper.id)
   let number = 0
 
-  const sections = paper.sections.map((section): ResolvedSection => {
+  const sections = paper.sections.map((section, at): ResolvedSection => {
     const profileSection = profile?.paper.sections.find((s) => s.id === section.profileSectionId)
 
     const questions: ResolvedQuestion[] = []
@@ -248,7 +248,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
     const chooseCount = profileSection?.chooseCount
     return {
       profileSection,
-      title: section.title ?? profileSection?.name ?? 'Section',
+      title: section.title ?? profileSection?.name ?? `Section ${at + 1}`,
       subtitle: section.subtitle,
       instructions: section.instructions ?? profileSection?.instructions,
       questions,
@@ -284,6 +284,170 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
   }
 }
 
+/* --------------------------------------------------------------------- drift */
+
+/**
+ * Where a paper and its profile disagree.
+ *
+ * A profile is the template and a paper is an instance of it. A paper either
+ * **inherits** a field, by not stating it, or **overrides** it by stating its
+ * own. Those are the words used throughout, in the code and on screen (#106).
+ *
+ * Pure over a paper and a profile, with no `ContentIndex` and no folder, so it
+ * tests without one — the arrangement `manifest.ts` and `syllabusedit.ts` use.
+ * `checkPaper` calls it rather than deriving the same facts a second time: one
+ * implementation feeding both the verdict and the remedy is the whole reason
+ * this is a function.
+ *
+ * It carries no teacher-facing wording. A `Check` is a message and a drift is
+ * data; the panel and the checker say the same fact in different words.
+ */
+export interface StructureDrift {
+  /** In the profile and not on the paper, in the profile's own order. */
+  missingSections: { id: string; name: string; marks: number; at: number }[]
+  /** On the paper, naming a profile section the profile does not have. */
+  orphanSections: { at: number; profileSectionId: string; refs: number }[]
+  /**
+   * On the paper, naming no profile section at all.
+   *
+   * Kept apart from an orphan because the two need different answers. An orphan
+   * names something that has gone and can be removed or the profile corrected;
+   * this is what a paper with no profile looks like, the schema allows it, and
+   * there is no button for it. Both skip every per-section check, which is the
+   * part worth saying either way.
+   */
+  unlinkedSections: { at: number }[]
+  /** Fields the paper overrides, with the profile's value beside each. */
+  overrides: FieldOverride[]
+  /** Whether anything differs, so a caller does not have to test four lists. */
+  any: boolean
+}
+
+export type FieldOverride =
+  | {
+      field: 'readingMinutes' | 'workingMinutes'
+      onPaper: number
+      inProfile?: number | undefined
+    }
+  | {
+      field: 'instructions'
+      onPaper: string[]
+      inProfile?: string[] | undefined
+    }
+
+export function structureDrift(paper: Paper, profile?: Profile): StructureDrift {
+  const empty: StructureDrift = {
+    missingSections: [],
+    orphanSections: [],
+    unlinkedSections: [],
+    overrides: [],
+    any: false,
+  }
+  // Nothing to differ from. `checkPaper` already says "No profile set", and a
+  // panel offering to match a template that is not there would be nonsense.
+  if (!profile) return empty
+
+  const specs = profile.paper.sections
+  const named = new Set(
+    paper.sections.map((s) => s.profileSectionId).filter((id): id is string => id !== undefined),
+  )
+
+  const missingSections = specs
+    .map((spec, at) => ({ id: spec.id, name: spec.name, marks: spec.marks, at }))
+    .filter((spec) => !named.has(spec.id))
+
+  const orphanSections: StructureDrift['orphanSections'] = []
+  const unlinkedSections: StructureDrift['unlinkedSections'] = []
+  paper.sections.forEach((section, at) => {
+    const id = section.profileSectionId
+    if (id === undefined) {
+      unlinkedSections.push({ at })
+    } else if (!specs.some((spec) => spec.id === id)) {
+      orphanSections.push({ at, profileSectionId: id, refs: section.refs.length })
+    }
+  })
+
+  // Only an override that actually differs. One equal to the profile's is
+  // accidental — `newPaper` wrote it before #106 — and `cleanPaper` takes it off
+  // on the next save without changing anything that prints, so reporting it here
+  // would put a panel on five of the six papers in a real folder over something
+  // that is not yet wrong.
+  const overrides: FieldOverride[] = []
+  for (const field of ['readingMinutes', 'workingMinutes'] as const) {
+    const onPaper = paper[field]
+    const inProfile = profile.paper[field]
+    if (onPaper !== undefined && onPaper !== inProfile) {
+      overrides.push({ field, onPaper, ...(inProfile === undefined ? {} : { inProfile }) })
+    }
+  }
+  const lines = paper.instructions
+  const theirs = profile.paper.instructions
+  if (lines !== undefined && !sameLines(lines, theirs)) {
+    overrides.push({
+      field: 'instructions',
+      onPaper: lines,
+      ...(theirs === undefined ? {} : { inProfile: theirs }),
+    })
+  }
+
+  return {
+    missingSections,
+    orphanSections,
+    unlinkedSections,
+    overrides,
+    any:
+      missingSections.length > 0 ||
+      orphanSections.length > 0 ||
+      unlinkedSections.length > 0 ||
+      overrides.length > 0,
+  }
+}
+
+/**
+ * Add the section a profile has and this paper does not.
+ *
+ * Inserted where the profile puts it rather than appended, because the order of
+ * sections is the order they print. An orphaned or unlinked section names
+ * nothing in the profile and so never satisfies the test, which leaves it where
+ * the teacher had it.
+ *
+ * Refuses a section the profile does not have, and one this paper already fills:
+ * two paper sections naming one profile section would have `checkPaper` report
+ * that section's marks twice, and the guard is cheaper than the report.
+ */
+export function addSection(paper: Paper, profile: Profile, profileSectionId: string): Paper {
+  const specs = profile.paper.sections
+  const order = specs.findIndex((s) => s.id === profileSectionId)
+  if (order < 0) return paper
+  if (paper.sections.some((s) => s.profileSectionId === profileSectionId)) return paper
+
+  const rank = (id?: string) => {
+    const at = id === undefined ? -1 : specs.findIndex((s) => s.id === id)
+    // Anything the profile does not know keeps its place, by sorting as though
+    // it belonged after everything the profile does know.
+    return at < 0 ? Number.POSITIVE_INFINITY : at
+  }
+  const before = paper.sections.findIndex((s) => rank(s.profileSectionId) > order)
+  const at = before < 0 ? paper.sections.length : before
+  const sections = [...paper.sections]
+  sections.splice(at, 0, { profileSectionId, refs: [] })
+  return { ...paper, sections }
+}
+
+/**
+ * Take a section off a paper.
+ *
+ * Refuses the last one, because `paper.schema.json` sets `minItems: 1` and a
+ * paper with no sections could not be written. It does not refuse one holding
+ * questions: that is the teacher's call, the button says how many go, and
+ * nothing reaches the folder until Save.
+ */
+export function removeSection(paper: Paper, sectionIndex: number): Paper {
+  if (sectionIndex < 0 || sectionIndex >= paper.sections.length) return paper
+  if (paper.sections.length <= 1) return paper
+  return { ...paper, sections: paper.sections.filter((_, i) => i !== sectionIndex) }
+}
+
 /* ------------------------------------------------------------------ checking */
 
 /**
@@ -293,6 +457,12 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
  * a section has the wrong number of questions, a question appears twice.
  * Warnings are things a teacher might mean: an untagged question, a recent
  * past-paper question that students may have seen.
+ *
+ * A section that differs from the profile is reported as an error too (#106).
+ * Until then a section the profile had gained showed up only as an arithmetic
+ * complaint, and one the profile had lost showed up as nothing at all: the
+ * `if (!spec) continue` below skipped every check on it while its questions
+ * still counted towards the paper's total.
  *
  * An unfinished question is a third kind and is reported as an error (#105).
  * It is neither of the two above: the paper adds up and the teacher did not
@@ -349,6 +519,44 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
     checks.push({
       severity: 'error',
       message: `Paper totals ${resolved.totalMarks} marks, profile expects ${profile.paper.totalMarks}`,
+    })
+  }
+
+  // Straight after the total and before the per-section loop, because a teacher
+  // reading "Paper totals 25 marks, profile expects 40" then reads why.
+  const drift = structureDrift(resolved.paper, profile)
+
+  for (const spec of drift.missingSections) {
+    // Never a false positive: `validateProfile` already enforces that a
+    // profile's sections sum to its total, so a paper missing one can never
+    // total correctly. It was always an error; it was reported as arithmetic,
+    // which sends the teacher looking at questions.
+    checks.push({
+      severity: 'error',
+      where: spec.name,
+      message: `not on this paper. The profile gives it ${spec.marks} mark${
+        spec.marks === 1 ? '' : 's'
+      }.`,
+    })
+  }
+
+  for (const orphan of drift.orphanSections) {
+    checks.push({
+      severity: 'error',
+      where: resolved.sections[orphan.at]?.title ?? `Section ${orphan.at + 1}`,
+      message:
+        `names "${orphan.profileSectionId}", which the profile does not have. ` +
+        'Its marks and question count are not checked.',
+    })
+  }
+
+  for (const unlinked of drift.unlinkedSections) {
+    // A warning: the schema allows it and nothing is provably wrong. But the
+    // same `continue` swallows its checks, so a teacher should know.
+    checks.push({
+      severity: 'warning',
+      where: resolved.sections[unlinked.at]?.title ?? `Section ${unlinked.at + 1}`,
+      message: 'not linked to a profile section, so its marks and question count are not checked.',
     })
   }
 
@@ -759,10 +967,19 @@ export function newPaper(
     id,
     title,
     profileId: profile.id,
-    readingMinutes: profile.paper.readingMinutes ?? 0,
-    workingMinutes: profile.paper.workingMinutes ?? 0,
-    instructions: profile.paper.instructions ?? [],
     status: 'draft',
+    // Sections and nothing else. A profile is the template and a paper is an
+    // instance of it, so a paper states a field only where it means to differ.
+    //
+    // This used to write the timing and the instructions too, taken from the
+    // profile with `?? 0` and `?? []` behind them. `cover.ts` resolves each of
+    // those as `paper.x ?? profile.paper.x`, and `0 ?? x` is `0`, so every paper
+    // Klunk ever made overrode its profile on all three with the profile's own
+    // values — and editing the profile afterwards reached nothing (#106).
+    //
+    // Sections stay because they are containers rather than values: a paper
+    // needs somewhere to put questions on the day it is made, and
+    // `profileSectionId` is the binding that `structureDrift` measures against.
     sections: profile.paper.sections.map((s) => ({
       profileSectionId: s.id,
       refs: [],

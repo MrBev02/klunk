@@ -10,12 +10,22 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import type { Profile, Question, QuestionConfig, QuestionType, School, Syllabus } from './types'
+import type {
+  Paper,
+  Profile,
+  Question,
+  QuestionConfig,
+  QuestionType,
+  School,
+  Syllabus,
+} from './types'
 import {
   blocksSaving,
+  cleanPaper,
   cleanProfile,
   cleanQuestion,
   cleanSchool,
+  setRefOptions,
   emptyIdContext,
   hasGuide,
   isUnfinished,
@@ -1403,6 +1413,142 @@ describe('cleanProfile', () => {
     expect(cleaned.print?.linesPerMark).toBe(3)
     expect(cleaned.paper.sections[0]?.suggestedMinutes).toBe(45)
     expect(cleaned.paper.sections[0]?.questionTypes).toEqual(['extended_response'])
+  })
+})
+
+/* ---------------------------------------------------------------------- paper */
+
+describe('cleanPaper', () => {
+  const timed: Profile = {
+    formatVersion: '1',
+    type: 'klunk_profile',
+    id: 'test',
+    name: 'Test',
+    paper: {
+      totalMarks: 10,
+      readingMinutes: 5,
+      workingMinutes: 90,
+      instructions: ['Write using black pen'],
+      sections: [{ id: 'I', name: 'Section I', marks: 10 }],
+    },
+  }
+
+  const paper = (over: Partial<Paper> = {}): Paper => ({
+    formatVersion: '1',
+    type: 'klunk_paper',
+    id: 'p',
+    title: 'Trial',
+    profileId: 'test',
+    sections: [{ profileSectionId: 'I', refs: ['bank/b.json#q1'] }],
+    ...over,
+  })
+
+  it('takes off an override identical to the profile, so the paper inherits again', () => {
+    // The accidental kind. `newPaper` wrote all three before #106, so every
+    // paper in every folder carries them. Removing them changes nothing that
+    // prints, because both sides resolve to the same value.
+    const out = cleanPaper(
+      paper({ readingMinutes: 5, workingMinutes: 90, instructions: ['Write using black pen'] }),
+      timed,
+    )
+    expect('readingMinutes' in out).toBe(false)
+    expect('workingMinutes' in out).toBe(false)
+    expect('instructions' in out).toBe(false)
+  })
+
+  it('keeps an override that differs', () => {
+    const out = cleanPaper(paper({ workingMinutes: 60, instructions: ['Answer all'] }), timed)
+    expect(out.workingMinutes).toBe(60)
+    expect(out.instructions).toEqual(['Answer all'])
+  })
+
+  it('keeps a stored zero, which is a real answer', () => {
+    // Taking it off would make "this paper has no reading time" unsayable, and
+    // would reinterpret what a saved file means. `cover.test.ts` records the
+    // same decision from the other side.
+    expect(cleanPaper(paper({ readingMinutes: 0 }), timed).readingMinutes).toBe(0)
+  })
+
+  it('drops what a cleared instructions box leaves behind', () => {
+    // The textarea writes `value.split('\n')`, so clearing it gives `['']`,
+    // which is not nullish and shadowed the profile for ever.
+    expect('instructions' in cleanPaper(paper({ instructions: [''] }), timed)).toBe(false)
+    expect('instructions' in cleanPaper(paper({ instructions: ['', '  '] }), timed)).toBe(false)
+  })
+
+  it('drops a negative time rather than writing a file the schema refuses', () => {
+    expect('readingMinutes' in cleanPaper(paper({ readingMinutes: -5 }), timed)).toBe(false)
+  })
+
+  it('changes nothing when there is no profile to compare against', () => {
+    // A paper may name a profile the folder does not hold. Klunk ships none.
+    const out = cleanPaper(paper({ readingMinutes: 5, instructions: ['Write using black pen'] }))
+    expect(out.readingMinutes).toBe(5)
+    expect(out.instructions).toEqual(['Write using black pen'])
+  })
+
+  it('leaves the section and ref fields it does not own exactly as they were', () => {
+    // Passed through by reference on purpose. Rebuilding a structure this
+    // function does not own is how `marksOverride`, `group` and a section's
+    // instructions disappear on the next save with no history to get them back.
+    const sections: Paper['sections'] = [
+      {
+        profileSectionId: 'I',
+        title: 'Part One',
+        instructions: 'Answer every question.',
+        refs: [{ file: 'bank/b.json', questionId: 'q1', marksOverride: 3, group: 'Practice' }],
+      },
+    ]
+    expect(cleanPaper(paper({ sections }), timed).sections).toEqual(sections)
+  })
+
+  it('drops blank text and an empty school block', () => {
+    const out = cleanPaper(
+      paper({ subtitle: '  ', notes: '', school: { name: ' ', course: '', date: '  ' } }),
+      timed,
+    )
+    expect('subtitle' in out).toBe(false)
+    expect('notes' in out).toBe(false)
+    expect('school' in out).toBe(false)
+  })
+
+  it('leaves a paper that is already tidy exactly as it is', () => {
+    // The test that breaks the day somebody adds a field to `Paper` and forgets
+    // this function.
+    const full = paper({
+      subtitle: 'Trial examination',
+      notes: 'Print single sided.',
+      status: 'final',
+      school: { name: 'Redlands', course: 'Science', yearGroup: 'Year 10', date: '2026-06-01' },
+      workingMinutes: 60,
+    })
+    expect(cleanPaper(full, timed)).toEqual(full)
+  })
+})
+
+describe('setRefOptions', () => {
+  it('upgrades a plain string ref when something is set', () => {
+    expect(setRefOptions('bank/b.json#q1', { marksOverride: 3 })).toEqual({
+      file: 'bank/b.json',
+      questionId: 'q1',
+      marksOverride: 3,
+    })
+  })
+
+  it('drops back to a string when everything is cleared', () => {
+    // So a file does not keep `{"file":…,"questionId":…}` saying what a string
+    // already said.
+    const object = { file: 'bank/b.json', questionId: 'q1', group: 'Practice' }
+    expect(setRefOptions(object, { group: undefined })).toBe('bank/b.json#q1')
+  })
+
+  it('keeps what it was not asked about', () => {
+    const object = { file: 'bank/b.json', questionId: 'q1', marksOverride: 3, group: 'Practice' }
+    expect(setRefOptions(object, { group: 'Frames' })).toEqual({ ...object, group: 'Frames' })
+  })
+
+  it('refuses a marks override of nothing', () => {
+    expect(setRefOptions('bank/b.json#q1', { marksOverride: 0 })).toBe('bank/b.json#q1')
   })
 })
 

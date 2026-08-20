@@ -13,7 +13,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { coverModel, formatDate, questionRange, DEFAULT_LOGO_WIDTH_MM } from './cover'
-import type { ResolvedPaper, ResolvedSection } from './paper'
+import { newPaper, type ResolvedPaper, type ResolvedSection } from './paper'
 import type { Paper, Profile, School } from './types'
 
 function section(title: string, marks: number, numbers: number[]): ResolvedSection {
@@ -262,6 +262,52 @@ describe('reading and working time', () => {
     const paper = { ...resolved().paper, readingMinutes: 0 }
     const model = coverModel(resolved({ paper, profile: profile({ readingMinutes: 5 }) }))
     expect(model.readingMinutes).toBe(0)
+  })
+})
+
+/**
+ * The two that would have caught #106.
+ *
+ * Every case above builds a paper literal, so all three fallbacks were tested
+ * and none of them was ever reached in the app: `newPaper` snapshotted the
+ * profile onto every paper it made. These start from `newPaper` instead, which
+ * is the only way the bug was visible from a test.
+ */
+describe('a paper as its profile made it', () => {
+  const timed = profile({
+    readingMinutes: 5,
+    workingMinutes: 90,
+    instructions: ['Write using black pen'],
+  })
+
+  it('prints the profile it was made from', () => {
+    const model = coverModel(resolved({ paper: newPaper(timed, 'p', 'T'), profile: timed }))
+    expect(model.readingMinutes).toBe(5)
+    expect(model.workingMinutes).toBe(90)
+    expect(model.instructions).toEqual(['Write using black pen'])
+  })
+
+  it("prints the profile's new timing after the profile changes", () => {
+    // The whole point of the issue. Before #106 this printed the old numbers,
+    // because the paper carried its own copy of them.
+    const paper = newPaper(timed, 'p', 'T')
+    const later = profile({
+      readingMinutes: 10,
+      workingMinutes: 120,
+      instructions: ['Answer all questions'],
+    })
+    const model = coverModel(resolved({ paper, profile: later }))
+    expect(model.readingMinutes).toBe(10)
+    expect(model.workingMinutes).toBe(120)
+    expect(model.instructions).toEqual(['Answer all questions'])
+  })
+
+  it('prints no timing at all where the profile sets none', () => {
+    // `newPaper` used to write `?? 0`, so a paper made from a profile with no
+    // reading time printed "Reading time: 0 minutes" for ever.
+    const model = coverModel(resolved({ paper: newPaper(profile(), 'p', 'T'), profile: profile() }))
+    expect(model.readingMinutes).toBeUndefined()
+    expect(model.workingMinutes).toBeUndefined()
   })
 })
 

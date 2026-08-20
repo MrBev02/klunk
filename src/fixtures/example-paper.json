@@ -13,10 +13,6 @@
     "date": "2026-08-10"
   },
 
-  "readingMinutes": 5,
-  "workingMinutes": 90,
-  "instructions": ["Write using black pen"],
-
   "status": "draft",
 
   "sections": [

@@ -34,10 +34,13 @@
  */
 
 import type { Check } from './paper'
-import { STIMULUS_ALIGNS } from './types'
+import { parseRef, sameLines, STIMULUS_ALIGNS } from './types'
 import type {
   IdentificationField,
   MarkCriterion,
+  Paper,
+  PaperRef,
+  PaperRefObject,
   Profile,
   ProfileSection,
   Question,
@@ -1050,6 +1053,134 @@ export function cleanIdentification(
       return field
     })
   return out.length > 0 ? out : undefined
+}
+
+/* ---------------------------------------------------------------------- paper */
+
+/**
+ * Reduce a paper to exactly what belongs in the file, and let it inherit.
+ *
+ * A profile is the template and a paper is an instance of it. A paper states a
+ * field only where it means to differ; `cover.ts` resolves each one as
+ * `paper.x ?? profile.paper.x`, and an absent field is how a paper says "take
+ * the profile's" (#106).
+ *
+ * Two jobs beyond tidying.
+ *
+ * **An override identical to the profile's is taken off.** It changes nothing
+ * that prints, because both sides resolve to the same value, and it is the one
+ * thing stopping a later profile edit reaching this paper. Every paper made
+ * before #106 carries three of them, written by `newPaper` rather than by a
+ * teacher. Taking them off is invisible on the page and restores inheritance.
+ *
+ * **A cleared instructions box means inherit.** The textarea writes
+ * `value.split('\n')`, so clearing it gives `['']`, which is not nullish and so
+ * shadows the profile for ever. An all-blank list becomes absent.
+ *
+ * **A stored `0` is kept.** Removing it would make "this paper has no reading
+ * time" impossible to say, which is a legitimate use of the layer, and would
+ * reinterpret what a saved file means. `cover.test.ts` already records the same
+ * decision on the other side: zero is a real answer and not a missing one.
+ *
+ * `sections` is passed through by reference rather than rebuilt, unlike
+ * `cleanProfile`, and that is deliberate. A ref carries `marksOverride`, `group`
+ * and `note`, and a section carries `title`, `subtitle` and `instructions`.
+ * Rebuilding a structure this function does not own is how a field disappears on
+ * the next save with no history to recover it from. `cleanProfile` may rebuild
+ * its sections because the profile editor owns every field of one.
+ */
+export function cleanPaper(draft: Paper, profile?: Profile): Paper {
+  const out: Paper = {
+    formatVersion: draft.formatVersion,
+    type: draft.type,
+    id: draft.id.trim(),
+    title: draft.title.trim(),
+    sections: draft.sections,
+  }
+
+  const subtitle = text(draft.subtitle)
+  if (subtitle !== undefined) out.subtitle = subtitle
+
+  const profileId = text(draft.profileId)
+  if (profileId !== undefined) out.profileId = profileId
+
+  const notes = text(draft.notes)
+  if (notes !== undefined) out.notes = notes
+
+  // Kept as given, `'draft'` included, unlike `cleanProfile` dropping a false
+  // `marksAwardedColumn`. A status is set deliberately and cycled through, and a
+  // paper that has been final and come back to draft should say so.
+  if (draft.status !== undefined) out.status = draft.status
+
+  const school = compact({
+    name: text(draft.school?.name),
+    course: text(draft.school?.course),
+    yearGroup: text(draft.school?.yearGroup),
+    date: text(draft.school?.date),
+    logoFile: text(draft.school?.logoFile),
+  })
+  if (school) out.school = school
+
+  for (const field of ['readingMinutes', 'workingMinutes'] as const) {
+    const value = draft[field]
+    // A negative cannot be written to a valid file at all (`minimum: 0`) and the
+    // box will not produce one, so the only route in is a hand-edited file.
+    // Dropped rather than reported: the profile's value then prints instead of a
+    // nonsense one, and nothing else needs a `validatePaper` to exist.
+    if (value === undefined || !Number.isFinite(value) || value < 0) continue
+    if (profile !== undefined && value === profile.paper[field]) continue
+    out[field] = value
+  }
+
+  const lines = (draft.instructions ?? []).map((line: string) => line.trim()).filter(Boolean)
+  if (
+    lines.length > 0 &&
+    !(profile !== undefined && sameLines(lines, profile.paper.instructions))
+  ) {
+    out.instructions = lines
+  }
+
+  return out
+}
+
+/**
+ * Set what a paper says about one question, and keep the file tidy.
+ *
+ * A ref is a plain `bank.json#id` string until it needs to carry something.
+ * `marksOverride`, `group` and `note` need the object form, so this upgrades on
+ * the way in and drops back to a string the moment nothing is left, rather than
+ * leaving `{"file":…,"questionId":…}` behind to say what a string already said.
+ */
+export function setRefOptions(
+  ref: PaperRef,
+  // Written out rather than `Partial<Omit<…>>`, because `exactOptionalPropertyTypes`
+  // refuses an explicit `undefined` there, and passing `undefined` is how a
+  // caller clears a field.
+  patch: {
+    marksOverride?: number | undefined
+    group?: string | undefined
+    note?: string | undefined
+  },
+): PaperRef {
+  const parsed = parseRef(ref)
+  if (!parsed) return ref
+  const before: PaperRefObject =
+    typeof ref === 'object' ? ref : { file: parsed.file, questionId: parsed.questionId }
+
+  const after: PaperRefObject = { file: before.file, questionId: before.questionId }
+  const marksOverride = 'marksOverride' in patch ? patch.marksOverride : before.marksOverride
+  const group = text('group' in patch ? patch.group : before.group)
+  const note = text('note' in patch ? patch.note : before.note)
+
+  if (marksOverride !== undefined && Number.isFinite(marksOverride) && marksOverride > 0) {
+    after.marksOverride = marksOverride
+  }
+  if (group !== undefined) after.group = group
+  if (note !== undefined) after.note = note
+
+  const bare =
+    after.marksOverride === undefined && after.group === undefined && after.note === undefined
+  return bare ? `${after.file}#${after.questionId}` : after
 }
 
 /* ------------------------------------------------------------------------ ids */

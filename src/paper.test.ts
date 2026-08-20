@@ -11,9 +11,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   addRef,
+  addSection,
   checkPaper,
   moveRef,
   newPaper,
+  removeSection,
+  structureDrift,
   paperIsDirty,
   paperIsSaved,
   pickableQuestions,
@@ -154,6 +157,185 @@ describe('resolvePaper', () => {
     expect(resolved.sections[1]?.marks).toBe(10)
     // The bank question itself is untouched.
     expect(index.banks[0]?.data.questions.find((q) => q.id === 'f')?.marks).toBe(15)
+  })
+})
+
+/* -------------------------------------------- a paper as an instance of a profile */
+
+/**
+ * A profile is the template and a paper is an instance of it (#106).
+ *
+ * Until this existed, nineteen call sites used `newPaper` and not one asserted
+ * what it wrote. It had been snapshotting the profile's timing and instructions
+ * onto every paper it made, with `?? 0` and `?? []` behind them, so `cover.ts`'s
+ * `paper.x ?? profile.paper.x` could never once fall through. Deleting those
+ * three lines broke no test at all, which is what says they were never covered.
+ */
+describe('newPaper', () => {
+  const timed: Profile = {
+    ...profile,
+    paper: {
+      ...profile.paper,
+      readingMinutes: 5,
+      workingMinutes: 90,
+      instructions: ['Write using black pen'],
+    },
+  }
+
+  it('overrides nothing the profile already says', () => {
+    const paper = newPaper(timed, 'p', 'T')
+    expect('readingMinutes' in paper).toBe(false)
+    expect('workingMinutes' in paper).toBe(false)
+    expect('instructions' in paper).toBe(false)
+  })
+
+  it("still gives the paper a section for each of the profile's, in order", () => {
+    const paper = newPaper(timed, 'p', 'T')
+    expect(paper.sections.map((s) => s.profileSectionId)).toEqual(['I', 'II'])
+    expect(paper.sections.every((s) => s.refs.length === 0)).toBe(true)
+  })
+
+  it('writes no school block when it is told nothing to put in one', () => {
+    expect('school' in newPaper(timed, 'p', 'T')).toBe(false)
+    expect(newPaper(timed, 'p', 'T', { subject: 'Science' }).school).toEqual({ course: 'Science' })
+  })
+})
+
+describe('structureDrift', () => {
+  const paperWith = (sections: Paper['sections'], over: Partial<Paper> = {}): Paper => ({
+    formatVersion: '1',
+    type: 'klunk_paper',
+    id: 'p',
+    title: 'T',
+    profileId: 'test',
+    sections,
+    ...over,
+  })
+
+  it('finds a section the profile has and the paper does not', () => {
+    const drift = structureDrift(paperWith([{ profileSectionId: 'I', refs: [] }]), profile)
+    expect(drift.missingSections).toEqual([{ id: 'II', name: 'Section II', marks: 15, at: 1 }])
+    expect(drift.any).toBe(true)
+  })
+
+  it('finds a section the paper has and the profile does not, and counts what it holds', () => {
+    const drift = structureDrift(
+      paperWith([
+        { profileSectionId: 'I', refs: [] },
+        { profileSectionId: 'II', refs: [] },
+        { profileSectionId: 'III', refs: ['bank/t.json#a', 'bank/t.json#b'] },
+      ]),
+      profile,
+    )
+    expect(drift.orphanSections).toEqual([{ at: 2, profileSectionId: 'III', refs: 2 }])
+  })
+
+  it('tells a section linked to nothing from one linked to something gone', () => {
+    const drift = structureDrift(
+      paperWith([
+        { profileSectionId: 'I', refs: [] },
+        { profileSectionId: 'II', refs: [] },
+        { refs: [] },
+      ]),
+      profile,
+    )
+    expect(drift.unlinkedSections).toEqual([{ at: 2 }])
+    expect(drift.orphanSections).toEqual([])
+  })
+
+  it('reports an override that differs from the profile', () => {
+    const timed: Profile = { ...profile, paper: { ...profile.paper, workingMinutes: 90 } }
+    const drift = structureDrift(
+      paperWith(
+        [
+          { profileSectionId: 'I', refs: [] },
+          { profileSectionId: 'II', refs: [] },
+        ],
+        { workingMinutes: 60 },
+      ),
+      timed,
+    )
+    expect(drift.overrides).toEqual([{ field: 'workingMinutes', onPaper: 60, inProfile: 90 }])
+  })
+
+  it('says nothing about an override identical to the profile', () => {
+    // The accidental kind, written by `newPaper` before #106. `cleanPaper` takes
+    // it off without changing anything that prints, so a panel about it would
+    // fire on five of the six papers in a real folder over nothing yet wrong.
+    const timed: Profile = { ...profile, paper: { ...profile.paper, workingMinutes: 90 } }
+    const drift = structureDrift(
+      paperWith(
+        [
+          { profileSectionId: 'I', refs: [] },
+          { profileSectionId: 'II', refs: [] },
+        ],
+        { workingMinutes: 90 },
+      ),
+      timed,
+    )
+    expect(drift.overrides).toEqual([])
+    expect(drift.any).toBe(false)
+  })
+
+  it('reports a zero against a profile that sets no time at all', () => {
+    // The real case: two papers in the content folder print "Reading time: 0
+    // minutes" because `newPaper` wrote the zero its profile never had.
+    const drift = structureDrift(
+      paperWith(
+        [
+          { profileSectionId: 'I', refs: [] },
+          { profileSectionId: 'II', refs: [] },
+        ],
+        { readingMinutes: 0 },
+      ),
+      profile,
+    )
+    expect(drift.overrides).toEqual([{ field: 'readingMinutes', onPaper: 0 }])
+  })
+
+  it('finds nothing when there is no profile to differ from', () => {
+    expect(structureDrift(paperWith([{ refs: [] }])).any).toBe(false)
+  })
+})
+
+describe('addSection and removeSection', () => {
+  const paperWith = (ids: (string | undefined)[]): Paper => ({
+    formatVersion: '1',
+    type: 'klunk_paper',
+    id: 'p',
+    title: 'T',
+    sections: ids.map((profileSectionId) =>
+      profileSectionId === undefined ? { refs: [] } : { profileSectionId, refs: [] },
+    ),
+  })
+
+  it('inserts where the profile puts it, not at the end', () => {
+    const out = addSection(paperWith(['II']), profile, 'I')
+    expect(out.sections.map((s) => s.profileSectionId)).toEqual(['I', 'II'])
+  })
+
+  it('appends when it belongs last', () => {
+    const out = addSection(paperWith(['I']), profile, 'II')
+    expect(out.sections.map((s) => s.profileSectionId)).toEqual(['I', 'II'])
+  })
+
+  it('leaves a section the profile does not know where the teacher had it', () => {
+    const out = addSection(paperWith(['I', 'gone']), profile, 'II')
+    expect(out.sections.map((s) => s.profileSectionId)).toEqual(['I', 'II', 'gone'])
+  })
+
+  it('refuses one the profile does not have, and one already there', () => {
+    const paper = paperWith(['I'])
+    expect(addSection(paper, profile, 'IV')).toBe(paper)
+    expect(addSection(paper, profile, 'I')).toBe(paper)
+  })
+
+  it('removes a section, questions and all, but never the last one', () => {
+    const paper = paperWith(['I', 'II'])
+    expect(removeSection(paper, 1).sections.map((s) => s.profileSectionId)).toEqual(['I'])
+    const one = paperWith(['I'])
+    expect(removeSection(one, 0)).toBe(one)
+    expect(removeSection(paper, 9)).toBe(paper)
   })
 })
 
@@ -318,6 +500,65 @@ describe('checkPaper', () => {
     paper = addRef(paper, 1, 'bank/test.json#f')
     const checks = checkPaper(resolvePaper(index, paper, profile))
     expect(checks.some((c) => c.message.includes('this section is 1 per question'))).toBe(true)
+  })
+
+  it('names a section the profile has and this paper does not', () => {
+    // Until #106 this showed up only as "Paper totals 5 marks, profile expects
+    // 20", which sends a teacher looking at questions rather than at the
+    // section that is not there.
+    const index = indexWith(['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)))
+    let paper = newPaper(profile, 'p', 'T')
+    paper = { ...paper, sections: [paper.sections[0]!] }
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    const said = checks.find((c) => c.where === 'Section II')
+    expect(said?.severity).toBe('error')
+    expect(said?.message).toContain('not on this paper')
+    expect(said?.message).toContain('15 marks')
+  })
+
+  it('names a section this paper has and the profile does not, which used to be silent', () => {
+    // `if (!spec) continue` skips every per-section check on an orphan while its
+    // questions still count towards the total, so the paper could add up with a
+    // whole section unchecked.
+    const index = indexWith([...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), written('f', 15)])
+    let paper = newPaper(profile, 'p', 'T')
+    paper = { ...paper, sections: [paper.sections[0]!, { profileSectionId: 'III', refs: [] }] }
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+    paper = addRef(paper, 1, 'bank/test.json#f')
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    const said = checks.find((c) => c.message.includes('which the profile does not have'))
+    expect(said?.severity).toBe('error')
+    expect(said?.message).toContain('"III"')
+    expect(said?.message).toContain('not checked')
+  })
+
+  it('warns about a section linked to no profile section at all', () => {
+    const index = indexWith(['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)))
+    let paper = newPaper(profile, 'p', 'T')
+    paper = { ...paper, sections: [paper.sections[0]!, paper.sections[1]!, { refs: [] }] }
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+
+    const said = checkPaper(resolvePaper(index, paper, profile)).find((c) =>
+      c.message.includes('not linked to a profile section'),
+    )
+    expect(said?.severity).toBe('warning')
+    // Named by its position rather than the literal word "Section".
+    expect(said?.where).toBe('Section 3')
+  })
+
+  it('says none of that about a paper whose sections match its profile', () => {
+    const index = indexWith([...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), written('f', 15)])
+    let paper = newPaper(profile, 'p', 'T')
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+    paper = addRef(paper, 1, 'bank/test.json#f')
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    expect(
+      checks.filter((c) => /not on this paper|does not have|not linked/.test(c.message)),
+    ).toEqual([])
   })
 
   it('names a question that is not finished, and says what it is waiting for', () => {
