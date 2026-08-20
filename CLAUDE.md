@@ -1029,6 +1029,24 @@ python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \
 uv run --with jsonschema python <validation script>
 ```
 
+**`tsc` is a native binary now** (#104). TypeScript 7 is the Go port, so the
+`typescript` package is a shim that runs
+`@typescript/typescript-<platform>/lib/tsc`, one of twenty optional dependencies
+picked by `os` and `cpu`, and the `lib.*.d.ts` files moved there with it.
+Installing from the lockfile under `--os=linux` and `--os=win32` was checked
+rather than assumed: each resolves exactly one binary, so CI and the Windows
+machine both get theirs. The whole check takes 0.3 s where 5.9.3 took 3.0 s.
+
+Two things follow from the new layout. **`node_modules/typescript/lib` is no
+longer a TypeScript install** — it holds the shim and nothing else — so
+pointing an editor's `typescript.tsdk` at it buys a broken language service
+rather than a version mismatch. And **nothing else in the toolchain loads the
+`typescript` package at all**: not vite, not vitest, not `@preact/preset-vite`,
+not prettier, each of which carries its own TypeScript handling. So the compiler
+API moving to `typescript/unstable/*` costs this repository nothing, which is
+why `dist/` and `dist-single/` came out byte-identical either side of the
+upgrade.
+
 Regression check for the generator: Design and Technology must stay at
 **20 topics / 78 points / 12 outcomes** (Preliminary) and **20 / 61 / 13** (HSC).
 Textiles and Design at **18 / 104 / 11** and **15 / 80 / 13**.
@@ -1288,6 +1306,18 @@ because Git never asks `gh`.
   whole time. `tools/nesa_stage6_syllabus.py` writes UTF-8 on `sys.stdout.buffer`
   now, matching what `--out` always did; **any Python tool added here has to do
   the same**, and this would not have shown up on the Mac.
+- **VS Code does not use this repository's TypeScript, and did not before #104
+  either.** 1.131.0 bundles its own — 6.0.3 here — and
+  `typescript.enablePromptUseWorkspaceTsdk` is off by default, so IntelliSense
+  never went near 5.9.3 and does not go near 7.0.2. The editor and `tsc` have
+  therefore always been two implementations of the same rules, and moving to 7
+  narrows that gap rather than opening it. The route to the workspace compiler
+  is the **TypeScript (Native Preview)** extension plus
+  `typescript.experimental.useTsgo`, pointed at the binary under
+  `node_modules/@typescript/`; it is not installed here, and `typescript.tsdk`
+  is not the route because of the layout change above. The language server does
+  work: `tsc --lsp --stdio` driven over this project answered hover,
+  go-to-definition across modules, completion and live diagnostics correctly.
 - **Two Chrome browsers are connected to this account, and the wrong one is the
   default.** `list_connected_browsers` returns a macOS one and a Windows one, and
   **which is local depends on which machine you are on** — this was first written
