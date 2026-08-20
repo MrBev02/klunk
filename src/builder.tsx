@@ -329,10 +329,20 @@ export function Builder({
           {failed && <p class="setup__problem">{failed}</p>}
           {!failed && (
             <p class="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+              {/* A paper that has never been saved and one with an edit in it
+                  are different states, and both used to read "Not yet in
+                  papers/x.json" — which is false of a paper opened from that
+                  very file. `owns` is what tells them apart. */}
               {dirty ? (
-                <>
-                  Not yet in <span class="mono">papers/{paper.id}.json</span>.
-                </>
+                owns ? (
+                  <>
+                    Changes not yet saved to <span class="mono">papers/{paper.id}.json</span>.
+                  </>
+                ) : (
+                  <>
+                    Not yet in <span class="mono">papers/{paper.id}.json</span>.
+                  </>
+                )
               ) : (
                 (saved ?? '')
               )}
@@ -439,7 +449,7 @@ export function Builder({
                             not the question. The same question sits under a
                             different heading on another paper (#52). */}
                         <RefOverrides
-                          ref={ref}
+                          entry={ref}
                           marks={rq?.question.marks}
                           onChange={(patch) => setRef(si, ri, patch)}
                         />
@@ -554,16 +564,18 @@ function SectionOverrides({
  * renderer since #52 and writable nowhere.
  */
 function RefOverrides({
-  ref,
+  // Not `ref`. Preact reserves that prop name and intercepts it, which
+  // typechecks perfectly and blanks the screen at run time.
+  entry,
   marks,
   onChange,
 }: {
-  ref: PaperRef
+  entry: PaperRef
   marks: number | undefined
   onChange: (patch: { marksOverride?: number | undefined; group?: string | undefined }) => void
 }) {
   const [open, setOpen] = useState(false)
-  const set = typeof ref === 'object' ? ref : undefined
+  const set = typeof entry === 'object' ? entry : undefined
 
   return (
     <div class="picked__over">
