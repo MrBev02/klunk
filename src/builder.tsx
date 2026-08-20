@@ -13,6 +13,7 @@ import {
   type ResolvedPaper,
 } from './paper'
 import { QuestionDetail, shortType } from './question'
+import { isUnfinished, unfinishedReasons } from './validate'
 import { PrintablePaper, type PrintMode } from './render'
 import { ProfileInstaller, profilesOnOffer } from './setup'
 import { allQuestions, deletePaper, savePaper, type ContentIndex } from './storage'
@@ -636,6 +637,20 @@ function BankRail({
                   <span class="chip chip--type" style={{ marginRight: '0.3rem' }}>
                     {shortType(o.question)}
                   </span>
+                  {/* Marked and still offered, for the reason the empty-rail
+                      copy above gives: a rail that quietly drops questions is
+                      how a teacher concludes their bank is empty. A question
+                      may well go on a draft paper and be finished afterwards,
+                      and `checkPaper` names it either way. */}
+                  {isUnfinished(o.question) && (
+                    <span
+                      class="chip chip--flag"
+                      style={{ marginRight: '0.3rem' }}
+                      title={unfinishedReasons(o.question).join(' ')}
+                    >
+                      needs finishing
+                    </span>
+                  )}
                   {questionLabel(o.question)}
                 </span>
                 <button

@@ -78,6 +78,11 @@ function written(id: string, marks: number): Question {
     questionText: `Written ${id}`,
     marks,
     syllabus: { topicIds: ['HSC-02'] },
+    // A short answer with nothing for a marker to go on is unfinished since
+    // #105, and `checkPaper` says so. Given here rather than worked around,
+    // because a paper the tests below call correct should hold questions a
+    // teacher would call finished.
+    markingGuide: { sampleAnswer: `A response to ${id}.` },
   }
 }
 
@@ -313,6 +318,41 @@ describe('checkPaper', () => {
     paper = addRef(paper, 1, 'bank/test.json#f')
     const checks = checkPaper(resolvePaper(index, paper, profile))
     expect(checks.some((c) => c.message.includes('this section is 1 per question'))).toBe(true)
+  })
+
+  it('names a question that is not finished, and says what it is waiting for', () => {
+    // Until #105 nothing here looked at a question at all: the save gates on
+    // the writing screens were the only thing between a half-read question and
+    // a printed paper. Now that a question can be saved unfinished on purpose,
+    // this is the last point before printing where anything looks.
+    const { markingGuide: _guide, ...half } = written('f', 15)
+    const index = indexWith([...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), half])
+    let paper = newPaper(profile, 'p', 'T')
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+    paper = addRef(paper, 1, 'bank/test.json#f')
+
+    const checks = checkPaper(resolvePaper(index, paper, profile))
+    const said = checks.find((c) => c.message.includes('is not finished'))
+    expect(said?.severity).toBe('error')
+    expect(said?.message).toContain('Question 6')
+    expect(said?.message).toContain('No sample answer or criteria')
+  })
+
+  it('reads the question rather than its tag, so a bank written before this is still caught', () => {
+    // A bank edited by hand outside Klunk carries no `needs-finishing`. The
+    // tag is what the file records; this is what holds at print time.
+    const { markingGuide: _mg, ...bare } = written('f', 15)
+    const untagged: Question = { ...bare, tags: ['ergonomics'] }
+    const index = indexWith([...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), untagged])
+    let paper = newPaper(profile, 'p', 'T')
+    for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
+    paper = addRef(paper, 1, 'bank/test.json#f')
+
+    expect(
+      checkPaper(resolvePaper(index, paper, profile)).some((c) =>
+        c.message.includes('is not finished'),
+      ),
+    ).toBe(true)
   })
 
   it('warns rather than errors about a past-paper question', () => {
@@ -829,6 +869,26 @@ describe('shuffledChoices', () => {
     const { choices, correctIndex } = shuffledChoices(q)
     expect(choices.map((c) => c.text)).toEqual(['alpha', 'beta', 'gamma', 'delta'])
     expect(correctIndex).toBe(2)
+  })
+
+  it('says an answer was never recorded rather than pointing at the first option', () => {
+    // -1 and not 0. `choices[-1]` is undefined and `i === correctIndex` can
+    // never match, so a caller that forgets to read `known` still cannot mark
+    // option A correct. Falling back to 0 is what made silence look like an
+    // answer (#64).
+    const q = mc('unmarked')
+    const { correctAnswer: _answer, ...rest } = q.config ?? {}
+    q.config = rest
+    const { known, correctIndex, choices } = shuffledChoices(q)
+    expect(known).toBe(false)
+    expect(correctIndex).toBe(-1)
+    expect(choices[correctIndex]).toBeUndefined()
+  })
+
+  it('says an answer was recorded when one was', () => {
+    const { known, correctIndex } = shuffledChoices(mc('marked'))
+    expect(known).toBe(true)
+    expect(correctIndex).toBeGreaterThanOrEqual(0)
   })
 
   it('does not renumber one question when another is added', () => {

@@ -11,6 +11,7 @@
 import type { ContentIndex } from './storage'
 import { knownIds, unresolvedTags, type ModelIds } from './modelcheck'
 import { allQuestions, findQuestion, inCourse, inSyllabus } from './storage'
+import { unfinishedReasons } from './validate'
 import type {
   Paper,
   PaperRef,
@@ -292,6 +293,13 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
  * a section has the wrong number of questions, a question appears twice.
  * Warnings are things a teacher might mean: an untagged question, a recent
  * past-paper question that students may have seen.
+ *
+ * An unfinished question is a third kind and is reported as an error (#105).
+ * It is neither of the two above: the paper adds up and the teacher did not
+ * mean it. Before #105 nothing here looked at a question at all, and the save
+ * gates on the three writing screens were the only thing between a half-read
+ * question and a printed paper. Now that a question can be saved unfinished on
+ * purpose, this is the last point before printing where anything looks.
  */
 export function checkPaper(resolved: ResolvedPaper): Check[] {
   const checks: Check[] = []
@@ -501,6 +509,21 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
           message: `Question ${q.number} is also on ${list}, which students have already sat`,
         })
       }
+      // Recomputed rather than read off the `needs-finishing` tag, and the two
+      // can only disagree for a bank written before #105 or edited by hand
+      // outside Klunk. There the computation is what is true, and the next save
+      // through Klunk puts the tag right: the tag is what the file records and
+      // this is what holds at print time.
+      const owed = unfinishedReasons(q.question)
+      if (owed.length > 0) {
+        checks.push({
+          severity: 'error',
+          where: section.title,
+          message: `Question ${q.number} is not finished. ${owed.join(' ')}`,
+          unfinished: true,
+        })
+      }
+
       if (!q.question.syllabus?.topicIds?.length && !q.question.syllabus?.pointIds?.length) {
         checks.push({
           severity: 'warning',
