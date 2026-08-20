@@ -511,6 +511,80 @@ Year 12 mid-year question map sets both, but they are Year 12 shapes and on a
 printed page both are short answer with ruled lines, so the case is weaker than
 these two and rests on no Year 11 document.
 
+**A bank is a store and a paper is a paper, and conflating the two made an
+import all-or-nothing** (#105). Reported as a teacher being unable to save a
+paper imported without a marking guide. Three screens each tested
+`severity === 'error'` for themselves before writing a question, so a question
+Klunk had read faithfully off a real examination was refused because something
+about it was not yet finished.
+
+- **The blocker was a schema `required`, not a decision anybody made.**
+  `multipleChoiceConfig` required `correctAnswer`, so a paper with no markscheme
+  had to have one invented. #32 had already refused that on multiple response
+  and matching and said so in `multipleResponseConfig`'s own description, which
+  left multiple choice the only type where nobody having read an answer was an
+  error rather than a state. Measured: `bank/ec-2024-scan-run.json` holds 21 of
+  30 questions and 51 of 60 marks for this reason alone (#95).
+- **#64 was living in two more places and the second one printed.**
+  `adopt.ts` put the first option in `correctAnswer` and `cleanQuestion` put it
+  there again on the way to disk. The note explaining it is gone the moment the
+  question is saved, so what survived was a confident wrong letter on a marking
+  guide. Absent now means unknown on all three types and the guide prints the
+  sentence it already printed for the other two.
+- **The classification is four tests in order, and the third is the one that is
+  not obvious.** The schema refuses it; or the value is actively wrong; or
+  **`cleanQuestion` erases it**; or it is unfinished and saves. A fault cleaning
+  removes cannot be represented on the saved question, so marking it unfinished
+  would leave a question flagged with no reason anybody could recover. That is
+  why a fileless image stimulus and a criterion with no description still
+  block, while parts that do not add up, a blank column heading, a blank row
+  label and a part missing its label or its text all save.
+- **`Check.unfinished` is a second axis rather than a third severity**, because
+  two different things are unfinished: an error a file can hold (parts that do
+  not add up) and a warning that means work is outstanding (no answer recorded,
+  no marking guide). One flag across both is what stops those growing separate
+  mechanisms that come to disagree.
+- **`checkPaper` had never called `validateQuestion` at all.** It checked the
+  paper against its profile and nothing else, so the save gates were the only
+  thing between a half-read question and a printed paper. The guard had to land
+  before the gate relaxed. It reads the question rather than the tag: the tag is
+  what the file records, and the computation is what holds at print time.
+- **The tag is stamped and cleared on every save**, inside `cleanQuestion` and
+  judged on the cleaned question rather than the draft, because cleaning drops
+  empty options and half-blank parts and the two can disagree. A mark that only
+  ever goes on is one the library lies with.
+- **The picture rule was deliberately left out of it.** `SHOWS_A_PICTURE` fires
+  on 16 questions in the content folder and roughly three in five are wrong
+  (*"Provide an example to illustrate your answer"*, *"A graphics design
+  business"*). It is fine as a note at import time, where it fires only when a
+  crop was expected, and would be wrong as a durable mark. Its `graph`
+  alternative carried no closing word boundary, which is a plain bug and is
+  fixed; its role is not widened.
+- **Measured before building rather than after**: 31 of 284 questions in the
+  folder are unfinished, 21 of them one bank. `biology-2025.json` is 0 of 68 and
+  `ib-dt-p1-practice.json` 0 of 30, so a properly-guided import comes out clean.
+
+**The fix for #64 did not take, and the unit tests could not see it.** The line
+putting zero in `configFor` was edited and never written, and `adopt.test.ts`
+covered `applyMarking`, the path where an answer *does* land, with nothing at
+all covering `adoptPaper` on a paper with no guide. The suite was green, the
+schema was right, and the review card printed `(correct)` against option A the
+first time the panel was opened. **A test that only covers the path where the
+value arrives cannot see the path where it is invented.**
+
+Driven end to end on `../klunk-content` afterwards: the 2019 D&T paper read with
+its marking guide slot empty gives 14 questions and 40 marks, all reading *1 to
+finish*, the ten objective ones showing *no answer recorded* with no option
+marked; all 14 saved to `bank/issue-105-no-guide.json`, which validates against
+`bank.schema.json` with ten multiple choice, none carrying an answer, and all 14
+tagged; *Only unfinished* listed 45 of 298; setting the real answer on Question
+1 in the editor took the tag off the file and dropped it out of the filter
+without a reload; the builder rail flagged nine and still offered them; the
+checker named eight by number; and the marking guide printed *No answer
+recorded. This question was read without a markscheme.* eight times with no
+letter anywhere. The existing Trial HSC Examination is unchanged, its letters
+printing as before.
+
 **A section can be a set of alternatives, and until #52 Klunk could not say so.**
 Established from the 2025 Visual Arts HSC Trial (Redlands), the same document
 #51's cover work came from:
@@ -1528,7 +1602,9 @@ testable without one; `src/pdftext.ts` is the only place pdf.js is named;
 `src/adopt.ts` is the one place the readers meet `bank.schema.json`. The papers
 are offered from the teacher's own folder, because that is where they are
 downloaded, so no file dialog is needed. Nothing is written until every question
-has been seen, and one with an error goes to the editor rather than into a bank.
+has been seen, and one a bank file could not hold goes to the editor rather than
+into a bank. Since #105 that is narrower than every error: a question Klunk read
+only half of saves, marked `needs-finishing`.
 
 Verified in the browser: the 2019 paper and guide read into fourteen questions and
 forty marks, provenance on each, outcomes from the mapping grid, the extended
