@@ -1294,6 +1294,44 @@ textarea.input {
    paper to pick questions, and the date and the year group are read far more
    often than they are typed, so the summary line carries them and the boxes
    stay out of the way until they are wanted. */
+/* The wording and per-question overrides, both folded away by default. A row of
+   empty boxes on every section and every question would bury the questions,
+   which is what the screen is for. */
+.sec__over {
+  margin: 0.3rem 0 0.5rem;
+}
+
+.picked__over {
+  flex-basis: 100%;
+  margin: 0.2rem 0 0.4rem 2.6rem;
+}
+
+/* One difference per row: what differs on the left, the button that fixes it on
+   the right. The value is clamped because an instruction list would otherwise
+   make the panel taller than the paper it is about. */
+.drift__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.45rem;
+  line-height: 1.5;
+}
+
+.drift__row > span:first-child {
+  flex: 1 1 20rem;
+}
+
+.drift__value {
+  display: inline-block;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
 .papercover {
   display: flex;
   align-items: center;

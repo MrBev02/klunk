@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
-import { Field, patched, type Patch } from './fields'
+import { Field, NumField, patched, type Patch } from './fields'
 import {
   addRef,
+  addSection,
   checkPaper,
   moveRef,
   newPaper,
   paperIsDirty,
   pickableQuestions,
   removeRef,
+  removeSection,
   resolvePaper,
+  structureDrift,
   type Check,
+  type FieldOverride,
+  type StructureDrift,
   type ResolvedPaper,
 } from './paper'
 import { QuestionDetail, shortType } from './question'
-import { isUnfinished, unfinishedReasons } from './validate'
+import { cleanPaper, isUnfinished, setRefOptions, unfinishedReasons } from './validate'
 import { PrintablePaper, type PrintMode } from './render'
 import { ProfileInstaller, profilesOnOffer } from './setup'
 import { allQuestions, deletePaper, savePaper, type ContentIndex } from './storage'
@@ -23,7 +28,10 @@ import {
   questionLabel,
   refKey,
   type Paper,
+  type PaperRef,
+  type PaperSection,
   type Profile,
+  type ProfileSection,
   type School,
 } from './types'
 
@@ -106,20 +114,59 @@ export function Builder({
   // guarantee that does not depend on remembering to.
   const target = Math.min(aimedAt, paper.sections.length - 1)
 
+  /** Change one section of the paper, keeping the rest as it was. */
+  const setSection = (at: number, patch: Patch<PaperSection>) =>
+    setPaper({
+      ...paper,
+      sections: paper.sections.map((s, i) => (i === at ? patched(s, patch) : s)),
+    })
+
+  /** Change what this paper says about one question, leaving the question alone. */
+  const setRef = (
+    at: number,
+    ri: number,
+    patch: { marksOverride?: number | undefined; group?: string | undefined },
+  ) =>
+    setPaper({
+      ...paper,
+      sections: paper.sections.map((s, i) =>
+        i === at
+          ? { ...s, refs: s.refs.map((r, j) => (j === ri ? setRefOptions(r, patch) : r)) }
+          : s,
+      ),
+    })
+
   const profile = profiles.find((p) => p.id === paper.profileId)
-  const resolved = resolvePaper(index, paper, profile)
+  // Everything that decides works on the tidied paper, the way `profile.tsx`
+  // keeps its form state raw and validates the cleaned value. Feeding
+  // `resolvePaper` the raw one is what made clearing the instructions box show
+  // an empty cover: `['']` is not nullish, so it shadows the profile, and the
+  // teacher would watch the instructions vanish and come back after a save.
+  //
+  // `dirty` and `owns` deliberately still read the raw paper (`app.tsx` and the
+  // mount above). A paper opened from disk holding the old shadow values is
+  // byte-identical to its file and must keep showing Saved, or every existing
+  // paper would look changed the moment it was opened, `owns` would be false,
+  // and the next save would be refused as a duplicate filename.
+  const tidy = cleanPaper(paper, profile)
+  const resolved = resolvePaper(index, tidy, profile)
   const checks = checkPaper(resolved)
   const errors = checks.filter((c) => c.severity === 'error')
+  const drift = structureDrift(tidy, profile)
 
   const save = async () => {
     setSaving(true)
     setSaved('')
     setFailed('')
     try {
-      const { path } = await savePaper(folder, paper, { replacing: owns })
+      const { path } = await savePaper(folder, tidy, { replacing: owns })
       // From here this paper is the one in that file, so the next save is an
       // edit rather than a first write and must not be refused by its own.
       setOwns(true)
+      // What was written is now what is held, or the two disagree the instant
+      // the write succeeds and the unsaved notice sticks on with nothing a
+      // teacher could do about it.
+      setPaper(tidy)
       setSaved(`Saved to ${path}`)
       onSaved()
     } catch (err) {
@@ -252,6 +299,7 @@ export function Builder({
           <CoverFields
             paper={paper}
             setPaper={setPaper}
+            profile={profile}
             school={index.schools[0]?.data}
             onEditCover={onEditCover}
           />
@@ -294,6 +342,19 @@ export function Builder({
 
         <Checks checks={checks} />
 
+        <StructurePanel
+          drift={drift}
+          resolved={resolved}
+          onAdd={(id) => {
+            if (!profile) return
+            setPaper(addSection(paper, profile, id))
+            // A teacher who has just added Section III wants to fill it.
+            setTarget(paper.sections.length)
+          }}
+          onRemove={(at) => setPaper(removeSection(paper, at))}
+          onInherit={(field) => setPaper(patched(paper, { [field]: undefined }))}
+        />
+
         {paper.sections.map((section, si) => {
           const spec = profile?.paper.sections.find((s) => s.id === section.profileSectionId)
           const rs = resolved.sections[si]
@@ -315,6 +376,15 @@ export function Builder({
                   </strong>
                 </span>
               </header>
+
+              {/* Blank takes the profile's, the same rule the cover uses. A
+                  section's own heading and instruction are read by
+                  `resolvePaper` and were writable nowhere until #106. */}
+              <SectionOverrides
+                section={section}
+                spec={spec}
+                onChange={(patch) => setSection(si, patch)}
+              />
 
               {section.refs.length === 0 ? (
                 <p class="sec__empty">
@@ -365,6 +435,14 @@ export function Builder({
                             ✕
                           </button>
                         </span>
+                        {/* What this paper says about this question, which is
+                            not the question. The same question sits under a
+                            different heading on another paper (#52). */}
+                        <RefOverrides
+                          ref={ref}
+                          marks={rq?.question.marks}
+                          onChange={(patch) => setRef(si, ri, patch)}
+                        />
                       </li>
                     )
                   })}
@@ -401,6 +479,253 @@ export function Builder({
 }
 
 /**
+ * What this paper says about one of its sections, where it differs from the
+ * profile.
+ *
+ * Behind a toggle, because a section normally prints exactly what the profile
+ * says and a row of three empty boxes on every section would bury the questions.
+ * Every box is blank-means-inherit, the same rule as the cover's.
+ */
+function SectionOverrides({
+  section,
+  spec,
+  onChange,
+}: {
+  section: PaperSection
+  spec: ProfileSection | undefined
+  onChange: (patch: Patch<PaperSection>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const set = (patch: Patch<PaperSection>) => onChange(patch)
+  const count = [section.title, section.subtitle, section.instructions].filter(Boolean).length
+
+  return (
+    <div class="sec__over">
+      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+        {open ? 'Hide this section\u2019s wording' : 'Wording'}
+      </button>
+      {!open && count > 0 && (
+        <span class="muted paperstatus__note">
+          {count} thing{count === 1 ? '' : 's'} set on this paper
+        </span>
+      )}
+
+      {open && (
+        <>
+          <div class="fieldrow">
+            <Field label="Heading" hint={`Blank prints ${spec?.name ?? 'the profile\u2019s name'}`}>
+              <input
+                class="input"
+                value={section.title ?? ''}
+                placeholder={spec?.name ?? 'Section I'}
+                onInput={(e) => set({ title: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+            <Field label="Subtitle" hint="Printed under the heading">
+              <input
+                class="input"
+                value={section.subtitle ?? ''}
+                placeholder="Objective response"
+                onInput={(e) => set({ subtitle: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+          </div>
+          <Field label="Instruction" hint="Blank takes the profile's.">
+            <textarea
+              class="input"
+              rows={2}
+              value={section.instructions ?? ''}
+              placeholder={spec?.instructions ?? 'Attempt ALL questions.'}
+              onInput={(e) => set({ instructions: (e.target as HTMLTextAreaElement).value })}
+            />
+          </Field>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * What this paper says about one question, which is not the question.
+ *
+ * `marksOverride` and `group` live on the reference rather than on the question,
+ * because the same question is worth what it is worth and sits under whatever
+ * heading this paper gives it. Both have been in the schema and honoured by the
+ * renderer since #52 and writable nowhere.
+ */
+function RefOverrides({
+  ref,
+  marks,
+  onChange,
+}: {
+  ref: PaperRef
+  marks: number | undefined
+  onChange: (patch: { marksOverride?: number | undefined; group?: string | undefined }) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const set = typeof ref === 'object' ? ref : undefined
+
+  return (
+    <div class="picked__over">
+      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+        {open
+          ? 'Hide'
+          : set?.marksOverride !== undefined || set?.group
+            ? 'On this paper ·'
+            : 'On this paper'}
+      </button>
+      {open && (
+        <div class="fieldrow">
+          <Field
+            label="Marks here"
+            hint={
+              marks === undefined ? 'Blank uses the question\u2019s own' : `Blank uses ${marks}`
+            }
+          >
+            <NumField
+              value={set?.marksOverride}
+              min={1}
+              placeholder={marks === undefined ? '' : String(marks)}
+              onChange={(n) => onChange({ marksOverride: n })}
+            />
+          </Field>
+          <Field label="Heading above it" hint="Starts a group, until the next one">
+            <input
+              class="input"
+              value={set?.group ?? ''}
+              placeholder="Conceptual Framework"
+              onInput={(e) => onChange({ group: (e.target as HTMLInputElement).value })}
+            />
+          </Field>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Where this paper and its profile disagree, and what to do about each one.
+ *
+ * A profile is the template and a paper is an instance of it. A paper inherits a
+ * field by not stating it and overrides it by stating its own, so everything
+ * here is one of three things: a section the profile has and this paper does
+ * not, a section this paper has and the profile does not, or a field this paper
+ * overrides.
+ *
+ * It shows what each button will do before it is pressed, which is the panel
+ * #44 wrote for a syllabus re-read. Nothing reaches the folder: the paper goes
+ * unsaved, Save lights up, and Close asks before discarding.
+ *
+ * Renders nothing when there is nothing to say. `Checks` already prints
+ * "Everything matches the profile" directly above, and a second panel saying so
+ * again is noise.
+ */
+function StructurePanel({
+  drift,
+  resolved,
+  onAdd,
+  onRemove,
+  onInherit,
+}: {
+  drift: StructureDrift
+  resolved: ResolvedPaper
+  onAdd: (profileSectionId: string) => void
+  onRemove: (at: number) => void
+  onInherit: (field: FieldOverride['field']) => void
+}) {
+  if (!drift.any) return null
+
+  const named = (at: number) => resolved.sections[at]?.title ?? `Section ${at + 1}`
+  const count =
+    drift.missingSections.length +
+    drift.orphanSections.length +
+    drift.unlinkedSections.length +
+    drift.overrides.length
+
+  return (
+    <section class="panel panel--note">
+      <p class="panel__title">
+        {count} difference{count === 1 ? '' : 's'} from the profile
+      </p>
+
+      <ul class="plain drift">
+        {drift.missingSections.map((spec) => (
+          <li key={`m-${spec.id}`} class="drift__row">
+            <span>
+              <strong>{spec.name}</strong> is in the profile and not on this paper. The profile
+              gives it {spec.marks} mark{spec.marks === 1 ? '' : 's'}.
+            </span>
+            <button class="btn btn--small" onClick={() => onAdd(spec.id)}>
+              Add {spec.name}
+            </button>
+          </li>
+        ))}
+
+        {drift.orphanSections.map((orphan) => (
+          <li key={`o-${orphan.at}`} class="drift__row">
+            <span>
+              <strong>{named(orphan.at)}</strong> names "{orphan.profileSectionId}", which the
+              profile does not have.
+              {orphan.refs > 0 &&
+                ` It holds ${orphan.refs} question${orphan.refs === 1 ? '' : 's'}.`}
+            </span>
+            <button class="btn btn--small" onClick={() => onRemove(orphan.at)}>
+              {orphan.refs > 0
+                ? `Remove ${named(orphan.at)} and its ${orphan.refs} question${
+                    orphan.refs === 1 ? '' : 's'
+                  }`
+                : `Remove ${named(orphan.at)}`}
+            </button>
+          </li>
+        ))}
+
+        {drift.unlinkedSections.map((section) => (
+          <li key={`u-${section.at}`} class="drift__row">
+            <span>
+              <strong>{named(section.at)}</strong> is not linked to a profile section, so its marks
+              and question count are not checked.
+            </span>
+          </li>
+        ))}
+
+        {drift.overrides.map((override) => (
+          <li key={override.field} class="drift__row">
+            <span>
+              This paper overrides <strong>{OVERRIDE_LABELS[override.field]}</strong>:{' '}
+              <span class="drift__value" title={describeOverride(override.onPaper)}>
+                {describeOverride(override.onPaper)}
+              </span>
+              {'. '}
+              {override.inProfile === undefined
+                ? 'The profile has none.'
+                : `The profile says ${describeOverride(override.inProfile)}.`}
+            </span>
+            <button class="btn btn--small" onClick={() => onInherit(override.field)}>
+              Inherit {OVERRIDE_LABELS[override.field]}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <p class="hint">Nothing is written until you save.</p>
+    </section>
+  )
+}
+
+const OVERRIDE_LABELS: Record<FieldOverride['field'], string> = {
+  readingMinutes: 'reading time',
+  workingMinutes: 'working time',
+  instructions: 'the general instructions',
+}
+
+/** A value as the panel reads it out, minutes or a count of lines. */
+function describeOverride(value: number | string[]): string {
+  if (typeof value === 'number') return `${value} minute${value === 1 ? '' : 's'}`
+  const lines = value.map((line) => line.trim()).filter(Boolean)
+  return `${lines.length} line${lines.length === 1 ? '' : 's'}`
+}
+
+/**
  * The half of the cover that belongs to this paper and not to the school.
  *
  * `course` and `yearGroup` are filled in when the paper is created, from the
@@ -414,15 +739,32 @@ export function Builder({
 function CoverFields({
   paper,
   setPaper,
+  profile,
   school,
   onEditCover,
 }: {
   paper: Paper
   setPaper: (p: Paper) => void
+  profile: Profile | undefined
   school: School | undefined
   onEditCover: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [more, setMore] = useState(false)
+
+  /**
+   * What a blank box means, said in words.
+   *
+   * Blank has to be visibly different from a typed zero, or a teacher cannot
+   * tell "take the profile's" from "this paper has none". Three signals do it
+   * together: the box is empty, the placeholder shows the profile's number in
+   * grey, and this says what blank will do. Written from the profile rather than
+   * from the box, so it does not change while somebody is typing.
+   */
+  const inherits = (value: number | undefined, what: string) =>
+    value === undefined
+      ? `Blank prints no ${what}.`
+      : `Blank takes ${value} minute${value === 1 ? '' : 's'} from the profile.`
 
   const setSchool = (patch: Patch<NonNullable<Paper['school']>>) => {
     const next = patched(paper.school ?? {}, patch)
@@ -489,20 +831,63 @@ function CoverFields({
             </Field>
           </div>
 
-          {/* These were copied from the profile when the paper was created and
-              nothing could change them afterwards, so a paper needing one extra
-              line meant editing the file by hand. */}
+          {/* Blank means take the profile's, which is what the paper does for
+              every field it does not state. Until #106 there was no box at all
+              and every paper overrode the profile whether the teacher meant to
+              or not. */}
+          <div class="fieldrow">
+            <Field
+              label="Reading time"
+              for="pc-reading"
+              hint={inherits(profile?.paper.readingMinutes, 'reading time')}
+            >
+              <NumField
+                id="pc-reading"
+                value={paper.readingMinutes}
+                min={0}
+                placeholder={
+                  profile?.paper.readingMinutes === undefined
+                    ? ''
+                    : String(profile.paper.readingMinutes)
+                }
+                onChange={(n) => setPaper(patched(paper, { readingMinutes: n }))}
+              />
+            </Field>
+
+            <Field
+              label="Working time"
+              for="pc-working"
+              hint={inherits(profile?.paper.workingMinutes, 'working time')}
+            >
+              <NumField
+                id="pc-working"
+                value={paper.workingMinutes}
+                min={0}
+                placeholder={
+                  profile?.paper.workingMinutes === undefined
+                    ? ''
+                    : String(profile.paper.workingMinutes)
+                }
+                onChange={(n) => setPaper(patched(paper, { workingMinutes: n }))}
+              />
+            </Field>
+          </div>
+
           <Field
             label="General instructions"
             for="pc-instructions"
-            hint="One per line. Reading and working time print on their own, so they do not need a line here."
+            hint="One per line. Blank takes the profile's."
           >
             <textarea
               id="pc-instructions"
               class="input"
               rows={3}
               value={(paper.instructions ?? []).join('\n')}
-              placeholder={'Write using black pen\nDraw diagrams using pencil'}
+              placeholder={
+                profile?.paper.instructions?.length
+                  ? profile.paper.instructions.join('\n')
+                  : 'Write using black pen\nDraw diagrams using pencil'
+              }
               onInput={(e) =>
                 setPaper({
                   ...paper,
@@ -511,6 +896,75 @@ function CoverFields({
               }
             />
           </Field>
+
+          {/* Behind a toggle because a teacher sets these once a year at most,
+              and the four above are on every paper. */}
+          <button class="btn btn--small" onClick={() => setMore(!more)}>
+            {more ? 'Fewer settings' : 'More settings'}
+          </button>
+
+          {more && (
+            <>
+              <Field label="Subtitle" for="pc-subtitle" hint="Printed under the paper's title">
+                <input
+                  id="pc-subtitle"
+                  class="input"
+                  value={paper.subtitle ?? ''}
+                  placeholder="Trial examination"
+                  onInput={(e) =>
+                    setPaper(patched(paper, { subtitle: (e.target as HTMLInputElement).value }))
+                  }
+                />
+              </Field>
+
+              <div class="fieldrow">
+                <Field
+                  label="School name"
+                  for="pc-school"
+                  hint={`Blank uses ${school?.name ?? 'the folder\u2019s cover sheet'}`}
+                >
+                  <input
+                    id="pc-school"
+                    class="input"
+                    value={paper.school?.name ?? ''}
+                    placeholder={school?.name ?? 'Your school'}
+                    onInput={(e) => setSchool({ name: (e.target as HTMLInputElement).value })}
+                  />
+                </Field>
+
+                <Field
+                  label="Logo file"
+                  for="pc-logo"
+                  hint="Blank uses the folder's. A path relative to this paper."
+                >
+                  <input
+                    id="pc-logo"
+                    class="input"
+                    value={paper.school?.logoFile ?? ''}
+                    placeholder={school?.logoFile ?? 'logo.png'}
+                    onInput={(e) => setSchool({ logoFile: (e.target as HTMLInputElement).value })}
+                  />
+                </Field>
+              </div>
+
+              <Field
+                label="Your own notes"
+                for="pc-notes"
+                hint="Printed on the marking guide, never on the student paper"
+              >
+                <textarea
+                  id="pc-notes"
+                  class="input"
+                  rows={2}
+                  value={paper.notes ?? ''}
+                  placeholder="Print single sided."
+                  onInput={(e) =>
+                    setPaper(patched(paper, { notes: (e.target as HTMLTextAreaElement).value }))
+                  }
+                />
+              </Field>
+            </>
+          )}
         </div>
       )}
     </div>

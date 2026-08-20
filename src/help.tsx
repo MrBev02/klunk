@@ -336,7 +336,16 @@ export function Help({ onClose }: { onClose: () => void }) {
           profile: marks, section totals and question types. It also warns you about the things you
           would want to catch anyway. A question from a public paper your students may have seen. A
           question that is already on a paper they have sat. A question belonging to another
-          subject. A question tagged to nothing. A question that is not finished.
+          subject. A question tagged to nothing. A question that is not finished. A section your
+          profile has and the paper does not.
+        </p>
+
+        <p>
+          <strong>Differences from the profile</strong> appears when a paper and its profile
+          disagree: a section one has and the other does not, or a paper keeping its own reading
+          time. Each line has a button that brings the paper into line, and nothing is written until
+          you save. Papers built before Klunk understood this kept a copy of their profile's times
+          and instructions, so you may see it on a paper you have not touched.
         </p>
 
         <p>
@@ -376,16 +385,22 @@ export function Help({ onClose }: { onClose: () => void }) {
 
         <p>
           The things that change paper by paper are on the paper itself, under{' '}
-          <strong>Cover</strong>: the subject, the year group and the date. Klunk fills in the first
-          two when you create the paper, from the syllabus your profile names, so usually you only
-          add the date.
+          <strong>Cover</strong>: the subject, the year group, the date, reading and working time,
+          and the general instructions. Klunk fills in the subject and year group when you create
+          the paper, from the syllabus your profile names.
         </p>
 
         <p>
-          Reading and working time come from your profile and print on their own, so you do not need
-          a line for them in the instructions. If one kind of paper needs a different set of boxes,
-          such as a trial that prints a student number grid where your other exams print a name, set
-          that on the profile rather than on the folder.
+          Leave reading time, working time or the instructions blank and the paper takes them from
+          its profile, so changing the profile changes every paper built against it. Type a number
+          to give one paper its own. <strong>More settings</strong> holds the rest: a subtitle, a
+          school name and logo for this paper alone, and notes that print on the marking guide.
+        </p>
+
+        <p>
+          If one kind of paper needs a different set of boxes, such as a trial that prints a student
+          number grid where your other exams print a name, set that on the profile rather than on
+          the folder.
         </p>
 
         <p class="muted">
