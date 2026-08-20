@@ -10,7 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { applyMarking, NO_ANSWER_KEY, type Adopted } from './adopt'
+import { adoptPaper, applyMarking, NO_ANSWER_KEY, type Adopted } from './adopt'
+import type { ExtractedQuestion } from './extract'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking } from './marking'
 import type { Question } from './types'
 import { blocksSaving, validateQuestion } from './validate'
@@ -45,6 +46,57 @@ function choiceQuestion(number: string, answer?: number): Question {
   if (answer !== undefined) question.config!.correctAnswer = answer
   return question
 }
+
+describe('adopting a paper read without its markscheme', () => {
+  const extracted = (answer?: string): ExtractedQuestion => ({
+    questionType: 'multiple_choice',
+    text: 'Which storage medium has no moving parts?',
+    marks: 1,
+    number: 1,
+    section: 'I',
+    pages: [2],
+    spans: [],
+    figures: [],
+    notes: [],
+    options: [
+      { label: 'A', text: 'Hard disk' },
+      { label: 'B', text: 'Solid state' },
+      { label: 'C', text: 'Optical disc' },
+    ],
+    ...(answer === undefined ? {} : { answer }),
+  })
+
+  const adopt = (q: ExtractedQuestion) =>
+    adoptPaper(
+      { questions: [q], notes: [] },
+      { bankPath: 'bank/t.json', inFolder: new Set(), inBank: new Set() },
+    )[0]!
+
+  it('records no answer at all rather than the first option', () => {
+    // #64 twice over. The first fix took `correctAnswer` out of the schema's
+    // required list and left this line putting zero in anyway, and the note
+    // beside it said no key had been read: a question that claimed both. It
+    // was invisible in the tests and obvious the moment the panel was driven,
+    // because the option printed "(correct)".
+    const out = adopt(extracted())
+    expect(out.question.config).not.toHaveProperty('correctAnswer')
+    expect(out.faults.some((f) => f.unfinished)).toBe(true)
+    expect(out.notes.join(' ')).toContain('No answer key was read')
+  })
+
+  it('records the answer when the key gave one', () => {
+    expect(adopt(extracted('B')).question.config?.correctAnswer).toBe(1)
+  })
+
+  it('records no answer when the key named an option nobody read', () => {
+    const out = adopt(extracted('E'))
+    expect(out.question.config).not.toHaveProperty('correctAnswer')
+  })
+
+  it('saves either way, because a student paper is correct without an answer', () => {
+    expect(blocksSaving(adopt(extracted()).faults)).toBe(false)
+  })
+})
 
 describe('an answer that lands', () => {
   it('resolves the letter against the options this question holds', () => {

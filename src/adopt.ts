@@ -197,12 +197,15 @@ function configFor(q: ExtractedQuestion): QuestionConfig | undefined {
     const options = q.options ?? []
     // The answer key gives a letter; `choices` has no labels because they are
     // positional, so the letter has to be resolved against the options actually
-    // read. An answer that names an option nobody read leaves this at zero, and
-    // the note the reader already wrote is what says so.
-    const answer = options.findIndex((o) => o.label === q.answer)
+    // read.
+    const answer = q.answer === undefined ? -1 : options.findIndex((o) => o.label === q.answer)
     return {
       choices: options.map((o) => ({ text: o.text })),
-      correctAnswer: answer >= 0 ? answer : 0,
+      // Left absent where no key was read, or where the key named an option
+      // nobody read. This used to be zero, which is #64: a paper read without
+      // its markscheme came out with every objective question answered A, and
+      // the note saying so did not survive being saved.
+      ...(answer >= 0 ? { correctAnswer: answer } : {}),
       // Off, deliberately. These are printed papers whose option order is part
       // of the record, and a teacher comparing a trial against the original
       // should see the same paper.
