@@ -609,7 +609,10 @@ function ChoiceFields({
   setConfig: (patch: Patch<QuestionConfig>) => void
 }) {
   const choices = cfg.choices ?? []
-  const correct = typeof cfg.correctAnswer === 'number' ? cfg.correctAnswer : 0
+  // -1 rather than 0 where nothing is recorded. Defaulting to the first option
+  // made the form assert an answer nobody gave, which is what the reader used
+  // to do and what #64 is about.
+  const correct = typeof cfg.correctAnswer === 'number' ? cfg.correctAnswer : -1
 
   const change = (i: number, patch: Patch<{ text: string; feedback?: string }>) =>
     setConfig({ choices: choices.map((c, j) => (i === j ? patched(c, patch) : c)) })
@@ -659,8 +662,10 @@ function ChoiceFields({
               onClick={() =>
                 setConfig({
                   choices: choices.filter((_, j) => j !== i),
-                  // The answer moves with the options it points into.
-                  correctAnswer: correct > i ? correct - 1 : correct === i ? 0 : correct,
+                  // The answer moves with the options it points into, and
+                  // deleting the option that was the answer leaves none
+                  // recorded. It used to move to A, silently.
+                  correctAnswer: correct > i ? correct - 1 : correct === i ? undefined : correct,
                 })
               }
             >
@@ -677,6 +682,25 @@ function ChoiceFields({
       >
         Add an option
       </button>
+
+      {/* A real member of the radio group rather than a clear button, so it is
+          keyboard-reachable and says in words what the state is. A question
+          transcribed off a paper with no markscheme arrives here. */}
+      <label class="checkline">
+        <input
+          type="radio"
+          name="mc-correct"
+          checked={correct < 0}
+          onChange={() => setConfig({ correctAnswer: undefined })}
+        />
+        No answer recorded
+      </label>
+
+      {correct < 0 && (
+        <p class="hint">
+          No answer marked. The marking guide will say so instead of printing a letter.
+        </p>
+      )}
 
       <label class="checkline">
         <input
@@ -1931,9 +1955,11 @@ function defaultMarks(type: QuestionType): number {
 function defaultConfig(type: QuestionType): QuestionConfig {
   switch (type) {
     case 'multiple_choice':
+      // No `correctAnswer`, matching multiple response below: nothing has been
+      // marked yet, and that is a state the form can say rather than a gap it
+      // has to fill with option A.
       return {
         choices: [{ text: '' }, { text: '' }, { text: '' }, { text: '' }],
-        correctAnswer: 0,
         shuffle: true,
       }
     case 'multiple_response':

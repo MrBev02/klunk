@@ -110,8 +110,10 @@ export function adoptPaper(
  * "Figure 1" in it and prints as a question about a picture nobody can see.
  */
 /** Wording the papers use for a picture that is never called a Figure. */
+// `graph` carried no closing boundary and so matched inside "graphics", which
+// put the note on "A graphics design business stores all client project files".
 const SHOWS_A_PICTURE =
-  /\b(shown|shown below|the images?\b|images? (represent|show|illustrate)|diagram|photograph|illustrat|graph)/i
+  /\b(shown|shown below|the images?\b|images? (represent|show|illustrate)|diagram|photograph|illustrat|graph\b)/i
 
 function describeLosses(q: ExtractedQuestion, kept: number): string[] {
   const out: string[] = []
@@ -138,18 +140,12 @@ function describeLosses(q: ExtractedQuestion, kept: number): string[] {
       `The marking guide files this under "${q.content}". Klunk has not guessed which syllabus topic that is, so tag it yourself.`,
     )
   }
-  // `configFor` has to put something in `correctAnswer`, and with no answer key
-  // it puts the first option. Without this note that is a wrong answer printed
-  // on a marking guide with nothing anywhere saying it was never read — and a
-  // paper of thirty objective questions read without its markscheme is thirty of
-  // them (#64). The note is here rather than in a reader because it is the
-  // adoption that has to invent the answer.
+  // Nothing goes in `correctAnswer` now, so the note says what is missing
+  // rather than what was invented in its place, and it no longer tells the
+  // teacher to fix it before saving: the question saves either way and carries
+  // the mark saying it is unfinished (#105).
   if (q.questionType === 'multiple_choice' && q.answer === undefined) {
-    out.push(
-      (q.options?.length ?? 0) > 0
-        ? `${NO_ANSWER_KEY}, so ${q.options![0]!.label} is marked correct. Set the right one before saving.`
-        : `${NO_ANSWER_KEY}. Set the right answer before saving.`,
-    )
+    out.push(`${NO_ANSWER_KEY}. The marking guide will say so rather than print a letter.`)
   }
   return out
 }

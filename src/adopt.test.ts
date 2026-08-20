@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { applyMarking, NO_ANSWER_KEY, type Adopted } from './adopt'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking } from './marking'
 import type { Question } from './types'
-import { validateQuestion } from './validate'
+import { blocksSaving, validateQuestion } from './validate'
 
 const CTX = { inBank: new Set<string>(), inFolder: new Set<string>() }
 
@@ -66,7 +66,7 @@ describe('an answer that lands', () => {
   })
 
   it('takes back the note saying nobody answered this question', () => {
-    const stale = `${NO_ANSWER_KEY}, so A is marked correct. Set the right one before saving.`
+    const stale = `${NO_ANSWER_KEY}. The marking guide will say so rather than print a letter.`
     const out = applyMarking(
       [adopted(choiceQuestion('1', 0), [stale])],
       marking([{ number: 1, answers: ['C'] }]),
@@ -76,11 +76,16 @@ describe('an answer that lands', () => {
     expect(out.adopted[0]!.question.config!.correctAnswer).toBe(2)
   })
 
-  it('clears the error that was blocking the save', () => {
+  it('clears the mark saying the question is unfinished', () => {
+    // Before #105 this was an error and it blocked the save outright, which is
+    // what cost a paper read without its markscheme every objective question.
+    // It saves either way now, and what the answer landing changes is whether
+    // the question is still waiting on one.
     const before = adopted(choiceQuestion('1'))
-    expect(before.faults.some((f) => f.severity === 'error')).toBe(true)
+    expect(before.faults.some((f) => f.unfinished)).toBe(true)
+    expect(blocksSaving(before.faults)).toBe(false)
     const out = applyMarking([before], marking([{ number: 1, answers: ['A'] }]), CTX)
-    expect(out.adopted[0]!.faults.some((f) => f.severity === 'error')).toBe(false)
+    expect(out.adopted[0]!.faults.some((f) => f.unfinished)).toBe(false)
   })
 
   it('answers a multiple-response question with every letter given', () => {

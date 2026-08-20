@@ -410,7 +410,12 @@ describe('multiple choice, where a model most often goes wrong', () => {
     const { draft } = first(MC('"the first one"'), mcCtx)
     expect(draft.question.config?.correctAnswer).toBeUndefined()
     expect(draft.repairs.join(' ')).toContain('no answer is marked')
-    expect(draft.faults.map((f) => f.message)).toContain('Mark one option as the correct answer.')
+    // A warning rather than an error since #105, and marked unfinished: the
+    // student paper is correct without an answer, so the question saves and
+    // the teacher is told what is still owed on it.
+    const said = draft.faults.find((f) => f.message.startsWith('No answer is marked'))
+    expect(said?.severity).toBe('warning')
+    expect(said?.unfinished).toBe(true)
   })
 
   it('errors on an index that is past the end of the options', () => {

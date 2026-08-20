@@ -8,11 +8,13 @@
  * markscheme it returned `{ answerKey: {}, entries: [], mapping: [], notes: [] }`
  * and said nothing (#66).
  *
- * **An empty guide is worse than no guide**, which is what makes this the more
- * serious half of #64. `adopt.ts` has to put something in `correctAnswer` and
- * puts the first option there, so a thirty-question paper read *with* its
- * markscheme came out identical to one read without: every question answered A.
- * The teacher had supplied the answers and Klunk had thrown them away quietly.
+ * **An empty guide is worse than no guide**, which is what made this the more
+ * serious half of #64. `adopt.ts` put the first option in `correctAnswer`, so a
+ * thirty-question paper read *with* its markscheme came out identical to one
+ * read without: every question answered A. The teacher had supplied the answers
+ * and Klunk had thrown them away quietly. Since #105 an answer nobody read is
+ * left absent and the guide prints that it was never recorded, so the two cases
+ * no longer look alike, and reading this document properly still matters.
  *
  * The whole document is one page and three columns wide, which `toLines`
  * interleaves into a row at a time:

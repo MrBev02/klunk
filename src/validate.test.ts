@@ -12,11 +12,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Profile, Question, QuestionConfig, QuestionType, School, Syllabus } from './types'
 import {
+  blocksSaving,
   cleanProfile,
   cleanQuestion,
   cleanSchool,
   emptyIdContext,
   hasGuide,
+  isUnfinished,
+  unfinishedReasons,
   suggestQuestionId,
   validateProfile,
   validateQuestion,
@@ -175,13 +178,31 @@ describe('multiple choice', () => {
   const mc = (config: QuestionConfig): Question =>
     question({ questionType: 'multiple_choice', marks: 1, config })
 
-  it('needs at least two options and one of them marked correct', () => {
+  it('needs at least two options', () => {
     expect(errors(mc({ choices: [{ text: 'Only one' }], correctAnswer: 0 })).join(' ')).toContain(
       'at least two options',
     )
-    expect(errors(mc({ choices: [{ text: 'a' }, { text: 'b' }] })).join(' ')).toContain(
-      'Mark one option',
+  })
+
+  it('warns rather than blocks when no answer is recorded, as the other two types do', () => {
+    // The schema stopped requiring `correctAnswer` in #105. A paper read or
+    // transcribed without its markscheme does not state the answer, and the
+    // student paper is correct either way.
+    const checks = validateQuestion(
+      mc({ choices: [{ text: 'a' }, { text: 'b' }] }),
+      emptyIdContext(),
     )
+    const said = checks.find((c) => c.message.startsWith('No answer is marked'))
+    expect(said?.severity).toBe('warning')
+    expect(said?.unfinished).toBe(true)
+    expect(blocksSaving(checks)).toBe(false)
+  })
+
+  it('still refuses an answer the schema itself could not hold', () => {
+    // `minimum: 0`, so a negative index is a file that does not validate.
+    expect(
+      errors(mc({ choices: [{ text: 'a' }, { text: 'b' }], correctAnswer: -1 })).join(' '),
+    ).toContain('Mark one option')
   })
 
   it('refuses a correct answer that is not one of the options', () => {
@@ -653,6 +674,219 @@ describe('marking guide', () => {
   })
 })
 
+/* ------------------------------------------------- what blocks, and what waits */
+
+/**
+ * The classification of #105, executable.
+ *
+ * `validate.ts`'s header sets four tests and the first that answers wins: the
+ * schema refuses it, the value is actively wrong, cleaning erases it, or it is
+ * unfinished. Nothing in vitest can prove the first against
+ * `schemas/bank.schema.json`, because the app carries no JSON Schema validator
+ * by design, so that half stays where CLAUDE.md puts it: a `uv run --with
+ * jsonschema` pass over a real folder. What is pinned here is the verdict per
+ * rule, so an edit that flips one has to say so.
+ */
+describe('what blocks a save and what is saved unfinished', () => {
+  const blocked = (q: Question, ids: IdContext = emptyIdContext()): boolean =>
+    blocksSaving(validateQuestion(q, ids))
+
+  const waits = (q: Question): string[] =>
+    validateQuestion(q, emptyIdContext())
+      .filter((c) => c.unfinished)
+      .map((c) => c.message)
+
+  /* The schema refuses these, so the file could not be written at all. */
+
+  it('blocks what the bank file itself could not hold', () => {
+    // id.minLength: 1
+    expect(blocked(question({ id: '  ' }))).toBe(true)
+    // the question-level anyOf: text, or parts that ask
+    expect(blocked(question({ questionText: '' }))).toBe(true)
+    // marks.exclusiveMinimum: 0
+    expect(blocked(question({ marks: 0 }))).toBe(true)
+    // difficulty: integer 1 to 5
+    expect(blocked(question({ difficulty: 9 }))).toBe(true)
+    // tags.maxItems: 20
+    expect(blocked(question({ tags: Array.from({ length: 21 }, (_, i) => `t${i}`) }))).toBe(true)
+    // choices.minItems: 2
+    expect(
+      blocked(
+        question({
+          questionType: 'multiple_choice',
+          marks: 1,
+          config: { choices: [{ text: 'only one' }], correctAnswer: 0 },
+        }),
+      ),
+    ).toBe(true)
+    // parts[].marks.exclusiveMinimum: 0
+    expect(
+      blocked(question({ config: { parts: [{ label: '(a)', text: 'Explain.', marks: 0 }] } })),
+    ).toBe(true)
+  })
+
+  it('blocks a reference that could not be resolved or would overwrite another question', () => {
+    // Beyond the schema. A `#` makes `bank.json#id` unparseable.
+    expect(blocked(question({ id: 'bank#sa#01' }))).toBe(true)
+    // Saving would replace somebody else's question.
+    expect(
+      blocked(question({ id: 'taken' }), { inBank: new Set(['taken']), inFolder: new Set() }),
+    ).toBe(true)
+  })
+
+  it('blocks a fault that cleaning would erase, because nothing would be left to come back to', () => {
+    // cleanStimuli drops an entry with neither a file nor any text, so a
+    // question tagged for this would carry no recoverable reason.
+    const fileless = question({ stimulus: [{ kind: 'image' }] })
+    expect(blocked(fileless)).toBe(true)
+    expect(
+      cleanQuestion({ ...fileless, markingGuide: { sampleAnswer: 'x' } }).stimulus,
+    ).toBeUndefined()
+
+    // cleanCriteria drops a row with a blank description, and its marks with it.
+    const blank = question({ markingGuide: { criteria: [{ marks: 2, description: '  ' }] } })
+    expect(blocked(blank)).toBe(true)
+    expect(cleanQuestion(blank).markingGuide?.criteria).toBeUndefined()
+  })
+
+  /* These save, and say what is owed on them. */
+
+  it('saves a question whose parts do not add up, and says so', () => {
+    // The one that arrives from real papers: the 2025 Biology copyright line
+    // took seven marks of an eleven-mark question with it, leaving a question
+    // whose parts did not total. Half a question is worth keeping.
+    const q = question({
+      marks: 10,
+      config: {
+        parts: [
+          { label: '(a)', text: 'Outline one.', marks: 2 },
+          { label: '(b)', text: 'Explain another.', marks: 3 },
+        ],
+      },
+    })
+    expect(blocked(q)).toBe(false)
+    expect(waits(q).join(' ')).toContain('The parts total 5 marks')
+  })
+
+  it('saves a table with a blank heading or a blank row label, both of which survive cleaning', () => {
+    const q = question({
+      questionType: 'table',
+      marks: 4,
+      config: { columns: ['Material', ''], rows: [{ label: 'Steel' }, { label: '  ' }] },
+    })
+    expect(blocked(q)).toBe(false)
+    expect(waits(q).join(' ')).toContain('has no heading')
+    expect(waits(q).join(' ')).toContain('has no label')
+    const cleaned = cleanQuestion(q)
+    expect(cleaned.config?.columns).toEqual(['Material', ''])
+    expect(cleaned.config?.rows?.[1]?.label).toBe('')
+  })
+
+  it('saves a part missing its label or its text', () => {
+    const q = question({
+      marks: 5,
+      config: {
+        parts: [
+          { label: '', text: 'Explain.', marks: 2 },
+          { label: '(b)', text: '', marks: 3 },
+        ],
+      },
+    })
+    expect(blocked(q)).toBe(false)
+    expect(waits(q).join(' ')).toContain('A part needs a label')
+    expect(waits(q).join(' ')).toContain('A part needs something to ask')
+  })
+
+  it('counts every unfinished state as unfinished and none of them as blocking', () => {
+    // The ten states, each on its own, so a rule that stops setting the flag
+    // fails here rather than going quiet on the library filter.
+    const cases: [string, Question][] = [
+      [
+        'no answer on multiple choice',
+        question({
+          questionType: 'multiple_choice',
+          marks: 1,
+          config: { choices: [{ text: 'a' }, { text: 'b' }] },
+        }),
+      ],
+      [
+        'no answers on multiple response',
+        question({
+          questionType: 'multiple_response',
+          marks: 1,
+          config: { choices: [{ text: 'a' }, { text: 'b' }, { text: 'c' }] },
+        }),
+      ],
+      [
+        'nothing linked on matching',
+        question({
+          questionType: 'matching',
+          marks: 2,
+          config: {
+            items: [{ text: '1' }, { text: '2' }],
+            options: [{ text: 'A' }, { text: 'B' }],
+          },
+        }),
+      ],
+      ['no marking guide where one is needed', question()],
+      [
+        'a table whose guide would print empty',
+        question({
+          questionType: 'table',
+          marks: 2,
+          config: { columns: ['Material', 'Property'], rows: [{ label: 'Steel' }] },
+        }),
+      ],
+    ]
+
+    for (const [name, q] of cases) {
+      expect(blocksSaving(validateQuestion(q, emptyIdContext())), name).toBe(false)
+      expect(isUnfinished(q), name).toBe(true)
+      expect(unfinishedReasons(q).length, name).toBeGreaterThan(0)
+    }
+  })
+
+  it('survives cleaning, so a saved question still knows what it is waiting for', () => {
+    // The invariant behind the tag. If cleaning ever removed the fault, the
+    // question would be written carrying `needs-finishing` and no reason
+    // anybody could recover, which is why a fault cleaning erases blocks
+    // instead.
+    const unfinishedOnes = [
+      question(),
+      question({
+        questionType: 'multiple_choice',
+        marks: 1,
+        config: { choices: [{ text: 'a' }, { text: 'b' }] },
+      }),
+      question({
+        marks: 10,
+        config: { parts: [{ label: '(a)', text: 'Outline one.', marks: 2 }] },
+      }),
+    ]
+    for (const q of unfinishedOnes) {
+      expect(isUnfinished(cleanQuestion(q))).toBe(true)
+      expect(cleanQuestion(q).tags).toContain('needs-finishing')
+    }
+  })
+
+  it("takes the mark off again when the question is finished, and keeps the teacher's own tags", () => {
+    const done = question({
+      tags: ['ergonomics', 'needs-finishing'],
+      markingGuide: { sampleAnswer: 'Interviews the client and records the brief.' },
+    })
+    expect(cleanQuestion(done).tags).toEqual(['ergonomics'])
+  })
+
+  it("keeps Klunk's own mark when the teacher already has twenty tags", () => {
+    // `withTag` in adopt.ts and `readTags` in ingest.ts push and then slice to
+    // twenty, which drops Klunk's tag at exactly twenty. This cuts first.
+    const many = question({ tags: Array.from({ length: 20 }, (_, i) => `t${i}`) })
+    const tags = cleanQuestion(many).tags ?? []
+    expect(tags).toHaveLength(20)
+    expect(tags).toContain('needs-finishing')
+  })
+})
+
 /* ------------------------------------------------------------------ cleaning */
 
 describe('cleanQuestion', () => {
@@ -703,6 +937,10 @@ describe('cleanQuestion', () => {
       questionType: 'short_answer',
       questionText: 'Explain.',
       marks: 4,
+      // Stamped by cleaning: a short answer with no sample answer and no
+      // criteria is saved and is not finished, and the file has to say so
+      // because the notice on screen is gone the moment it is written.
+      tags: ['needs-finishing'],
     })
     expect(Object.keys(cleaned)).not.toContain('stimulus')
   })

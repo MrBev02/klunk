@@ -10,8 +10,27 @@
  * A few rules go beyond the schema, and are marked where they appear. They fall
  * into two groups: things JSON Schema cannot express (an id must be unique
  * across the folder, part marks must sum to the question total) and things it
- * permits but no teacher meant (a blank column heading). Both block a save,
- * because writing them produces a paper that prints wrong.
+ * permits but no teacher meant (a blank column heading).
+ *
+ * **Not every error blocks a save, and which ones do is decided here** (#105).
+ * A bank is a store rather than a paper, and refusing to write a question a
+ * teacher has read off a real examination is how an import became
+ * all-or-nothing: a paper with no marking guide lost its objective questions
+ * outright. Four tests, in order, and the first that answers wins:
+ *
+ *   1. the schema refuses it, so the file could not be written at all;
+ *   2. the schema permits it and the value is actively wrong — it prints
+ *      something false, breaks a paper reference, or overwrites another
+ *      question;
+ *   3. `cleanQuestion` erases it, so after the save there is nothing left to
+ *      come back to;
+ *   4. otherwise it is `unfinished`: the question is written, marked, and
+ *      reported on any paper it reaches.
+ *
+ * Test 3 is the one that is not obvious and it decides four rules. A fault
+ * cleaning removes cannot be represented on the saved question, so marking it
+ * unfinished would leave a question flagged with no reason anybody could
+ * recover. Blocking is the better trade there.
  */
 
 import type { Check } from './paper'
@@ -60,9 +79,19 @@ const A4_PRINTABLE_MM = { width: 180, height: 240 }
 
 export function validateQuestion(question: Question, ids: IdContext): Check[] {
   const out: Check[] = []
+  // Four reporters over two axes: how bad it is, and whether the question can
+  // be saved and finished later. Named for what they mean rather than left to a
+  // flag on the call, because the header's four tests are what a reader has to
+  // apply to add a rule here.
   const err = (message: string, where?: string) => out.push({ severity: 'error', message, where })
   const warn = (message: string, where?: string) =>
     out.push({ severity: 'warning', message, where })
+  /** Wrong, and the file can hold it: saved, marked, and reported on any paper. */
+  const errToFinish = (message: string, where?: string) =>
+    out.push({ severity: 'error', message, where, unfinished: true })
+  /** Not wrong, and not done: no answer recorded, no marking guide. */
+  const warnToFinish = (message: string, where?: string) =>
+    out.push({ severity: 'warning', message, where, unfinished: true })
 
   /* ------------------------------------------------------------------- id */
 
@@ -147,7 +176,7 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   }
 
   if (needsGuide(question.questionType) && !hasGuide(question)) {
-    warn(
+    warnToFinish(
       'No sample answer or criteria. Two markers will not agree on this without them.',
       'Marking guide',
     )
@@ -158,27 +187,27 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   const cfg = question.config ?? {}
   switch (question.questionType) {
     case 'multiple_choice':
-      validateMultipleChoice(cfg, err)
+      validateMultipleChoice(cfg, err, warnToFinish)
       break
     case 'multiple_response':
-      validateMultipleResponse(cfg, err, warn)
+      validateMultipleResponse(cfg, err, warn, warnToFinish)
       break
     case 'matching':
-      validateMatching(cfg, err, warn)
+      validateMatching(cfg, err, warn, warnToFinish)
       break
     case 'true_false':
       if (typeof cfg.correctAnswer !== 'boolean')
         err('Choose true or false as the answer.', 'Answer')
       break
     case 'table':
-      validateTable(cfg, question.marks, err, warn)
+      validateTable(cfg, question.marks, err, errToFinish, warn, warnToFinish)
       break
     case 'drawing':
       validateDrawing(cfg, err, warn)
       break
     case 'short_answer':
     case 'extended_response':
-      validateWritten(cfg, question.marks, err)
+      validateWritten(cfg, question.marks, err, errToFinish)
       break
   }
 
@@ -240,7 +269,23 @@ function validateCriterion(c: MarkCriterion, where: string, err: Report): void {
   }
 }
 
-function validateMultipleChoice(cfg: QuestionConfig, err: Report): void {
+/**
+ * A missing answer key is a warning on all three types that carry one, and it
+ * took three issues to get there.
+ *
+ * `multipleChoiceConfig` used to require `correctAnswer`, so a paper read
+ * without its markscheme had to have one invented, and `adopt.ts` put 0 there —
+ * thirty questions all answered A, ready to print (#64). #32 refused to repeat
+ * that on multiple response and matching, leaving multiple choice the only type
+ * where absent was an error rather than a state. The cost was #95: a scanned
+ * paper with no guide lost its nine objective questions altogether, because a
+ * question that cannot be represented cannot be saved.
+ *
+ * Absent now means unknown on all three. The student paper is correct either
+ * way, which is what makes a warning the honest severity rather than a lenient
+ * one, and the guide says in words that nobody recorded an answer.
+ */
+function validateMultipleChoice(cfg: QuestionConfig, err: Report, warnToFinish: Report): void {
   const choices = cfg.choices ?? []
   if (choices.length < 2) {
     err('A multiple choice question needs at least two options.', 'Options')
@@ -250,27 +295,26 @@ function validateMultipleChoice(cfg: QuestionConfig, err: Report): void {
   })
 
   const correct = cfg.correctAnswer
-  if (typeof correct !== 'number' || !Number.isInteger(correct)) {
+  if (correct === undefined) {
+    warnToFinish(
+      'No answer is marked, so the marking guide will say the answer is not ' +
+        'recorded rather than print a letter.',
+      'Options',
+    )
+  } else if (typeof correct !== 'number' || !Number.isInteger(correct) || correct < 0) {
     err('Mark one option as the correct answer.', 'Options')
-  } else if (correct < 0 || correct >= choices.length) {
+  } else if (correct >= choices.length) {
     // Beyond the schema, which only requires a non-negative integer: an index
     // past the end prints a marking guide with no answer on it.
     err('The correct option is not one of the options listed.', 'Options')
   }
 }
-
-/**
- * A missing answer key is a warning here and an error on multiple choice, and
- * the difference is deliberate.
- *
- * `multipleChoiceConfig` requires `correctAnswer`, so a paper read without its
- * markscheme has to have one invented, and `adopt.ts` puts 0 there — thirty
- * questions all answered A, ready to print (#64). These two types do not
- * repeat that: the key is optional, absent means unknown, and both the guide
- * and this say so in words. The student paper is unaffected either way, which
- * is what makes a warning the honest severity rather than a lenient one.
- */
-function validateMultipleResponse(cfg: QuestionConfig, err: Report, warn: Report): void {
+function validateMultipleResponse(
+  cfg: QuestionConfig,
+  err: Report,
+  warn: Report,
+  warnToFinish: Report,
+): void {
   const choices = cfg.choices ?? []
   if (choices.length < 3) {
     err(
@@ -285,7 +329,7 @@ function validateMultipleResponse(cfg: QuestionConfig, err: Report, warn: Report
 
   const correct = cfg.correctAnswers
   if (correct === undefined) {
-    warn(
+    warnToFinish(
       'No answers are marked, so the marking guide will say the answers are not ' +
         'recorded rather than print them.',
       'Options',
@@ -315,7 +359,12 @@ function validateMultipleResponse(cfg: QuestionConfig, err: Report, warn: Report
   }
 }
 
-function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void {
+function validateMatching(
+  cfg: QuestionConfig,
+  err: Report,
+  warn: Report,
+  warnToFinish: Report,
+): void {
   const items = cfg.items ?? []
   const options = cfg.options ?? []
 
@@ -339,7 +388,7 @@ function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void 
   })
 
   if (items.every((item) => item.matches === undefined)) {
-    warn(
+    warnToFinish(
       'Nothing is linked, so the marking guide will say the answers are not recorded ' +
         'rather than print them.',
       'Matching',
@@ -360,13 +409,20 @@ function validateMatching(cfg: QuestionConfig, err: Report, warn: Report): void 
   }
 }
 
-function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Report): void {
+function validateTable(
+  cfg: QuestionConfig,
+  marks: number,
+  err: Report,
+  errToFinish: Report,
+  warn: Report,
+  warnToFinish: Report,
+): void {
   const columns = cfg.columns ?? []
   const rows = cfg.rows ?? []
 
   if (columns.length < 1) err('A table needs at least one column.', 'Table')
   columns.forEach((c, i) => {
-    if (!c.trim()) err(`Column ${i + 1} has no heading.`, 'Table')
+    if (!c.trim()) errToFinish(`Column ${i + 1} has no heading.`, 'Table')
   })
 
   if (rows.length < 1) err('A table needs at least one row.', 'Table')
@@ -376,7 +432,8 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
 
   rows.forEach((r, i) => {
     const where = `Row ${i + 1}`
-    if (!r.label.trim()) err('This row has no label, so the student sees a blank line.', where)
+    if (!r.label.trim())
+      errToFinish('This row has no label, so the student sees a blank line.', where)
     if (r.marks !== undefined && r.marks < 0)
       err('A row cannot be worth less than zero marks.', where)
 
@@ -393,7 +450,10 @@ function validateTable(cfg: QuestionConfig, marks: number, err: Report, warn: Re
 
   const blank = rows.filter((r) => !(r.cells ?? []).some((c) => (c.answers ?? []).length > 0))
   if (answerColumns > 0 && blank.length === rows.length && rows.length > 0) {
-    warn('No row has an expected answer, so the marking guide prints an empty table.', 'Table')
+    warnToFinish(
+      'No row has an expected answer, so the marking guide prints an empty table.',
+      'Table',
+    )
   }
 
   const marked = rows.filter((r) => r.marks !== undefined)
@@ -422,7 +482,12 @@ function validateDrawing(cfg: QuestionConfig, err: Report, warn: Report): void {
   }
 }
 
-function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void {
+function validateWritten(
+  cfg: QuestionConfig,
+  marks: number,
+  err: Report,
+  errToFinish: Report,
+): void {
   if (
     cfg.answerLines !== undefined &&
     (!Number.isInteger(cfg.answerLines) || cfg.answerLines < 0)
@@ -436,8 +501,8 @@ function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void 
   const parts = cfg.parts ?? []
   parts.forEach((p, i) => {
     const where = `Part ${p.label.trim() || i + 1}`
-    if (!p.label.trim()) err('A part needs a label, such as (a).', where)
-    if (!p.text.trim()) err('A part needs something to ask.', where)
+    if (!p.label.trim()) errToFinish('A part needs a label, such as (a).', where)
+    if (!p.text.trim()) errToFinish('A part needs something to ask.', where)
     if (!Number.isFinite(p.marks) || p.marks <= 0)
       err('A part must be worth more than nothing.', where)
     if (p.answerLines !== undefined && (!Number.isInteger(p.answerLines) || p.answerLines < 0)) {
@@ -451,7 +516,7 @@ function validateWritten(cfg: QuestionConfig, marks: number, err: Report): void 
   if (parts.length > 0) {
     const sum = parts.reduce((t, p) => t + p.marks, 0)
     if (sum !== marks) {
-      err(`The parts total ${sum} marks, but the question is worth ${marks}.`, 'Parts')
+      errToFinish(`The parts total ${sum} marks, but the question is worth ${marks}.`, 'Parts')
     }
   }
 }
@@ -491,6 +556,53 @@ export function hasGuide(question: Question): boolean {
   // A question split into parts carries its sample answers and criteria on the
   // parts, and then has no `markingGuide` of its own at all.
   return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim() || p.criteria?.length)
+}
+
+/* ------------------------------------------------------------------ unfinished */
+
+/**
+ * Written into `tags` where a question is saved with work outstanding (#105).
+ *
+ * `needs-finishing` rather than `unfinished`, and the difference from the
+ * `Check` field is deliberate: this is a string a teacher reads in a bank file
+ * and on a chip, so it says what to do rather than only what it is.
+ *
+ * Klunk's own tag, like `ai-drafted` and `ai-marked`. It exists for the reason
+ * `ai-marked` does: a note is gone the moment the question is saved, and a
+ * teacher coming back to a bank in September has nothing else to read.
+ */
+export const UNFINISHED_TAG = 'needs-finishing'
+
+/**
+ * What a teacher still has to come back to on this question, in their words.
+ *
+ * The reasons are the checks' own messages and nothing else. A second list of
+ * sentences saying the same things is how the two come to disagree, which is
+ * the lesson `markupRules` records.
+ *
+ * Judged on the question alone. `emptyIdContext` is safe here because no id
+ * rule can fire against empty sets, and none of them is unfinished anyway: an
+ * id clash is a fact about the folder rather than about the question.
+ */
+export function unfinishedReasons(question: Question): string[] {
+  return validateQuestion(question, emptyIdContext())
+    .filter((c) => c.unfinished)
+    .map((c) => c.message)
+}
+
+export function isUnfinished(question: Question): boolean {
+  return validateQuestion(question, emptyIdContext()).some((c) => c.unfinished)
+}
+
+/**
+ * Whether these checks stop the question being written at all.
+ *
+ * The one rule, in one place, for all three save screens. Before #105 each of
+ * them tested `severity === 'error'` for itself, which is why relaxing the gate
+ * meant finding three copies of it.
+ */
+export function blocksSaving(checks: Check[]): boolean {
+  return checks.some((c) => c.severity === 'error' && !c.unfinished)
 }
 
 /* -------------------------------------------------------------------- profiles */
@@ -1016,9 +1128,6 @@ export function cleanQuestion(draft: Question): Question {
   const outcomes = list(draft.outcomes)
   if (outcomes) out.outcomes = outcomes
 
-  const tags = list(draft.tags)
-  if (tags) out.tags = tags
-
   const stimulus = cleanStimuli(draft.stimulus)
   if (stimulus) out.stimulus = stimulus
 
@@ -1042,17 +1151,43 @@ export function cleanQuestion(draft: Question): Question {
   const config = cleanConfig(draft.questionType, draft.config ?? {})
   if (config) out.config = config
 
+  // Last, because it is judged on `out` rather than on `draft`. Cleaning drops
+  // empty options, half-blank parts and blank stimulus rows, and leaves an
+  // absent answer absent, so the draft and the file can disagree about whether
+  // the question is finished. What gets written has to be true of what is
+  // written.
+  const tags = finishTags(list(draft.tags), out)
+  if (tags) out.tags = tags
+
   return out
+}
+
+/**
+ * The teacher's own tags, with Klunk's mark on whether the question is done.
+ *
+ * Stamped and cleared on every save rather than left for a teacher to manage,
+ * because a mark that only ever goes on is one the library lies with: a
+ * question finished in the editor would keep saying it was not.
+ *
+ * The teacher's list is cut to nineteen before Klunk's tag is added, not to
+ * twenty afterwards. `withTag` in `adopt.ts` and `readTags` in `ingest.ts` both
+ * push and then slice, which silently drops Klunk's own tag on a question
+ * already carrying twenty.
+ */
+function finishTags(tags: string[] | undefined, question: Question): string[] | undefined {
+  const mine = (tags ?? []).filter((t) => t !== UNFINISHED_TAG)
+  if (!isUnfinished(question)) return mine.length > 0 ? mine : undefined
+  return [...mine.slice(0, 19), UNFINISHED_TAG]
 }
 
 /** Keep only the config keys the schema allows for this question type. */
 function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | undefined {
   switch (type) {
-    case 'multiple_choice':
+    case 'multiple_choice': {
       // Always written, even when empty: the schema requires config on a
       // multiple choice question, and validation has already refused to save an
       // empty one.
-      return {
+      const out: QuestionConfig = {
         choices: (cfg.choices ?? [])
           .filter((c) => c.text.trim())
           .map((c) => {
@@ -1061,9 +1196,15 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
               ? { text: c.text.trim() }
               : { text: c.text.trim(), feedback }
           }),
-        correctAnswer: typeof cfg.correctAnswer === 'number' ? cfg.correctAnswer : 0,
         shuffle: cfg.shuffle !== false,
       }
+      // Written only when the question states it. This line used to put 0 in
+      // when it did not, which is #64 surviving in the save path: the note the
+      // reader wrote saying nobody chose an answer is gone the moment the
+      // question is saved, and A is left standing on the marking guide.
+      if (typeof cfg.correctAnswer === 'number') out.correctAnswer = cfg.correctAnswer
+      return out
+    }
 
     case 'multiple_response': {
       const out: QuestionConfig = {

@@ -255,7 +255,7 @@
 
     "multipleChoiceConfig": {
       "type": "object",
-      "required": ["choices", "correctAnswer"],
+      "required": ["choices"],
       "additionalProperties": false,
       "properties": {
         "choices": {
@@ -277,7 +277,7 @@
         "correctAnswer": {
           "type": "integer",
           "minimum": 0,
-          "description": "Zero-based index into choices."
+          "description": "Zero-based index into choices. Not required, for the reason multipleResponseConfig's 'correctAnswers' gives: a question paper transcribed or read without its markscheme does not state the answer, and the alternative is inventing one. Absent means unknown and Klunk says so on the marking guide; it never stands for 'the first option'. Requiring it here was what forced #64's invented answer, and left a paper of thirty objective questions read without its markscheme unable to be saved at all (#95)."
         },
         "shuffle": {
           "type": "boolean",

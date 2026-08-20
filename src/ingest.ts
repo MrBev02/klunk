@@ -96,9 +96,11 @@ export interface Draft {
   /**
    * The question as read, not yet cleaned.
    *
-   * Cleaning happens on save, exactly as it does in the editor. Doing it here
-   * would fill in a multiple choice question's missing `correctAnswer` with
-   * zero and hide the error that says nobody chose one.
+   * Cleaning happens on save, exactly as it does in the editor. It used to
+   * matter more than it does: cleaning filled a multiple choice question's
+   * missing `correctAnswer` with zero, and doing it here would have hidden the
+   * fault saying nobody chose one. Since #105 neither happens, and the reason
+   * to clean on save is the plain one, that what is written is what was checked.
    */
   question: Question
   /** What Klunk changed or dropped, in the teacher's words. */

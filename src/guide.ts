@@ -166,9 +166,11 @@ export class NotAGuideError extends Error {}
  *
  * @throws NotAGuideError when it recognised nothing at all: no answer key, no
  *   criteria, no mapping grid and nothing to say. It returned all four empty
- *   until #66, and the cost was not an empty guide but a wrong one — `adopt.ts`
- *   has to put something in `correctAnswer`, so thirty questions came through
- *   answered A with the marking guide sitting right there unread.
+ *   until #66, and the cost was not an empty guide but a wrong one: `adopt.ts`
+ *   put the first option in `correctAnswer`, so thirty questions came through
+ *   answered A with the marking guide sitting right there unread. Nothing
+ *   invents an answer any more (#105), so a guide that reads as nothing now
+ *   costs the answers rather than replacing them, and this still throws.
  */
 export function extractGuide(pages: PageText[]): ExtractedGuide {
   const answerKey: Record<number, string> = {}

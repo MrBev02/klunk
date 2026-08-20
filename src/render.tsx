@@ -569,7 +569,17 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
 
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, correctIndex, letters } = shuffledChoices(q)
+      const { choices, correctIndex, known, letters } = shuffledChoices(q)
+      // The same distinction multiple response has kept since #32, and the
+      // sentence is the same one, in the same words: nobody read an answer is
+      // not the same claim as the answer being A (#64, #105).
+      if (!known) {
+        return (
+          <p class="answer answer--unknown">
+            <strong>No answer recorded.</strong> This question was read without a markscheme.
+          </p>
+        )
+      }
       const correct = choices[correctIndex]
       return (
         <>

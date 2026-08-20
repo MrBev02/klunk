@@ -132,6 +132,21 @@ export interface Check {
   message: string
   /** Section title, when the check belongs to one. */
   where?: string | undefined
+  /**
+   * The question can be written down as it stands, and a teacher has to come
+   * back to it. Set by `validateQuestion` alone.
+   *
+   * Deliberately a second axis rather than a third severity. Two different
+   * things are unfinished: an error a bank file can still hold (parts that do
+   * not add up), and a warning that means work is outstanding (no answer
+   * recorded, no marking guide). One flag across both is what stops those two
+   * growing separate mechanisms that come to disagree about what unfinished
+   * means.
+   *
+   * So a save is blocked by `severity === 'error' && !unfinished`, and the
+   * question is unfinished if anything at all carries this.
+   */
+  unfinished?: boolean | undefined
 }
 
 /* ----------------------------------------------------------------- resolving */
@@ -550,8 +565,19 @@ function hash(text: string): number {
 
 export interface ShuffledChoices {
   choices: { text: string; feedback?: string | undefined }[]
-  /** Index of the correct option after shuffling. */
+  /** Index of the correct option after shuffling, or -1 where none is recorded. */
   correctIndex: number
+  /**
+   * Whether the question states its answer at all. False is a real state and
+   * not option A: a paper read or transcribed without its markscheme does not
+   * say, and the marking guide has to admit that rather than print a letter.
+   *
+   * `correctIndex` is -1 rather than 0 in that case on purpose. `choices[-1]`
+   * is undefined and `i === correctIndex` can never match, so a caller that
+   * forgets to read this still cannot mark the first option correct. Falling
+   * back to 0 is what made silence look like an answer (#64).
+   */
+  known: boolean
   letters: string[]
 }
 
@@ -604,8 +630,8 @@ function printOrder(question: Question, n: number, seed: string): number[] {
  */
 export function shuffledChoices(question: Question, seed = ''): ShuffledChoices {
   const choices = question.config?.choices ?? []
-  const correct =
-    typeof question.config?.correctAnswer === 'number' ? question.config.correctAnswer : 0
+  const stated = question.config?.correctAnswer
+  const known = typeof stated === 'number'
 
   const order = printOrder(question, choices.length, seed)
 
@@ -613,7 +639,8 @@ export function shuffledChoices(question: Question, seed = ''): ShuffledChoices 
     choices: order
       .map((i) => choices[i])
       .filter((c): c is { text: string; feedback?: string } => !!c),
-    correctIndex: order.indexOf(correct),
+    correctIndex: known ? order.indexOf(stated) : -1,
+    known,
     letters: LETTERS,
   }
 }

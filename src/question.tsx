@@ -203,10 +203,13 @@ function Body({
 }) {
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, correctIndex } = shuffledChoices(q)
+      const { choices, correctIndex, known } = shuffledChoices(q)
       return (
         <div class="det">
-          <p class="det__label">Options, in the order they will print</p>
+          <p class="det__label">
+            Options, in the order they will print
+            {known ? '' : ' · no answer recorded'}
+          </p>
           <ul class="opts">
             {choices.map((c, i) => (
               <li key={i} class={i === correctIndex ? 'is-correct' : ''}>
