@@ -51,6 +51,27 @@ jobs:
         with:
           path: dist
 
+  # Layout is not correctness, so this runs beside the build rather than in
+  # front of it. A formatting slip shows a red X against the commit, which is
+  # the signal worth having; it does not stop a teacher-facing deploy over
+  # whitespace. `deploy` needs `build` and does not need this one.
+  #
+  # `npm run build` still gates the deploy on the typecheck and the whole test
+  # suite, which is where correctness is checked (#103).
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run format:check
+
   # A Pages deployment sits in `deployment_queued` until GitHub allocates a
   # runner to it. On 2026-08-06 that allocation became unreliable — four of six
   # runs failed, and the difference was only ever how long the wait was, never

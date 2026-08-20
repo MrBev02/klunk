@@ -992,6 +992,14 @@ are kept in `../klunk-content/fixtures/` purely as parser regression tests.
   in commits or in PR bodies. The history is prose about the work; tooling trailers
   are noise in it. This is written here rather than left to a tool's memory because
   memory is per-machine and the default is to add them.
+- **Layout is Prettier's, not yours** (#103). `npm run format` before committing,
+  or let an editor do it on save. The settings in `prettier.config.js` were
+  measured off the code rather than chosen — no semicolons, single quotes,
+  `printWidth: 100` — so it agrees with what is already there and reformatting a
+  file you touched should move only the lines you touched. **Markdown is ignored
+  outright**, so this file's hand-wrapped prose and aligned tables are yours to
+  keep at 80 columns. Prettier never reflows a comment either, so prose inside a
+  `.ts` file stays where it is put.
 - Comments explain **why**, not what.
 
 ## Running things
@@ -1005,6 +1013,8 @@ npm run test:corpus    # the same, but a missing corpus document fails rather
 npm run build          # typecheck, then tests, then dist/ for GitHub Pages
 npm run build:single   # dist-single/ one self-contained HTML for a shared drive
 npm run typecheck
+npm run format         # Prettier over the repo, in place
+npm run format:check   # what CI's `format` job runs; does not gate the deploy
 
 # The reference implementation of the syllabus generator. NOT the route a
 # teacher takes any more — that is the "From a syllabus" tab, which reads the
