@@ -197,7 +197,14 @@ because Git never asks `gh`.
   it is Chrome or macOS blocking localhost rather than Vite, so check System Settings →
   Privacy & Security → Local Network and `chrome://policy` instead of re-diagnosing
   Vite.
-  Never use a broad `pkill -f vite`: it took out the user's open browsers.
+  **Never kill a process here. Not `pkill`, not `killall`, not `kill`, and not on
+  a pattern that looks narrow.** This has now been destructive twice: a broad
+  `pkill -f vite` took out the user's open browsers, and `pkill -f vite -n`,
+  aimed at one scratch dev server started seconds earlier, took out VS Code and
+  the browsers as well. A pattern matches more than its author has in mind and
+  `-n` is no protection. Start a server, leave it running, and say at the end
+  what is on which port so the user can stop it. If 5173 is taken, that is the
+  user's own dev server: use another port rather than clearing it.
   **Clicking by coordinate is unreliable here**: the screenshot is scaled relative to
   CSS pixels, and a click computed from `getBoundingClientRect` silently missed a
   button twice. Use `find` to get a ref and click the ref.

@@ -209,6 +209,12 @@ Two deliberate divergences worth preserving:
 
 ## Running things
 
+**Never kill a process on this machine** — no `pkill`, `killall` or `kill`, on
+any pattern, including one aimed at something started seconds earlier. It has
+been destructive twice, taking out VS Code and the user's browsers along with a
+dev server. Start what is needed, leave it running, and say what is on which
+port at the end. Port 5173 is normally the user's own dev server; use another.
+
 ```
 npm install
 npm run dev            # dev server
