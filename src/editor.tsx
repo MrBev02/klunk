@@ -18,6 +18,7 @@ import {
   bankPathFault,
   Faults,
   Field,
+  ListField,
   normaliseBankPath,
   NumField,
   patched,
@@ -56,7 +57,13 @@ import {
   type TableCell,
   type TableRow,
 } from './types'
-import { cleanQuestion, suggestQuestionId, validateQuestion } from './validate'
+import {
+  cleanQuestion,
+  isUnfinished,
+  suggestQuestionId,
+  UNFINISHED_TAG,
+  validateQuestion,
+} from './validate'
 
 /** Where a picked image is copied to, relative to the bank that uses it. */
 const IMAGE_SUBDIR = 'stimulus'
@@ -1043,24 +1050,18 @@ function TableFields({
                   list for the whole row and printed it into every column. */}
               <div class="withbtn">
                 {columns.slice(1).map((col, j) => (
-                  <input
+                  <ListField
                     key={j}
                     class="input input--sub"
-                    value={(r.cells?.[j]?.answers ?? []).join(' / ')}
+                    separator="/"
+                    value={r.cells?.[j]?.answers ?? []}
                     placeholder={
                       columns.length > 2
                         ? `${col.trim() || `Column ${j + 2}`}. Put a slash between alternatives.`
                         : 'Accepted answers. Put a slash between alternatives.'
                     }
-                    onInput={(e) =>
-                      changeRow(i, {
-                        cells: cellsWith(
-                          r,
-                          j,
-                          splitAlternatives((e.target as HTMLInputElement).value),
-                          columns.length - 1,
-                        ),
-                      })
+                    onChange={(answers) =>
+                      changeRow(i, { cells: cellsWith(r, j, answers, columns.length - 1) })
                     }
                   />
                 ))}
@@ -1695,22 +1696,27 @@ function TaggingFields({
         </>
       )}
 
+      {/* Klunk's own tag is kept out of this box (#111). It is derived from the
+          question rather than written by anybody, so an edit to it here was
+          discarded on the next save and nothing said why. The `ai-drafted`,
+          `ai-transcribed` and `ai-marked` tags stay in: those are a record of
+          where the question came from, not a reading of what it holds now, and
+          a teacher who has rewritten an AI draft may want the tag gone. */}
       <Field
         label="Your own tags"
-        hint="Separated by commas. needs-finishing is Klunk's, and it is set again on every save."
+        hint={
+          isUnfinished(question)
+            ? 'Separated by commas. Klunk tags this question needs-finishing while anything is left to finish.'
+            : 'Separated by commas.'
+        }
         for="tg-tags"
       >
-        <input
+        <ListField
           id="tg-tags"
-          class="input"
-          value={(question.tags ?? []).join(', ')}
+          separator=","
+          value={(question.tags ?? []).filter((t) => t !== UNFINISHED_TAG)}
           placeholder="ergonomics, sustainability"
-          onInput={(e) =>
-            setDraft((d) => ({
-              ...d,
-              tags: splitList((e.target as HTMLInputElement).value),
-            }))
-          }
+          onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
         />
       </Field>
     </section>
@@ -2032,18 +2038,4 @@ function holdsParts(type: QuestionType): boolean {
 function imageDirectoryFor(bankPath: string): string {
   const parts = bankPath.split('/').slice(0, -1)
   return [...parts, IMAGE_SUBDIR].join('/')
-}
-
-function splitList(value: string): string[] {
-  return value
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean)
-}
-
-function splitAlternatives(value: string): string[] {
-  return value
-    .split('/')
-    .map((v) => v.trim())
-    .filter(Boolean)
 }

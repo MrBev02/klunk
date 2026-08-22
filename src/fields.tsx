@@ -102,6 +102,81 @@ export function NumField({
   )
 }
 
+/**
+ * What sits between two entries in a list box, as typed and as shown.
+ *
+ * Both of these are the teacher being made to think in the file's terms, which
+ * is #13. Fixing that is a different change; this one only makes the boxes
+ * accept what is typed into them.
+ */
+const SEPARATORS = { ',': ', ', '/': ' / ' } as const
+
+/**
+ * A box holding a list, which reports the list and reads back from it only when
+ * the teacher is somewhere else.
+ *
+ * Both list boxes used to bind `list.join(', ')` straight to the input and
+ * re-parse every keystroke, which meant a separator could not be typed at all
+ * (#110): the draft holds one entry, the value prop is that one entry joined,
+ * and Preact writes it back over the comma that was just pressed. A second tag
+ * could only be pasted in.
+ *
+ * Keeping the text in local state instead is not enough, and driving it in
+ * Chrome is what showed why. A render caused by the draft above arrives with
+ * the parsed list already updated and this component's own text one keystroke
+ * behind, so Preact writes the stale text over what is in the box; the effect
+ * puts it back, and at five milliseconds between keystrokes `ergonomics` came
+ * out as `ergonoics`. So the box is not bound to the list at all. While it has
+ * focus, what is in it wins.
+ */
+export function ListField({
+  value,
+  separator,
+  onChange,
+  ...rest
+}: {
+  value: string[]
+  separator: keyof typeof SEPARATORS
+  onChange: (list: string[]) => void
+  id?: string
+  class?: string
+  placeholder?: string
+}) {
+  const join = (list: string[]) => list.join(SEPARATORS[separator])
+  const parse = (text: string) =>
+    text
+      .split(separator)
+      .map((v) => v.trim())
+      .filter(Boolean)
+
+  const box = useRef<HTMLInputElement>(null)
+
+  // Seeds the box on the way in, and follows the list when it changes for a
+  // reason other than typing here. Repeatable rows are keyed by position, so
+  // deleting one leaves this component in place holding the next row's answers.
+  useEffect(() => {
+    const el = box.current
+    if (!el || el === document.activeElement) return
+    if (join(parse(el.value)) === join(value)) return
+    el.value = join(value)
+  }, [join(value)])
+
+  return (
+    <input
+      ref={box}
+      class="input"
+      {...rest}
+      onInput={(e) => onChange(parse((e.target as HTMLInputElement).value))}
+      // Where the list as stored replaces what was typed, so a trailing comma
+      // goes when the teacher leaves rather than as they type.
+      onBlur={() => {
+        const el = box.current
+        if (el) el.value = join(value)
+      }}
+    />
+  )
+}
+
 /** A bare list of checks, for wherever a whole panel would be too much. */
 /** What each group of documents is called, per slot. */
 const GROUP_LABELS: Record<DocumentPurpose, { matching: string; other: string }> = {

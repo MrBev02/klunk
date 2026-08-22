@@ -220,6 +220,12 @@ because Git never asks `gh`.
   **Never call `navigator.clipboard.readText()`** to check a copy button. It raises a
   permission prompt that froze the renderer and timed out CDP. Assert on what the app
   says it did instead.
+  **A tab the extension is driving is usually hidden, and focus does not work in one.**
+  `document.hidden` is true and `document.hasFocus()` false, so `el.blur()` fires no
+  blur event at all (a native listener added beside it heard nothing), and `useEffect`
+  falls back off `requestAnimationFrame` onto a throttled timer, which took over 500 ms
+  to run. Both read as a broken handler. Anything about focus, blur or effect timing has
+  to be driven with real clicks and real typing rather than from `javascript_tool`.
 - **Match a button by its whole label, never a substring.** Driving the question
   editor with `javascript_tool`, a regex of `/cancel|discard|close/i` looking for
   **Cancel** hit **Save and close** first, and a placeholder question went into

@@ -253,6 +253,15 @@ about it was not yet finished.
   crop was expected, and would be wrong as a durable mark. Its `graph`
   alternative carried no closing word boundary, which is a plain bug and is
   fixed; its role is not widened.
+- **It is derived, so the editor stopped offering it as a tag** (#111).
+  `needs-finishing` sat inside the box labelled *Your own tags*, editable, and
+  removing it there was undone by the next save. The hint tried to cover that in
+  words, which is a note explaining why a control does not work. The box holds
+  the teacher's tags now, the rail already says how many things are left to
+  finish, and `question.tsx` was already rendering the chip from `isUnfinished`
+  rather than from the tag. `ai-drafted`, `ai-transcribed` and `ai-marked` stay
+  editable: those record where a question came from rather than what it holds
+  now, and nothing recomputes them.
 - **Measured before building rather than after**: 31 of 284 questions in the
   folder are unfinished, 21 of them one bank. `biology-2025.json` is 0 of 68 and
   `ib-dt-p1-practice.json` 0 of 30, so a properly-guided import comes out clean.
@@ -419,3 +428,33 @@ is far more reliable than looking.
   said it wrapped exactly as the print would. It is 200 mm now. The printed page
   never moved; only the preview did, onto what the page was always doing.
 
+
+## A box that normalises what it holds cannot be bound to it
+
+**Established in Chrome against the real Preact, by driving both shapes of the
+box side by side (#110).** Both faults below were invisible in the code and in
+every test: the parsing is correct, and only typing into it shows the problem.
+
+- **Preact writes the `value` prop back over the box whenever the two differ**,
+  on every render, not only when the prop changed (`preact/src/diff/index.js`,
+  the `inputValue !== dom[i]` test). Nothing in a component can opt out.
+- **So a box showing `list.join(', ')` and re-parsing every keystroke deletes
+  the separator as it is typed.** `ergonomics, safety` typed into the tags box
+  arrived as `ergonomicssafety`: one tag, and the comma and space gone. A second
+  tag could only ever be pasted in. The same box with `/` held the accepted
+  answers for a table cell.
+- **Keeping the text in local state is not enough**, which is the part worth not
+  re-deriving. A render caused by the draft above arrives with the parsed list
+  already updated and the box's own text one keystroke behind, so Preact writes
+  the stale text over what was typed; the effect puts it back, and at five
+  milliseconds between keystrokes `ergonomics` came out as `ergonoics`. Verified
+  by logging every render: `text='er' value='erg'`.
+- **So `ListField` is not bound to the list at all.** It is uncontrolled, and
+  focus decides: while the box has focus what is in it wins, and the list is
+  written into it only when it changes while the teacher is elsewhere, or on the
+  way out, where a trailing comma is tidied. Driven afterwards with real clicks
+  and real keystrokes: `ergonomics, safety, ` stays as typed, reports two tags,
+  and reads back `ergonomics, safety` after clicking away.
+- **`NumField` had already paid for this once**, for the number that could not be
+  cleared, and its comment says so. Two list boxes were written afterwards
+  without it.
