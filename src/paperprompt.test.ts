@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { ingestQuestions } from './ingest'
 import { buildPaperPrompt, type PaperPromptSpec } from './paperprompt'
 import { blocksOf } from './richtext'
 import type { Profile, Syllabus, SyllabusCourse } from './types'
@@ -190,5 +191,68 @@ describe('the markup', () => {
 
   it('keeps the fill-in table type apart from a table the student only reads', () => {
     expect(prompt).toContain('A table the student only reads is not this')
+  })
+
+  it('asks for the fill-in table by its own fields, which is what #108 was', () => {
+    expect(prompt).toContain('Put the headings in "columns" and the row labels in "rows"')
+    expect(prompt).not.toContain('put the column')
+  })
+})
+
+/**
+ * The example, read back by the thing that reads a real reply.
+ *
+ * Every other test here asserts what the prompt *says*. This one asserts that a
+ * model doing exactly what it says produces a question Klunk will accept, which
+ * is the only claim that matters and the one that was false: the prompt offered
+ * `table`, described neither `columns` nor `rows`, and told the model to put the
+ * headings in `questionText`, so a faithful transcription of the Enterprise
+ * Computing 2026 trial's question 11 came back saying *A table needs at least
+ * one column.* and could not be saved (#108).
+ *
+ * It runs `ingestQuestions` rather than `validateQuestion` on a literal, so the
+ * whole path the reply takes is under the test: a field the prompt asks for and
+ * `ingest.ts` does not read would fail here too.
+ */
+describe('a reply that does exactly what the prompt says', () => {
+  const prompt = buildPaperPrompt(BASE)
+
+  function readExample() {
+    return ingestQuestions(JSON.stringify(exampleIn(prompt)), {
+      bankPath: 'bank/scan.json',
+      inFolder: new Set<string>(),
+      inBank: new Set<string>(),
+      topicIds: [],
+      points: [],
+      outcomes: [],
+      paper: { examination: 'Enterprise Computing Year 12 Trial', year: 2026 },
+    })
+  }
+
+  it('reads every question of the example, rejecting none', () => {
+    const out = readExample()
+    expect(out.failure).toBeUndefined()
+    expect(out.rejected).toEqual([])
+    expect(out.drafts).toHaveLength((exampleIn(prompt) as unknown[]).length)
+  })
+
+  it('leaves no question in error, because the example must be a shape Klunk takes', () => {
+    const errors = readExample().drafts.flatMap((d) =>
+      d.faults
+        .filter((f) => f.severity === 'error')
+        .map((f) => `${d.question.questionType}: ${f.message}`),
+    )
+    expect(errors).toEqual([])
+  })
+
+  it('gives the table question its columns and rows, not a stem full of headings', () => {
+    const draft = readExample().drafts.find((d) => d.question.questionType === 'table')
+    expect(draft, 'the example must demonstrate a fill-in table').toBeTruthy()
+
+    const cfg = draft!.question.config ?? {}
+    expect(cfg.columns).toHaveLength(4)
+    expect(cfg.columns?.[0]).toBe('Activity')
+    expect(cfg.rows).toHaveLength(3)
+    expect(draft!.question.questionText).not.toContain('Computational thinking')
   })
 })

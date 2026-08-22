@@ -233,6 +233,14 @@ function shape(spec: PaperPromptSpec): string {
     '    parts          short_answer and extended_response, as',
     '                   [ { "label": "(a)", "text": "...", "marks": 2 } ]',
     "                   Their marks must total the question's marks.",
+    '    columns        table: every column heading, in the order printed, as',
+    '                   ["Activity", "A Prototyping", "B Testing"]. The first is',
+    '                   the column the student is given; the rest are the ones',
+    '                   they fill in. A table with no headings printed over its',
+    '                   first column still needs an entry for it, written as "".',
+    '    rows           table: one entry per row, in the order printed, as',
+    '                   [ { "label": "..." } ]. "label" is what is printed in',
+    '                   the first column. Leave the answers out, as above.',
     '',
     'Four rules about types:',
     '',
@@ -245,10 +253,14 @@ function shape(spec: PaperPromptSpec): string {
     '  to draw lines between them or to write a letter beside each number. Put',
     '  the numbered column in "items" and the lettered one in "options", each in',
     '  the order printed. Do not put either column in "questionText".',
-    '- Use "table" where the student completes a table, and put the column',
-    '  headings in "questionText". A table the student only reads is not this',
-    '  type: transcribe it into "questionText" as a pipe table and give the',
-    '  question whatever type it would have without it.',
+    '- Use "table" where the student writes, ticks or crosses inside a table.',
+    '  Put the headings in "columns" and the row labels in "rows", both in the',
+    '  order printed, and neither in "questionText". A grid where the student',
+    '  marks one cell of each row is this type: the row labels are its rows and',
+    '  the things being chosen between are its columns.',
+    '  A table the student only reads is not this type: transcribe it into',
+    '  "questionText" as a pipe table and give the question whatever type it',
+    '  would have without it.',
     '',
     'Leave out "id", "syllabusId" and "courseId".',
   ].join('\n')
@@ -257,13 +269,19 @@ function shape(spec: PaperPromptSpec): string {
 /* ------------------------------------------------------------- the example */
 
 /**
- * Three objects showing the shape, invented for the purpose.
+ * Five objects showing the shape, invented for the purpose.
  *
  * Not shared with `prompt.ts`'s examples, which carry option feedback and
  * content-point ids that a question paper does not print. What both sets have in
  * common is the job: demonstrate the awkward parts rather than assert them.
  * Here that is `config` being a real nested object, `correctAnswer` being absent
  * because the paper does not state it, and `parts` carrying their own marks.
+ *
+ * The last two are a pair and have to stay one: question 4 is a table the
+ * student only reads, which belongs in `questionText`, and question 5 is a table
+ * the student writes in, which does not. Described rather than shown, the two
+ * read as the same thing, and the description alone sent every real table into
+ * `questionText` with no `columns` at all (#108).
  */
 const EXAMPLE = `[
   {
@@ -309,6 +327,21 @@ const EXAMPLE = `[
     "questionText": "The table shows the temperature recorded in the workshop.\\n\\n| Time | Temperature (\u00b0C) |\\n| --- | --- |\\n| 8 am | 18.8 |\\n| 12 noon | 27.1 |\\n| 4 pm | 24.6 |\\n\\nIdentify the **greatest** change between two readings.",
     "marks": 2,
     "section": "II"
+  },
+  {
+    "number": 5,
+    "questionType": "table",
+    "questionText": "Select the primary thinking skill used in each activity by placing an X in one column of each row.",
+    "marks": 1,
+    "section": "I",
+    "config": {
+      "columns": ["Activity", "A Computational thinking", "B Design thinking", "C Systems thinking"],
+      "rows": [
+        { "label": "Analysing sales data to identify buying patterns" },
+        { "label": "Interviewing users and refining a prototype from their feedback" },
+        { "label": "Mapping how information flows between departments" }
+      ]
+    }
   }
 ]`
 
@@ -322,8 +355,11 @@ function example(spec: PaperPromptSpec): string {
     '',
     'Note where "choices" and "parts" sit: inside "config", not beside it. Note',
     'that no question carries "correctAnswer", because a question paper does not',
-    'print the answers. Note that question 4 keeps its table as a table, in',
-    '"questionText", between the two paragraphs it is printed between.',
+    'print the answers. Note the two tables and the difference between them:',
+    'question 4 only asks the student to read its table, so the table stays in',
+    '"questionText", between the two paragraphs it is printed between, while',
+    'question 5 asks the student to write in one, so its headings and row labels',
+    'go in "columns" and "rows" and its "questionText" holds neither.',
     spec.range
       ? `Return only questions ${spec.range.from} to ${spec.range.to}, in one array.`
       : 'Return every question of the paper in one array.',
