@@ -18,6 +18,7 @@ import {
   folderIsMissing,
   folderProblem,
   forgetFolder,
+  inCourse,
   inSyllabus,
   listFolders,
   openFolder,
@@ -910,12 +911,24 @@ function Library({
   const duplicates = useMemo(() => duplicateModels(index.syllabuses), [index.syllabuses])
 
   const [type, setType] = useState('')
+  const [course, setCourse] = useState('')
   const [topic, setTopic] = useState('')
   const [text, setText] = useState('')
   const [untaggedOnly, setUntaggedOnly] = useState(false)
   const [unfinishedOnly, setUnfinishedOnly] = useState(false)
 
-  const groups = useMemo(() => topicOptions(index), [index])
+  const courseGroups = useMemo(() => courseOptions(index), [index])
+  const courses = useMemo(() => courseGroups.flatMap((g) => g.courses), [courseGroups])
+  const chosenCourse = useMemo(() => courses.find((c) => c.key === course), [courses, course])
+  // A folder of one course has one answer to "which year is this?", so the
+  // filter and the chip would both be furniture. Design and Technology alone is
+  // two, so this is on for every real folder and off for a fixture.
+  const manyCourses = courses.length > 1
+
+  const groups = useMemo(
+    () => (chosenCourse ? topicOptions(index, chosenCourse.key) : topicOptions(index)),
+    [index, chosenCourse],
+  )
   const chosenTopic = useMemo(
     () => groups.flatMap((g) => g.topics).find((t) => t.key === topic),
     [groups, topic],
@@ -926,15 +939,19 @@ function Library({
     return questions.filter((ref) => {
       const q = ref.question
       if (type && q.questionType !== type) return false
+      // #47's rule both times, through the functions that hold it: a question
+      // naming a course is held to that course, and one naming none cannot be
+      // ruled out, which is why both IB courses can hold `A1-1` without the
+      // filter having to guess which was meant. `Only untagged` is how a teacher
+      // goes looking for the ones that name nothing.
+      if (chosenCourse) {
+        if (!inSyllabus(ref, chosenCourse.syllabusId)) return false
+        if (!inCourse(ref, chosenCourse.courseId)) return false
+      }
       if (chosenTopic) {
         if (!(q.syllabus?.topicIds ?? []).includes(chosenTopic.topicId)) return false
         if (!inSyllabus(ref, chosenTopic.syllabusId)) return false
-        // A question that names a course has to name this one. One that names
-        // none cannot be ruled out, which is the reading `inSyllabus` takes a
-        // level up and the reason both IB courses hold `A1-1` without the
-        // filter having to guess which was meant.
-        const courseId = q.syllabus?.courseId
-        if (courseId !== undefined && courseId !== chosenTopic.courseId) return false
+        if (!inCourse(ref, chosenTopic.courseId)) return false
       }
       if (untaggedOnly && (q.syllabus?.topicIds?.length || q.syllabus?.pointIds?.length)) {
         return false
@@ -946,7 +963,7 @@ function Library({
       if (needle && !questionHaystack(q).includes(needle)) return false
       return true
     })
-  }, [questions, type, chosenTopic, text, untaggedOnly, unfinishedOnly])
+  }, [questions, type, chosenCourse, chosenTopic, text, untaggedOnly, unfinishedOnly])
 
   const shownMarks = shown.reduce((sum, r) => sum + r.question.marks, 0)
 
@@ -1061,6 +1078,37 @@ function Library({
           </select>
         </div>
 
+        {manyCourses && (
+          <div class="rail__group">
+            <label class="rail__label" for="f-course">
+              Course
+            </label>
+            <select
+              id="f-course"
+              class="input"
+              value={course}
+              onChange={(e) => {
+                const key = (e.target as HTMLSelectElement).value
+                setCourse(key)
+                // A topic belongs to one course, so a topic chosen under the old
+                // one would leave the list empty and both boxes looking right.
+                if (topic && key && !topic.startsWith(`${key}::`)) setTopic('')
+              }}
+            >
+              <option value="">Any course</option>
+              {courseGroups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.courses.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div class="rail__group">
           <label class="rail__label" for="f-topic">
             Syllabus topic
@@ -1103,11 +1151,12 @@ function Library({
           </label>
         </div>
 
-        {(type || topic || text || untaggedOnly || unfinishedOnly) && (
+        {(type || course || topic || text || untaggedOnly || unfinishedOnly) && (
           <button
             class="btn btn--small"
             onClick={() => {
               setType('')
+              setCourse('')
               setTopic('')
               setText('')
               setUntaggedOnly(false)
@@ -1194,6 +1243,7 @@ function Library({
                 index={i}
                 images={index.images}
                 known={ref.syllabusId === undefined ? undefined : known.get(ref.syllabusId)}
+                courseName={manyCourses ? courseNameFor(ref, courses) : undefined}
                 action={
                   <button class="btn btn--small" onClick={() => onEdit(ref)}>
                     Edit this question
@@ -1246,11 +1296,72 @@ interface TopicGroup {
  * Preliminary and HSC courses both use. Dropping the course prefix made those
  * indistinguishable the whole time the list was shut, which is most of the time.
  */
-function topicOptions(index: ContentIndex): TopicGroup[] {
+interface CourseChoice {
+  /** `syllabusId::courseId`, which is the prefix of every topic key below. */
+  key: string
+  syllabusId: string
+  courseId: string
+  /** What the filter offers, which may name the syllabus as well. */
+  label: string
+  /** The course on its own, which is what a row has room for. */
+  name: string
+}
+
+interface CourseGroup {
+  label: string
+  courses: CourseChoice[]
+}
+
+/**
+ * Every course of every syllabus in the folder: Year 11 and Year 12, or
+ * Preliminary and HSC, or Standard and Higher level, depending on the model.
+ *
+ * Keyed by syllabus and course together for the reason `TopicChoice.key` is: a
+ * course id is only unique inside its own model, and `y11` means Enterprise
+ * Computing in one folder and Biology in the same one.
+ */
+function courseOptions(index: ContentIndex): CourseGroup[] {
+  const out: CourseGroup[] = []
+  // Named on the option as well as on the group it sits in, for the reason
+  // `topicOptions` prefixes the course: a shut `<select>` shows the option and
+  // nothing else, and `../klunk-content` holds a Year 11 in Biology and a Year
+  // 11 in Enterprise Computing. Left off in a folder of one subject, where the
+  // group heading is the only subject there is.
+  const many = index.syllabuses.length > 1
+  for (const { data: syllabus } of index.syllabuses) {
+    const courses = syllabus.courses.map((course) => ({
+      key: `${syllabus.id}::${course.id}`,
+      syllabusId: syllabus.id,
+      courseId: course.id,
+      label: many ? `${syllabus.name}: ${course.name}` : course.name,
+      name: course.name,
+    }))
+    if (courses.length > 0) out.push({ label: syllabus.name, courses })
+  }
+  return out
+}
+
+/**
+ * What to print on a row to say which year it is, or nothing.
+ *
+ * Both halves of the key have to be known. A question naming a course but no
+ * syllabus cannot be resolved to a name, because `y11` belongs to two models in
+ * `../klunk-content` alone, and a chip reading the wrong subject's year would be
+ * worse than no chip.
+ */
+function courseNameFor(ref: QuestionRef, courses: CourseChoice[]): string | undefined {
+  const courseId = ref.question.syllabus?.courseId
+  if (ref.syllabusId === undefined || courseId === undefined) return undefined
+  return courses.find((c) => c.key === `${ref.syllabusId}::${courseId}`)?.name
+}
+
+/** @param onlyCourse `syllabusId::courseId`, when the list is narrowed to one. */
+function topicOptions(index: ContentIndex, onlyCourse?: string): TopicGroup[] {
   const out: TopicGroup[] = []
   for (const { data: syllabus } of index.syllabuses) {
     const topics: TopicChoice[] = []
     for (const course of syllabus.courses) {
+      if (onlyCourse !== undefined && `${syllabus.id}::${course.id}` !== onlyCourse) continue
       for (const topic of course.topics) {
         const group = topic.group ? `${topic.group} · ` : ''
         topics.push({

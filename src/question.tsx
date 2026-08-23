@@ -48,12 +48,19 @@ export function QuestionRow({
   action,
   images,
   known,
+  courseName,
 }: {
   item: QuestionRef
   index?: number
   action?: preact.ComponentChildren
   /** Stimulus images by folder path, so a question can show its picture. */
   images?: Map<string, string> | undefined
+  /**
+   * Which year or level this question is for, where the folder holds more than
+   * one and Klunk can say which. Absent prints nothing: a folder of one course
+   * would otherwise stamp the same word on every row.
+   */
+  courseName?: string | undefined
   /**
    * Every id the syllabus this question names defines, when that model is in the
    * folder. Absent means Klunk cannot tell, and nothing is marked.
@@ -84,6 +91,11 @@ export function QuestionRow({
         <span class="qrow__stem">{questionLabel(q)}</span>
         <span class="qrow__tail">
           <span class="chip chip--type">{shortType(q)}</span>
+          {/* Enterprise Computing teaches different units in Year 11 and Year
+              12, so "which year is this?" is a question about every row. The
+              answer was only in the topic id of an opened question (`Y11-03.02`),
+              which is the file's language rather than a teacher's (#112). */}
+          {courseName && <span class="chip">{courseName}</span>}
           {/* On the collapsed row and not only in the tag list below, because
               `Tags` renders once a row is opened and a teacher scanning thirty
               of them would otherwise click thirty times to find the one still
