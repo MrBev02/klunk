@@ -1297,13 +1297,51 @@ textarea.input {
 /* The wording and per-question overrides, both folded away by default. A row of
    empty boxes on every section and every question would bury the questions,
    which is what the screen is for. */
+/* Indented to the same 1rem gutter as the section head and the question rows.
+   With margin alone the boxes sat hard against the card border on both sides,
+   because .input is width:100% and .sec has no padding of its own. */
 .sec__over {
-  margin: 0.3rem 0 0.5rem;
+  padding: 0.35rem 1rem 0.55rem;
 }
 
+/* Room between the button and the first label it reveals, put here rather than
+   under the button so the closed panel stays the height of one button. */
+.sec__over .fieldrow {
+  margin-top: 0.55rem;
+}
+
+/* A row of its own under the question. `flex-basis: 100%` was here and does
+   nothing to a grid item, so this landed in the 1.8rem question-number column
+   and squashed to zero width the moment it was opened (#114). */
 .picked__over {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   margin: 0.2rem 0 0.4rem 2.6rem;
+}
+
+/* Sized by its label rather than by flex, because .rail__label is uppercase
+   monospace with 0.14em of tracking and MARKS OVERRIDE wrapped to two lines in
+   anything narrower. That put its box a line below the subheading's, which is
+   what the row looked wrong for. The box itself stays narrow: a mark is one or
+   two digits, and .input is width:100%. */
+.picked__over .fieldrow > .field:first-child {
+  flex: 0 0 auto;
+}
+
+.picked__over .fieldrow > .field:first-child .input {
+  width: 5.5rem;
+}
+
+/* A subheading is two or three words. Across the full builder it left a mostly
+   empty box and put its hint on one very long line. */
+.picked__over .fieldrow > .field:last-child {
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+
+/* What the panel holds, on the line with the button that opens it. */
+.picked__set {
+  margin-left: 0.5rem;
+  font-size: 0.78rem;
 }
 
 /* One difference per row: what differs on the left, the button that fixes it on
@@ -1661,6 +1699,9 @@ textarea.input {
   font-family: inherit;
   line-height: 1.55;
   resize: vertical;
+  /* Inline by default, so it sits on the text baseline and leaves a descender's
+     worth of empty space between the box and the hint under it. */
+  display: block;
 }
 
 .input--sub {

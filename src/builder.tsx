@@ -512,7 +512,7 @@ function SectionOverrides({
   return (
     <div class="sec__over">
       <button class="btn btn--small" onClick={() => setOpen(!open)}>
-        {open ? 'Hide this section\u2019s wording' : 'Wording'}
+        {open ? 'Hide' : 'Edit section wording'}
       </button>
       {!open && count > 0 && (
         <span class="muted paperstatus__note">
@@ -540,7 +540,10 @@ function SectionOverrides({
               />
             </Field>
           </div>
-          <Field label="Instruction" hint="Blank takes the profile's.">
+          {/* Worded around the apostrophe. A JSX attribute is a literal
+              string, so the \u2019 escape the rest of this file uses would
+              print here as its own six characters. */}
+          <Field label="Instruction" hint="Blank prints the instruction from the profile">
             <textarea
               class="input"
               rows={2}
@@ -577,21 +580,32 @@ function RefOverrides({
   const [open, setOpen] = useState(false)
   const set = typeof entry === 'object' ? entry : undefined
 
+  // What the button carried instead was a bare middle dot, which said that
+  // something was set here and never what (#114). This reads on from the button
+  // label beside it, so it stays lower case.
+  const stated = [
+    set?.marksOverride === undefined
+      ? ''
+      : `worth ${set.marksOverride} mark${set.marksOverride === 1 ? '' : 's'}`,
+    set?.group ? `under \u201c${set.group}\u201d` : '',
+  ]
+    .filter(Boolean)
+    .join(', ')
+
   return (
     <div class="picked__over">
       <button class="btn btn--small" onClick={() => setOpen(!open)}>
-        {open
-          ? 'Hide'
-          : set?.marksOverride !== undefined || set?.group
-            ? 'On this paper ·'
-            : 'On this paper'}
+        {open ? 'Hide' : 'Edit marks and subheading'}
       </button>
+      {!open && stated && <span class="muted picked__set">{stated}</span>}
       {open && (
         <div class="fieldrow">
           <Field
-            label="Marks here"
+            label="Marks override"
             hint={
-              marks === undefined ? 'Blank uses the question\u2019s own' : `Blank uses ${marks}`
+              marks === undefined
+                ? 'Blank uses the question\u2019s own marks'
+                : `Blank uses ${marks}, and the bank keeps its own`
             }
           >
             <NumField
@@ -601,7 +615,14 @@ function RefOverrides({
               onChange={(n) => onChange({ marksOverride: n })}
             />
           </Field>
-          <Field label="Heading above it" hint="Starts a group, until the next one">
+          {/* Named for what it is on the page rather than for `group`, and a
+              subheading rather than a subsection: it prints, and the checker
+              and the profile know nothing about it. The example is the one it
+              was built for (#52). */}
+          <Field
+            label="Subheading"
+            hint="Prints above this question and every one after it, until the next subheading. Visual Arts heads the questions students choose from: Practice, Conceptual Framework, Frames."
+          >
             <input
               class="input"
               value={set?.group ?? ''}
