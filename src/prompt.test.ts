@@ -19,7 +19,8 @@ import {
   plain,
   type PromptSpec,
 } from './prompt'
-import type { Profile, Question, Syllabus, SyllabusCourse } from './types'
+import { ingestQuestions } from './ingest'
+import type { Profile, Question, QuestionType, Syllabus, SyllabusCourse } from './types'
 
 const course: SyllabusCourse = {
   id: 'hsc',
@@ -531,5 +532,79 @@ describe('the markup', () => {
     expect(prompt).toContain("A question's text, a part's text and an option's text")
     expect(prompt).toContain('pipe table')
     expect(prompt).toContain('**bold**, *italic* and <u>underline</u>')
+  })
+})
+
+/**
+ * The built-in example of every type, read back by what reads a real reply.
+ *
+ * The examples are the strongest thing in the prompt and now serve two prompts,
+ * so an example teaching a shape the reader refuses is a fault in both. That is
+ * exactly what #108 was: a `table` described but never shown came back as a stem
+ * full of headings and no `columns`, and nothing failed until a teacher tried to
+ * save it. Asserting what the prompt *says* cannot see this; only running the
+ * example through `ingestQuestions` can.
+ */
+describe('every built-in example is a question Klunk takes', () => {
+  const types: QuestionType[] = [
+    'multiple_choice',
+    'multiple_response',
+    'matching',
+    'true_false',
+    'short_answer',
+    'extended_response',
+    'table',
+    'drawing',
+  ]
+
+  function exampleOf(type: QuestionType, marks: number): string {
+    const text = buildPrompt(spec({ questionType: type, marks, count: 1 }))
+    const block = text.split('### One object, filled in')[1] ?? ''
+    return block.split('```json')[1]?.split('```')[0] ?? ''
+  }
+
+  for (const type of types) {
+    it(`reads the ${type} example with nothing in error`, () => {
+      const json = exampleOf(type, type === 'extended_response' ? 15 : 4)
+      const out = ingestQuestions(`[${json}]`, {
+        bankPath: 'bank/drafted.json',
+        inFolder: new Set<string>(),
+        inBank: new Set<string>(),
+        topicIds: ['HSC-01'],
+        points: [
+          { id: 'HSC-01.06', topicId: 'HSC-01' },
+          { id: 'HSC-01.07', topicId: 'HSC-01' },
+        ],
+        outcomes: ['H1.1', 'H4.2', 'H6.1'],
+      })
+      expect(out.failure).toBeUndefined()
+      expect(out.rejected).toEqual([])
+      expect(out.drafts).toHaveLength(1)
+
+      const draft = out.drafts[0]!
+      expect(draft.question.questionType).toBe(type)
+      expect(draft.faults.filter((f) => f.severity === 'error').map((f) => f.message)).toEqual([])
+    })
+  }
+
+  it('shows the table as columns and rows rather than as a pipe table (#108)', () => {
+    const out = ingestQuestions(`[${exampleOf('table', 3)}]`, {
+      bankPath: 'bank/drafted.json',
+      inFolder: new Set<string>(),
+      inBank: new Set<string>(),
+      topicIds: ['HSC-01'],
+      points: [{ id: 'HSC-01.06', topicId: 'HSC-01' }],
+      outcomes: [],
+    })
+    const cfg = out.drafts[0]?.question.config ?? {}
+    expect(cfg.columns).toHaveLength(3)
+    expect(cfg.rows).toHaveLength(3)
+    expect(out.drafts[0]?.question.questionText).not.toContain('|')
+  })
+
+  it('tells a table not to write itself into the stem, since the markup offers one', () => {
+    const text = buildPrompt(spec({ questionType: 'table', marks: 3 }))
+    expect(text).toContain('Never write the')
+    expect(text).toContain('every column heading, in the order printed')
   })
 })

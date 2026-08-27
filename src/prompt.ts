@@ -512,8 +512,10 @@ function configFields(type: QuestionType, marks: number | undefined): string[] {
     }
     case 'table':
       return [
-        '    columns        the column headings. The first is what the student is',
-        '                   given; the rest are what they complete.',
+        '    columns        every column heading, in the order printed, as',
+        '                   ["Production run", "Process", "Reason"]. The first is',
+        '                   what the student is given; the rest are what they',
+        '                   complete.',
         '    rows           [ { "label": "...", "marks": 1,',
         '                       "cells": [ { "answers": ["...", "..."] } ] } ]',
         '                   "label" prints in the first column. "cells" holds one',
@@ -551,6 +553,9 @@ function guideNotes(type: QuestionType, marks: number | undefined): string[] {
       ]
     case 'table':
       return [
+        'The headings and the row labels are "columns" and "rows". Never write the',
+        'table into "questionText" as a pipe table: that prints as a table the',
+        'student only reads, where this type prints the empty cells they write in.',
         'Row marks should total the marks for the question.',
         'Every row needs one cell for every column after the first, in the same',
         'order as the headings. A cell with nothing to accept is still an entry,',
@@ -676,14 +681,27 @@ function example(spec: PromptSpec): string {
 
 /** The built-in example for this type, with the teacher's own ids in it. */
 function filledIn(spec: PromptSpec): string {
-  let json = EXAMPLES[spec.questionType]
+  return typeExample(spec.questionType, spec.pointIds[0], outcomesFor(spec)[0]?.code)
+}
 
-  const point = spec.pointIds[0]
-  if (point) json = json.replace(/"pointIds": \[[^\]]*\]/, `"pointIds": ["${point}"]`)
-
-  const outcome = outcomesFor(spec)[0]?.code
+/**
+ * One worked question of this type, carrying ids the teacher's own model holds.
+ *
+ * Exported for `examprompt.ts`, which sets out several types at once and needs
+ * the same demonstration for each. It is the same reason `typeShape` is shared:
+ * a second set of examples would drift from the first, and the example is the
+ * part a model actually copies. The substitution matters as much as the
+ * example — an id from the built-in D&T question is one `ingest` drops, and a
+ * model copying the shape copies the ids in it.
+ */
+export function typeExample(
+  type: QuestionType,
+  pointId: string | undefined,
+  outcome: string | undefined,
+): string {
+  let json = EXAMPLES[type]
+  if (pointId) json = json.replace(/"pointIds": \[[^\]]*\]/, `"pointIds": ["${pointId}"]`)
   if (outcome) json = json.replace(/"outcomes": \[[^\]]*\]/, `"outcomes": ["${outcome}"]`)
-
   return json
 }
 

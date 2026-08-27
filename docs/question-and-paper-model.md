@@ -458,3 +458,40 @@ every test: the parsing is correct, and only typing into it shows the problem.
 - **`NumField` had already paid for this once**, for the number that could not be
   cleared, and its comment says so. Two list boxes were written afterwards
   without it.
+
+## A type a prompt describes and never shows
+
+**Established from `enterprise_computing_2026_trial.pdf` question 11, and then
+from reading the other two prompts against the same schema (#108).** No browser
+was needed for any of it: every claim here is what a reader does with a reply
+that follows the prompt exactly.
+
+- **The transcription prompt offered `table`, named neither `columns` nor
+  `rows`, and told the model to put the headings in `questionText`.**
+  `tableConfig` requires both, so the more faithfully a model followed the
+  prompt the more certainly the question could not be saved: *A table needs at
+  least one column.* `readTable` had read `columns`, `headings` and `headers`
+  since the day it was written. Nothing had ever been sent to it.
+- **Fixing that prompt fixed one of three.** `configFields` and `guideNotes` in
+  `prompt.ts` are shared by drafting and by the whole-paper prompt, so the
+  wording is one copy for the reason `markupRules` is one copy: `columns` now
+  says it is every heading in the order printed and shows the list, and the note
+  says the table never goes into `questionText` as a pipe table. That last is
+  the one place the markup rules and the `table` type can be read as
+  contradicting each other, and #101 put the pipe table into all three prompts
+  without saying which of the two a fill-in table is.
+- **The whole-paper prompt set out as many as eight types and showed an example
+  of none of them.** The two runs behind `paperprompt.ts` had already settled
+  that a model follows an example far more reliably than a description, and a
+  prompt asking for a whole paper is where that matters most: the sample paper a
+  teacher may attach is the only worked example it had, it need not carry the
+  type in question, and it is sent only when the teacher says so. Every type it
+  offers now carries the same example drafting uses, with the teacher's own
+  point and outcome ids substituted in, so a model copying the shape does not
+  copy ids `ingest` will drop.
+- **A prompt is tested by reading its own example back.** Asserting what a
+  prompt *says* cannot see this class of fault at all, and every test of these
+  three prompts did only that. `prompt.test.ts` now runs the built-in example of
+  all eight types through `ingestQuestions`, and `examprompt.test.ts` runs a
+  paper of all eight through `readExam`, both asserting nothing arrives with an
+  error. `paperprompt.test.ts` already did the same for its own example.

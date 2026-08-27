@@ -24,7 +24,14 @@
 
 import { asExamJson } from './exam'
 import type { ResolvedPaper } from './paper'
-import { markupRules, marksGuidance, syllabusContext, typeShape } from './prompt'
+import {
+  markupRules,
+  marksGuidance,
+  outcomesFor,
+  syllabusContext,
+  typeExample,
+  typeShape,
+} from './prompt'
 import {
   QUESTION_TYPE_LABELS,
   type Profile,
@@ -259,6 +266,18 @@ function sample(spec: ExamPromptSpec): string {
 
 /* ------------------------------------------------------------- the JSON shape */
 
+/**
+ * The fields, and then a worked question of every type the paper uses.
+ *
+ * The example is not decoration and it is not the sample paper's job. A model
+ * follows an example far more reliably than a description, which `prompt.ts`
+ * established at the cost of two runs, and this prompt set out as many as eight
+ * types with an example of none of them. #108 is what that costs: `table` was
+ * described and never shown, so a described table came back written into
+ * "questionText" with no "columns" at all and could not be saved. A sample
+ * paper does not cover it — the teacher may send none, and one they do send
+ * need not contain the type in question.
+ */
 function shape(spec: ExamPromptSpec): string {
   const lines = [
     '## The JSON to return',
@@ -283,8 +302,26 @@ function shape(spec: ExamPromptSpec): string {
     '  tags           up to five short words of your own (optional)',
   ]
 
+  lines.push(
+    '',
+    'Each type the paper uses is set out below as its fields and then as one',
+    'filled-in question. Copy the structure of those examples. Their subject',
+    'matter is not a hint and their marks are not the ask: write to the content',
+    'listed further up and to the section the question belongs to.',
+  )
+
+  const point = spec.pointIds[0]
+  const outcome = outcomesFor(spec)[0]?.code
   for (const type of typesUsed(spec)) {
-    lines.push('', `### A "${type}" question`, ...typeShape(type, marksFor(spec, type)))
+    lines.push(
+      '',
+      `### A "${type}" question`,
+      ...typeShape(type, marksFor(spec, type)),
+      '',
+      '```json',
+      typeExample(type, point, outcome),
+      '```',
+    )
   }
 
   lines.push(
