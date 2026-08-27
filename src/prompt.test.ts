@@ -10,7 +10,15 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { buildPrompt, marksGuidance, outcomesFor, plain, type PromptSpec } from './prompt'
+import {
+  asPromptJson,
+  buildPrompt,
+  marksGuidance,
+  outcomesFor,
+  pickExample,
+  plain,
+  type PromptSpec,
+} from './prompt'
 import type { Profile, Question, Syllabus, SyllabusCourse } from './types'
 
 const course: SyllabusCourse = {
@@ -78,6 +86,11 @@ const profile: Profile = {
     ],
   },
   print: { linesPerMark: 2 },
+}
+
+/** Just the questions-already-written block, which several fields also appear outside. */
+function avoidBlock(text: string): string {
+  return (text.split('## Questions this course already has')[1] ?? '').split('## The JSON')[0] ?? ''
 }
 
 function spec(over: Partial<PromptSpec> = {}): PromptSpec {
@@ -243,19 +256,208 @@ describe('what the teacher adds', () => {
     expect(buildPrompt(spec())).not.toContain('already has')
   })
 
-  it('lists the stems it was given, so the model does not write them again', () => {
+  // This used to assert the opposite: a stem went out and its marking guide
+  // stayed behind. The stem alone answered neither question the teacher had, so
+  // the whole question goes now, and the reversal is left visible rather than
+  // deleted.
+  it('sends the whole question it was given, marking guide and all', () => {
     const avoid: Question[] = [
       {
         id: 'ex-sa-01',
         questionType: 'short_answer',
         questionText: 'Explain how a designer establishes the needs of a client.',
         marks: 4,
-        markingGuide: { sampleAnswer: 'This must not go out with it.' },
+        markingGuide: { sampleAnswer: 'The designer interviews the client and observes the site.' },
       },
     ]
     const text = buildPrompt(spec({ avoid }))
     expect(text).toContain('Explain how a designer establishes the needs of a client.')
-    expect(text).not.toContain('This must not go out with it.')
+    expect(text).toContain('The designer interviews the client and observes the site.')
+  })
+
+  it('leaves out what Klunk fills in itself, so an avoided question is not a template for one', () => {
+    const avoid: Question[] = [
+      {
+        id: 'ex-sa-01',
+        questionType: 'short_answer',
+        questionText: 'Explain how a designer establishes the needs of a client.',
+        marks: 4,
+        syllabus: {
+          syllabusId: 'nsw-hsc-design-technology',
+          courseId: 'hsc',
+          pointIds: ['HSC-01.06'],
+        },
+        source: { origin: 'extracted', paper: 'HSC', year: 2019, questionNumber: '24' },
+      },
+    ]
+    // Scoped to the block: the shape section further down names these fields on
+    // purpose, to say they are Klunk's to fill in.
+    const block = avoidBlock(buildPrompt(spec({ avoid })))
+    expect(block).toContain('"questionText"')
+    expect(block).not.toContain('"id"')
+    expect(block).not.toContain('"syllabusId"')
+    expect(block).not.toContain('"courseId"')
+    expect(block).not.toContain('"source"')
+    // Provenance is the one thing the conventions above forbid reproducing, so
+    // a model must not be handed the paper and the number it came from.
+    expect(block).not.toContain('2019')
+  })
+
+  it('says how many it left out, because a cut list reads as the whole one', () => {
+    const avoid = Array.from({ length: 45 }, (_, i) => ({
+      id: `ex-sa-${String(i).padStart(2, '0')}`,
+      questionType: 'short_answer' as const,
+      questionText: `Question number ${i} about designing.`,
+      marks: 4,
+    }))
+    const text = buildPrompt(spec({ avoid }))
+    expect(text).toContain('Those are the 40 of 45 questions')
+    expect(text).toContain('Another 5')
+    // Forty listed and no more, counted off the fences inside the block. Counted
+    // over the whole prompt this is 42: the opening asks for one ```json block
+    // back and the example is in another.
+    expect(avoidBlock(text).split('```json').length - 1).toBe(40)
+  })
+})
+
+/* ------------------------------------------------------------- the example */
+
+/**
+ * The example is the strongest signal in the prompt, so both paths are covered:
+ * the one where the teacher's own question arrives, and the one where the
+ * built-in is invented. Three faults have shipped green through exactly that
+ * gap (#64, #105, #106).
+ */
+describe('the worked example', () => {
+  const own: Question = {
+    id: 'dt-sa-04',
+    questionType: 'short_answer',
+    questionText: 'Explain how a school uniform supplier tests a fabric for colourfastness.',
+    marks: 4,
+    syllabus: { pointIds: ['HSC-01.06'] },
+    outcomes: ['H1.1'],
+    markingGuide: {
+      sampleAnswer: 'Samples are washed at 40 degrees and compared to a grey scale.',
+    },
+  }
+
+  it('uses the teacher’s own question, and drops the built-in with it', () => {
+    const text = buildPrompt(spec({ example: own }))
+    expect(text).toContain('### One of your own questions, dt-sa-04')
+    expect(text).toContain('colourfastness')
+    expect(text).toContain('Copy the shape and the pitch')
+    // The built-in short answer example is about a bamboo laminate.
+    expect(text).not.toContain('bamboo')
+  })
+
+  it('says the built-in subject is not a hint, since it is D&T whatever is loaded', () => {
+    const text = buildPrompt(spec())
+    expect(text).toContain('### One object, filled in')
+    expect(text).toContain('Its subject matter is not a hint')
+  })
+
+  it('sends nothing of the teacher’s when they have opted out', () => {
+    // Not merely "the example changed": the whole point of the opt-out is that
+    // no text of theirs is anywhere in what gets copied.
+    const text = buildPrompt(spec({ example: undefined }))
+    expect(text).not.toContain('colourfastness')
+    expect(text).not.toContain('grey scale')
+    expect(text).not.toContain('dt-sa-04')
+  })
+
+  it('does not hand the model an id or a provenance to copy', () => {
+    const carried: Question = {
+      ...own,
+      syllabus: {
+        syllabusId: 'nsw-hsc-design-technology',
+        courseId: 'hsc',
+        pointIds: ['HSC-01.06'],
+      },
+      source: { origin: 'extracted', paper: 'HSC', year: 2019, questionNumber: '24' },
+    }
+    const block = buildPrompt(spec({ example: carried })).split('### One of your own')[1] ?? ''
+    expect(block).not.toContain('"id"')
+    expect(block).not.toContain('"courseId"')
+    expect(block).not.toContain('"source"')
+  })
+
+  it('drops an image the model cannot fetch and keeps a text stimulus', () => {
+    const withPictures: Question = {
+      ...own,
+      stimulus: [
+        { kind: 'image', file: 'stimulus/kettle.png', caption: 'Figure 1' },
+        { kind: 'text', text: 'A supplier washes 20 samples a week.' },
+      ],
+    }
+    const json = asPromptJson(withPictures)
+    expect(json).toContain('A supplier washes 20 samples a week.')
+    expect(json).not.toContain('kettle.png')
+  })
+
+  it('is JSON, because a malformed example is worse than no example', () => {
+    expect(() => JSON.parse(asPromptJson(own))).not.toThrow()
+    const parsed = JSON.parse(asPromptJson(own)) as Record<string, unknown>
+    expect(Object.keys(parsed)[0]).toBe('questionType')
+    expect(parsed.marks).toBe(4)
+  })
+})
+
+/* ------------------------------------------------------------- which example */
+
+describe('pickExample', () => {
+  const base = {
+    questionType: 'short_answer' as const,
+    marks: 4,
+    pointIds: ['HSC-01.06'],
+    topicIds: ['HSC-01'],
+  }
+
+  function q(over: Partial<Question> & { id: string }): Question {
+    return {
+      questionType: 'short_answer',
+      questionText: `Question ${over.id}.`,
+      marks: 4,
+      ...over,
+    }
+  }
+
+  it('takes only the type that was asked for, since the wrong type teaches the wrong JSON', () => {
+    const pool = [q({ id: 'a', questionType: 'multiple_choice', marks: 1 }), q({ id: 'b' })]
+    expect(pickExample(pool, base)?.id).toBe('b')
+  })
+
+  it('has nothing to offer when the bank holds none of that type', () => {
+    const pool = [q({ id: 'a', questionType: 'drawing' })]
+    expect(pickExample(pool, base)).toBeUndefined()
+  })
+
+  it('prefers a question no AI wrote, so the model is not shown its own drift', () => {
+    const pool = [q({ id: 'a', tags: ['ai-drafted'] }), q({ id: 'b' })]
+    expect(pickExample(pool, base)?.id).toBe('b')
+  })
+
+  it('prefers one on a content point the teacher chose', () => {
+    const pool = [
+      q({ id: 'a', syllabus: { pointIds: ['HSC-13.01'] } }),
+      q({ id: 'b', syllabus: { pointIds: ['HSC-01.06'] } }),
+    ]
+    expect(pickExample(pool, base)?.id).toBe('b')
+  })
+
+  it('prefers one carrying a marking guide, which is the part models get wrong', () => {
+    const pool = [q({ id: 'a' }), q({ id: 'b', markingGuide: { sampleAnswer: 'Two reasons.' } })]
+    expect(pickExample(pool, base)?.id).toBe('b')
+  })
+
+  it('prefers the marks nearest the ones asked for', () => {
+    const pool = [q({ id: 'a', marks: 12 }), q({ id: 'b', marks: 5 })]
+    expect(pickExample(pool, base)?.id).toBe('b')
+  })
+
+  it('picks the same one every time, so re-reading the prompt shows the same question', () => {
+    const pool = [q({ id: 'zeta' }), q({ id: 'alpha' }), q({ id: 'mid' })]
+    expect(pickExample(pool, base)?.id).toBe('alpha')
+    expect(pickExample([...pool].reverse(), base)?.id).toBe('alpha')
   })
 })
 

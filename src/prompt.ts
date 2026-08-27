@@ -19,6 +19,7 @@
  * and two short answer can run this twice.
  */
 
+import { AI_TAG } from './ingest'
 import type {
   Profile,
   Question,
@@ -43,13 +44,29 @@ export interface PromptSpec {
   /** The teacher's own instruction, passed through verbatim. */
   extra?: string | undefined
   /**
-   * Questions already written on these topics.
+   * Questions already written on these topics, whole.
    *
-   * Only their stems, and only when the teacher asks for them: this is their
-   * own material going out to somebody else's service, so it is a decision
-   * rather than a default.
+   * Only when the teacher asks for them: this is their own material going out
+   * to somebody else's service, so it is a decision rather than a default.
+   *
+   * Whole rather than stems, because a stem alone answers neither question the
+   * teacher has. Whether a draft is *similar* to one of these turns on what it
+   * asks for and how it is marked, and a model can only match the house style
+   * of a folder it has seen the inside of.
    */
   avoid?: Question[] | undefined
+  /**
+   * One of the teacher's own questions, to show the shape with.
+   *
+   * The opposite decision from `avoid`, and deliberately so. A worked example
+   * is the strongest signal in the whole prompt, so an example from another
+   * subject is not a neutral placeholder: it is an instruction to write about
+   * kettles. One question the teacher can read in full in the prompt box is a
+   * different exposure from their whole bank on those topics, so this is
+   * offered by default and `avoid` is not. Left undefined, the built-in
+   * example returns.
+   */
+  example?: Question | undefined
 }
 
 /** Ruled lines per mark when no profile says otherwise. */
@@ -291,17 +308,81 @@ function sectionNote(spec: PromptSpec): string | null {
 
 /* ----------------------------------------------------------- what not to repeat */
 
-function alreadyWritten(spec: PromptSpec): string {
-  const stems = (spec.avoid ?? []).map((q) => plain(q.questionText)).filter(Boolean)
-  if (stems.length === 0) return ''
+/**
+ * How many of the teacher's questions go out, at most.
+ *
+ * Stems were cheap and this is not: a whole question carries its options, its
+ * feedback and its marking guide. A course with two hundred questions tagged to
+ * the chosen topics would otherwise build a prompt no chat box will accept, and
+ * the teacher would find that out by pasting it.
+ *
+ * The number is a judgement rather than a measurement. Forty whole questions is
+ * already a long read and well past the point where another one changes what
+ * the model writes.
+ */
+const AVOID_LIMIT = 40
 
-  return [
+function alreadyWritten(spec: PromptSpec): string {
+  const all = (spec.avoid ?? []).filter((q) => plain(q.questionText))
+  if (all.length === 0) return ''
+
+  // Most like what is being asked for first, so the ones the cap drops are the
+  // ones least likely to be duplicated anyway.
+  const sorted = nearestFirst(all, spec)
+  const shown = sorted.slice(0, AVOID_LIMIT)
+
+  const lines = [
     '## Questions this course already has',
     '',
-    'Write nothing that duplicates one of these, in substance or in wording.',
+    'Write nothing that duplicates one of these, in substance or in wording, and ' +
+      'nothing close enough to sit beside one on the same paper. They are here to ' +
+      'be avoided rather than copied: where the example further down is one of ' +
+      'them, that is the only one to write like.',
     '',
-    ...stems.map((s) => `- ${s}`),
-  ].join('\n')
+  ]
+
+  for (const q of shown) {
+    lines.push('```json', asPromptJson(q), '```', '')
+  }
+
+  if (all.length > shown.length) {
+    // Never a silent cap. A truncated list with nothing said reads as "these
+    // are all of them", which is a worse instruction than a short list.
+    lines.push(
+      `Those are the ${shown.length} of ${all.length} questions on these topics ` +
+        `closest to what is being asked for. Another ${all.length - shown.length} ` +
+        'are not listed, so treat this as a sample rather than the whole bank.',
+    )
+  }
+
+  return lines.join('\n').trimEnd()
+}
+
+/**
+ * The questions nearest to what is being asked for, first.
+ *
+ * The same preferences `pickExample` ranks by, minus the ones that are about
+ * being a good example rather than about being a likely duplicate: whether an
+ * AI drafted it and whether it carries a marking guide say nothing about the
+ * risk of writing it twice.
+ */
+function nearestFirst(questions: Question[], spec: PromptSpec): Question[] {
+  const points = new Set(spec.pointIds)
+  return questions
+    .map((q) => ({
+      question: q,
+      sameType: q.questionType === spec.questionType ? 0 : 1,
+      onPoint: (q.syllabus?.pointIds ?? []).some((id) => points.has(id)) ? 0 : 1,
+      distance: Math.abs(q.marks - spec.marks),
+    }))
+    .sort(
+      (a, b) =>
+        a.onPoint - b.onPoint ||
+        a.sameType - b.sameType ||
+        a.distance - b.distance ||
+        a.question.id.localeCompare(b.question.id),
+    )
+    .map((r) => r.question)
 }
 
 /* ------------------------------------------------------------- the JSON shape */
@@ -519,14 +600,55 @@ export function markupRules(where: string): string {
 /* ----------------------------------------------------------------- an example */
 
 /**
- * The example, with the teacher's own ids substituted into it.
+ * The example: one of the teacher's own questions, or the built-in one.
  *
- * An example carrying ids from some other topic is an invitation to copy them,
- * and a model that does gets its tagging dropped on the way back in. The marks
- * are left alone, because rewriting them would leave the criteria beneath
- * adding up to something else, so the caveat says so instead.
+ * Their own is the better example by a distance. It is in their subject, at
+ * their school's pitch, tagged against ids that exist, and it shows the model
+ * how questions in this folder are actually written rather than how questions
+ * in general are. The built-in is the fallback for an empty bank and for a
+ * teacher who would rather send nothing of theirs.
+ *
+ * The built-in keeps the id substitution it always had: an example carrying ids
+ * from some other topic is an invitation to copy them, and a model that does
+ * gets its tagging dropped on the way back in. Its marks are left alone,
+ * because rewriting them would leave the criteria beneath adding up to
+ * something else, so the caveat says so instead. Neither problem arises for the
+ * teacher's own question, whose ids and marks are already true of it.
  */
 function example(spec: PromptSpec): string {
+  const own = spec.example
+  const json = own ? asPromptJson(own) : filledIn(spec)
+
+  const marks = `worth ${spec.marks} mark${spec.marks === 1 ? '' : 's'} each`
+  const yours = spec.count === 1 ? 'question is' : 'questions are'
+
+  return [
+    own ? `### One of your own questions, ${own.id}` : '### One object, filled in',
+    '',
+    '```json',
+    json,
+    '```',
+    '',
+    own
+      ? // Named in the heading rather than merely shown. A teacher who did not
+        // expect one of their own questions in the prompt has to be able to
+        // find which one it was, and the checkbox that turns it off.
+        `Copy the shape and the pitch of that question. Do not reuse, reword or ` +
+        `answer it. Your ${yours} ${marks} and use only the ids listed further up.`
+      : // Said plainly, because the built-in is Design and Technology whatever
+        // subject is loaded (#116) and the example is the strongest signal in
+        // the prompt. Without this line there is nothing to tell a Textiles
+        // teacher's model that the kettle is not a hint. Phrased as "not a hint"
+        // rather than "another subject" because it has to stay true for the one
+        // teacher the built-in does fit.
+        `Copy the structure of that example only. Its subject matter is not a ` +
+        `hint: write about the content points listed above. Your ${yours} ${marks} ` +
+        'and use only the ids listed further up.',
+  ].join('\n')
+}
+
+/** The built-in example for this type, with the teacher's own ids in it. */
+function filledIn(spec: PromptSpec): string {
   let json = EXAMPLES[spec.questionType]
 
   const point = spec.pointIds[0]
@@ -535,17 +657,179 @@ function example(spec: PromptSpec): string {
   const outcome = outcomesFor(spec)[0]?.code
   if (outcome) json = json.replace(/"outcomes": \[[^\]]*\]/, `"outcomes": ["${outcome}"]`)
 
-  return [
-    '### One object, filled in',
-    '',
-    '```json',
-    json,
-    '```',
-    '',
-    `That example shows the shape. Your ${spec.count === 1 ? 'question is' : 'questions are'} ` +
-      `worth ${spec.marks} mark${spec.marks === 1 ? '' : 's'} each and use only the ids listed ` +
-      'further up.',
-  ].join('\n')
+  return json
+}
+
+/**
+ * A question as the prompt asks for it back.
+ *
+ * The same function serves the example and the questions not to write again,
+ * which is the point: an example produced by anything other than the shape the
+ * reply is measured against will eventually disagree with it, and the example
+ * is what a model actually copies.
+ *
+ * So the fields here are the fields `shape` lists, in that order, and the ones
+ * it explicitly tells a model to leave out are the ones dropped: `id`, because
+ * Klunk assigns them; `syllabusId` and `courseId`, because Klunk fills them in;
+ * an image stimulus, because Klunk cannot fetch an image a model names and an
+ * example carrying one teaches it to try. `source` goes too. It is provenance
+ * rather than content, and a model shown "2019 HSC question 24" has been handed
+ * the one thing the conventions above forbid it to reproduce.
+ */
+export function asPromptJson(question: Question): string {
+  const out: Record<string, unknown> = {
+    questionType: question.questionType,
+    questionText: question.questionText,
+    marks: question.marks,
+  }
+
+  if (question.difficulty !== undefined) out.difficulty = question.difficulty
+  if (question.syllabus?.pointIds?.length) {
+    out.syllabus = { pointIds: question.syllabus.pointIds }
+  }
+  if (question.outcomes?.length) out.outcomes = question.outcomes
+  if (question.tags?.length) out.tags = question.tags
+
+  const stimulus = (question.stimulus ?? []).filter((s) => s.kind === 'text' && s.text)
+  if (stimulus.length > 0) {
+    out.stimulus = stimulus.map((s) =>
+      compactly({ kind: s.kind, text: s.text, caption: s.caption }),
+    )
+  }
+
+  if (question.markingGuide) {
+    const guide = compactly({
+      sampleAnswer: question.markingGuide.sampleAnswer,
+      criteria: question.markingGuide.criteria?.length ? question.markingGuide.criteria : undefined,
+      answersCouldInclude: question.markingGuide.answersCouldInclude?.length
+        ? question.markingGuide.answersCouldInclude
+        : undefined,
+      notes: question.markingGuide.notes,
+    })
+    if (Object.keys(guide).length > 0) out.markingGuide = guide
+  }
+
+  if (question.config && Object.keys(question.config).length > 0) out.config = question.config
+
+  return pretty(out, '')
+}
+
+/**
+ * JSON laid out the way the built-in examples are laid out.
+ *
+ * `JSON.stringify(x, null, 2)` puts every element of every array on its own
+ * line, so a four-option question runs to thirty lines and a `pointIds` holding
+ * one id runs to four. The built-in examples keep anything short on one line,
+ * and they are what a model has always been shown, so the questions beside them
+ * should not look like a different format. It matters more than tidiness in the
+ * avoid block, where forty questions are printed at once.
+ */
+function pretty(value: unknown, indent: string): string {
+  const flat = flatten(value)
+  if (indent.length + flat.length <= PRETTY_WIDTH) return flat
+
+  const inner = indent + '  '
+  if (Array.isArray(value)) {
+    const items = value.map((v) => inner + pretty(v, inner))
+    return `[\n${items.join(',\n')}\n${indent}]`
+  }
+  if (value && typeof value === 'object') {
+    const items = Object.entries(value as Record<string, unknown>).map(
+      ([key, v]) => `${inner}${JSON.stringify(key)}: ${pretty(v, inner)}`,
+    )
+    return `{\n${items.join(',\n')}\n${indent}}`
+  }
+  // A long string stays on its line. Nothing can be done about it, and the
+  // built-in examples carry 378-character sample answers the same way.
+  return flat
+}
+
+/** Wide enough for an option and its feedback, which is the line that decides. */
+const PRETTY_WIDTH = 100
+
+/** One line, still valid JSON: whitespace inside is what makes it readable. */
+function flatten(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(flatten).join(', ')}]`
+  if (value && typeof value === 'object') {
+    const parts = Object.entries(value as Record<string, unknown>).map(
+      ([key, v]) => `${JSON.stringify(key)}: ${flatten(v)}`,
+    )
+    return parts.length > 0 ? `{ ${parts.join(', ')} }` : '{}'
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+/** The keys that hold something, in the order they were given. */
+function compactly(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== '') out[key] = value
+  }
+  return out
+}
+
+/**
+ * Which of the teacher's questions to show, out of the ones that could be shown.
+ *
+ * Ranked rather than picked, because every rule here is a preference and none
+ * of them is a requirement except the type: an example of the wrong type
+ * teaches the wrong JSON, and there is no partial credit for that.
+ *
+ * The order the preferences are applied in is the order they matter in, and the
+ * last one is `id` so that a teacher who reads the prompt, changes nothing and
+ * looks again sees the same question. A pick that moves on every render reads
+ * as a fault whether or not it is one.
+ */
+export function pickExample(
+  pool: Question[],
+  want: { questionType: QuestionType; marks: number; pointIds?: string[]; topicIds?: string[] },
+): Question | undefined {
+  const points = new Set(want.pointIds ?? [])
+  const topics = new Set(want.topicIds ?? [])
+
+  const ranked = pool
+    .filter((q) => q.questionType === want.questionType)
+    .map((q) => ({
+      question: q,
+      // A model shown its own prior output compounds its own drift, so a
+      // question read off a real paper or written by the teacher outranks one
+      // an AI drafted. The tag is a record of where it came from (#2), which is
+      // exactly what makes it usable here.
+      ai: (q.tags ?? []).includes(AI_TAG) ? 1 : 0,
+      onPoint: (q.syllabus?.pointIds ?? []).some((id) => points.has(id)) ? 0 : 1,
+      onTopic: (q.syllabus?.topicIds ?? []).some((id) => topics.has(id)) ? 0 : 1,
+      // The example exists to demonstrate criteria and bands, which is the part
+      // models get wrong. One with no guide at all demonstrates nothing.
+      unguided: needsGuide(q.questionType) && !hasGuide(q) ? 1 : 0,
+      distance: Math.abs(q.marks - want.marks),
+    }))
+    .sort(
+      (a, b) =>
+        a.ai - b.ai ||
+        a.onPoint - b.onPoint ||
+        a.onTopic - b.onTopic ||
+        a.unguided - b.unguided ||
+        a.distance - b.distance ||
+        a.question.id.localeCompare(b.question.id),
+    )
+
+  return ranked[0]?.question
+}
+
+/** Whether this type carries its marking in a guide rather than in its options. */
+function needsGuide(type: QuestionType): boolean {
+  return !(
+    type === 'multiple_choice' ||
+    type === 'multiple_response' ||
+    type === 'true_false' ||
+    type === 'matching'
+  )
+}
+
+function hasGuide(q: Question): boolean {
+  const guide = q.markingGuide
+  if (!guide) return false
+  return Boolean(guide.sampleAnswer || guide.criteria?.length || guide.answersCouldInclude?.length)
 }
 
 /**

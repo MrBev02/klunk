@@ -28,11 +28,18 @@ import {
   TopicOptions,
 } from './fields'
 import { ingestQuestions, AI_TAG, type Draft, type Ingest, type IngestContext } from './ingest'
-import { buildPrompt, outcomesFor } from './prompt'
+import { buildPrompt, outcomesFor, pickExample } from './prompt'
 import { QuestionDetail } from './question'
 import { hasMarkup } from './richtext'
 import { ProfileInstaller } from './setup'
-import { allQuestions, inSyllabus, questionIds, saveQuestion, type ContentIndex } from './storage'
+import {
+  allQuestions,
+  inCourse,
+  inSyllabus,
+  questionIds,
+  saveQuestion,
+  type ContentIndex,
+} from './storage'
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
@@ -79,6 +86,11 @@ export function Factory({
   const [count, setCount] = useState(3)
   const [extra, setExtra] = useState('')
   const [includeExisting, setIncludeExisting] = useState(false)
+  // Ticked, where the one below is not. A teacher reads the whole prompt before
+  // it is copied and can see exactly which question of theirs is in it, and an
+  // example from the wrong subject is not a neutral placeholder — it is the
+  // strongest instruction in the prompt, pointing somewhere else.
+  const [useOwnExample, setUseOwnExample] = useState(true)
 
   const [bank, setBank] = useState<string | null>(() => index.banks[0]?.path ?? null)
   const [newBankPath, setNewBankPath] = useState('bank/questions.json')
@@ -104,11 +116,29 @@ export function Factory({
   // A point belongs to a topic, so dropping the topic has to drop its points.
   const chosenPoints = points.filter((p) => pointIds.includes(p.id))
 
-  const existing = useMemo(
-    () =>
-      includeExisting && chosen ? questionsOn(index, chosen.syllabus.id, topicIds, pointIds) : [],
-    [index, chosen, topicIds, pointIds, includeExisting],
+  // Counted whether or not it is sent, because the number is what the decision
+  // turns on: a teacher who cannot see there are twelve until after ticking the
+  // box has been told after the fact.
+  const onTopics = useMemo(
+    () => (chosen ? questionsOn(index, chosen.syllabus.id, topicIds, pointIds) : []),
+    [index, chosen, topicIds, pointIds],
   )
+  // Memoised rather than a bare conditional, because a fresh `[]` on every
+  // render rebuilds the whole prompt on every keystroke in the paste box below.
+  const existing = useMemo(() => (includeExisting ? onTopics : []), [onTopics, includeExisting])
+
+  // Not narrowed to the chosen topics, unlike `onTopics`: an example is wanted
+  // for its shape and its pitch, and a good one from the next topic along beats
+  // no example at all. It is narrowed to the course, because a Year 9 question
+  // is not the model for a Year 12 paper — the reasoning `inCourse` already
+  // carries.
+  const example = useMemo(() => {
+    if (!useOwnExample || !chosen) return undefined
+    const pool = allQuestions(index)
+      .filter((r) => inSyllabus(r, chosen.syllabus.id) && inCourse(r, chosen.course.id))
+      .map((r) => r.question)
+    return pickExample(pool, { questionType, marks, pointIds, topicIds })
+  }, [index, chosen, questionType, marks, pointIds, topicIds, useOwnExample])
 
   const prompt = useMemo(() => {
     if (!chosen || chosenPoints.length === 0) return ''
@@ -123,10 +153,11 @@ export function Factory({
       profile,
       extra,
       avoid: existing,
+      example,
     })
     // `topics` and `chosenPoints` are derived from these on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chosen, topicIds, pointIds, questionType, marks, count, profile, extra, existing])
+  }, [chosen, topicIds, pointIds, questionType, marks, count, profile, extra, existing, example])
 
   const clearPaste = () => {
     setRead(null)
@@ -367,12 +398,31 @@ export function Factory({
         <label class="checkline">
           <input
             type="checkbox"
+            checked={useOwnExample}
+            onChange={(e) => setUseOwnExample((e.target as HTMLInputElement).checked)}
+          />
+          <span>
+            Use one of my own questions as the example
+            {example ? ` (${example.id})` : ''}
+          </span>
+        </label>
+        {useOwnExample && !example ? (
+          <p class="hint">
+            Your bank has no {QUESTION_TYPE_LABELS[questionType].toLowerCase()} questions for this
+            course yet, so the prompt uses a built-in example instead.
+          </p>
+        ) : null}
+
+        <label class="checkline">
+          <input
+            type="checkbox"
             checked={includeExisting}
             onChange={(e) => setIncludeExisting((e.target as HTMLInputElement).checked)}
           />
           <span>
-            Send the questions I already have on these topics, so it does not write them again
-            {existing.length > 0 ? ` (${existing.length})` : ''}
+            Send my questions on these topics in full, marking guides included, so it does not
+            repeat them
+            {onTopics.length > 0 ? ` (${onTopics.length})` : ''}
           </span>
         </label>
       </section>
@@ -380,7 +430,8 @@ export function Factory({
       <PromptStep
         prompt={prompt}
         points={chosenPoints.length}
-        stems={existing.length}
+        sent={existing.length}
+        exampleId={example?.id}
         topics={topics.length}
         noProfile={
           chosen && !profile ? (
@@ -579,13 +630,17 @@ export function Factory({
 function PromptStep({
   prompt,
   points,
-  stems,
+  sent,
+  exampleId,
   topics,
   noProfile,
 }: {
   prompt: string
   points: number
-  stems: number
+  /** How many of the teacher's own questions go out whole. */
+  sent: number
+  /** The question used as the example, when it is one of theirs rather than the built-in. */
+  exampleId?: string | undefined
   topics: number
   /** Said above the prompt, because it is about what the prompt does not contain. */
   noProfile: ComponentChildren
@@ -611,10 +666,9 @@ function PromptStep({
       {prompt ? (
         <>
           <pre class="promptbox">{prompt}</pre>
-          <p class="hint">
-            Includes {points} content point{points === 1 ? '' : 's'} from your syllabus
-            {stems > 0 ? ` and ${stems} of your own question stem${stems === 1 ? '' : 's'}` : ''}.
-          </p>
+          {/* What of theirs is in there, counted. The example goes out by default,
+              so a teacher who never ticked anything still has to be told. */}
+          <p class="hint">{included(points, sent, exampleId)}</p>
         </>
       ) : (
         <div class="promptbox promptbox--empty">
@@ -625,6 +679,14 @@ function PromptStep({
       )}
     </section>
   )
+}
+
+/** What of the teacher's own is in the prompt, so it is not found out by reading it. */
+function included(points: number, sent: number, exampleId: string | undefined): string {
+  const parts = [`${points} content point${points === 1 ? '' : 's'} from your syllabus`]
+  if (sent > 0) parts.push(`${sent} of your own question${sent === 1 ? '' : 's'} in full`)
+  parts.push(exampleId ? `your question ${exampleId} as the example` : 'a built-in example')
+  return `Includes ${parts.join(', ')}.`
 }
 
 /* ------------------------------------------------------------------- one draft */

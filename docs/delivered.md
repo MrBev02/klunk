@@ -65,9 +65,42 @@ prompt listed; every ingested question is tagged by what the model actually did,
 `ai-drafted` where it wrote the question and `ai-transcribed` where it copied one
 off a document Klunk could not read; a question with an
 error cannot be saved from the paste panel and goes to the question editor instead
-(`Editing.fresh` only changes what that form says); the whole prompt is on screen
-before it is copied, which is what makes "you decide what leaves your machine" true;
-and sending the stems already written on those topics is opt-in.
+(`Editing.fresh` only changes what that form says); and the whole prompt is on screen
+before it is copied, which is what makes "you decide what leaves your machine" true.
+
+**What of the teacher's own goes out, and on which decision (#115).** Two separate
+controls, and they default opposite ways on purpose.
+
+*The example is opt-out, ticked.* `pickExample` takes a question of the requested
+type from the same syllabus **and course**, preferring one no AI drafted, then one
+on a chosen content point, then one carrying a marking guide, then the nearest
+marks, then the lowest id so the pick does not move between renders. The prompt
+names it by id and the hint under the prompt box says which question it is, which
+is what makes a default defensible: the teacher can see it and turn it off in one
+click. It is not gated on the checkbox below, and that was the user's call rather
+than a drift.
+
+*The whole bank on those topics is opt-in, unticked* — as the stems were, but it is
+whole questions now, marking guides and all. A stem alone answered neither question
+a teacher has: whether a draft is similar to what exists turns on what it asks for
+and how it is marked. Capped at 40, ordered nearest-first, and the block says how
+many exist against how many are listed, because a cut list with nothing said reads
+as the whole one. The count beside the checkbox is computed whether or not it is
+ticked, since a number that only appears after the decision informs nothing.
+
+Both halves serialise through one `asPromptJson`, which is the point: an example
+built by anything other than the shape the reply is measured against will
+eventually disagree with it, and the example is what a model actually copies. It
+drops what `shape` tells a model to leave out (`id`, `syllabusId`, `courseId`), an
+image stimulus it cannot fetch, and `source` — provenance is the one thing the
+conventions forbid it to reproduce, so "2019 HSC question 24" must not go with it.
+
+**The fallback is still Design and Technology whatever subject is loaded**, and
+the prompt now says its subject matter is not a hint. Phrased that way rather
+than "written for another subject", which would be a lie to the one teacher the
+built-in does fit. That is a stopgap with a successor, not the answer. #116
+holds the real fix, which needs somewhere to keep per-subject sample questions
+and is a content-authoring job.
 
 The tabs are now kept mounted behind `hidden` while the editor is open rather than
 unmounted, so sending one draft of five to the editor does not throw away the other
