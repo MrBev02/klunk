@@ -1470,15 +1470,6 @@ function StartPaper({
       </aside>
 
       <main>
-        <ExamFactory
-          index={index}
-          folder={folder}
-          profiles={profiles}
-          papers={papers}
-          onStart={onStart}
-          onSaved={onRescan}
-        />
-
         {papers.length === 0 ? (
           <section class="hero">
             <h2>No papers yet</h2>
@@ -1562,6 +1553,19 @@ function StartPaper({
             </ul>
           </>
         )}
+
+        {/* Under the papers, because opening and printing one is what this tab
+            is for and drafting a new one with an AI is the occasional route
+            (#118). It opens closed, so the tab shows the folder's papers rather
+            than a form for a paper that does not exist yet. */}
+        <ExamFactory
+          index={index}
+          folder={folder}
+          profiles={profiles}
+          papers={papers}
+          onStart={onStart}
+          onSaved={onRescan}
+        />
       </main>
     </div>
   )
