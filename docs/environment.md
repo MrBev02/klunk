@@ -76,6 +76,19 @@ which prints the username Git would actually send. `gh auth status` is not enoug
 on its own: it can show MrBev02 as the active account while Git sends the other,
 because Git never asks `gh`.
 
+**And when Git does ask `gh`, it gets whichever account is *active*.** More than
+one account is logged in, so `gh auth git-credential` answers for the active one
+regardless of what `.git/config` says, and the push is refused with the same
+`denied to <other account>` while all five lines above are set correctly. The
+one-push fix is `gh auth switch --user MrBev02`; switching back afterwards
+leaves the trap in place for next time, which is why it is written down here
+rather than fixed once. **Pinning the username instead does not work**:
+`git config --local credential.https://github.com.username MrBev02` makes
+`git credential fill` print MrBev02, but the token beside it is still the active
+account's, and GitHub answers *Invalid username or token. Password
+authentication is not supported*, which reads like an expired credential rather
+than the wrong account.
+
 - **Git pushes hang, or are refused.** Two credential helpers are configured. On the
   Mac, Git Credential Manager blocked forever on a GUI prompt in a non-interactive
   shell. On the Windows machine it does not hang: it answers, with the wrong
