@@ -326,7 +326,16 @@ const KNOWN_FIELDS = new Set([
   'section',
 ])
 
-function readQuestion(
+/**
+ * One question out of a reply, cleaned of everything a model got wrong.
+ *
+ * Exported for `exam.ts`, which reads a whole paper: its questions arrive
+ * inside sections rather than in one flat array, so it cannot go through
+ * `ingestQuestions`, and a second reader would be a second set of repairs.
+ * `taken` is shared across the whole reply so two sections cannot be handed the
+ * same id.
+ */
+export function readQuestion(
   raw: unknown,
   ctx: IngestContext,
   taken: Set<string>,

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
-import { Field, NumField, patched, type Patch } from './fields'
+import { asExamJson } from './exam'
+import { ExamFactory } from './examfactory'
+import { CopyButton, Field, NumField, patched, type Patch } from './fields'
 import {
   addRef,
   addSection,
@@ -88,6 +90,16 @@ export function Builder({
   // folder starts identical to its file and a new one does not. The builder is
   // keyed on the paper in `app.tsx`, so mount is per paper.
   const [owns, setOwns] = useState(() => paper !== null && !paperIsDirty(index, paper))
+  /**
+   * Whether the exam is on screen as JSON.
+   *
+   * Behind a toggle rather than copied straight to the clipboard by one click.
+   * What this hands over is the whole paper, questions and marking guides and
+   * all, and it exists to be pasted into somebody else's AI — so the rule the
+   * prompt factory works to applies here too: it is on screen, readable, before
+   * it is copied.
+   */
+  const [showJson, setShowJson] = useState(false)
 
   if (!paper) {
     return (
@@ -101,7 +113,7 @@ export function Builder({
         onEditProfile={onEditProfile}
         onEditCover={onEditCover}
         onInstalled={onSaved}
-        onDeleted={onSaved}
+        onRescan={onSaved}
       />
     )
   }
@@ -248,6 +260,21 @@ export function Builder({
       ? { subject: model.name, onEdit: () => onEditProfile(profile, profilePath) }
       : undefined
 
+  // Built only while the panel is open: it walks every question of the paper and
+  // nothing else on this screen wants it.
+  const examJson = useMemo(
+    () =>
+      showJson
+        ? asExamJson(
+            resolved,
+            model
+              ? `${model.name}${profile?.courseId ? `, ${model.courses.find((c) => c.id === profile.courseId)?.name ?? ''}` : ''}`
+              : undefined,
+          )
+        : '',
+    [showJson, resolved, model, profile],
+  )
+
   return (
     <div class="split split--build">
       <main>
@@ -322,10 +349,26 @@ export function Builder({
             <button class="btn" onClick={() => setPreview('guide')}>
               Preview marking guide
             </button>
+            <button class="btn" onClick={() => setShowJson(!showJson)}>
+              {showJson ? 'Hide the JSON' : 'Copy as JSON'}
+            </button>
             <button class="btn btn--small" onClick={onClose}>
               Close
             </button>
           </div>
+
+          {showJson && (
+            <div style={{ marginTop: '0.8rem' }}>
+              <p class="hint">
+                The whole exam in one piece, questions and marking guides included, for pasting into
+                an AI as the pattern for a new paper. Pictures are left out, and so is where each
+                question came from. Read it back in on the <strong>Papers</strong> tab, where it
+                becomes new questions and a new paper — this one is never changed.
+              </p>
+              <CopyButton text={examJson} label="Copy the exam" />
+              <pre class="promptbox">{examJson}</pre>
+            </div>
+          )}
           {failed && <p class="setup__problem">{failed}</p>}
           {!failed && (
             <p class="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
@@ -1207,7 +1250,7 @@ function StartPaper({
   onEditProfile,
   onEditCover,
   onInstalled,
-  onDeleted,
+  onRescan,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
@@ -1218,8 +1261,8 @@ function StartPaper({
   onEditProfile: (profile: Profile, path: string) => void
   onEditCover: () => void
   onInstalled: () => void
-  /** Re-read the folder, so a deleted paper leaves the list. */
-  onDeleted: () => void
+  /** Re-read the folder: a deleted paper leaves the list, a drafted one joins it. */
+  onRescan: () => void
 }) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
   const [title, setTitle] = useState('Trial HSC Examination')
@@ -1257,7 +1300,7 @@ function StartPaper({
     try {
       await deletePaper(folder, target)
       setConfirming(null)
-      onDeleted()
+      onRescan()
     } catch (err) {
       // Left on screen with the confirm still open, because every reason this
       // fails is the folder disagreeing with the list the click came from.
@@ -1427,6 +1470,15 @@ function StartPaper({
       </aside>
 
       <main>
+        <ExamFactory
+          index={index}
+          folder={folder}
+          profiles={profiles}
+          papers={papers}
+          onStart={onStart}
+          onSaved={onRescan}
+        />
+
         {papers.length === 0 ? (
           <section class="hero">
             <h2>No papers yet</h2>

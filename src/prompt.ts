@@ -75,7 +75,7 @@ const DEFAULT_LINES_PER_MARK = 2
 export function buildPrompt(spec: PromptSpec): string {
   const blocks = [
     opening(spec),
-    assesses(spec),
+    syllabusContext(spec),
     conventions(spec),
     alreadyWritten(spec),
     shape(spec),
@@ -108,7 +108,16 @@ function courseLabel(spec: PromptSpec): string {
 
 /* ------------------------------------------------------------ syllabus context */
 
-function assesses(spec: PromptSpec): string {
+/**
+ * The syllabus the reply may name, and nothing outside it.
+ *
+ * Exported because `examprompt.ts` needs the identical block: a model asked for
+ * a whole paper chooses ids the same way and has to be held to the same list,
+ * and two lists written two ways would eventually offer ids the reader rejects.
+ */
+export function syllabusContext(
+  spec: Pick<PromptSpec, 'syllabus' | 'course' | 'topics' | 'pointIds'>,
+): string {
   const lines = ['## What these questions assess', '']
 
   const version = spec.syllabus.syllabusVersion
@@ -404,11 +413,7 @@ function shape(spec: PromptSpec): string {
     '  tags           up to five short words of your own (optional)',
   ]
 
-  lines.push(...guideFields(questionType))
-  lines.push('', '  config:', ...configFields(questionType, marks))
-
-  const extras = guideNotes(questionType, marks)
-  if (extras.length > 0) lines.push('', ...extras)
+  lines.push(...typeShape(questionType, marks))
 
   lines.push(
     '',
@@ -420,6 +425,26 @@ function shape(spec: PromptSpec): string {
   )
 
   return lines.join('\n')
+}
+
+/**
+ * The fields one question type needs, as every prompt sets them out.
+ *
+ * Shared with `examprompt.ts`, which asks for a whole paper and so has to set
+ * out several types at once. One copy, for the reason `asPromptJson` is one
+ * copy: two descriptions of the same JSON drift, and the reader only measures
+ * the reply against one of them.
+ *
+ * `marks` is undefined where the paper leaves the mark value of a question to
+ * the model, which a section worth 40 over six questions does. The two lines
+ * that name a number then name the question instead, rather than asserting a
+ * total that is not true of it.
+ */
+export function typeShape(type: QuestionType, marks: number | undefined): string[] {
+  const lines = [...guideFields(type), '', '  config:', ...configFields(type, marks)]
+  const extras = guideNotes(type, marks)
+  if (extras.length > 0) lines.push('', ...extras)
+  return lines
 }
 
 function guideFields(type: QuestionType): string[] {
@@ -439,7 +464,7 @@ function guideFields(type: QuestionType): string[] {
   ]
 }
 
-function configFields(type: QuestionType, marks: number): string[] {
+function configFields(type: QuestionType, marks: number | undefined): string[] {
   switch (type) {
     case 'multiple_choice':
       return [
@@ -474,15 +499,17 @@ function configFields(type: QuestionType, marks: number): string[] {
         '    feedbackFalse  why a student answering false is right or wrong',
       ]
     case 'short_answer':
-    case 'extended_response':
+    case 'extended_response': {
+      const total = marks === undefined ? 'the marks for the question' : String(marks)
       return [
         '    answerLines    whole number of ruled lines (optional; Klunk works it',
         '                   out from the marks if you leave it out)',
         '    parts          optional (a), (b), (c) breakdown, as',
         '                   [ { "label": "(a)", "text": "...", "marks": 2,',
         '                       "sampleAnswer": "..." } ]',
-        `                   If you use parts, their marks must total ${marks}.`,
+        `                   If you use parts, their marks must total ${total}.`,
       ]
+    }
     case 'table':
       return [
         '    columns        the column headings. The first is what the student is',
@@ -505,7 +532,7 @@ function configFields(type: QuestionType, marks: number): string[] {
   }
 }
 
-function guideNotes(type: QuestionType, marks: number): string[] {
+function guideNotes(type: QuestionType, marks: number | undefined): string[] {
   switch (type) {
     case 'multiple_choice':
       return [
@@ -517,7 +544,7 @@ function guideNotes(type: QuestionType, marks: number): string[] {
       return [
         'The criteria for an extended response are bands, not components. List four or',
         'five, highest marks first, each one describing a whole response at that',
-        `standard, and reach ${marks} at the top.`,
+        `standard, and reach ${marks === undefined ? "the question's marks" : marks} at the top.`,
         'They are alternatives, so they do not add up.',
         'A band covers a range of marks, so give each one "marks" and "marksTo",',
         'and leave no mark between 1 and the top uncovered.',
@@ -677,6 +704,18 @@ function filledIn(spec: PromptSpec): string {
  * the one thing the conventions above forbid it to reproduce.
  */
 export function asPromptJson(question: Question): string {
+  return pretty(promptFields(question), '')
+}
+
+/**
+ * The same question as fields rather than as text, for an envelope around it.
+ *
+ * `examprompt.ts` writes a whole paper out at once and cannot paste strings
+ * into it: the questions sit inside sections, and the layout below indents by
+ * depth. Splitting it here rather than there is what keeps one description of
+ * what a question looks like to a model.
+ */
+export function promptFields(question: Question): Record<string, unknown> {
   const out: Record<string, unknown> = {
     questionType: question.questionType,
     questionText: question.questionText,
@@ -711,7 +750,7 @@ export function asPromptJson(question: Question): string {
 
   if (question.config && Object.keys(question.config).length > 0) out.config = question.config
 
-  return pretty(out, '')
+  return out
 }
 
 /**
@@ -724,7 +763,7 @@ export function asPromptJson(question: Question): string {
  * should not look like a different format. It matters more than tidiness in the
  * avoid block, where forty questions are printed at once.
  */
-function pretty(value: unknown, indent: string): string {
+export function pretty(value: unknown, indent: string): string {
   const flat = flatten(value)
   if (indent.length + flat.length <= PRETTY_WIDTH) return flat
 

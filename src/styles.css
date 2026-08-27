@@ -752,6 +752,15 @@ textarea.input {
   text-decoration: line-through;
 }
 
+/* A topic the teacher has taken out of a prompt. Not a fault, so nothing red and
+   no strike-through: it is a chip that can be clicked back on, and it has to read
+   as off rather than as wrong. */
+.chip--out {
+  border-style: dashed;
+  color: var(--ink-faint);
+  opacity: 0.7;
+}
+
 .tagrow__dead {
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
