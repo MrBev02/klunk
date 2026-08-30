@@ -807,6 +807,17 @@
   margin-bottom: 1mm;
 }
 
+/*
+ * Why it is the answer is a third child of a two-column row, so without this it
+ * is auto-placed at the start of the next row — in the 7mm letter column, where
+ * a sentence wraps to one word a line (#119). `.choices__why` above says the
+ * same thing for the same reason.
+ */
+.answer__set .why {
+  grid-column: 2;
+  margin: 0;
+}
+
 .why {
   margin: 0 0 2mm;
   font-size: 10pt;

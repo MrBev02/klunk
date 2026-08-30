@@ -625,9 +625,11 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
                 <span>
                   <Inline text={choices[i]?.text ?? ''} />
                 </span>
+                {/* A grid item, not a continuation of the option text: it
+                    prints on its own line under it, which `.answer__set .why`
+                    has to say explicitly (#119). */}
                 {choices[i]?.feedback && (
                   <span class="why">
-                    {' '}
                     <Inline text={choices[i]?.feedback ?? ''} />
                   </span>
                 )}

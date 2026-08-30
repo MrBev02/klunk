@@ -422,6 +422,18 @@ is far more reliable than looking.
 - **The date, page title and URL printed on every page are Chrome's own headers
   and footers**, which no page can turn off. It is a checkbox under More
   settings in the print dialog, so the preview bar and the help page say so.
+- **A grid row with more children than columns wraps the extra one back into
+  the first column, which on the guide is 7 mm wide.** `.answer__set li` is
+  `7mm 1fr`, and `GuideAnswer` renders three children into it for a multiple
+  response: letter, option text, and why it is the answer. Auto-placement put
+  the third at the start of row 2, so the reason printed one word per line down
+  the left margin and two options filled an A4 page. Measured in Chrome against
+  the real component: the reason's box was 26 px wide, and 612 px — the same
+  width and left edge as the option text — once `.answer__set .why` said
+  `grid-column: 2` (#119). `.choices__why` had already paid for this on the
+  paper's own option list, and #114 is the same shape again elsewhere. The
+  `{' '}` in the JSX before it showed it was written expecting to flow inline
+  after the option text, which a grid item never does.
 - **The preview was never the width it claimed.** `.sheet` was `width: 180mm`
   with 10 mm side padding under a global `box-sizing: border-box`, so it laid
   out at 160 mm while the print laid out at 180 mm, and the comment above it
