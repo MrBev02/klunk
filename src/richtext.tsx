@@ -169,7 +169,11 @@ function collect(text: string, marks: Omit<Run, 'text'>, out: Run[]): void {
       const open = at + token.length
       // An opener is never followed by a space either, so `** ` is two
       // asterisks and a footnote marker stays a footnote marker.
-      if (!(double ? marks.bold : marks.italic) && !/\s/.test(text[open] ?? ' ')) {
+      if (
+         !(double ? marks.bold : marks.italic) &&
+         !/\s/.test(text[open] ?? ' ') &&
+         !(at > 0 && /[\w]/.test(text[at - 1] ?? ' '))
+       ) {
         const close = closerOf(text, open, token)
         if (close > -1) {
           flush()
