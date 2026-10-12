@@ -160,8 +160,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*\\.[0-9]+(\\.[0-9]+)?$",
-          "description": "Topic id plus an ordinal, e.g. 'PRE-04.03'. A sub-item is numbered under its own parent, 'Y11-01.03.01', so the id says where the point sits rather than making it look like the next sibling. This is what a question tags itself with."
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*(\\.[0-9]+){0,2}$",
+          "description": "Topic id plus an ordinal, e.g. 'PRE-04.03', which is what every reader and the editor mint. A model generated outside Klunk may instead carry a stable code of its own, e.g. 'MA-C09', which is why the ordinal is optional; see docs/reading-syllabuses.md, 'A point id minted elsewhere'. A sub-item is numbered under its own parent, 'Y11-01.03.01', so the id says where the point sits rather than making it look like the next sibling. This is what a question tags itself with."
         },
         "text": { "type": "string", "minLength": 1 },
         "ownedBy": {
@@ -170,8 +170,8 @@
         },
         "parent": {
           "type": "string",
-          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*\\.[0-9]+$",
-          "description": "The point this one sits under, where the syllabus sets its content out as items with sub-items. NESA's 2017 science syllabuses do it with list levels: 'the cane toad' is a sub-item of 'explain modern-day examples that demonstrate evolutionary change' and means nothing without it. Enterprise Computing 11-12 (2022) does it by drawing a box headed 'Including:' under the point. Points stay one flat array so a reader that does not care about depth is unaffected. The pattern is deliberately one level shallower than 'id', because it is what says there are two levels and no third."
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)*(\\.[0-9]+)?$",
+          "description": "The point this one sits under, where the syllabus sets its content out as items with sub-items. NESA's 2017 science syllabuses do it with list levels: 'the cane toad' is a sub-item of 'explain modern-day examples that demonstrate evolutionary change' and means nothing without it. Enterprise Computing 11-12 (2022) does it by drawing a box headed 'Including:' under the point. Points stay one flat array so a reader that does not care about depth is unaffected. The pattern is one level shallower than 'id'. For ids Klunk mints that still says two levels and no third; a code minted elsewhere can be a parent on its own, so for those the schema no longer enforces the depth and 'parent' alone states it."
         },
         "capabilities": {
           "type": "array",
