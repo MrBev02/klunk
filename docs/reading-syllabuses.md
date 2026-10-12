@@ -320,6 +320,37 @@ that a name or an id shown without what it hangs off is ambiguous on screen.
   D&T's, neither of which has a sub-item. #44's replace-cost panel prices it
   either way.
 
+## A point id minted elsewhere
+
+**A point id no longer has to be a topic id plus an ordinal.** The schema
+now accepts any stable upper-case code, `MA-C09`, alongside the `PRE-04.03`
+form every Klunk reader and the editor mint. Topic ids are unchanged.
+
+- **The evidence is a model that already had ids before Klunk saw it.**
+  Computing Technology 7–10 is generated, outside Klunk, from a teacher's own
+  registry of the syllabus. It covers six focus areas and 246 points, each
+  with a code such as `MA-C09` that lesson plans and a coverage report
+  already reference. Renaming them `MA-RP.09` for Klunk would leave two ids
+  for every point and a translation table in every tool. The point of
+  generating the model from the registry was that a question and a lesson
+  name a point the same way.
+- **Only the schema refused it.** `storage.ts` admits a `klunk_syllabus` on
+  `Array.isArray(courses)` alone, and nothing in the app parses a point id for
+  its topic: a question carries `topicIds` and `pointIds` separately. The
+  generated model loaded and was usable before the change; it just did not
+  validate.
+- **The two-levels rule is now enforced only for ids Klunk mints.** A code
+  minted elsewhere can be a parent on its own (`MA-C09` above `MA-C09.01`), so
+  the `parent` pattern had to accept a bare code. Then a third level built
+  from external codes matches too. `parent` was already the source of truth
+  and nothing derives one from an id, so this loses a check, not a behaviour.
+- **The editor still mints ordinal ids, so do not edit such a model in
+  Klunk.** `nextPointId` past a run of `MA-C` codes gives `MA-RP.01`. Worse,
+  `renumbered`, which `splitTopic` and `mergeTopicUp` use, would rename every
+  external code and orphan every question tagged with one. A model generated
+  elsewhere is edited at its source and regenerated. Teaching the editor to
+  keep foreign ids is deferred until someone needs to edit one here.
+
 ## Two editions of one subject at once
 
 **Two editions of one subject are live at the same time.** The Biology document
