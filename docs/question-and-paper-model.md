@@ -15,7 +15,8 @@ adding a question type or changing what a paper inherits from its profile.
 
 **A table in a question is a pipe table in `questionText`, and the markup is
 deliberately tiny** (#88, widened once by #101). Blank-line paragraphs, pipe
-tables and three inline marks. No lists, no links, no headings.
+tables and four inline marks (the fourth, a code span, since #135). No lists,
+no links, no headings.
 
 - **Why markup rather than a field.** The table is printed *between* two
   paragraphs of the question, and `stimulus` renders in one fixed place, so a
@@ -112,6 +113,36 @@ the table, the emphasis, an underlined `TWO` inside part (a) and a bold sample
 answer; the drafting prompt and the transcription prompt both carried the markup
 section on screen; and a reply pasted back holding a pipe table arrived with the
 table whole and rendered as a table on the review card.
+
+**A code span in backticks is the fourth inline mark** (#135). A computing paper
+prints a variable name such as `gap` in a fixed-width font. The same mark
+protects a formula from the italic rule: `=B3*C3*D3` loses both asterisks bare
+(#121) and keeps them inside backticks.
+
+- **Nothing inside a span is markup, and it binds tighter than the other
+  three.** `closerOf` and `closingTag` step over a span, so an asterisk or a
+  `</u>` inside one can neither close a mark opened outside it nor open one.
+  No escape works inside a span, so a span cannot hold a backtick. No paper has
+  needed one, and markdown's double-backtick span would be a second rule to
+  teach.
+- **An empty pair is not a span.** Two backticks together print as two
+  backticks, and a lone one prints as itself, as an unmatched asterisk does.
+  Outside a span, `` \` `` escapes one.
+- **The prompt limits it to text the paper prints in a fixed-width font.** A
+  model told backticks exist will otherwise put ordinary technical terms in
+  monospace on a transcription.
+- **This does not close #121.** Backticks protect a formula only where someone
+  writes them, and a bank written before this has none. Checked when the mark
+  was added: no bank in `../klunk-content` contains a backtick, so nothing
+  existing changed how it prints.
+
+Driven on `../klunk-content`: a stem holding `` `gap` ``, `` `=B3*C3*D3` ``,
+`` **`print()`** `` and `` *after `wait(1)` here* `` with a lone backtick, and a
+sample answer with three spans. Both previewed in the editor with every span in
+monospace, the formula's asterisks intact and the lone backtick printed. Both
+were saved verbatim to disk. A search for `=B3*C3*D3` found the question. The
+student paper and the marking guide both printed the stem and the sample
+answer the same way.
 
 ## Question types, and why the enum is closed
 

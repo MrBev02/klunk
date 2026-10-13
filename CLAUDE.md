@@ -116,7 +116,7 @@ klunk/                     this repo - app and tools only, public
                            questions a prompt for one is built from
     guideprompt.ts         the prompt for a marking guide no reader would take
     guideingest.ts         reading that reply back, repairing or refusing
-    richtext.tsx           the paragraphs, pipe tables and three inline marks a
+    richtext.tsx           the paragraphs, pipe tables and four inline marks a
                            question's prose may carry, and taking them back out
                            again
     syllabusedit.ts        correcting a parsed model, pure and testable

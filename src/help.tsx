@@ -234,10 +234,12 @@ export function Help({ onClose }: { onClose: () => void }) {
         </p>
 
         <p>
-          <strong>Bold, italics and tables.</strong> Type <code>**bold**</code>,{' '}
+          <strong>Bold, italics, code and tables.</strong> Type <code>**bold**</code>,{' '}
           <code>*italic*</code> and <code>&lt;u&gt;underline&lt;/u&gt;</code> straight into the
-          question text. A blank line starts a new paragraph. A table of data goes in as pipe rows,
-          and the dashed row under the headings is what makes it a table:
+          question text. Put a variable name or a formula in backticks, <code>`gap`</code>, to print
+          it in a fixed-width font, with any asterisks kept. A blank line starts a new paragraph. A
+          table of data goes in as pipe rows, and the dashed row under the headings is what makes it
+          a table:
         </p>
 
         <pre class="help__sample">{`| Time | Temperature (°C) |

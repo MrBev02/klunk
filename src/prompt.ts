@@ -623,7 +623,9 @@ export function markupRules(where: string): string {
     '  a run of values.',
     '- **bold**, *italic* and <u>underline</u>, where the text is printed that',
     '  way.',
-    '- Write \\*, \\| or \\< for one of those characters where it is not markup.',
+    '- `code` in backticks, only where the paper prints it in a fixed-width font,',
+    '  such as a variable name or a formula. Nothing inside backticks is markup.',
+    '- Write \\*, \\|, \\< or \\` for one of those characters where it is not markup.',
     '',
     'No headings, no bullet lists, no links, no images.',
   ].join('\n')
