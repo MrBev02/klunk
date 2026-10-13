@@ -17,6 +17,7 @@ import type {
   QuestionConfig,
   QuestionType,
   School,
+  Stimulus,
   Syllabus,
 } from './types'
 import {
@@ -538,6 +539,44 @@ describe('stimulus', () => {
       },
     })
     expect(warnings(q).join(' ')).toContain('Part (b), stimulus 1')
+  })
+})
+
+describe('code stimulus (#135)', () => {
+  const code = (text: string, over: Partial<Stimulus> = {}): Question =>
+    question({ stimulus: [{ kind: 'code', text, ...over }] })
+
+  it('refuses one with no code in it', () => {
+    expect(errors(code('   \n  ')).join(' ')).toContain('needs some code')
+    expect(errors(code('print("hello")'))).toEqual([])
+  })
+
+  it('warns about a line too long to fit across the page, and names it', () => {
+    const long = `    drivetrain.drive_for(FORWARD, ${'1'.repeat(70)}, MM)`
+    expect(warnings(code(`while True:\n${long}`)).join(' ')).toContain('Line 2 wraps')
+    expect(warnings(code('while True:\n    wait(1)')).join(' ')).not.toContain('wraps')
+  })
+
+  // The fault this whole branch exists for: `text()` would trim this.
+  it('saves the indentation of the first line', () => {
+    const cleaned = cleanQuestion(code('\n    gap = gap * 2   \n    print(gap)\n\n'))
+    expect(cleaned.stimulus).toEqual([{ kind: 'code', text: '    gap = gap * 2\n    print(gap)' }])
+  })
+
+  it('writes line numbers down only when they are switched off', () => {
+    expect(cleanQuestion(code('x = 1', { lineNumbers: true })).stimulus?.[0]).toEqual({
+      kind: 'code',
+      text: 'x = 1',
+    })
+    expect(cleanQuestion(code('x = 1', { lineNumbers: false })).stimulus?.[0]).toEqual({
+      kind: 'code',
+      text: 'x = 1',
+      lineNumbers: false,
+    })
+  })
+
+  it('drops a code row the teacher opened and left empty', () => {
+    expect(cleanQuestion(code('  \n')).stimulus).toBeUndefined()
   })
 })
 

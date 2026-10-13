@@ -4,7 +4,7 @@ The decisions behind `bank.schema.json`, `paper.schema.json` and
 `profile.schema.json`, and behind the markup a question's prose may carry.
 Every one has evidence under it. **Do not reverse one without new evidence.**
 
-Read this before touching `src/richtext.tsx`, `src/render.tsx`,
+Read this before touching `src/richtext.tsx`, `src/code.tsx`, `src/render.tsx`,
 `src/question.tsx`, `src/editor.tsx`, `src/validate.ts`, `src/cover.ts`,
 `src/paper.ts`, the three prompt files, or any of the schemas — and before
 adding a question type or changing what a paper inherits from its profile.
@@ -143,6 +143,57 @@ monospace, the formula's asterisks intact and the lone backtick printed. Both
 were saved verbatim to disk. A search for `=B3*C3*D3` found the question. The
 student paper and the marking guide both printed the stem and the sample
 answer the same way.
+
+## Program code is a stimulus
+
+**A program a question refers to is `{"kind": "code"}` on the stimulus list**
+(#135). It prints in a ruled box in a fixed-width font, every space of its
+indentation kept, its lines numbered unless `lineNumbers` is `false`. Before
+it, the Year 9 computing final printed its code as a screenshot, which cannot
+be edited or searched.
+
+- **A stimulus rather than a fenced block in the prose, the reverse of the
+  table decision above.** A reply arrives inside a ```json fence, and
+  `extractJson` stops at the first triple backtick, so a fence inside a string
+  cuts the reply in half. `blocksOf` trims every line, and line numbers need a
+  field to switch off. The cost: a marking guide cannot print a corrected
+  multi-line program. Revisit only when a real guide needs one.
+- **No `language` field.** It would change nothing on a black-and-white paper
+  and would ask a validator which languages are allowed.
+- **Numbered by default, and only `false` is written,** the rule `align`
+  follows. "Line 2" is the reason a question prints code at all.
+- **Three places trimmed the indentation off the first line,** and every test
+  of code starting at column 0 passed through all three. `text()` in
+  `validate.ts` and `asString` in `ingest.ts` trim both ends of a string, so an
+  extract quoted from inside a loop lost its first indent on save and on the
+  way in from a reply. Both now go through `cleanCode`, which takes blank lines
+  off the ends and spaces off the ends of lines and never touches a line's
+  leading spaces. The third was `white-space: pre`, which clips a long line off
+  the printed page, and `pre-wrap` replaced it.
+- **The block is a table**, so every number is as wide as the widest and a long
+  extract breaks across a page between rows. The number is drawn by CSS from
+  `data-n`, so copying code off the screen does not copy the numbers. A blank
+  line holds a no-break space, without which its row collapses when the numbers
+  are off.
+- **72 characters is the warning, measured rather than chosen.** At 9.5pt
+  Consolas, 91 characters fit the full 680 px column of a question set out under
+  a heading. A question set out beside its number has 558 px, about 73, and line
+  10 widens the number column by one more. A long line wraps under itself and
+  stays readable, so it is a warning: what goes wrong is that the numbers stop
+  matching what a student counts down the page.
+- **`textarea.input` sets the font,** so the code box's own rule has to name the
+  element to win. Found by driving it: the box first came up in the interface
+  font, with the indentation still right but impossible to judge.
+- **Transcribing a past paper does not know about this yet** (#136). The paper
+  prompt describes a screenshot in one sentence, which is what it would do to a
+  printed program.
+
+Driven on `../klunk-content`: an extract with an indented first line, a blank
+line and a 95-character line typed into the editor, previewed numbered with the
+warning on line 7, saved with every space intact and no `lineNumbers` field,
+printed the same on the student paper and the guide; unticking the box saved
+`false` and the blank row kept its height; and a drafted reply carrying code
+arrived with the first line's indentation whole.
 
 ## Question types, and why the enum is closed
 

@@ -248,9 +248,9 @@ export function Help({ onClose }: { onClose: () => void }) {
 | 12 noon | 27.1 |`}</pre>
 
         <p>
-          Write <code>\*</code>, <code>\|</code> or <code>\&lt;</code> for one of those characters
-          where you do not mean markup. The same markup works in a part, an option and a marking
-          criterion, and the AI prompts ask for it too.
+          Write <code>\*</code>, <code>\|</code>, <code>\&lt;</code> or <code>\`</code> for one of
+          those characters where you do not mean markup. The same markup works in a part, an option
+          and a marking criterion, and the AI prompts ask for it too.
         </p>
 
         <p>
@@ -261,6 +261,14 @@ export function Help({ onClose }: { onClose: () => void }) {
           <strong>Centre</strong> or <strong>Right</strong> for where it sits across the page. It is{' '}
           <strong>Centre</strong> unless you change it. The millimetre box beside that caps how tall
           it prints. A text stimulus prints as a block quote with a rule down it.
+        </p>
+
+        <p>
+          <strong>Program code.</strong> Click <strong>Add code</strong> in the{' '}
+          <strong>Stimulus</strong> panel and paste the program in. It prints in a ruled box in a
+          fixed-width font, with its indentation kept and its lines numbered, so a question can
+          refer to "line 2". Untick <strong>Number the lines</strong> to print it without numbers.
+          Klunk warns about a line too long to fit across the page, which wraps when printed.
         </p>
 
         <p>

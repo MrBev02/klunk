@@ -18,6 +18,7 @@
  * that prompt listed.
  */
 
+import { cleanCode } from './code'
 import type { Check } from './paper'
 import {
   QUESTION_TYPES,
@@ -620,6 +621,18 @@ function readStimulus(value: unknown, repairs: string[]): Stimulus[] {
     if (typeof entry !== 'object' || entry === null) continue
 
     const s = entry as Record<string, unknown>
+    if (s.kind === 'code') {
+      // Not `asString`, which trims the indentation off the first line.
+      const code = cleanCode(typeof s.text === 'string' ? s.text : undefined)
+      if (code === undefined) continue
+      const item: Stimulus = { kind: 'code', text: code }
+      if (s.lineNumbers === false) item.lineNumbers = false
+      const caption = asString(s.caption)
+      if (caption) item.caption = caption
+      out.push(item)
+      continue
+    }
+
     const text = asString(s.text)
     if (s.kind === 'image' || (text === undefined && asString(s.file) !== undefined)) {
       images += 1

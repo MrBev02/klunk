@@ -35,6 +35,7 @@
 
 import type { Check } from './paper'
 import { parseRef, sameLines, STIMULUS_ALIGNS } from './types'
+import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
 import type {
   IdentificationField,
   MarkCriterion,
@@ -240,6 +241,18 @@ function validateStimulus(
       // is ever read by a screen reader. Warned rather than blocked.
       else if (!s.alt?.trim())
         warn('No alt text, so the image is invisible to a screen reader.', where)
+    } else if (s.kind === 'code') {
+      if (!cleanCode(s.text)) err('A code stimulus needs some code.', where)
+      // Warned rather than blocked: a long line wraps under itself on the paper
+      // and stays readable, but the line numbers no longer match what a student
+      // counts down the page.
+      const wide = codeLines(s.text).findIndex((line) => printedWidth(line) > CODE_LINE_LIMIT)
+      if (wide > -1) {
+        warn(
+          `Line ${wide + 1} wraps when printed. About ${CODE_LINE_LIMIT} characters fit across the page.`,
+          where,
+        )
+      }
     } else if (!s.text?.trim()) {
       err('A text stimulus needs some text.', where)
     }
@@ -1431,6 +1444,12 @@ function cleanStimulus(s: Stimulus): Stimulus {
     // says what absence already says. Dropped off a text stimulus entirely, the
     // way `file` and `alt` are, since a block quote does not move.
     if (s.align !== undefined && s.align !== 'centre') out.align = s.align
+  } else if (s.kind === 'code') {
+    // Never `text()`, which trims the indentation off the first line.
+    const body = cleanCode(s.text)
+    if (body) out.text = body
+    // Numbered is the default, so only switching it off is worth writing.
+    if (s.lineNumbers === false) out.lineNumbers = false
   } else {
     const body = text(s.text)
     if (body) out.text = body

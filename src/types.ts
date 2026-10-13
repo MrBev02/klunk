@@ -283,14 +283,20 @@ export const STIMULUS_ALIGN_LABELS: Record<StimulusAlign, string> = {
 }
 
 export interface Stimulus {
-  kind: 'image' | 'text'
+  kind: 'image' | 'text' | 'code'
   file?: string
+  /** A text stimulus's prose, or a code stimulus's program with its indentation. */
   text?: string
   caption?: string
   alt?: string
   /** Images only. A text stimulus prints as a block quote with a rule down it. */
   align?: StimulusAlign
   maxHeightMm?: number
+  /**
+   * Code only. Absent means numbered, because "line 2" is why a question prints
+   * code at all, so only `false` is ever written down.
+   */
+  lineNumbers?: boolean
 }
 
 /**

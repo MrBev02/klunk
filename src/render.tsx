@@ -12,6 +12,7 @@
  */
 
 import { Fragment } from 'preact'
+import { CodeBlock } from './code'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
@@ -382,6 +383,15 @@ function StimulusBlock({
         <Inline text={stimulus.text ?? ''} />
         {stimulus.caption && <cite>{stimulus.caption}</cite>}
       </blockquote>
+    )
+  }
+
+  if (stimulus.kind === 'code') {
+    return (
+      <figure class="stimulus stimulus--code">
+        <CodeBlock text={stimulus.text} lineNumbers={stimulus.lineNumbers} />
+        {stimulus.caption && <figcaption>{stimulus.caption}</figcaption>}
+      </figure>
     )
   }
 

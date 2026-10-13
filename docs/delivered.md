@@ -368,6 +368,20 @@ carry `marksTo` so a band stays a band, a part may carry its own criteria, and a
 question may have no text when its parts do the asking. All three are what the
 examinations actually print.
 
+**A question can print program code** (#135). Backticks in any prose print in a
+fixed-width font, and a code stimulus prints a program in a ruled box with its
+indentation kept and its lines numbered, on the paper, the guide and the editor
+preview. **Add code** in the Stimulus panel takes a pasted program. A line too
+long for the narrowest column is warned about.
+
+Verified in the browser on `../klunk-content`: an extract whose first line is
+indented, typed into the editor, saved with every space intact and no
+`lineNumbers` field. It printed numbered on the student paper and the guide,
+with a blank line keeping its height and a long line wrapping under itself.
+Unticking **Number the lines** saved `"lineNumbers": false` and printed without
+numbers. A drafted reply carrying a code stimulus pasted back with its
+indentation whole.
+
 ## Describing your own examination
 
 **A teacher of any subject can describe their own examination** (#27), on the

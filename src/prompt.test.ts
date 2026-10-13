@@ -395,6 +395,23 @@ describe('the worked example', () => {
     expect(json).not.toContain('kettle.png')
   })
 
+  // A teacher's own computing question is the best example a computing prompt
+  // can carry, and its code has to go out exactly as the bank holds it.
+  it('keeps a code stimulus, indentation and switched-off numbers included', () => {
+    const withCode: Question = {
+      ...own,
+      stimulus: [
+        { kind: 'code', text: '    gap = gap * 2\n    print(gap)' },
+        { kind: 'code', text: 'wait(1)', lineNumbers: false },
+      ],
+    }
+    const parsed = JSON.parse(asPromptJson(withCode)) as { stimulus: unknown }
+    expect(parsed.stimulus).toEqual([
+      { kind: 'code', text: '    gap = gap * 2\n    print(gap)' },
+      { kind: 'code', text: 'wait(1)', lineNumbers: false },
+    ])
+  })
+
   it('is JSON, because a malformed example is worse than no example', () => {
     expect(() => JSON.parse(asPromptJson(own))).not.toThrow()
     const parsed = JSON.parse(asPromptJson(own)) as Record<string, unknown>

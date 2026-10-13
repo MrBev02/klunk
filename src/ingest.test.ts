@@ -620,6 +620,24 @@ describe('the other types', () => {
     expect(draft.repairs.join(' ')).toContain('cannot fetch a picture')
   })
 
+  // `asString` trims, and a reply's code must arrive with the indentation of
+  // its first line, which is where a quoted loop body starts (#135).
+  it('takes a code stimulus with its indentation whole', () => {
+    const { draft } = first(
+      answer({
+        stimulus: [
+          { kind: 'code', text: '\n    gap = gap * 2\n    print(gap)\n', caption: 'Program A' },
+          { kind: 'code', text: 'wait(1)', lineNumbers: false },
+          { kind: 'code', text: '   ' },
+        ],
+      }),
+    )
+    expect(draft.question.stimulus).toEqual([
+      { kind: 'code', text: '    gap = gap * 2\n    print(gap)', caption: 'Program A' },
+      { kind: 'code', text: 'wait(1)', lineNumbers: false },
+    ])
+  })
+
   it('drops a marking criterion with nothing in it', () => {
     const guide = answer({
       markingGuide: { criteria: [{ marks: 2, description: 'Names the property.' }, { marks: 2 }] },

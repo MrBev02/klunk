@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'preact/hooks'
+import { CodeBlock } from './code'
 import { unresolvedAgainst, type ModelIds } from './modelcheck'
 import {
   optionLetter,
@@ -200,6 +201,11 @@ function StimulusItems({
             <Inline text={s.text ?? ''} />
             {s.caption && <em>. {s.caption}</em>}
           </p>
+        ) : s.kind === 'code' ? (
+          <figure key={i} class="stim-figure stim-figure--code">
+            <CodeBlock text={s.text} lineNumbers={s.lineNumbers} />
+            {s.caption && <figcaption>{s.caption}</figcaption>}
+          </figure>
         ) : imageUrl(s, bankFile, images) ? (
           // The alignment shows here too, because otherwise the only way to see
           // what the field did is to print the paper.

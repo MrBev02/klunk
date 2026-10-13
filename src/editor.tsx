@@ -1290,7 +1290,9 @@ function StimulusFields({
         <ol class="editrows">
           {stimuli.map((s, i) => (
             <li key={i} class="editrow">
-              <span class="editrow__letter">{s.item.kind === 'image' ? '▣' : '¶'}</span>
+              <span class="editrow__letter">
+                {s.item.kind === 'image' ? '▣' : s.item.kind === 'code' ? '{}' : '¶'}
+              </span>
               <div class="editrow__body">
                 {parts.length > 0 && (
                   <Field label="Belongs to">
@@ -1321,6 +1323,30 @@ function StimulusFields({
                       </span>
                     )}
                   </p>
+                ) : s.item.kind === 'code' ? (
+                  <>
+                    {/* Tab is left to move focus, so the form still works from
+                        the keyboard. Code is pasted in, not typed. */}
+                    <textarea
+                      class="input input--code"
+                      rows={8}
+                      wrap="off"
+                      spellcheck={false}
+                      value={s.item.text ?? ''}
+                      placeholder="Paste the program here. Indentation is kept."
+                      onInput={(e) => change(i, { text: (e.target as HTMLTextAreaElement).value })}
+                    />
+                    <label class="checkline">
+                      <input
+                        type="checkbox"
+                        checked={s.item.lineNumbers !== false}
+                        onChange={(e) =>
+                          change(i, { lineNumbers: (e.target as HTMLInputElement).checked })
+                        }
+                      />
+                      Number the lines
+                    </label>
+                  </>
                 ) : (
                   <textarea
                     class="input"
@@ -1404,6 +1430,14 @@ function StimulusFields({
           }
         >
           Add a text stimulus
+        </button>
+        <button
+          class="btn btn--small"
+          onClick={() =>
+            setStimuli((list) => [...list, { item: { kind: 'code', text: '' }, at: null }])
+          }
+        >
+          Add code
         </button>
       </div>
       {picking && <p class="missing">{picking}</p>}

@@ -329,8 +329,11 @@ function shape(spec: ExamPromptSpec): string {
     'Leave out "id": Klunk assigns ids itself, and one you invent is discarded.',
     'Leave out "syllabusId" and "courseId": Klunk fills those in.',
     'Leave out "title": Klunk uses the title the teacher typed.',
-    'Leave out "stimulus" unless it is a short piece of text the student reads. ' +
-      'Klunk cannot fetch an image you name.',
+    'Leave out "stimulus" unless it is a short piece of text the student reads, ' +
+      'or program code the question refers to. Klunk cannot fetch an image you name.',
+    'Program code is a stimulus of the form { "kind": "code", "text": "..." }, with ' +
+      'every space of its indentation kept and \\n between lines. Klunk numbers ' +
+      'the lines itself, so do not write numbers into the code.',
     'Any field not listed above is dropped when the paper is read back in.',
   )
   return lines.join('\n')

@@ -1731,6 +1731,17 @@ textarea.input {
   width: 6.4rem;
 }
 
+/* The program as it will print: fixed width, every space shown, no wrapping,
+   so the indentation a teacher sees is the indentation that is saved. Named
+   with its element because `textarea.input` above sets the font too. */
+textarea.input--code {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+}
+
 .input--label {
   flex: 0 0 3.2rem;
   width: 3.2rem;
@@ -2599,6 +2610,42 @@ code,
   font-size: 0.88rem;
   color: var(--ink-soft);
   margin-top: 0.2rem;
+}
+
+/* A program the question refers to (#135). `pre-wrap` keeps the indentation and
+   wraps a long line under itself rather than off the edge, and the number comes
+   from `data-n` so it is not copied with the code. */
+.codeblock {
+  border-collapse: collapse;
+  border: 1px solid var(--rule);
+  background: #fff;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  tab-size: 4;
+}
+.codeblock td {
+  padding: 0 0.6rem;
+  vertical-align: top;
+}
+.codeblock tr:first-child td {
+  padding-top: 0.35rem;
+}
+.codeblock tr:last-child td {
+  padding-bottom: 0.35rem;
+}
+.codeblock__n {
+  text-align: right;
+  color: var(--ink-soft);
+  border-right: 1px solid var(--rule);
+  user-select: none;
+}
+.codeblock__n::before {
+  content: attr(data-n);
+}
+.codeblock__line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* --------------------------------------------------------------------- help

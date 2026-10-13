@@ -419,8 +419,11 @@ function shape(spec: PromptSpec): string {
     '',
     'Leave out "id": Klunk assigns ids itself, and one you invent is discarded.',
     'Leave out "syllabusId" and "courseId": Klunk fills those in.',
-    'Leave out "stimulus" unless it is a short piece of text the student reads. ' +
-      'Klunk cannot fetch an image you name.',
+    'Leave out "stimulus" unless it is a short piece of text the student reads, ' +
+      'or program code the question refers to. Klunk cannot fetch an image you name.',
+    'Program code is a stimulus of the form { "kind": "code", "text": "..." }, with ' +
+      'every space of its indentation kept and \\n between lines. Klunk numbers ' +
+      'the lines itself, so do not write numbers into the code.',
     'Any field not listed above is dropped when the question is read back in.',
   )
 
@@ -749,10 +752,15 @@ export function promptFields(question: Question): Record<string, unknown> {
   if (question.outcomes?.length) out.outcomes = question.outcomes
   if (question.tags?.length) out.tags = question.tags
 
-  const stimulus = (question.stimulus ?? []).filter((s) => s.kind === 'text' && s.text)
+  const stimulus = (question.stimulus ?? []).filter((s) => s.kind !== 'image' && s.text)
   if (stimulus.length > 0) {
     out.stimulus = stimulus.map((s) =>
-      compactly({ kind: s.kind, text: s.text, caption: s.caption }),
+      compactly({
+        kind: s.kind,
+        text: s.text,
+        lineNumbers: s.lineNumbers === false ? false : undefined,
+        caption: s.caption,
+      }),
     )
   }
 
