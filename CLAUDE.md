@@ -64,6 +64,7 @@ outline of what has been established.
 | Any parser change at all | [docs/corpus-counts.md](docs/corpus-counts.md), then `npm run test:corpus` |
 | A failure the code cannot explain — a push refused, a save that hangs, a browser driving the wrong machine, a diff of two identical-looking strings | [docs/environment.md](docs/environment.md) |
 | Whether something already exists, and why a screen is the shape it is | [docs/delivered.md](docs/delivered.md) |
+| How a screen should look — `styles.css`, any new panel, colour, type or border | [DESIGN.md](DESIGN.md), then [PRODUCT.md](PRODUCT.md) for who it is for |
 
 ## How to work here
 
