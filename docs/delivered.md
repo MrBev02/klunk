@@ -382,6 +382,12 @@ Unticking **Number the lines** saved `"lineNumbers": false` and printed without
 numbers. A drafted reply carrying a code stimulus pasted back with its
 indentation whole.
 
+**Transcribing a past paper keeps printed code as code** (#136). The
+transcription prompt asks for it in `stimulus`, and a part's own stimulus is
+now read from a reply. Verified on **From a past paper**: a reply with an
+indented extract and a part (b) program printed without numbers both showed on
+the review cards and saved with their indentation.
+
 ## Describing your own examination
 
 **A teacher of any subject can describe their own examination** (#27), on the

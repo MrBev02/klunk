@@ -638,6 +638,42 @@ describe('the other types', () => {
     ])
   })
 
+  // A transcription can carry both: a screenshot it can only describe, and
+  // code printed as text that it copies (#136).
+  it('keeps a description of a picture beside a transcribed program', () => {
+    const { draft } = first(
+      answer({
+        stimulusNote: 'A screenshot of the robot on its course.',
+        stimulus: [{ kind: 'code', text: 'while True:\n    drive()' }],
+      }),
+      ctx({ paper: { examination: 'Year 9 Computing', year: 2026 } }),
+    )
+    expect(draft.question.stimulus).toEqual([{ kind: 'code', text: 'while True:\n    drive()' }])
+    expect(draft.faults.map((f) => f.message).join(' ')).toContain('A screenshot of the robot')
+  })
+
+  // Before #136 a part's stimulus was not read at all, and nothing said so.
+  it("reads a part's own stimulus", () => {
+    const { draft } = first(
+      answer({
+        config: {
+          parts: [
+            { label: '(a)', text: 'What does line 2 do?', marks: 2 },
+            {
+              label: '(b)',
+              text: 'Correct the program.',
+              marks: 2,
+              stimulus: [{ kind: 'code', text: '\n    gap = gap + 1\n' }],
+            },
+          ],
+        },
+      }),
+    )
+    const parts = draft.question.config?.parts ?? []
+    expect(parts[0]?.stimulus).toBeUndefined()
+    expect(parts[1]?.stimulus).toEqual([{ kind: 'code', text: '    gap = gap + 1' }])
+  })
+
   it('drops a marking criterion with nothing in it', () => {
     const guide = answer({
       markingGuide: { criteria: [{ marks: 2, description: 'Names the property.' }, { marks: 2 }] },

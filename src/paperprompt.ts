@@ -161,6 +161,11 @@ function howToTranscribe(spec: PaperPromptSpec): string {
     '- Some questions print a screenshot or a diagram. Do not reproduce it.',
     '  Describe it in one sentence in "stimulusNote", and transcribe any words',
     '  printed inside it that the question depends on.',
+    '- Program code printed as text is not a picture. Copy it into "stimulus"',
+    '  exactly, keeping every space of its indentation, with \\n between lines.',
+    '  Leave out any line numbers the paper prints: Klunk prints its own. If the',
+    '  paper prints no line numbers, add "lineNumbers": false. Code printed as a',
+    '  screenshot is a picture, and goes in "stimulusNote".',
     '',
     'Where you cannot read something, say so in that question\'s "unreadable"',
     'field rather than filling the gap.',
@@ -209,6 +214,8 @@ function shape(spec: PaperPromptSpec): string {
     '  section        the section it falls in, as the paper labels it',
     '  topicIds       optional, from the list above',
     '  stimulusNote   one sentence describing any picture (optional)',
+    '  stimulus       program code printed as text, as',
+    '                 [ { "kind": "code", "text": "..." } ] (optional)',
     '  unreadable     what you could not read in this question (optional)',
     '',
     '  config         everything that depends on the question type, nested inside',
@@ -269,7 +276,7 @@ function shape(spec: PaperPromptSpec): string {
 /* ------------------------------------------------------------- the example */
 
 /**
- * Five objects showing the shape, invented for the purpose.
+ * Six objects showing the shape, invented for the purpose.
  *
  * Not shared with `prompt.ts`'s examples, which carry option feedback and
  * content-point ids that a question paper does not print. What both sets have in
@@ -282,6 +289,12 @@ function shape(spec: PaperPromptSpec): string {
  * the student writes in, which does not. Described rather than shown, the two
  * read as the same thing, and the description alone sent every real table into
  * `questionText` with no `columns` at all (#108).
+ *
+ * Questions 3 and 6 are the second pair, for the same reason (#136). Question 3
+ * prints a picture, which can only be described. Question 6 prints a program as
+ * text, which has to be copied with its indentation, and the indentation is the
+ * fault the question asks about, so a model that flattens it has visibly broken
+ * the example rather than quietly losing something.
  */
 const EXAMPLE = `[
   {
@@ -342,6 +355,16 @@ const EXAMPLE = `[
         { "label": "Mapping how information flows between departments" }
       ]
     }
+  },
+  {
+    "number": 6,
+    "questionType": "short_answer",
+    "questionText": "The program below is meant to print the numbers 1 to 10.\\nExplain why it never stops, and how line 4 should be changed.",
+    "marks": 3,
+    "section": "II",
+    "stimulus": [
+      { "kind": "code", "text": "count = 1\\nwhile count <= 10:\\n    print(count)\\ncount = count + 1" }
+    ]
   }
 ]`
 
@@ -359,7 +382,11 @@ function example(spec: PaperPromptSpec): string {
     'question 4 only asks the student to read its table, so the table stays in',
     '"questionText", between the two paragraphs it is printed between, while',
     'question 5 asks the student to write in one, so its headings and row labels',
-    'go in "columns" and "rows" and its "questionText" holds neither.',
+    'go in "columns" and "rows" and its "questionText" holds neither. Note the',
+    'difference between questions 3 and 6: question 3 prints a picture, so it',
+    'is described in "stimulusNote", while question 6 prints its program as',
+    'text, so the program is copied into "stimulus" with its indentation, and',
+    'without the line numbers the paper prints beside it.',
     spec.range
       ? `Return only questions ${spec.range.from} to ${spec.range.to}, in one array.`
       : 'Return every question of the paper in one array.',

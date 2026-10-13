@@ -184,9 +184,33 @@ be edited or searched.
 - **`textarea.input` sets the font,** so the code box's own rule has to name the
   element to win. Found by driving it: the box first came up in the interface
   font, with the indentation still right but impossible to judge.
-- **Transcribing a past paper does not know about this yet** (#136). The paper
-  prompt describes a screenshot in one sentence, which is what it would do to a
-  printed program.
+- **Transcribing a past paper needed only its prompt** (#136). The issue first
+  said the reply reader knew only `stimulusNote`. That was wrong: a
+  transcription goes through the same `readQuestion` as a draft, `stimulus` is
+  a known field, and `readStimulus` already took code after #135. What stopped
+  it was the prompt. Its field list says "these fields and no others" and did
+  not list `stimulus`, and its one rule about stimulus sent everything to a
+  one-sentence description.
+- **The paper prompt's example shows code beside a picture,** questions 6 and
+  3, the pattern #108 set for the two kinds of table. Question 6's program is
+  wrong only because line 4 is not indented, so a model that flattens the
+  indentation visibly breaks the example. Its test runs the example through
+  the real `ingestQuestions`.
+- **A transcription keeps the paper's numbering.** Numbers the paper prints stay
+  out of the text, because Klunk prints its own. A paper that prints none gets
+  `"lineNumbers": false`.
+- **A part's stimulus was dropped without a word,** for any kind. `readConfig`
+  read a part's text, marks and sample answer and nothing else. It reads its
+  `stimulus` now, so code printed in part (b) alone survives a reply.
+- **The non-AI paper readers still read printed code as prose** (#139,
+  deferred until a paper that prints code as text is in the corpus).
+
+Driven for #136 on `../klunk-content`: the transcription prompt on **From a
+past paper** carried the field, the rule and example question 6. A pasted reply
+carried an indented extract with a screenshot note beside it, and a part (b)
+program printed without numbers. Both review cards showed the blocks as sent,
+the note as a warning. Both saved with their indentation, the part's with
+`"lineNumbers": false`.
 
 Driven on `../klunk-content`: an extract with an indented first line, a blank
 line and a 95-character line typed into the editor, previewed numbered with the

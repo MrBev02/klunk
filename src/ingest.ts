@@ -1144,6 +1144,10 @@ function readWritten(cfg: Record<string, unknown>, repairs: string[]): QuestionC
     if (partLines !== undefined && partLines >= 0) part.answerLines = Math.round(partLines)
     const sample = asString(p.sampleAnswer) ?? asString(p.answer)
     if (sample) part.sampleAnswer = sample
+    // Read rather than dropped without a word, which is what happened before
+    // #136: a paper printing code inside part (b) alone lost it.
+    const stimulus = readStimulus(p.stimulus, repairs)
+    if (stimulus.length > 0) part.stimulus = stimulus
     parts.push(part)
   })
 
