@@ -23,7 +23,7 @@
 import { useMemo, useState } from 'preact/hooks'
 import { IdentificationFields } from './coversheet'
 import { Field, NumField, patched, type Patch } from './fields'
-import { saveProfile, type ContentIndex } from './storage'
+import { profilePath, saveProfile, type ContentIndex } from './storage'
 import {
   QUESTION_TYPE_LABELS,
   QUESTION_TYPES,
@@ -108,10 +108,13 @@ export function ProfileEditor({
     setSaving(true)
     setFailed('')
     try {
-      const { path } = await saveProfile(folder, cleaned, { replacingId: originalId })
+      const { path } = await saveProfile(folder, cleaned, {
+        replacingId: originalId,
+        path: editing?.path,
+      })
       const moved =
-        originalId !== undefined && originalId !== cleaned.id
-          ? ` The old profiles/${originalId}.json is still there; delete it when nothing points at it.`
+        editing && path !== editing.path
+          ? ` The old ${editing.path} is still there; delete it when nothing points at it.`
           : ''
       onSaved(`Saved ${path}.${moved}`)
     } catch (err) {
@@ -163,7 +166,11 @@ export function ProfileEditor({
             />
           </Field>
 
-          <Field label="Id" for="pe-id" hint={`Saved as profiles/${draft.id || '…'}.json`}>
+          <Field
+            label="Id"
+            for="pe-id"
+            hint={`Saved as ${profilePath(draft.id || '…', editing?.path)}`}
+          >
             <input
               id="pe-id"
               class="input mono"

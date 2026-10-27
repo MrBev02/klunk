@@ -20,15 +20,17 @@ import {
   inSyllabus,
   joinPath,
   mergeFolder,
+  profilePath,
   releaseImages,
   safeFilename,
   savePaper,
+  saveProfile,
   saveQuestion,
   scanFolder,
   type ContentIndex,
   folderProblem,
 } from './storage'
-import type { Bank, Loaded, Paper, Question, QuestionRef } from './types'
+import type { Bank, Loaded, Paper, Profile, Question, QuestionRef } from './types'
 
 /* -------------------------------------------------- a folder made of strings */
 
@@ -930,6 +932,74 @@ describe('savePaper', () => {
     for (const [name, node] of appeared) files.set(name, node)
 
     await expect(savePaper(dir, paperNamed('trial', 'Mine'))).rejects.toThrow(/holds "Theirs"/)
+  })
+})
+
+// #132: a profile read from a subfolder was saved as a second copy at the
+// root, leaving two files with one id and the edit on the one not being read.
+describe('saveProfile', () => {
+  const profileNamed = (id: string, name: string): Profile =>
+    ({
+      formatVersion: '1',
+      type: 'klunk_profile',
+      id,
+      name,
+      paper: { totalMarks: 10, sections: [{ id: 'I', name: 'Section I', marks: 10 }] },
+    }) as unknown as Profile
+
+  it('writes a new profile to profiles/ at the root', async () => {
+    const files = tree({})
+    const { path } = await saveProfile(dirHandle(files), profileNamed('ct', 'CT'))
+
+    expect(path).toBe('profiles/ct.json')
+    expect(readJson(files, 'profiles/ct.json')).toEqual(profileNamed('ct', 'CT'))
+  })
+
+  it('rewrites the file an edited profile was read from, wherever it is', async () => {
+    const files = tree({
+      'klunk/profiles/ct-practice.json': JSON.stringify(profileNamed('ct-practice', 'Old')),
+    })
+    const edited = profileNamed('ct-practice', 'New')
+
+    const { path } = await saveProfile(dirHandle(files), edited, {
+      replacingId: 'ct-practice',
+      path: 'klunk/profiles/ct-practice.json',
+    })
+
+    expect(path).toBe('klunk/profiles/ct-practice.json')
+    expect(readJson(files, 'klunk/profiles/ct-practice.json')).toEqual(edited)
+    // The point of the test: no second copy at the root.
+    expect(files.has('profiles')).toBe(false)
+  })
+
+  it('still refuses an id another profile beside it already holds', async () => {
+    const theirs = profileNamed('other', 'Theirs')
+    const files = tree({
+      'klunk/profiles/mine.json': JSON.stringify(profileNamed('mine', 'Mine')),
+      'klunk/profiles/other.json': JSON.stringify(theirs),
+    })
+
+    await expect(
+      saveProfile(dirHandle(files), profileNamed('other', 'Mine'), {
+        replacingId: 'mine',
+        path: 'klunk/profiles/mine.json',
+      }),
+    ).rejects.toThrow(/holds another profile, "Theirs"/)
+    expect(readJson(files, 'klunk/profiles/other.json')).toEqual(theirs)
+  })
+})
+
+describe('profilePath', () => {
+  it('puts a profile read from nowhere in profiles/ at the root', () => {
+    expect(profilePath('ct')).toBe('profiles/ct.json')
+  })
+
+  it('keeps a renamed profile beside the file it was read from', () => {
+    expect(profilePath('ct-2', 'klunk/profiles/ct.json')).toBe('klunk/profiles/ct-2.json')
+  })
+
+  it('keeps a profile read from the folder root at the root', () => {
+    expect(profilePath('ct', 'ct.json')).toBe('ct.json')
   })
 })
 
