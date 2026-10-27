@@ -34,7 +34,7 @@
  */
 
 import type { Check } from './paper'
-import { parseRef, sameLines, STIMULUS_ALIGNS } from './types'
+import { hasSample, parseRef, sameLines, STIMULUS_ALIGNS } from './types'
 import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
 import type {
   IdentificationField,
@@ -162,6 +162,10 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   ;(question.config?.parts ?? []).forEach((p, i) => {
     validateStimulus(p.stimulus, `Part ${p.label.trim() || i + 1}, stimulus`, err, warn)
   })
+  validateSample(question.markingGuide?.sampleStimulus, 'Model answer', err, warn)
+  ;(question.config?.parts ?? []).forEach((p, i) => {
+    validateSample(p.sampleStimulus, `Part ${p.label.trim() || i + 1}, model answer`, err, warn)
+  })
 
   /* ---------------------------------------------------------- marking guide */
 
@@ -264,6 +268,29 @@ function validateStimulus(
     // reads as Klunk not honouring the field at all.
     if (s.align !== undefined && !STIMULUS_ALIGNS.includes(s.align)) {
       err(`"${String(s.align)}" is not left, centre or right.`, where)
+    }
+  })
+}
+
+/**
+ * A model answer on the guide, on the stimulus rules, with text refused.
+ *
+ * A text entry would print as a block quote, which means "a source the question
+ * quotes" and nothing in a marking guide; its words belong in the sample answer.
+ */
+function validateSample(
+  items: Stimulus[] | undefined,
+  prefix: string,
+  err: Report,
+  warn: Report,
+): void {
+  validateStimulus(items, prefix, err, warn)
+  items?.forEach((s, i) => {
+    if (s.kind === 'text') {
+      err(
+        'Put words in the sample answer. A model answer here is a picture or code.',
+        `${prefix} ${i + 1}`,
+      )
     }
   })
 }
@@ -561,17 +588,12 @@ export function needsGuide(type: QuestionType): boolean {
 
 export function hasGuide(question: Question): boolean {
   const g = question.markingGuide
-  if (
-    g?.sampleAnswer?.trim() ||
-    g?.notes?.trim() ||
-    g?.criteria?.length ||
-    g?.answersCouldInclude?.length
-  ) {
+  if (hasSample(g) || g?.notes?.trim() || g?.criteria?.length || g?.answersCouldInclude?.length) {
     return true
   }
   // A question split into parts carries its sample answers and criteria on the
   // parts, and then has no `markingGuide` of its own at all.
-  return (question.config?.parts ?? []).some((p) => p.sampleAnswer?.trim() || p.criteria?.length)
+  return (question.config?.parts ?? []).some((p) => hasSample(p) || p.criteria?.length)
 }
 
 /* ------------------------------------------------------------------ unfinished */
@@ -1277,6 +1299,7 @@ export function cleanQuestion(draft: Question): Question {
 
   const guide = compact({
     sampleAnswer: text(draft.markingGuide?.sampleAnswer),
+    sampleStimulus: cleanStimuli(draft.markingGuide?.sampleStimulus),
     criteria: cleanCriteria(draft.markingGuide?.criteria),
     answersCouldInclude: list(draft.markingGuide?.answersCouldInclude),
     notes: text(draft.markingGuide?.notes),
@@ -1483,6 +1506,8 @@ function cleanPart(p: QuestionPart): QuestionPart {
   if (criteria) out.criteria = criteria
   const stimulus = cleanStimuli(p.stimulus)
   if (stimulus) out.stimulus = stimulus
+  const model = cleanStimuli(p.sampleStimulus)
+  if (model) out.sampleStimulus = model
   return out
 }
 

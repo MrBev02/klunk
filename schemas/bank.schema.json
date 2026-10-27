@@ -95,6 +95,11 @@
           "additionalProperties": false,
           "properties": {
             "sampleAnswer": { "type": "string" },
+            "sampleStimulus": {
+              "type": "array",
+              "description": "A model answer words cannot carry: a flowchart or wireframe as an image, or a program whose indentation is its meaning as code. Printed on the marking guide only, after sampleAnswer. Image and code only; words belong in sampleAnswer.",
+              "items": { "$ref": "#/$defs/sampleStimulus" }
+            },
             "criteria": {
               "type": "array",
               "description": "Mark-by-mark or band criteria for the question as a whole. A question split into parts carries its criteria on the parts instead.",
@@ -264,6 +269,14 @@
       }
     },
 
+    "sampleStimulus": {
+      "description": "A stimulus held as a model answer: image or code, never text.",
+      "allOf": [
+        { "$ref": "#/$defs/stimulus" },
+        { "properties": { "kind": { "enum": ["image", "code"] } } }
+      ]
+    },
+
     "multipleChoiceConfig": {
       "type": "object",
       "required": ["choices"],
@@ -415,6 +428,11 @@
               "marks": { "type": "number", "exclusiveMinimum": 0 },
               "answerLines": { "type": "integer", "minimum": 0 },
               "sampleAnswer": { "type": "string" },
+              "sampleStimulus": {
+                "type": "array",
+                "description": "This part's model drawing or program, printed on the marking guide only. See markingGuide.sampleStimulus.",
+                "items": { "$ref": "#/$defs/sampleStimulus" }
+              },
               "criteria": {
                 "type": "array",
                 "description": "A NESA marking guide marks part by part, under its own 'Question 11 (a)' heading. Flattening those into the question's own criteria loses which part each one belongs to, and then the printed guide puts them in the wrong place.",

@@ -1777,3 +1777,77 @@ describe('the profiles Klunk ships', () => {
     }
   })
 })
+
+describe('a model answer on the guide (#141, #142)', () => {
+  const flowchart: Stimulus = { kind: 'image', file: 'stimulus/flowchart.png', alt: 'A flowchart' }
+
+  it('counts a model drawing as a guide, so a drawing question is not flagged', () => {
+    const q = question({
+      questionType: 'drawing',
+      marks: 4,
+      markingGuide: { sampleStimulus: [flowchart] },
+    })
+    expect(hasGuide(q)).toBe(true)
+    expect(warnings(q).join(' ')).not.toContain('No sample answer')
+  })
+
+  it("counts a part's model program as a guide", () => {
+    const q = question({
+      marks: 2,
+      config: {
+        parts: [
+          {
+            label: '(a)',
+            text: 'Fix it.',
+            marks: 2,
+            sampleStimulus: [{ kind: 'code', text: 'x = 1' }],
+          },
+        ],
+      },
+    })
+    expect(hasGuide(q)).toBe(true)
+  })
+
+  it('refuses words held as a model answer', () => {
+    const q = question({ markingGuide: { sampleStimulus: [{ kind: 'text', text: 'Words.' }] } })
+    expect(errors(q).join(' ')).toContain('Put words in the sample answer')
+  })
+
+  it('checks a model drawing on the stimulus rules', () => {
+    const q = question({ markingGuide: { sampleStimulus: [{ kind: 'image', file: 'a.png' }] } })
+    expect(warnings(q).join(' ')).toContain('Model answer 1')
+  })
+
+  // Every save from the editor goes through `cleanQuestion`, and it copies the
+  // guide field by field, so a field it does not name is lost on save.
+  it('is kept by cleanQuestion, indentation and all', () => {
+    const cleaned = cleanQuestion(
+      question({
+        markingGuide: {
+          sampleAnswer: 'An elif before the else.',
+          sampleStimulus: [
+            flowchart,
+            { kind: 'code', text: '\n    elif gap < 500:\n        slow()\n' },
+          ],
+        },
+        config: {
+          parts: [
+            {
+              label: '(a)',
+              text: 'Draw it.',
+              marks: 4,
+              sampleStimulus: [{ kind: 'code', text: '  x = 1', lineNumbers: false }],
+            },
+          ],
+        },
+      }),
+    )
+    expect(cleaned.markingGuide?.sampleStimulus).toEqual([
+      flowchart,
+      { kind: 'code', text: '    elif gap < 500:\n        slow()' },
+    ])
+    expect(cleaned.config?.parts?.[0]?.sampleStimulus).toEqual([
+      { kind: 'code', text: '  x = 1', lineNumbers: false },
+    ])
+  })
+})

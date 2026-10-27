@@ -275,3 +275,30 @@ describe('a reply that is not a marking guide', () => {
     expect(out.rejected).toHaveLength(1)
   })
 })
+
+describe('a model program (#141)', () => {
+  it('keeps its indentation, and counts as saying something on its own', () => {
+    const out = readMarking(
+      JSON.stringify([
+        {
+          number: 22,
+          sampleStimulus: [{ kind: 'code', text: '\n    print(count)\n    count = count + 1' }],
+        },
+      ]),
+      NONE,
+    )
+    expect(out.rejected).toEqual([])
+    expect(out.entries[0]?.sampleStimulus).toEqual([
+      { kind: 'code', text: '    print(count)\n    count = count + 1' },
+    ])
+  })
+
+  it('drops a picture, and says so under its question', () => {
+    const out = readMarking(
+      '[{"number": 3, "sampleAnswer": "A", "sampleStimulus": [{"kind": "image", "file": "x.png"}]}]',
+      NONE,
+    )
+    expect(out.entries[0]?.sampleStimulus).toBeUndefined()
+    expect(out.notes.join(' ')).toContain('Question 3: Dropped a model drawing')
+  })
+})

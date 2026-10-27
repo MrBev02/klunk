@@ -831,3 +831,68 @@ describe('reading back a paper somebody transcribed', () => {
     for (const draft of out.drafts) expect(draft.repairs.join(' ')).not.toContain('section')
   })
 })
+
+describe('a model answer in a reply (#141, #142)', () => {
+  it('keeps a model program with the indentation of its first line', () => {
+    const { draft } = first(
+      answer({
+        markingGuide: {
+          sampleAnswer: 'An elif between the two branches.',
+          sampleStimulus: [{ kind: 'code', text: '\n    elif gap < 500:\n        slow()\n' }],
+        },
+      }),
+    )
+    expect(draft.question.markingGuide).toMatchObject({
+      sampleAnswer: 'An elif between the two branches.',
+      sampleStimulus: [{ kind: 'code', text: '    elif gap < 500:\n        slow()' }],
+    })
+  })
+
+  it("keeps a part's model program", () => {
+    const { draft } = first(
+      answer({
+        config: {
+          parts: [
+            {
+              label: '(a)',
+              text: 'Rewrite it with a loop.',
+              marks: 3,
+              sampleStimulus: [
+                { kind: 'code', text: 'WHILE open\n    count()', lineNumbers: false },
+              ],
+            },
+          ],
+        },
+      }),
+    )
+    expect(draft.question.config?.parts?.[0]?.sampleStimulus).toEqual([
+      { kind: 'code', text: 'WHILE open\n    count()', lineNumbers: false },
+    ])
+  })
+
+  it('drops a model drawing it names, and says where to attach one', () => {
+    const { draft } = first(
+      answer({
+        markingGuide: {
+          sampleAnswer: 'Start, then a decision.',
+          sampleStimulus: [{ kind: 'image', file: 'flowchart.png' }],
+        },
+      }),
+    )
+    expect(draft.question.markingGuide?.sampleStimulus).toBeUndefined()
+    expect(draft.repairs.join(' ')).toContain('Dropped a model drawing')
+  })
+
+  it('moves words sent as a model answer into the sample answer', () => {
+    const { draft } = first(
+      answer({
+        markingGuide: {
+          sampleAnswer: 'First.',
+          sampleStimulus: [{ kind: 'text', text: 'Second.' }],
+        },
+      }),
+    )
+    expect(draft.question.markingGuide?.sampleAnswer).toBe('First.\n\nSecond.')
+    expect(draft.question.markingGuide?.sampleStimulus).toBeUndefined()
+  })
+})

@@ -17,6 +17,7 @@ import {
   outcomesFor,
   pickExample,
   plain,
+  promptFields,
   type PromptSpec,
 } from './prompt'
 import { ingestQuestions } from './ingest'
@@ -623,5 +624,33 @@ describe('every built-in example is a question Klunk takes', () => {
     const text = buildPrompt(spec({ questionType: 'table', marks: 3 }))
     expect(text).toContain('Never write the')
     expect(text).toContain('every column heading, in the order printed')
+  })
+})
+
+describe('a model answer (#141, #142)', () => {
+  it('is asked for as code on a written question, and never as a picture', () => {
+    const text = buildPrompt(spec({ questionType: 'short_answer', marks: 3 }))
+    expect(text).toContain('"sampleStimulus"')
+    expect(text).toContain('Never a picture')
+  })
+
+  // A question shown to a model as an example carries its model program, and
+  // not a drawing the model cannot see.
+  it('shows a model its program and leaves out its drawing', () => {
+    const fields = promptFields({
+      id: 'bank-sa-1',
+      questionType: 'short_answer',
+      questionText: 'Correct the loop.',
+      marks: 2,
+      markingGuide: {
+        sampleStimulus: [
+          { kind: 'image', file: 'stimulus/flowchart.png' },
+          { kind: 'code', text: '    count += 1', lineNumbers: false },
+        ],
+      },
+    })
+    expect(fields['markingGuide']).toEqual({
+      sampleStimulus: [{ kind: 'code', text: '    count += 1', lineNumbers: false }],
+    })
   })
 })

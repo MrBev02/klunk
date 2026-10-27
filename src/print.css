@@ -730,6 +730,12 @@
   margin: 0 0 2mm;
 }
 
+/* A model drawing or program follows the sample answer's words, and stands on
+   its own where there are none. */
+.guide__model {
+  margin: 2mm 0;
+}
+
 .guide__notes {
   margin: 2mm 0 0;
   font-style: italic;

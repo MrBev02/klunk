@@ -430,3 +430,35 @@ describe('what actually landed', () => {
     expect(twice.adopted[0]!.question.tags).toEqual([AI_MARKED_TAG])
   })
 })
+
+describe('a model program from a guide (#141)', () => {
+  const program = { kind: 'code' as const, text: 'while count <= 10:\n    count += 1' }
+
+  it('lands on the question and on its part', () => {
+    const whole: Question = {
+      id: 'bank-sa-9',
+      questionType: 'short_answer',
+      questionText: 'Correct the loop.',
+      marks: 2,
+      source: { questionNumber: '22' },
+    }
+    const parted: Question = {
+      id: 'bank-sa-10',
+      questionType: 'short_answer',
+      questionText: 'The program below.',
+      marks: 2,
+      source: { questionNumber: '23' },
+      config: { parts: [{ label: '(a)', text: 'Correct it.', marks: 2 }] },
+    }
+    const out = applyMarking(
+      [adopted(whole), adopted(parted)],
+      marking([
+        { number: 22, sampleStimulus: [program] },
+        { number: 23, part: 'a', sampleStimulus: [program] },
+      ]),
+      CTX,
+    )
+    expect(out.adopted[0]!.question.markingGuide?.sampleStimulus).toEqual([program])
+    expect(out.adopted[1]!.question.config?.parts?.[0]?.sampleStimulus).toEqual([program])
+  })
+})

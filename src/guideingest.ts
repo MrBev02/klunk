@@ -21,7 +21,15 @@
  * somewhere it cannot be checked.
  */
 
-import { asArray, asNumber, asString, extractJson, readCriteria, strings } from './ingest'
+import {
+  asArray,
+  asNumber,
+  asString,
+  extractJson,
+  readCriteria,
+  readSampleStimulus,
+  strings,
+} from './ingest'
 import type { Marking, MarkingEntry } from './marking'
 
 export interface MarkingContext {
@@ -44,6 +52,7 @@ const KNOWN_FIELDS = new Set([
   'links',
   'criteria',
   'sampleAnswer',
+  'sampleStimulus',
   'answersCouldInclude',
   'outcomes',
   'unreadable',
@@ -195,8 +204,13 @@ function readEntry(
   const criteria = readCriteria(src.criteria ?? src.bands, notes)
   if (criteria.length > 0) entry.criteria = criteria
 
-  const sample = asString(src.sampleAnswer)
-  if (sample !== undefined) entry.sampleAnswer = sample
+  // Its repairs are said once for the reply, under the question they came from.
+  const sampleRepairs: string[] = []
+  Object.assign(
+    entry,
+    readSampleStimulus(src.sampleStimulus, asString(src.sampleAnswer), sampleRepairs),
+  )
+  for (const r of sampleRepairs) notes.push(`Question ${number}: ${r}`)
 
   const could = strings(src.answersCouldInclude)
   if (could.length > 0) entry.answersCouldInclude = could
@@ -242,6 +256,7 @@ function saysSomething(entry: MarkingEntry): boolean {
     entry.trueFalse !== undefined ||
     entry.criteria !== undefined ||
     entry.sampleAnswer !== undefined ||
+    entry.sampleStimulus !== undefined ||
     entry.answersCouldInclude !== undefined ||
     entry.outcomes !== undefined ||
     entry.unreadable !== undefined
