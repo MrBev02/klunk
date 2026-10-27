@@ -2238,12 +2238,6 @@ code,
   border-bottom: none;
 }
 
-/* The expanded answer area is its own zone, so it reads as belonging to the
-   question above rather than floating between two of them. */
-.qrow--open {
-  background: var(--soft);
-}
-
 .qrow--open .qrow__head {
   background: var(--blue-soft);
 }
