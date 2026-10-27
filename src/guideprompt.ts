@@ -247,6 +247,11 @@ function shape(spec: GuidePromptSpec): string {
     '  criteria        [ { "marks": 2, "description": "..." } ], one entry per',
     '                  row of the criteria table. Add "marksTo" for a band.',
     '  sampleAnswer    the sample or suggested answer, printed as one block',
+    '  sampleStimulus  a sample answer that is a program, as',
+    '                  [ { "kind": "code", "text": "..." } ], every space of its',
+    '                  indentation kept and \\n between lines. Add',
+    '                  "lineNumbers": false where the guide prints no numbers.',
+    '                  Never a picture: describe a drawn answer in sampleAnswer.',
     '  answersCouldInclude   the "Answers could include" list, one point per entry',
     '  outcomes        the syllabus outcome codes, where the guide gives them',
     '  unreadable      what you could not read in this entry (optional)',
@@ -269,12 +274,13 @@ function shape(spec: GuidePromptSpec): string {
 /* ------------------------------------------------------------- the example */
 
 /**
- * Four entries showing the shape, invented for the purpose.
+ * Five entries showing the shape, invented for the purpose.
  *
  * The awkward parts are demonstrated rather than asserted, which is the lesson
  * `prompt.ts` wrote down and `paperprompt.ts` learned the hard way: a band
  * carrying `marksTo`, a part keyed by `number` and `part` together, a matching
- * question answered by links, and an entry with criteria and no answer at all.
+ * question answered by links, an entry with criteria and no answer at all, and
+ * a program whose indentation is the answer (#141), wrong if it is flattened.
  */
 const EXAMPLE = `[
   {
@@ -297,6 +303,13 @@ const EXAMPLE = `[
       { "marks": 1, "description": "Identifies one cost." }
     ],
     "sampleAnswer": "Tooling is paid once and spread over the run, so unit cost falls as volume rises."
+  },
+  {
+    "number": 22,
+    "sampleAnswer": "The loop body must be indented under the while, or it never repeats.",
+    "sampleStimulus": [
+      { "kind": "code", "text": "count = 1\\nwhile count <= 10:\\n    print(count)\\n    count = count + 1", "lineNumbers": false }
+    ]
   },
   {
     "number": 25,

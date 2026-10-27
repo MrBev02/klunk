@@ -20,10 +20,12 @@
  */
 
 import { AI_TAG } from './ingest'
+import { hasSample } from './types'
 import type {
   Profile,
   Question,
   QuestionType,
+  Stimulus,
   Syllabus,
   SyllabusCourse,
   SyllabusTopic,
@@ -464,6 +466,10 @@ function guideFields(type: QuestionType): string[] {
     '                 A criterion covering a range of marks carries "marksTo" as',
     '                 well, so a band of 13 to 15 is { "marks": 13, "marksTo": 15,',
     '                 "description": "..." }.',
+    '                 Where the model answer is a program, add "sampleStimulus":',
+    '                 [ { "kind": "code", "text": "..." } ] beside "sampleAnswer",',
+    '                 indentation kept as for a code stimulus. A part takes it the',
+    '                 same way. Never a picture: describe a drawing in words.',
   ]
 }
 
@@ -752,21 +758,13 @@ export function promptFields(question: Question): Record<string, unknown> {
   if (question.outcomes?.length) out.outcomes = question.outcomes
   if (question.tags?.length) out.tags = question.tags
 
-  const stimulus = (question.stimulus ?? []).filter((s) => s.kind !== 'image' && s.text)
-  if (stimulus.length > 0) {
-    out.stimulus = stimulus.map((s) =>
-      compactly({
-        kind: s.kind,
-        text: s.text,
-        lineNumbers: s.lineNumbers === false ? false : undefined,
-        caption: s.caption,
-      }),
-    )
-  }
+  const stimulus = forModel(question.stimulus)
+  if (stimulus) out.stimulus = stimulus
 
   if (question.markingGuide) {
     const guide = compactly({
       sampleAnswer: question.markingGuide.sampleAnswer,
+      sampleStimulus: forModel(question.markingGuide.sampleStimulus),
       criteria: question.markingGuide.criteria?.length ? question.markingGuide.criteria : undefined,
       answersCouldInclude: question.markingGuide.answersCouldInclude?.length
         ? question.markingGuide.answersCouldInclude
@@ -827,6 +825,20 @@ function flatten(value: unknown): string {
 }
 
 /** The keys that hold something, in the order they were given. */
+/** Stimulus a model can read, which is everything but a picture it cannot see. */
+function forModel(items: Stimulus[] | undefined): Record<string, unknown>[] | undefined {
+  const readable = (items ?? []).filter((s) => s.kind !== 'image' && s.text)
+  if (readable.length === 0) return undefined
+  return readable.map((s) =>
+    compactly({
+      kind: s.kind,
+      text: s.text,
+      lineNumbers: s.lineNumbers === false ? false : undefined,
+      caption: s.caption,
+    }),
+  )
+}
+
 function compactly(fields: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(fields)) {
@@ -896,7 +908,7 @@ function needsGuide(type: QuestionType): boolean {
 function hasGuide(q: Question): boolean {
   const guide = q.markingGuide
   if (!guide) return false
-  return Boolean(guide.sampleAnswer || guide.criteria?.length || guide.answersCouldInclude?.length)
+  return Boolean(hasSample(guide) || guide.criteria?.length || guide.answersCouldInclude?.length)
 }
 
 /**

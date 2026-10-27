@@ -156,8 +156,9 @@ be edited or searched.
   table decision above.** A reply arrives inside a ```json fence, and
   `extractJson` stops at the first triple backtick, so a fence inside a string
   cuts the reply in half. `blocksOf` trims every line, and line numbers need a
-  field to switch off. The cost: a marking guide cannot print a corrected
-  multi-line program. Revisit only when a real guide needs one.
+  field to switch off. The cost was that a marking guide could not print a
+  corrected multi-line program, until a real guide needed one: see "A model
+  answer is a stimulus on the guide" below.
 - **No `language` field.** It would change nothing on a black-and-white paper
   and would ask a validator which languages are allowed.
 - **Numbered by default, and only `false` is written,** the rule `align`
@@ -218,6 +219,50 @@ warning on line 7, saved with every space intact and no `lineNumbers` field,
 printed the same on the student paper and the guide; unticking the box saved
 `false` and the blank row kept its height; and a drafted reply carrying code
 arrived with the first line's indentation whole.
+
+## A model answer is a stimulus on the guide
+
+**`sampleStimulus` sits beside `sampleAnswer`, on `markingGuide` and on each
+part** (#142, #141). It is a list of stimulus entries printed on the guide only,
+after the sample answer's words, by the paper's own `StimulusBlock`. A Year 9
+Computing Technology class peer-marking a practice paper needed a model
+flowchart and wireframe for four drawing questions, and three guides needed a
+corrected program whose indentation is its meaning.
+
+- **One field for both issues, rather than `sampleAnswerImage`.** A single
+  image path holds no code, so #141 would have needed a third field, and the
+  stimulus list already had its renderer, its validation, its file copy and
+  its image loading.
+- **The same name on the guide and on a part.** A part's `stimulus` is the
+  paper's, so the name had to differ there; differing in both places at once
+  keeps one thing to search for.
+- **Image and code only.** A text entry prints as a block quote, which means "a
+  source the question quotes" and nothing in a guide. The validator refuses
+  one, and a reply carrying one has its words appended to `sampleAnswer`.
+- **A reply cannot carry a model drawing, only a model program.** `readStimulus`
+  drops every image a model names, because Klunk cannot fetch it, so a model
+  drawing arrives through the editor. The issue's first "done when" asked for a
+  reply carrying an image to survive ingest; that cannot hold and was corrected
+  on the issue.
+- **`hasSample` is the one answer to "is there a sample"**. Four places asked
+  it separately and each counted only `sampleAnswer`: the guide's "No sample
+  answer recorded" note, `hasGuide`, the detail view and the prompt's count of
+  unguided questions.
+- **Six places copy a guide or a part field by field**, and each would have
+  dropped the new field without a word: `cleanQuestion` and `cleanPart` (every
+  editor save), `readGuide` and `readWritten` in `ingest.ts`, `guideingest.ts`,
+  and `adopt.ts`. Each has a test that sends the field in and checks it comes
+  out, which is #64's lesson.
+- **`everyStimulus` includes it,** or `scanFolder` never loads the file and the
+  guide prints a grey "Missing image" box over a file that is in the folder.
+- **In the editor it is one list with an owner,** as a part's picture is: an
+  entry carries `guide: true` beside `at`, so the save copies a model drawing by
+  the same route as any picture. Its rows render in the Marking guide panel,
+  where a teacher looking for the sample answer already is, not in the Stimulus
+  panel.
+- **The guide prompt's example carries a program wrong if flattened,** question
+  22, and its test runs the example through the real `readMarking`. The draft
+  prompt asks for `sampleStimulus` as code and names it "Never a picture".
 
 ## Question types, and why the enum is closed
 

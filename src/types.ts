@@ -349,6 +349,8 @@ export interface QuestionPart {
    * dangle, and a part deleted would leave one behind.
    */
   stimulus?: Stimulus[]
+  /** The model drawing or program for this part's guide. See `markingGuide.sampleStimulus`. */
+  sampleStimulus?: Stimulus[]
 }
 
 /** Every wording a marker should accept in one cell of a table. */
@@ -429,6 +431,13 @@ export interface Question {
   stimulus?: Stimulus[]
   markingGuide?: {
     sampleAnswer?: string
+    /**
+     * A model answer that words cannot carry: a flowchart, a wireframe, a
+     * program whose indentation is its meaning (#141, #142). Printed on the
+     * guide only, after `sampleAnswer`, by the same renderer as the paper's
+     * stimulus. Image and code only: words belong in `sampleAnswer`.
+     */
+    sampleStimulus?: Stimulus[]
     criteria?: MarkCriterion[]
     /**
      * What a marker should accept, one point per entry.
@@ -614,7 +623,8 @@ export function questionHaystack(q: Question): string {
 }
 
 /**
- * Every stimulus a question carries, its parts' included.
+ * Every stimulus a question carries, its parts' included, and the model drawings
+ * on its marking guide, whose files have to be loaded just the same.
  *
  * One place knows that a picture can hang off a part, so the next thing that has
  * to find them all cannot quietly miss half. That is not hypothetical: an image
@@ -624,7 +634,17 @@ export function questionHaystack(q: Question): string {
  * flattens.
  */
 export function everyStimulus(q: Question): Stimulus[] {
-  return [...(q.stimulus ?? []), ...(q.config?.parts ?? []).flatMap((p) => p.stimulus ?? [])]
+  return stimulusList(q).map((s) => s.item)
+}
+
+/**
+ * Whether a guide, or one part of one, holds a model answer of any kind.
+ *
+ * Four places asked this separately and each counted only the text, so a guide
+ * carrying a drawn model answer still said "No sample answer recorded" (#142).
+ */
+export function hasSample(g?: { sampleAnswer?: string; sampleStimulus?: Stimulus[] }): boolean {
+  return Boolean(g?.sampleAnswer?.trim() || g?.sampleStimulus?.length)
 }
 
 /**
@@ -640,11 +660,31 @@ export function stimulusOwner(at: number | null, parts: number): number | null {
   return at !== null && at >= 0 && at < parts ? at : null
 }
 
+/**
+ * Where one stimulus prints: the question or a part, on the paper or, with
+ * `guide`, as that one's model answer on the marking guide only.
+ *
+ * `guide` is a flag beside `at` rather than a third kind of owner, so a model
+ * drawing is moved between the question and a part by the same select as any
+ * other picture, and the save path copies its file without knowing the
+ * difference.
+ */
+export interface PlacedStimulus {
+  item: Stimulus
+  at: number | null
+  guide?: boolean
+}
+
 /** One entry per stimulus, each saying what it hangs off. `placeStimulus` undoes it. */
-export function stimulusList(q: Question): { item: Stimulus; at: number | null }[] {
+export function stimulusList(q: Question): PlacedStimulus[] {
+  const parts = q.config?.parts ?? []
   return [
     ...(q.stimulus ?? []).map((item) => ({ item, at: null })),
-    ...(q.config?.parts ?? []).flatMap((p, at) => (p.stimulus ?? []).map((item) => ({ item, at }))),
+    ...parts.flatMap((p, at) => (p.stimulus ?? []).map((item) => ({ item, at }))),
+    ...(q.markingGuide?.sampleStimulus ?? []).map((item) => ({ item, at: null, guide: true })),
+    ...parts.flatMap((p, at) =>
+      (p.sampleStimulus ?? []).map((item) => ({ item, at, guide: true })),
+    ),
   ]
 }
 
@@ -656,23 +696,36 @@ export function stimulusList(q: Question): { item: Stimulus; at: number | null }
  * in the file. A part is rewritten either way, since a picture moved *off* a part
  * has to come off it as well as land somewhere else.
  */
-export function placeStimulus(
-  question: Question,
-  items: { item: Stimulus; at: number | null }[],
-): Question {
+export function placeStimulus(question: Question, items: PlacedStimulus[]): Question {
   const parts = question.config?.parts ?? []
+  const of = (owner: number | null, guide: boolean) =>
+    items
+      .filter((s) => Boolean(s.guide) === guide && stimulusOwner(s.at, parts.length) === owner)
+      .map((s) => s.item)
   const out = { ...question }
-  const own = items.filter((s) => stimulusOwner(s.at, parts.length) === null).map((s) => s.item)
+  const own = of(null, false)
   if (own.length > 0) out.stimulus = own
   else delete out.stimulus
+
+  const model = of(null, true)
+  const guide = { ...(out.markingGuide ?? {}) }
+  if (model.length > 0) guide.sampleStimulus = model
+  else delete guide.sampleStimulus
+  // No empty guide left behind by a model drawing taken off it.
+  if (Object.keys(guide).length > 0) out.markingGuide = guide
+  else delete out.markingGuide
+
   if (parts.length === 0) return out
   out.config = {
     ...(out.config ?? {}),
     parts: parts.map((part, i) => {
-      const mine = items.filter((s) => stimulusOwner(s.at, parts.length) === i).map((s) => s.item)
       const next: QuestionPart = { ...part }
+      const mine = of(i, false)
       if (mine.length > 0) next.stimulus = mine
       else delete next.stimulus
+      const sample = of(i, true)
+      if (sample.length > 0) next.sampleStimulus = sample
+      else delete next.sampleStimulus
       return next
     }),
   }

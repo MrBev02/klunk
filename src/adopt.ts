@@ -466,6 +466,8 @@ function withGuide(question: Question, entry: MarkingEntry): Question {
   const guide = { ...(question.markingGuide ?? {}) }
   if (entry.criteria?.length) guide.criteria = entry.criteria.map((c) => ({ ...c }))
   if (entry.sampleAnswer) guide.sampleAnswer = entry.sampleAnswer
+  if (entry.sampleStimulus?.length)
+    guide.sampleStimulus = entry.sampleStimulus.map((s) => ({ ...s }))
   if (entry.answersCouldInclude?.length) guide.answersCouldInclude = [...entry.answersCouldInclude]
   return Object.keys(guide).length > 0 ? { ...question, markingGuide: guide } : question
 }
@@ -495,6 +497,8 @@ function withParts(question: Question, entries: MarkingEntry[], notes: string[])
     const out: QuestionPart = { ...part }
     if (entry.criteria?.length) out.criteria = entry.criteria.map((c) => ({ ...c }))
     if (entry.sampleAnswer) out.sampleAnswer = entry.sampleAnswer
+    if (entry.sampleStimulus?.length)
+      out.sampleStimulus = entry.sampleStimulus.map((s) => ({ ...s }))
     return out
   })
 

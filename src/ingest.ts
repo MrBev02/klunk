@@ -608,7 +608,11 @@ function readTags(value: unknown, ctx: IngestContext): string[] {
 
 /* --------------------------------------------------------------------- extras */
 
-function readStimulus(value: unknown, repairs: string[]): Stimulus[] {
+function readStimulus(
+  value: unknown,
+  repairs: string[],
+  noun: [string, string] = ['an image stimulus', 'image stimulus entries'],
+): Stimulus[] {
   const out: Stimulus[] = []
   let images = 0
 
@@ -648,20 +652,50 @@ function readStimulus(value: unknown, repairs: string[]): Stimulus[] {
 
   if (images > 0) {
     repairs.push(
-      `Dropped ${images === 1 ? 'an image stimulus' : `${images} image stimulus entries`}. ` +
+      `Dropped ${images === 1 ? noun[0] : `${images} ${noun[1]}`}. ` +
         'Klunk cannot fetch a picture a model names; attach one in the editor instead.',
     )
   }
   return out
 }
 
+/**
+ * A model answer's code out of a reply, with the words in it moved to where words go.
+ *
+ * Shared with `guideingest.ts`, so a drafted question, a transcription and a
+ * marking guide read back the same field the same way. Code survives with its
+ * indentation (#141). An image is dropped with `readStimulus`'s note, since a
+ * model can describe a flowchart and cannot hand one over: a model drawing
+ * arrives through the editor (#142). A text entry is a sample answer written in
+ * the wrong field, so it is appended to `sampleAnswer` rather than lost.
+ */
+export function readSampleStimulus(
+  value: unknown,
+  sample: string | undefined,
+  repairs: string[],
+): { sampleAnswer?: string; sampleStimulus?: Stimulus[] } {
+  const items = readStimulus(value, repairs, ['a model drawing', 'model drawings'])
+  const words = items.filter((s) => s.kind === 'text').map((s) => s.text ?? '')
+  const kept = items.filter((s) => s.kind !== 'text')
+  if (words.length > 0) {
+    repairs.push('Moved words from the model answer into the sample answer.')
+  }
+  const joined = [sample, ...words].filter(Boolean).join('\n\n')
+  return {
+    ...(joined ? { sampleAnswer: joined } : {}),
+    ...(kept.length > 0 ? { sampleStimulus: kept } : {}),
+  }
+}
+
 function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
   const g = value as Record<string, unknown>
 
-  const out: NonNullable<Question['markingGuide']> = {}
-  const sample = asString(g.sampleAnswer) ?? asString(g.answer) ?? asString(g.modelAnswer)
-  if (sample) out.sampleAnswer = sample
+  const out: NonNullable<Question['markingGuide']> = readSampleStimulus(
+    g.sampleStimulus,
+    asString(g.sampleAnswer) ?? asString(g.answer) ?? asString(g.modelAnswer),
+    repairs,
+  )
 
   const criteria = readCriteria(g.criteria ?? g.bands, repairs)
   if (criteria.length > 0) out.criteria = criteria
@@ -1142,8 +1176,10 @@ function readWritten(cfg: Record<string, unknown>, repairs: string[]): QuestionC
     const part: QuestionPart = { label, text, marks: asNumber(p.marks) ?? 0 }
     const partLines = asNumber(p.answerLines)
     if (partLines !== undefined && partLines >= 0) part.answerLines = Math.round(partLines)
-    const sample = asString(p.sampleAnswer) ?? asString(p.answer)
-    if (sample) part.sampleAnswer = sample
+    Object.assign(
+      part,
+      readSampleStimulus(p.sampleStimulus, asString(p.sampleAnswer) ?? asString(p.answer), repairs),
+    )
     // Read rather than dropped without a word, which is what happened before
     // #136: a paper printing code inside part (b) alone lost it.
     const stimulus = readStimulus(p.stimulus, repairs)

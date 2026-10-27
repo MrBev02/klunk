@@ -27,6 +27,7 @@ import type { Stimulus } from './types'
 import {
   QUESTION_TYPE_LABELS,
   alignOf,
+  hasSample,
   questionLabel,
   type Question,
   type QuestionRef,
@@ -171,7 +172,7 @@ export function QuestionDetail({
       ) : null}
 
       <Body question={q} bankFile={bankFile} images={images} />
-      <Guide question={q} />
+      <Guide question={q} bankFile={bankFile} images={images} />
       <Tags question={q} known={known} />
     </>
   )
@@ -483,6 +484,11 @@ function Body({
                     <Inline text={p.sampleAnswer} />
                   </p>
                 )}
+                {p.sampleStimulus?.length ? (
+                  <div class="parts-list__stim">
+                    <StimulusItems items={p.sampleStimulus} bankFile={bankFile} images={images} />
+                  </div>
+                ) : null}
                 {p.criteria?.length ? (
                   <table class="crit crit--part">
                     <tbody>
@@ -523,12 +529,17 @@ function imageUrl(
   return images.get(joinPath(bankFile, s.file))
 }
 
-function Guide({ question: q }: { question: Question }) {
+function Guide({
+  question: q,
+  bankFile,
+  images,
+}: {
+  question: Question
+  bankFile: string | undefined
+  images: Map<string, string> | undefined
+}) {
   const g = q.markingGuide
-  if (
-    !g ||
-    (!g.criteria?.length && !g.sampleAnswer && !g.answersCouldInclude?.length && !g.notes)
-  ) {
+  if (!g || (!g.criteria?.length && !hasSample(g) && !g.answersCouldInclude?.length && !g.notes)) {
     // A question marked part by part keeps everything on its parts, which the
     // parts list has already shown. Asking for criteria directly underneath a
     // table of them is the kind of nagging that teaches a teacher to ignore
@@ -555,18 +566,23 @@ function Guide({ question: q }: { question: Question }) {
       {/* Sample answer before the criteria, matching the printed guide. A table
           of marks says how to score a response; it does not say what a response
           worth those marks looks like. */}
-      {g.sampleAnswer && (
+      {hasSample(g) && (
         <>
           <p class="det__label">Sample answer</p>
-          <p class="sample">
-            <Inline text={g.sampleAnswer} />
-          </p>
+          {g.sampleAnswer && (
+            <p class="sample">
+              <Inline text={g.sampleAnswer} />
+            </p>
+          )}
+          {g.sampleStimulus?.length ? (
+            <StimulusItems items={g.sampleStimulus} bankFile={bankFile} images={images} />
+          ) : null}
         </>
       )}
 
       {g.criteria?.length ? (
         <>
-          <p class="det__label" style={{ marginTop: g.sampleAnswer ? '0.7rem' : '0' }}>
+          <p class="det__label" style={{ marginTop: hasSample(g) ? '0.7rem' : '0' }}>
             Marking criteria
           </p>
           <table class="crit">

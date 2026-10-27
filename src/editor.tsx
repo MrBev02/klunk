@@ -92,6 +92,8 @@ interface StimulusDraft {
    * points past it, which `removePart` does.
    */
   at: number | null
+  /** A model answer on the marking guide rather than something the paper prints. */
+  guide?: boolean
   pending?: File
   /**
    * An object URL for a file not yet copied into the folder, so the preview can
@@ -392,7 +394,12 @@ export function QuestionEditor({
           parts={draft.config?.parts ?? []}
         />
 
-        <GuideFields question={draft} setDraft={setDraft} />
+        <GuideFields
+          question={draft}
+          setDraft={setDraft}
+          stimuli={stimuli}
+          setStimuli={setStimuli}
+        />
 
         <TaggingFields index={index} question={draft} setDraft={setDraft} />
 
@@ -1219,27 +1226,18 @@ function WrittenFields({
 
 /* ------------------------------------------------------------------- stimulus */
 
-function StimulusFields({
-  stimuli,
-  setStimuli,
-  directory,
-  parts,
-}: {
-  stimuli: StimulusDraft[]
-  setStimuli: (fn: (s: StimulusDraft[]) => StimulusDraft[]) => void
-  directory: string
-  /** What a picture can belong to besides the question. Empty on most types. */
-  parts: QuestionPart[]
-}) {
+type SetStimuli = (fn: (s: StimulusDraft[]) => StimulusDraft[]) => void
+
+/**
+ * The image picker, for the paper's pictures and for the guide's model drawings.
+ *
+ * Both land in the one list, so the save copies a model drawing into the folder
+ * by the same route as any other picture and nothing new can fail there.
+ */
+function useAttach(setStimuli: SetStimuli) {
   const [picking, setPicking] = useState('')
 
-  const change = (i: number, patch: Patch<Stimulus>) =>
-    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, item: patched(s.item, patch) } : s)))
-
-  const rehome = (i: number, at: number | null) =>
-    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, at } : s)))
-
-  const attach = async () => {
+  const attach = async (guide: boolean) => {
     setPicking('')
     try {
       const handles = await window.showOpenFilePicker({
@@ -1262,6 +1260,7 @@ function StimulusFields({
         {
           item: { kind: 'image', file: `${IMAGE_SUBDIR}/${safeFilename(file.name)}` },
           at: null,
+          ...(guide ? { guide: true } : {}),
           pending: file,
           previewUrl: URL.createObjectURL(file),
         },
@@ -1272,6 +1271,23 @@ function StimulusFields({
       setPicking((err as Error).message)
     }
   }
+
+  return { attach, picking }
+}
+
+function StimulusFields({
+  stimuli,
+  setStimuli,
+  directory,
+  parts,
+}: {
+  stimuli: StimulusDraft[]
+  setStimuli: SetStimuli
+  directory: string
+  /** What a picture can belong to besides the question. Empty on most types. */
+  parts: QuestionPart[]
+}) {
+  const { attach, picking } = useAttach(setStimuli)
 
   return (
     <section class="panel">
@@ -1286,141 +1302,10 @@ function StimulusFields({
         </p>
       )}
 
-      {stimuli.length > 0 && (
-        <ol class="editrows">
-          {stimuli.map((s, i) => (
-            <li key={i} class="editrow">
-              <span class="editrow__letter">
-                {s.item.kind === 'image' ? '▣' : s.item.kind === 'code' ? '{}' : '¶'}
-              </span>
-              <div class="editrow__body">
-                {parts.length > 0 && (
-                  <Field label="Belongs to">
-                    <select
-                      class="input input--sub"
-                      value={stimulusOwner(s.at, parts.length) === null ? '' : String(s.at)}
-                      onChange={(e) => {
-                        const value = (e.target as HTMLSelectElement).value
-                        rehome(i, value === '' ? null : Number(value))
-                      }}
-                    >
-                      <option value="">The whole question</option>
-                      {parts.map((p, j) => (
-                        <option key={j} value={String(j)}>
-                          Part {p.label.trim() || `(${j + 1})`}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                )}
-                {s.item.kind === 'image' ? (
-                  <p class="mono editor__file">
-                    {s.item.file}
-                    {s.pending && (
-                      <span class="muted">
-                        {' '}
-                        · {Math.round(s.pending.size / 1024)} kB, not yet copied
-                      </span>
-                    )}
-                  </p>
-                ) : s.item.kind === 'code' ? (
-                  <>
-                    {/* Tab is left to move focus, so the form still works from
-                        the keyboard. Code is pasted in, not typed. */}
-                    <textarea
-                      class="input input--code"
-                      rows={8}
-                      wrap="off"
-                      spellcheck={false}
-                      value={s.item.text ?? ''}
-                      placeholder="Paste the program here. Indentation is kept."
-                      onInput={(e) => change(i, { text: (e.target as HTMLTextAreaElement).value })}
-                    />
-                    <label class="checkline">
-                      <input
-                        type="checkbox"
-                        checked={s.item.lineNumbers !== false}
-                        onChange={(e) =>
-                          change(i, { lineNumbers: (e.target as HTMLInputElement).checked })
-                        }
-                      />
-                      Number the lines
-                    </label>
-                  </>
-                ) : (
-                  <textarea
-                    class="input"
-                    rows={3}
-                    value={s.item.text ?? ''}
-                    placeholder="The passage or data the question refers to"
-                    onInput={(e) => change(i, { text: (e.target as HTMLTextAreaElement).value })}
-                  />
-                )}
-                {s.item.kind === 'image' && (
-                  <input
-                    class="input input--sub"
-                    value={s.item.alt ?? ''}
-                    placeholder="Describe the image for a screen reader"
-                    onInput={(e) => change(i, { alt: (e.target as HTMLInputElement).value })}
-                  />
-                )}
-                <div class="withbtn">
-                  <input
-                    class="input input--sub"
-                    value={s.item.caption ?? ''}
-                    placeholder="Caption printed underneath"
-                    onInput={(e) => change(i, { caption: (e.target as HTMLInputElement).value })}
-                  />
-                  {s.item.kind === 'image' && (
-                    <>
-                      <select
-                        class="input input--align"
-                        title="Where it sits across the page"
-                        value={alignOf(s.item)}
-                        onChange={(e) =>
-                          change(i, {
-                            align: (e.target as HTMLSelectElement).value as StimulusAlign,
-                          })
-                        }
-                      >
-                        {STIMULUS_ALIGNS.map((a) => (
-                          <option key={a} value={a}>
-                            {STIMULUS_ALIGN_LABELS[a]}
-                          </option>
-                        ))}
-                      </select>
-                      <NumField
-                        class="input input--narrow"
-                        value={s.item.maxHeightMm}
-                        min={0}
-                        placeholder="mm"
-                        title="Tallest it may print"
-                        onChange={(n) => change(i, { maxHeightMm: n })}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-              <button
-                class="btn btn--icon"
-                title="Remove this stimulus"
-                onClick={() =>
-                  setStimuli((list) => {
-                    const going = list[i]
-                    if (going?.previewUrl) URL.revokeObjectURL(going.previewUrl)
-                    return list.filter((_, j) => j !== i)
-                  })
-                }
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
+      <StimulusRows stimuli={stimuli} setStimuli={setStimuli} parts={parts} guide={false} />
 
       <div class="rowbtns">
-        <button class="btn btn--small" onClick={() => void attach()}>
+        <button class="btn btn--small" onClick={() => void attach(false)}>
           Attach an image
         </button>
         <button
@@ -1445,17 +1330,182 @@ function StimulusFields({
   )
 }
 
+/**
+ * The rows of one panel's share of the list: the paper's, or with `guide` the
+ * model answers. Indexed into the whole list, so a change lands on the right
+ * entry whichever panel made it.
+ */
+function StimulusRows({
+  stimuli,
+  setStimuli,
+  parts,
+  guide,
+}: {
+  stimuli: StimulusDraft[]
+  setStimuli: SetStimuli
+  parts: QuestionPart[]
+  guide: boolean
+}) {
+  const change = (i: number, patch: Patch<Stimulus>) =>
+    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, item: patched(s.item, patch) } : s)))
+
+  const rehome = (i: number, at: number | null) =>
+    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, at } : s)))
+
+  const shown = stimuli.map((s, i) => ({ s, i })).filter(({ s }) => Boolean(s.guide) === guide)
+  if (shown.length === 0) return null
+
+  return (
+    <ol class="editrows">
+      {shown.map(({ s, i }) => (
+        <li key={i} class="editrow">
+          <span class="editrow__letter">
+            {s.item.kind === 'image' ? '▣' : s.item.kind === 'code' ? '{}' : '¶'}
+          </span>
+          <div class="editrow__body">
+            {parts.length > 0 && (
+              <Field label="Belongs to">
+                <select
+                  class="input input--sub"
+                  value={stimulusOwner(s.at, parts.length) === null ? '' : String(s.at)}
+                  onChange={(e) => {
+                    const value = (e.target as HTMLSelectElement).value
+                    rehome(i, value === '' ? null : Number(value))
+                  }}
+                >
+                  <option value="">The whole question</option>
+                  {parts.map((p, j) => (
+                    <option key={j} value={String(j)}>
+                      Part {p.label.trim() || `(${j + 1})`}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {s.item.kind === 'image' ? (
+              <p class="mono editor__file">
+                {s.item.file}
+                {s.pending && (
+                  <span class="muted">
+                    {' '}
+                    · {Math.round(s.pending.size / 1024)} kB, not yet copied
+                  </span>
+                )}
+              </p>
+            ) : s.item.kind === 'code' ? (
+              <>
+                {/* Tab is left to move focus, so the form still works from
+                        the keyboard. Code is pasted in, not typed. */}
+                <textarea
+                  class="input input--code"
+                  rows={8}
+                  wrap="off"
+                  spellcheck={false}
+                  value={s.item.text ?? ''}
+                  placeholder="Paste the program here. Indentation is kept."
+                  onInput={(e) => change(i, { text: (e.target as HTMLTextAreaElement).value })}
+                />
+                <label class="checkline">
+                  <input
+                    type="checkbox"
+                    checked={s.item.lineNumbers !== false}
+                    onChange={(e) =>
+                      change(i, { lineNumbers: (e.target as HTMLInputElement).checked })
+                    }
+                  />
+                  Number the lines
+                </label>
+              </>
+            ) : (
+              <textarea
+                class="input"
+                rows={3}
+                value={s.item.text ?? ''}
+                placeholder="The passage or data the question refers to"
+                onInput={(e) => change(i, { text: (e.target as HTMLTextAreaElement).value })}
+              />
+            )}
+            {s.item.kind === 'image' && (
+              <input
+                class="input input--sub"
+                value={s.item.alt ?? ''}
+                placeholder="Describe the image for a screen reader"
+                onInput={(e) => change(i, { alt: (e.target as HTMLInputElement).value })}
+              />
+            )}
+            <div class="withbtn">
+              <input
+                class="input input--sub"
+                value={s.item.caption ?? ''}
+                placeholder="Caption printed underneath"
+                onInput={(e) => change(i, { caption: (e.target as HTMLInputElement).value })}
+              />
+              {s.item.kind === 'image' && (
+                <>
+                  <select
+                    class="input input--align"
+                    title="Where it sits across the page"
+                    value={alignOf(s.item)}
+                    onChange={(e) =>
+                      change(i, {
+                        align: (e.target as HTMLSelectElement).value as StimulusAlign,
+                      })
+                    }
+                  >
+                    {STIMULUS_ALIGNS.map((a) => (
+                      <option key={a} value={a}>
+                        {STIMULUS_ALIGN_LABELS[a]}
+                      </option>
+                    ))}
+                  </select>
+                  <NumField
+                    class="input input--narrow"
+                    value={s.item.maxHeightMm}
+                    min={0}
+                    placeholder="mm"
+                    title="Tallest it may print"
+                    onChange={(n) => change(i, { maxHeightMm: n })}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+          <button
+            class="btn btn--icon"
+            title="Remove this stimulus"
+            onClick={() =>
+              setStimuli((list) => {
+                const going = list[i]
+                if (going?.previewUrl) URL.revokeObjectURL(going.previewUrl)
+                return list.filter((_, j) => j !== i)
+              })
+            }
+          >
+            ✕
+          </button>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 /* -------------------------------------------------------------- marking guide */
 
 function GuideFields({
   question,
   setDraft,
+  stimuli,
+  setStimuli,
 }: {
   question: Question
   setDraft: (fn: (d: Question) => Question) => void
+  stimuli: StimulusDraft[]
+  setStimuli: SetStimuli
 }) {
   const guide = question.markingGuide ?? {}
   const criteria = guide.criteria ?? []
+  const parts = question.config?.parts ?? []
+  const { attach, picking } = useAttach(setStimuli)
 
   const setGuide = (patch: Patch<NonNullable<Question['markingGuide']>>) =>
     setDraft((d) => ({ ...d, markingGuide: patched(d.markingGuide ?? {}, patch) }))
@@ -1477,6 +1527,34 @@ function GuideFields({
           onInput={(e) => setGuide({ sampleAnswer: (e.target as HTMLTextAreaElement).value })}
         />
       </Field>
+
+      {/* Here rather than in the stimulus panel, because this is where a teacher
+          looking for the sample answer is already looking (#142). A block of
+          its own, so "Add a criterion" below does not read as part of it. Not
+          a `Field`, which wraps its children in a label and would turn a click
+          anywhere in the block into a click on its first button. */}
+      <div class="field">
+        <span class="rail__label">Model drawing or program</span>
+        <StimulusRows stimuli={stimuli} setStimuli={setStimuli} parts={parts} guide={true} />
+        <div class="rowbtns">
+          <button class="btn btn--small" onClick={() => void attach(true)}>
+            Attach a model drawing
+          </button>
+          <button
+            class="btn btn--small"
+            onClick={() =>
+              setStimuli((list) => [
+                ...list,
+                { item: { kind: 'code', text: '' }, at: null, guide: true },
+              ])
+            }
+          >
+            Add model code
+          </button>
+        </div>
+        {picking && <p class="missing">{picking}</p>}
+        <p class="hint">Prints on the marking guide only, after the sample answer.</p>
+      </div>
 
       {criteria.length > 0 && (
         <ol class="editrows">

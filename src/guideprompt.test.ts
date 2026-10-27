@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
+import { readMarking } from './guideingest'
 import { buildGuidePrompt, type GuidePromptSpec } from './guideprompt'
 import type { MarkingSkeleton } from './marking'
 import type { Syllabus, SyllabusCourse } from './types'
@@ -201,5 +202,18 @@ describe('the markup', () => {
     expect(prompt).toContain('## Markup')
     expect(prompt).toContain("A criterion's description, a sample answer")
     expect(prompt).toContain('pipe table')
+  })
+})
+
+// The example is what a model copies, so it goes through the real reader: a
+// program in it that flattened on the way in would teach the fault (#141).
+describe('the worked example, read back', () => {
+  it('carries a program whose indentation survives readMarking', () => {
+    const example = exampleIn(buildGuidePrompt(BASE))
+    const out = readMarking(JSON.stringify(example), { outcomes: ['H1.1'] })
+    expect(out.rejected).toEqual([])
+    const program = out.entries.find((e) => e.sampleStimulus)?.sampleStimulus?.[0]
+    expect(program?.kind).toBe('code')
+    expect(program?.text).toContain('\n    print(count)')
   })
 })
