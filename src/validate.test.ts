@@ -1711,6 +1711,19 @@ describe('a profile that overrides the identification fields', () => {
         .cover,
     ).toEqual({ marksAwardedColumn: true })
   })
+
+  it('survives cleaning with the answer sheet flag only where it is on (#147)', () => {
+    const base = {
+      totalMarks: 10,
+      sections: [{ id: 'I', name: 'Section I', marks: 10 }],
+    }
+    expect(
+      cleanProfile(profile({ paper: { ...base, cover: { answerSheet: false } } })).paper.cover,
+    ).toBeUndefined()
+    expect(
+      cleanProfile(profile({ paper: { ...base, cover: { answerSheet: true } } })).paper.cover,
+    ).toEqual({ answerSheet: true })
+  })
 })
 
 describe('the profiles Klunk ships', () => {

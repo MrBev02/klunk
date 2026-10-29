@@ -12,6 +12,7 @@
  */
 
 import { Fragment } from 'preact'
+import { answerSheetModel, type AnswerSheetModel } from './answersheet'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
@@ -33,6 +34,7 @@ export type PrintMode = 'paper' | 'guide'
 export function PrintablePaper({ resolved, mode }: { resolved: ResolvedPaper; mode: PrintMode }) {
   const { paper, profile } = resolved
   const cover = coverModel(resolved, mode === 'guide')
+  const sheet = answerSheetModel(resolved, cover)
 
   const running = cover.everyPage.length > 0
 
@@ -82,6 +84,8 @@ export function PrintablePaper({ resolved, mode }: { resolved: ResolvedPaper; mo
       ))}
 
       <footer class="sheet__end">End of paper</footer>
+
+      {sheet && <AnswerSheet sheet={sheet} guide={mode === 'guide'} />}
 
       {mode === 'guide' && paper.notes && (
         <section class="sheet__notes">
@@ -304,6 +308,73 @@ function RunningIdentification({ fields }: { fields: CoverField[] }) {
       <IdentificationBlock fields={fields} />
       <p class="runid__note">Printed at the top of every page.</p>
     </div>
+  )
+}
+
+/**
+ * The multiple choice answer sheet, on a page of its own after the last
+ * question, or on the guide the same grid as a key.
+ *
+ * A table rather than a grid of divs, because its header row is what tells a
+ * student which column is which, and a table header repeats when a long paper
+ * pushes the rows onto a second page.
+ */
+function AnswerSheet({ sheet, guide }: { sheet: AnswerSheetModel; guide: boolean }) {
+  const letters = Array.from({ length: sheet.columns }, (_, i) => optionLetter(i))
+  return (
+    <section class="answersheet">
+      <header class="answersheet__head">
+        <h2>{guide ? 'Multiple choice answer key' : 'Multiple choice answer sheet'}</h2>
+        {!guide && sheet.identification.length > 0 && (
+          <IdentificationBlock fields={sheet.identification} />
+        )}
+        {!guide && (
+          <p class="sheet__hint">
+            Fill in the box under the letter of your answer, one box for each question.
+            {sheet.anyMultiple &&
+              ' Where a question says more than one answer may be correct, fill in every box that applies.'}
+          </p>
+        )}
+      </header>
+
+      <table class="answersheet__grid">
+        <thead>
+          <tr>
+            <th>Question</th>
+            {letters.map((l) => (
+              <th key={l}>{l}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sheet.rows.map((row) => (
+            <tr key={row.number}>
+              <th scope="row">{row.number}</th>
+              {guide && row.correct === undefined ? (
+                // Not a blank row, which would read as "none of these" (#64).
+                <td class="answersheet__unknown" colSpan={sheet.columns}>
+                  No answer recorded
+                </td>
+              ) : (
+                letters.map((l, i) => (
+                  <td key={l}>
+                    {i < row.options && (
+                      <span
+                        class={`answersheet__cell${
+                          guide && row.correct?.includes(i) ? ' answersheet__cell--correct' : ''
+                        }`}
+                      >
+                        {l}
+                      </span>
+                    )}
+                  </td>
+                ))
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   )
 }
 

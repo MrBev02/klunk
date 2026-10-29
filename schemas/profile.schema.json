@@ -39,7 +39,7 @@
         },
         "cover": {
           "type": "object",
-          "description": "How this paper's cover sheet differs from the folder's school.json. The two real covers that shaped this share a skeleton and differ in exactly these two ways, so everything else stays in one place.",
+          "description": "How this paper's cover sheet differs from the folder's school.json. The two real covers that shaped this share a skeleton and differ in exactly these two ways, plus whether a multiple choice answer sheet is printed at the back, so everything else stays in one place.",
           "additionalProperties": false,
           "properties": {
             "identification": {
@@ -51,6 +51,11 @@
               "type": "boolean",
               "default": false,
               "description": "Print the marks breakdown as a Section / Marks Available / Marks Awarded table with a '/ N' cell per row for the marker, rather than as a list. Internal school exams do this and public examinations do not."
+            },
+            "answerSheet": {
+              "type": "boolean",
+              "default": false,
+              "description": "Print a multiple choice answer sheet on its own page after the last question: the question numbers down the side, the option letters across the top, and the cover's identification fields at the head. The marking guide prints the same grid with the correct cells marked. Covers multiple_choice and multiple_response only, and prints nothing on a paper with neither."
             }
           }
         },

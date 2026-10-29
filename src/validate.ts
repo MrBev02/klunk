@@ -871,6 +871,7 @@ export function cleanProfile(draft: Profile): Profile {
     // Only where it is on. `false` is what the absent case already means, and
     // writing it would put a line in every profile file saying nothing.
     marksAwardedColumn: draft.paper.cover?.marksAwardedColumn ? true : undefined,
+    answerSheet: draft.paper.cover?.answerSheet ? true : undefined,
   })
   if (cover) out.paper.cover = cover
 
