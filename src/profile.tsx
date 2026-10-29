@@ -307,6 +307,22 @@ export function ProfileEditor({
           />
           <span>Give the marks breakdown a Marks awarded column for the marker to fill in</span>
         </label>
+
+        <label class="checkline">
+          <input
+            type="checkbox"
+            checked={draft.paper.cover?.answerSheet ?? false}
+            onChange={(e) =>
+              setCover({
+                answerSheet: (e.target as HTMLInputElement).checked || undefined,
+              })
+            }
+          />
+          <span>
+            Add a multiple choice answer sheet at the back of the paper, with the answers filled in
+            on the marking guide
+          </span>
+        </label>
       </section>
 
       {/* The one thing an external-style trial and an internal exam genuinely

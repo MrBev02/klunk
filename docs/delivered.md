@@ -424,6 +424,38 @@ everyone else to copy a JSON file was the same failure `src/shipped.ts` was
 written to fix, left in place for every subject but D&T. **#8 is now a teacher's
 afternoon rather than a code change.**
 
+## A multiple choice answer sheet at the back
+
+**A profile can ask for a multiple choice answer sheet** (#147), a checkbox
+under *Marks awarded column*. The student paper gains a page after *End of
+paper*: question numbers down the side, option letters across the top, the
+cover's identification fields at its head. The guide prints the same grid as a
+key with the correct cells filled. The rules are in `src/answersheet.ts`, apart
+from the JSX for the reason `cover.ts` is.
+
+- **On the profile, not the paper**, decided with the user: it is how this kind
+  of paper is printed, beside the cover's other switch, and it reaches papers
+  that already exist.
+- **Only `multiple_choice` and `multiple_response`.** A matching or true/false
+  answer is not one row of letters, and mixing them in would give columns that
+  mean different things on different rows.
+- **Fields the running header already prints are not asked twice**, and where
+  nothing at all is asked, the sheet asks for a Name: it is the page marked
+  apart from the paper.
+- **A key row with no answer recorded says so**, rather than printing blank
+  cells that read as "none of these" (#64).
+
+The D&T profile's Section I had been telling students to *Use the
+multiple-choice answer sheet for Questions 1-10* with no such sheet printed.
+
+Driven on `../klunk-content`: ticking the box and saving rewrote
+`profiles/nsw-hsc-design-technology.json` in place with only `cover.answerSheet`
+added (#132 did not occur on this path). Trial HSC Examination's key matched the
+`Answer:` line under every one of its ten questions. In the printed PDFs the
+sheet is page 9 of 9 and the key page 7 of 7, each starting a page and neither
+split. The student paper's page 8 holds only *End of paper*, pushed over by
+Question 14's ruled lines, which the sheet does not touch.
+
 ## Building a syllabus model in the app
 
 **A syllabus model is built from the `.docx` in the app** (#28, the 2013 half).

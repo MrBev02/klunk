@@ -247,6 +247,7 @@ export interface Profile {
     cover?: {
       identification?: IdentificationField[]
       marksAwardedColumn?: boolean
+      answerSheet?: boolean
     }
     sections: ProfileSection[]
   }
