@@ -13,6 +13,7 @@
 
 import { Fragment } from 'preact'
 import { answerSheetModel, type AnswerSheetModel } from './answersheet'
+import { CodeBlock } from './code'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
@@ -26,7 +27,7 @@ import {
 } from './paper'
 import { Inline, RichText } from './richtext'
 import { joinPath } from './storage'
-import { alignOf, printsInline } from './types'
+import { alignOf, hasSample, printsInline } from './types'
 import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from './types'
 
 export type PrintMode = 'paper' | 'guide'
@@ -433,7 +434,7 @@ function QuestionBlock({
         <QuestionBody item={item} mode={mode} profile={profile} images={images} />
       </div>
 
-      {mode === 'guide' && <GuideBlock question={q} />}
+      {mode === 'guide' && <GuideBlock question={q} bankFile={item.file} images={images} />}
     </div>
   )
 }
@@ -453,6 +454,15 @@ function StimulusBlock({
         <Inline text={stimulus.text ?? ''} />
         {stimulus.caption && <cite>{stimulus.caption}</cite>}
       </blockquote>
+    )
+  }
+
+  if (stimulus.kind === 'code') {
+    return (
+      <figure class="stimulus stimulus--code">
+        <CodeBlock text={stimulus.text} lineNumbers={stimulus.lineNumbers} />
+        {stimulus.caption && <figcaption>{stimulus.caption}</figcaption>}
+      </figure>
     )
   }
 
@@ -770,6 +780,7 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
                   <Inline text={part.sampleAnswer} />
                 </p>
               )}
+              <SampleStimulus items={part.sampleStimulus} bankFile={item.file} images={images} />
               {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>
           ))}
@@ -909,7 +920,41 @@ function TableBody({ question, mode }: { question: Question; mode: PrintMode }) 
   )
 }
 
-function GuideBlock({ question }: { question: Question }) {
+/**
+ * A model drawing or program, on the guide and nowhere else.
+ *
+ * The paper's own renderer, so a model flowchart sizes and aligns the way the
+ * question's pictures do, and a model program numbers its lines the way the
+ * paper's code does.
+ */
+function SampleStimulus({
+  items,
+  bankFile,
+  images,
+}: {
+  items: Stimulus[] | undefined
+  bankFile: string
+  images: Map<string, string>
+}) {
+  if (!items?.length) return null
+  return (
+    <div class="guide__model">
+      {items.map((s, i) => (
+        <StimulusBlock key={i} stimulus={s} bankFile={bankFile} images={images} />
+      ))}
+    </div>
+  )
+}
+
+function GuideBlock({
+  question,
+  bankFile,
+  images,
+}: {
+  question: Question
+  bankFile: string
+  images: Map<string, string>
+}) {
   const guide = question.markingGuide
   const wantsSample =
     question.questionType === 'short_answer' ||
@@ -918,10 +963,10 @@ function GuideBlock({ question }: { question: Question }) {
   // A question whose parts each carry a sample answer is already covered, so
   // saying so again at question level is nagging rather than useful.
   const partsCovered =
-    question.config?.parts?.some((p) => p.sampleAnswer || p.criteria?.length) ?? false
-  const showMissing = wantsSample && !guide?.sampleAnswer && !partsCovered
+    question.config?.parts?.some((p) => hasSample(p) || p.criteria?.length) ?? false
+  const showMissing = wantsSample && !hasSample(guide) && !partsCovered
   const hasAnything =
-    guide?.sampleAnswer ||
+    hasSample(guide) ||
     guide?.criteria?.length ||
     guide?.answersCouldInclude?.length ||
     guide?.notes
@@ -936,12 +981,15 @@ function GuideBlock({ question }: { question: Question }) {
         marks looks like. A teacher marking the course for the first time, or a
         student given the guide back, needs the second thing first.
       */}
-      {guide?.sampleAnswer ? (
+      {hasSample(guide) ? (
         <>
           <p class="guide__head">Sample answer</p>
-          <p class="guide__sample">
-            <Inline text={guide.sampleAnswer} />
-          </p>
+          {guide?.sampleAnswer && (
+            <p class="guide__sample">
+              <Inline text={guide.sampleAnswer} />
+            </p>
+          )}
+          <SampleStimulus items={guide?.sampleStimulus} bankFile={bankFile} images={images} />
         </>
       ) : showMissing ? (
         <p class="guide__missing">

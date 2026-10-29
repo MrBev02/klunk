@@ -438,19 +438,6 @@ code,
   margin-top: 0.6rem;
 }
 
-.setup__cmd {
-  font-family: var(--mono);
-  font-size: 0.76rem;
-  line-height: 1.6;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--rule-strong);
-  border-radius: var(--r);
-  padding: 0.7rem 0.85rem;
-  overflow-x: auto;
-  white-space: pre;
-}
-
 /* ----------------------------------------------------------------------- tabs */
 
 .tabs {
@@ -527,16 +514,22 @@ code,
   margin-bottom: 0;
 }
 
+/* A panel reporting a status carries a margin mark, and its own words say what
+   the status is, so the colour is never the only signal (DESIGN.md, The Margin
+   Mark Rule). A panel with nothing to report has no bar. */
 .panel--alert {
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a status, with its words */
   border-left: 3px solid var(--red);
   background: var(--red-soft);
 }
 
 .panel--ok {
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a status, with its words */
   border-left: 3px solid var(--green);
 }
 
 .panel--note {
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a status, with its words */
   border-left: 3px solid var(--blue);
 }
 
@@ -839,28 +832,6 @@ textarea.input {
   color: var(--ink-faint);
   display: block;
   margin-top: 0.15rem;
-}
-
-.meter__bar {
-  height: 4px;
-  background: var(--rule);
-  border-radius: 2px;
-  margin-top: 0.6rem;
-  overflow: hidden;
-}
-
-.meter__fill {
-  height: 100%;
-  background: var(--blue);
-  transition: width 0.25s ease-out;
-}
-
-.meter__fill--over {
-  background: var(--red);
-}
-
-.meter__fill--done {
-  background: var(--green);
 }
 
 /* ----------------------------------------------------------------- questions */
@@ -1241,6 +1212,7 @@ textarea.input {
 .chosen {
   margin-top: 0.9rem;
   padding: 0.6rem 0.9rem;
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: the thing chosen, named beside it */
   border-left: 3px solid var(--blue);
   background: var(--blue-soft);
   border-radius: 0 var(--r) var(--r) 0;
@@ -1586,6 +1558,7 @@ textarea.input {
 .bank__unlinked {
   margin: 0 0 0.5rem;
   padding: 0.5rem 0.6rem;
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a warning, in words */
   border-left: 3px solid var(--red);
   background: var(--red-soft);
   font-size: 0.78rem;
@@ -1729,6 +1702,17 @@ textarea.input {
 .input--align {
   flex: 0 0 6.4rem;
   width: 6.4rem;
+}
+
+/* The program as it will print: fixed width, every space shown, no wrapping,
+   so the indentation a teacher sees is the indentation that is saved. Named
+   with its element because `textarea.input` above sets the font too. */
+textarea.input--code {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
 }
 
 .input--label {
@@ -2254,12 +2238,6 @@ code,
   border-bottom: none;
 }
 
-/* The expanded answer area is its own zone, so it reads as belonging to the
-   question above rather than floating between two of them. */
-.qrow--open {
-  background: var(--soft);
-}
-
 .qrow--open .qrow__head {
   background: var(--blue-soft);
 }
@@ -2267,16 +2245,16 @@ code,
 .qrow__detail {
   background: var(--paper-raised);
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--blue);
   border-radius: var(--r);
   margin: 0 0.75rem 0.85rem 2.9rem;
   padding: 0.9rem 1.1rem;
 }
 
 /* A block that is asking before it destroys something, rather than showing what
-   is in a question. */
+   is in a question. That is a status, and the only one an open row carries. */
 .qrow__detail--danger {
-  border-left-color: var(--red);
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a warning before a delete, in words */
+  border-left: 3px solid var(--red);
 }
 
 /* Full ink for anything that is actually read, rather than the muted grey that
@@ -2439,7 +2417,9 @@ code,
   padding: 0.9rem 1rem;
   border: 1px solid var(--rule);
   /* The state of a draft is the first thing to read, and a left edge carries it
-     without a badge shouting from the middle of the row. */
+     without a badge shouting from the middle of the row. `.draft__state` says the
+     same thing in words. */
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a draft's state, named in .draft__state */
   border-left: 3px solid var(--rule-strong);
   border-radius: var(--r);
   background: var(--paper-raised);
@@ -2599,6 +2579,42 @@ code,
   font-size: 0.88rem;
   color: var(--ink-soft);
   margin-top: 0.2rem;
+}
+
+/* A program the question refers to (#135). `pre-wrap` keeps the indentation and
+   wraps a long line under itself rather than off the edge, and the number comes
+   from `data-n` so it is not copied with the code. */
+.codeblock {
+  border-collapse: collapse;
+  border: 1px solid var(--rule);
+  background: #fff;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  tab-size: 4;
+}
+.codeblock td {
+  padding: 0 0.6rem;
+  vertical-align: top;
+}
+.codeblock tr:first-child td {
+  padding-top: 0.35rem;
+}
+.codeblock tr:last-child td {
+  padding-bottom: 0.35rem;
+}
+.codeblock__n {
+  text-align: right;
+  color: var(--ink-soft);
+  border-right: 1px solid var(--rule);
+  user-select: none;
+}
+.codeblock__n::before {
+  content: attr(data-n);
+}
+.codeblock__line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* --------------------------------------------------------------------- help
@@ -2919,6 +2935,7 @@ code,
 .review__suspect {
   margin: 0 0 0.8rem;
   padding: 0.5rem 0.7rem;
+  /* impeccable-disable-next-line side-tab -- Margin Mark Rule: a doubt, in words */
   border-left: 3px solid var(--red);
   background: var(--red-soft);
   font-size: 0.9rem;

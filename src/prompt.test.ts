@@ -17,6 +17,7 @@ import {
   outcomesFor,
   pickExample,
   plain,
+  promptFields,
   type PromptSpec,
 } from './prompt'
 import { ingestQuestions } from './ingest'
@@ -395,6 +396,23 @@ describe('the worked example', () => {
     expect(json).not.toContain('kettle.png')
   })
 
+  // A teacher's own computing question is the best example a computing prompt
+  // can carry, and its code has to go out exactly as the bank holds it.
+  it('keeps a code stimulus, indentation and switched-off numbers included', () => {
+    const withCode: Question = {
+      ...own,
+      stimulus: [
+        { kind: 'code', text: '    gap = gap * 2\n    print(gap)' },
+        { kind: 'code', text: 'wait(1)', lineNumbers: false },
+      ],
+    }
+    const parsed = JSON.parse(asPromptJson(withCode)) as { stimulus: unknown }
+    expect(parsed.stimulus).toEqual([
+      { kind: 'code', text: '    gap = gap * 2\n    print(gap)' },
+      { kind: 'code', text: 'wait(1)', lineNumbers: false },
+    ])
+  })
+
   it('is JSON, because a malformed example is worse than no example', () => {
     expect(() => JSON.parse(asPromptJson(own))).not.toThrow()
     const parsed = JSON.parse(asPromptJson(own)) as Record<string, unknown>
@@ -606,5 +624,33 @@ describe('every built-in example is a question Klunk takes', () => {
     const text = buildPrompt(spec({ questionType: 'table', marks: 3 }))
     expect(text).toContain('Never write the')
     expect(text).toContain('every column heading, in the order printed')
+  })
+})
+
+describe('a model answer (#141, #142)', () => {
+  it('is asked for as code on a written question, and never as a picture', () => {
+    const text = buildPrompt(spec({ questionType: 'short_answer', marks: 3 }))
+    expect(text).toContain('"sampleStimulus"')
+    expect(text).toContain('Never a picture')
+  })
+
+  // A question shown to a model as an example carries its model program, and
+  // not a drawing the model cannot see.
+  it('shows a model its program and leaves out its drawing', () => {
+    const fields = promptFields({
+      id: 'bank-sa-1',
+      questionType: 'short_answer',
+      questionText: 'Correct the loop.',
+      marks: 2,
+      markingGuide: {
+        sampleStimulus: [
+          { kind: 'image', file: 'stimulus/flowchart.png' },
+          { kind: 'code', text: '    count += 1', lineNumbers: false },
+        ],
+      },
+    })
+    expect(fields['markingGuide']).toEqual({
+      sampleStimulus: [{ kind: 'code', text: '    count += 1', lineNumbers: false }],
+    })
   })
 })

@@ -218,6 +218,15 @@ than the wrong account.
   `-n` is no protection. Start a server, leave it running, and say at the end
   what is on which port so the user can stop it. If 5173 is taken, that is the
   user's own dev server: use another port rather than clearing it.
+  **When the user asks for a server to be stopped, stopping its background
+  task is not enough on Windows.** On 2026-10-27, `TaskStop` on an
+  `npx vite --port 5180` task reported success and the port still answered 200:
+  the `npx` wrapper ended and its `node …\vite\bin\vite.js --port 5180` child
+  kept serving. What worked was finding the listener with
+  `Get-NetTCPConnection -LocalPort 5180 -State Listen`, reading that one PID's
+  command line through `Win32_Process`, and stopping only that PID with
+  `Stop-Process -Id` once it matched. That is still not a licence to stop
+  anything unasked, and never by name or pattern.
   **Clicking by coordinate is unreliable here**: the screenshot is scaled relative to
   CSS pixels, and a click computed from `getBoundingClientRect` silently missed a
   button twice. Use `find` to get a ref and click the ref.

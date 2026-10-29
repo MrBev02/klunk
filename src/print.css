@@ -727,6 +727,43 @@
   margin-top: 1mm;
 }
 
+/* Code fills the column in a ruled box, so it has no rule down the side and no
+   alignment. A short extract stays on one page; a longer one breaks between
+   rows, which is why the block is a table. */
+.stimulus--code {
+  border-left: none;
+  padding-left: 0;
+  font-size: inherit;
+}
+
+.stimulus--code .codeblock {
+  width: 100%;
+  border: 0.8pt solid #000;
+  background: none;
+  font-family: Consolas, 'Cascadia Mono', 'Courier New', monospace;
+  font-size: 9.5pt;
+  line-height: 1.35;
+  break-inside: avoid;
+}
+
+.stimulus--code .codeblock td {
+  padding: 0 2.5mm;
+}
+
+.stimulus--code .codeblock tr:first-child td {
+  padding-top: 1.5mm;
+}
+
+.stimulus--code .codeblock tr:last-child td {
+  padding-bottom: 1.5mm;
+}
+
+.stimulus--code .codeblock__n {
+  width: 1%;
+  color: #444;
+  border-right: 0.5pt solid #000;
+}
+
 /* ------------------------------------------------------------ marking guide */
 
 .guide {
@@ -761,6 +798,12 @@
 
 .guide__sample {
   margin: 0 0 2mm;
+}
+
+/* A model drawing or program follows the sample answer's words, and stands on
+   its own where there are none. */
+.guide__model {
+  margin: 2mm 0;
 }
 
 .guide__notes {

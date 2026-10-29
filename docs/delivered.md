@@ -368,6 +368,51 @@ carry `marksTo` so a band stays a band, a part may carry its own criteria, and a
 question may have no text when its parts do the asking. All three are what the
 examinations actually print.
 
+**A question can print program code** (#135). Backticks in any prose print in a
+fixed-width font, and a code stimulus prints a program in a ruled box with its
+indentation kept and its lines numbered, on the paper, the guide and the editor
+preview. **Add code** in the Stimulus panel takes a pasted program. A line too
+long for the narrowest column is warned about.
+
+Verified in the browser on `../klunk-content`: an extract whose first line is
+indented, typed into the editor, saved with every space intact and no
+`lineNumbers` field. It printed numbered on the student paper and the guide,
+with a blank line keeping its height and a long line wrapping under itself.
+Unticking **Number the lines** saved `"lineNumbers": false` and printed without
+numbers. A drafted reply carrying a code stimulus pasted back with its
+indentation whole.
+
+**Transcribing a past paper keeps printed code as code** (#136). The
+transcription prompt asks for it in `stimulus`, and a part's own stimulus is
+now read from a reply. Verified on **From a past paper**: a reply with an
+indented extract and a part (b) program printed without numbers both showed on
+the review cards and saved with their indentation.
+
+**A marking guide can show a model drawing or program** (#142, #141). The
+Marking guide panel has a **Model drawing or program** block under the sample
+answer, with **Attach a model drawing** and **Add model code**; a part's model
+answer is chosen with the same **Belongs to** select as a part's picture. It
+prints on the guide only, under **Sample answer**, and counts as a sample: the
+"No sample answer recorded" note and the editor's "needs finishing" both clear
+on a drawing question carrying only a model flowchart.
+
+Verified in the browser on `../klunk-content`: a drawing question with a model
+flowchart and no words saved with the image under
+`markingGuide.sampleStimulus`, the file copied into `bank/stimulus/`, and no tag
+left to finish; its detail view and printed guide showed the flowchart under
+Sample answer, and the student paper showed only the empty drawing box. A short
+answer with a model program on part (b) saved it on that part with its
+indentation, reopened in the editor still on part (b), printed numbered on the
+guide under that part's sample answer, and was absent from the student paper.
+The image came through a stand-in for the browser's file picker rather than the
+picker itself, whose code is unchanged. A pasted reply carrying a model program
+is covered by tests through the real `ingestQuestions` and `readMarking` rather
+than driven.
+
+Found by driving it: the model block first sat as a bare hint and two buttons
+directly above **Add a criterion**, which then read as a third button of the
+same group. It has its own label now.
+
 ## Describing your own examination
 
 **A teacher of any subject can describe their own examination** (#27), on the

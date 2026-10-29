@@ -4,7 +4,7 @@ The decisions behind `bank.schema.json`, `paper.schema.json` and
 `profile.schema.json`, and behind the markup a question's prose may carry.
 Every one has evidence under it. **Do not reverse one without new evidence.**
 
-Read this before touching `src/richtext.tsx`, `src/render.tsx`,
+Read this before touching `src/richtext.tsx`, `src/code.tsx`, `src/render.tsx`,
 `src/question.tsx`, `src/editor.tsx`, `src/validate.ts`, `src/cover.ts`,
 `src/paper.ts`, the three prompt files, or any of the schemas — and before
 adding a question type or changing what a paper inherits from its profile.
@@ -15,7 +15,8 @@ adding a question type or changing what a paper inherits from its profile.
 
 **A table in a question is a pipe table in `questionText`, and the markup is
 deliberately tiny** (#88, widened once by #101). Blank-line paragraphs, pipe
-tables and three inline marks. No lists, no links, no headings.
+tables and four inline marks (the fourth, a code span, since #135). No lists,
+no links, no headings.
 
 - **Why markup rather than a field.** The table is printed *between* two
   paragraphs of the question, and `stimulus` renders in one fixed place, so a
@@ -112,6 +113,156 @@ the table, the emphasis, an underlined `TWO` inside part (a) and a bold sample
 answer; the drafting prompt and the transcription prompt both carried the markup
 section on screen; and a reply pasted back holding a pipe table arrived with the
 table whole and rendered as a table on the review card.
+
+**A code span in backticks is the fourth inline mark** (#135). A computing paper
+prints a variable name such as `gap` in a fixed-width font. The same mark
+protects a formula from the italic rule: `=B3*C3*D3` loses both asterisks bare
+(#121) and keeps them inside backticks.
+
+- **Nothing inside a span is markup, and it binds tighter than the other
+  three.** `closerOf` and `closingTag` step over a span, so an asterisk or a
+  `</u>` inside one can neither close a mark opened outside it nor open one.
+  No escape works inside a span, so a span cannot hold a backtick. No paper has
+  needed one, and markdown's double-backtick span would be a second rule to
+  teach.
+- **An empty pair is not a span.** Two backticks together print as two
+  backticks, and a lone one prints as itself, as an unmatched asterisk does.
+  Outside a span, `` \` `` escapes one.
+- **The prompt limits it to text the paper prints in a fixed-width font.** A
+  model told backticks exist will otherwise put ordinary technical terms in
+  monospace on a transcription.
+- **This does not close #121.** Backticks protect a formula only where someone
+  writes them, and a bank written before this has none. Checked when the mark
+  was added: no bank in `../klunk-content` contains a backtick, so nothing
+  existing changed how it prints.
+
+Driven on `../klunk-content`: a stem holding `` `gap` ``, `` `=B3*C3*D3` ``,
+`` **`print()`** `` and `` *after `wait(1)` here* `` with a lone backtick, and a
+sample answer with three spans. Both previewed in the editor with every span in
+monospace, the formula's asterisks intact and the lone backtick printed. Both
+were saved verbatim to disk. A search for `=B3*C3*D3` found the question. The
+student paper and the marking guide both printed the stem and the sample
+answer the same way.
+
+## Program code is a stimulus
+
+**A program a question refers to is `{"kind": "code"}` on the stimulus list**
+(#135). It prints in a ruled box in a fixed-width font, every space of its
+indentation kept, its lines numbered unless `lineNumbers` is `false`. Before
+it, the Year 9 computing final printed its code as a screenshot, which cannot
+be edited or searched.
+
+- **A stimulus rather than a fenced block in the prose, the reverse of the
+  table decision above.** A reply arrives inside a ```json fence, and
+  `extractJson` stops at the first triple backtick, so a fence inside a string
+  cuts the reply in half. `blocksOf` trims every line, and line numbers need a
+  field to switch off. The cost was that a marking guide could not print a
+  corrected multi-line program, until a real guide needed one: see "A model
+  answer is a stimulus on the guide" below.
+- **No `language` field.** It would change nothing on a black-and-white paper
+  and would ask a validator which languages are allowed.
+- **Numbered by default, and only `false` is written,** the rule `align`
+  follows. "Line 2" is the reason a question prints code at all.
+- **Three places trimmed the indentation off the first line,** and every test
+  of code starting at column 0 passed through all three. `text()` in
+  `validate.ts` and `asString` in `ingest.ts` trim both ends of a string, so an
+  extract quoted from inside a loop lost its first indent on save and on the
+  way in from a reply. Both now go through `cleanCode`, which takes blank lines
+  off the ends and spaces off the ends of lines and never touches a line's
+  leading spaces. The third was `white-space: pre`, which clips a long line off
+  the printed page, and `pre-wrap` replaced it.
+- **The block is a table**, so every number is as wide as the widest and a long
+  extract breaks across a page between rows. The number is drawn by CSS from
+  `data-n`, so copying code off the screen does not copy the numbers. A blank
+  line holds a no-break space, without which its row collapses when the numbers
+  are off.
+- **72 characters is the warning, measured rather than chosen.** At 9.5pt
+  Consolas, 91 characters fit the full 680 px column of a question set out under
+  a heading. A question set out beside its number has 558 px, about 73, and line
+  10 widens the number column by one more. A long line wraps under itself and
+  stays readable, so it is a warning: what goes wrong is that the numbers stop
+  matching what a student counts down the page.
+- **`textarea.input` sets the font,** so the code box's own rule has to name the
+  element to win. Found by driving it: the box first came up in the interface
+  font, with the indentation still right but impossible to judge.
+- **Transcribing a past paper needed only its prompt** (#136). The issue first
+  said the reply reader knew only `stimulusNote`. That was wrong: a
+  transcription goes through the same `readQuestion` as a draft, `stimulus` is
+  a known field, and `readStimulus` already took code after #135. What stopped
+  it was the prompt. Its field list says "these fields and no others" and did
+  not list `stimulus`, and its one rule about stimulus sent everything to a
+  one-sentence description.
+- **The paper prompt's example shows code beside a picture,** questions 6 and
+  3, the pattern #108 set for the two kinds of table. Question 6's program is
+  wrong only because line 4 is not indented, so a model that flattens the
+  indentation visibly breaks the example. Its test runs the example through
+  the real `ingestQuestions`.
+- **A transcription keeps the paper's numbering.** Numbers the paper prints stay
+  out of the text, because Klunk prints its own. A paper that prints none gets
+  `"lineNumbers": false`.
+- **A part's stimulus was dropped without a word,** for any kind. `readConfig`
+  read a part's text, marks and sample answer and nothing else. It reads its
+  `stimulus` now, so code printed in part (b) alone survives a reply.
+- **The non-AI paper readers still read printed code as prose** (#139,
+  deferred until a paper that prints code as text is in the corpus).
+
+Driven for #136 on `../klunk-content`: the transcription prompt on **From a
+past paper** carried the field, the rule and example question 6. A pasted reply
+carried an indented extract with a screenshot note beside it, and a part (b)
+program printed without numbers. Both review cards showed the blocks as sent,
+the note as a warning. Both saved with their indentation, the part's with
+`"lineNumbers": false`.
+
+Driven on `../klunk-content`: an extract with an indented first line, a blank
+line and a 95-character line typed into the editor, previewed numbered with the
+warning on line 7, saved with every space intact and no `lineNumbers` field,
+printed the same on the student paper and the guide; unticking the box saved
+`false` and the blank row kept its height; and a drafted reply carrying code
+arrived with the first line's indentation whole.
+
+## A model answer is a stimulus on the guide
+
+**`sampleStimulus` sits beside `sampleAnswer`, on `markingGuide` and on each
+part** (#142, #141). It is a list of stimulus entries printed on the guide only,
+after the sample answer's words, by the paper's own `StimulusBlock`. A Year 9
+Computing Technology class peer-marking a practice paper needed a model
+flowchart and wireframe for four drawing questions, and three guides needed a
+corrected program whose indentation is its meaning.
+
+- **One field for both issues, rather than `sampleAnswerImage`.** A single
+  image path holds no code, so #141 would have needed a third field, and the
+  stimulus list already had its renderer, its validation, its file copy and
+  its image loading.
+- **The same name on the guide and on a part.** A part's `stimulus` is the
+  paper's, so the name had to differ there; differing in both places at once
+  keeps one thing to search for.
+- **Image and code only.** A text entry prints as a block quote, which means "a
+  source the question quotes" and nothing in a guide. The validator refuses
+  one, and a reply carrying one has its words appended to `sampleAnswer`.
+- **A reply cannot carry a model drawing, only a model program.** `readStimulus`
+  drops every image a model names, because Klunk cannot fetch it, so a model
+  drawing arrives through the editor. The issue's first "done when" asked for a
+  reply carrying an image to survive ingest; that cannot hold and was corrected
+  on the issue.
+- **`hasSample` is the one answer to "is there a sample"**. Four places asked
+  it separately and each counted only `sampleAnswer`: the guide's "No sample
+  answer recorded" note, `hasGuide`, the detail view and the prompt's count of
+  unguided questions.
+- **Six places copy a guide or a part field by field**, and each would have
+  dropped the new field without a word: `cleanQuestion` and `cleanPart` (every
+  editor save), `readGuide` and `readWritten` in `ingest.ts`, `guideingest.ts`,
+  and `adopt.ts`. Each has a test that sends the field in and checks it comes
+  out, which is #64's lesson.
+- **`everyStimulus` includes it,** or `scanFolder` never loads the file and the
+  guide prints a grey "Missing image" box over a file that is in the folder.
+- **In the editor it is one list with an owner,** as a part's picture is: an
+  entry carries `guide: true` beside `at`, so the save copies a model drawing by
+  the same route as any picture. Its rows render in the Marking guide panel,
+  where a teacher looking for the sample answer already is, not in the Stimulus
+  panel.
+- **The guide prompt's example carries a program wrong if flattened,** question
+  22, and its test runs the example through the real `readMarking`. The draft
+  prompt asks for `sampleStimulus` as code and names it "Never a picture".
 
 ## Question types, and why the enum is closed
 

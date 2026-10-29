@@ -255,4 +255,34 @@ describe('a reply that does exactly what the prompt says', () => {
     expect(cfg.rows).toHaveLength(3)
     expect(draft!.question.questionText).not.toContain('Computational thinking')
   })
+
+  // The example's program is wrong only because of its indentation, so the
+  // reader losing a single leading space would change what it asks (#136).
+  it('reads the printed program as code, with its indentation', () => {
+    const draft = readExample().drafts.find((d) => d.question.stimulus?.[0]?.kind === 'code')
+    expect(draft, 'the example must demonstrate printed code').toBeTruthy()
+    expect(draft!.question.stimulus).toEqual([
+      { kind: 'code', text: 'count = 1\nwhile count <= 10:\n    print(count)\ncount = count + 1' },
+    ])
+    expect(draft!.question.questionText).toContain('line 4')
+  })
+})
+
+describe('printed code', () => {
+  const prompt = buildPaperPrompt(BASE)
+
+  it('lists the stimulus field, which a model told "no others" would never send', () => {
+    expect(prompt).toContain('stimulus       program code printed as text')
+  })
+
+  it('separates code printed as text from a screenshot of code', () => {
+    expect(prompt).toContain('Program code printed as text is not a picture.')
+    expect(prompt).toContain('Code printed as a\n  screenshot is a picture')
+  })
+
+  it("keeps the paper's own line numbering, and writes a line break as two characters", () => {
+    expect(prompt).toContain('Leave out any line numbers the paper prints')
+    expect(prompt).toContain('"lineNumbers": false')
+    expect(prompt).toContain('with \\n between lines')
+  })
 })

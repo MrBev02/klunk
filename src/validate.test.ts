@@ -17,6 +17,7 @@ import type {
   QuestionConfig,
   QuestionType,
   School,
+  Stimulus,
   Syllabus,
 } from './types'
 import {
@@ -538,6 +539,44 @@ describe('stimulus', () => {
       },
     })
     expect(warnings(q).join(' ')).toContain('Part (b), stimulus 1')
+  })
+})
+
+describe('code stimulus (#135)', () => {
+  const code = (text: string, over: Partial<Stimulus> = {}): Question =>
+    question({ stimulus: [{ kind: 'code', text, ...over }] })
+
+  it('refuses one with no code in it', () => {
+    expect(errors(code('   \n  ')).join(' ')).toContain('needs some code')
+    expect(errors(code('print("hello")'))).toEqual([])
+  })
+
+  it('warns about a line too long to fit across the page, and names it', () => {
+    const long = `    drivetrain.drive_for(FORWARD, ${'1'.repeat(70)}, MM)`
+    expect(warnings(code(`while True:\n${long}`)).join(' ')).toContain('Line 2 wraps')
+    expect(warnings(code('while True:\n    wait(1)')).join(' ')).not.toContain('wraps')
+  })
+
+  // The fault this whole branch exists for: `text()` would trim this.
+  it('saves the indentation of the first line', () => {
+    const cleaned = cleanQuestion(code('\n    gap = gap * 2   \n    print(gap)\n\n'))
+    expect(cleaned.stimulus).toEqual([{ kind: 'code', text: '    gap = gap * 2\n    print(gap)' }])
+  })
+
+  it('writes line numbers down only when they are switched off', () => {
+    expect(cleanQuestion(code('x = 1', { lineNumbers: true })).stimulus?.[0]).toEqual({
+      kind: 'code',
+      text: 'x = 1',
+    })
+    expect(cleanQuestion(code('x = 1', { lineNumbers: false })).stimulus?.[0]).toEqual({
+      kind: 'code',
+      text: 'x = 1',
+      lineNumbers: false,
+    })
+  })
+
+  it('drops a code row the teacher opened and left empty', () => {
+    expect(cleanQuestion(code('  \n')).stimulus).toBeUndefined()
   })
 })
 
@@ -1749,5 +1788,79 @@ describe('the profiles Klunk ships', () => {
       // not rewrite it, or every teacher who looks at one silently edits it.
       expect(cleanProfile(p), p.id).toEqual(p)
     }
+  })
+})
+
+describe('a model answer on the guide (#141, #142)', () => {
+  const flowchart: Stimulus = { kind: 'image', file: 'stimulus/flowchart.png', alt: 'A flowchart' }
+
+  it('counts a model drawing as a guide, so a drawing question is not flagged', () => {
+    const q = question({
+      questionType: 'drawing',
+      marks: 4,
+      markingGuide: { sampleStimulus: [flowchart] },
+    })
+    expect(hasGuide(q)).toBe(true)
+    expect(warnings(q).join(' ')).not.toContain('No sample answer')
+  })
+
+  it("counts a part's model program as a guide", () => {
+    const q = question({
+      marks: 2,
+      config: {
+        parts: [
+          {
+            label: '(a)',
+            text: 'Fix it.',
+            marks: 2,
+            sampleStimulus: [{ kind: 'code', text: 'x = 1' }],
+          },
+        ],
+      },
+    })
+    expect(hasGuide(q)).toBe(true)
+  })
+
+  it('refuses words held as a model answer', () => {
+    const q = question({ markingGuide: { sampleStimulus: [{ kind: 'text', text: 'Words.' }] } })
+    expect(errors(q).join(' ')).toContain('Put words in the sample answer')
+  })
+
+  it('checks a model drawing on the stimulus rules', () => {
+    const q = question({ markingGuide: { sampleStimulus: [{ kind: 'image', file: 'a.png' }] } })
+    expect(warnings(q).join(' ')).toContain('Model answer 1')
+  })
+
+  // Every save from the editor goes through `cleanQuestion`, and it copies the
+  // guide field by field, so a field it does not name is lost on save.
+  it('is kept by cleanQuestion, indentation and all', () => {
+    const cleaned = cleanQuestion(
+      question({
+        markingGuide: {
+          sampleAnswer: 'An elif before the else.',
+          sampleStimulus: [
+            flowchart,
+            { kind: 'code', text: '\n    elif gap < 500:\n        slow()\n' },
+          ],
+        },
+        config: {
+          parts: [
+            {
+              label: '(a)',
+              text: 'Draw it.',
+              marks: 4,
+              sampleStimulus: [{ kind: 'code', text: '  x = 1', lineNumbers: false }],
+            },
+          ],
+        },
+      }),
+    )
+    expect(cleaned.markingGuide?.sampleStimulus).toEqual([
+      flowchart,
+      { kind: 'code', text: '    elif gap < 500:\n        slow()' },
+    ])
+    expect(cleaned.config?.parts?.[0]?.sampleStimulus).toEqual([
+      { kind: 'code', text: '  x = 1', lineNumbers: false },
+    ])
   })
 })

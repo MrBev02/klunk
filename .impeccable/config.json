@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "src/print.css"
+        ],
+        "createdAt": "2026-10-13T12:37:48.908Z",
+        "reason": "Agent: DESIGN.md governs the app's screens only and states the printed paper is a separate system in print.css, following examination conventions (Cambria body, Consolas code)"
+      }
+    ]
+  }
+}

@@ -20,10 +20,12 @@
  */
 
 import { AI_TAG } from './ingest'
+import { hasSample } from './types'
 import type {
   Profile,
   Question,
   QuestionType,
+  Stimulus,
   Syllabus,
   SyllabusCourse,
   SyllabusTopic,
@@ -419,8 +421,11 @@ function shape(spec: PromptSpec): string {
     '',
     'Leave out "id": Klunk assigns ids itself, and one you invent is discarded.',
     'Leave out "syllabusId" and "courseId": Klunk fills those in.',
-    'Leave out "stimulus" unless it is a short piece of text the student reads. ' +
-      'Klunk cannot fetch an image you name.',
+    'Leave out "stimulus" unless it is a short piece of text the student reads, ' +
+      'or program code the question refers to. Klunk cannot fetch an image you name.',
+    'Program code is a stimulus of the form { "kind": "code", "text": "..." }, with ' +
+      'every space of its indentation kept and \\n between lines. Klunk numbers ' +
+      'the lines itself, so do not write numbers into the code.',
     'Any field not listed above is dropped when the question is read back in.',
   )
 
@@ -461,6 +466,10 @@ function guideFields(type: QuestionType): string[] {
     '                 A criterion covering a range of marks carries "marksTo" as',
     '                 well, so a band of 13 to 15 is { "marks": 13, "marksTo": 15,',
     '                 "description": "..." }.',
+    '                 Where the model answer is a program, add "sampleStimulus":',
+    '                 [ { "kind": "code", "text": "..." } ] beside "sampleAnswer",',
+    '                 indentation kept as for a code stimulus. A part takes it the',
+    '                 same way. Never a picture: describe a drawing in words.',
   ]
 }
 
@@ -623,7 +632,9 @@ export function markupRules(where: string): string {
     '  a run of values.',
     '- **bold**, *italic* and <u>underline</u>, where the text is printed that',
     '  way.',
-    '- Write \\*, \\| or \\< for one of those characters where it is not markup.',
+    '- `code` in backticks, only where the paper prints it in a fixed-width font,',
+    '  such as a variable name or a formula. Nothing inside backticks is markup.',
+    '- Write \\*, \\|, \\< or \\` for one of those characters where it is not markup.',
     '',
     'No headings, no bullet lists, no links, no images.',
   ].join('\n')
@@ -747,16 +758,13 @@ export function promptFields(question: Question): Record<string, unknown> {
   if (question.outcomes?.length) out.outcomes = question.outcomes
   if (question.tags?.length) out.tags = question.tags
 
-  const stimulus = (question.stimulus ?? []).filter((s) => s.kind === 'text' && s.text)
-  if (stimulus.length > 0) {
-    out.stimulus = stimulus.map((s) =>
-      compactly({ kind: s.kind, text: s.text, caption: s.caption }),
-    )
-  }
+  const stimulus = forModel(question.stimulus)
+  if (stimulus) out.stimulus = stimulus
 
   if (question.markingGuide) {
     const guide = compactly({
       sampleAnswer: question.markingGuide.sampleAnswer,
+      sampleStimulus: forModel(question.markingGuide.sampleStimulus),
       criteria: question.markingGuide.criteria?.length ? question.markingGuide.criteria : undefined,
       answersCouldInclude: question.markingGuide.answersCouldInclude?.length
         ? question.markingGuide.answersCouldInclude
@@ -817,6 +825,20 @@ function flatten(value: unknown): string {
 }
 
 /** The keys that hold something, in the order they were given. */
+/** Stimulus a model can read, which is everything but a picture it cannot see. */
+function forModel(items: Stimulus[] | undefined): Record<string, unknown>[] | undefined {
+  const readable = (items ?? []).filter((s) => s.kind !== 'image' && s.text)
+  if (readable.length === 0) return undefined
+  return readable.map((s) =>
+    compactly({
+      kind: s.kind,
+      text: s.text,
+      lineNumbers: s.lineNumbers === false ? false : undefined,
+      caption: s.caption,
+    }),
+  )
+}
+
 function compactly(fields: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(fields)) {
@@ -886,7 +908,7 @@ function needsGuide(type: QuestionType): boolean {
 function hasGuide(q: Question): boolean {
   const guide = q.markingGuide
   if (!guide) return false
-  return Boolean(guide.sampleAnswer || guide.criteria?.length || guide.answersCouldInclude?.length)
+  return Boolean(hasSample(guide) || guide.criteria?.length || guide.answersCouldInclude?.length)
 }
 
 /**

@@ -994,9 +994,9 @@ function isProfile(value: unknown): value is Profile {
 export async function saveProfile(
   dir: FileSystemDirectoryHandle,
   profile: Profile,
-  options?: { replacingId?: string | undefined },
+  options?: { replacingId?: string | undefined; path?: string | undefined },
 ): Promise<{ path: string }> {
-  const path = `profiles/${profile.id}.json`
+  const path = profilePath(profile.id, options?.path)
   const existing = await readJson(dir, path).catch(() => null)
 
   if (existing !== null && options?.replacingId !== profile.id) {
@@ -1014,6 +1014,21 @@ export async function saveProfile(
   // edited. Deleting it is not this function's call — a paper may still name it,
   // and papers resolve a profile by id — so the caller is told instead.
   return { path }
+}
+
+/**
+ * Where a profile is written.
+ *
+ * The scan reads profiles from anywhere in the folder, so one a teacher has
+ * tidied into a subfolder must be written back there: a fresh copy at the root
+ * would leave two files with one id, and the old one would go on being read.
+ * A changed id stays beside the file it was read from for the same reason. Only
+ * a profile read from nowhere goes to `profiles/` at the root.
+ */
+export function profilePath(id: string, readFrom?: string): string {
+  if (readFrom === undefined) return `profiles/${id}.json`
+  const slash = readFrom.lastIndexOf('/')
+  return `${slash < 0 ? '' : readFrom.slice(0, slash + 1)}${id}.json`
 }
 
 function isSchool(value: unknown): value is School {

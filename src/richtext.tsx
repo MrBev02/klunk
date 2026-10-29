@@ -1,7 +1,7 @@
 /**
  * The little bit of markup a question's text is allowed to carry.
  *
- * Blank-line paragraphs, pipe tables, and three inline marks. No lists, no
+ * Blank-line paragraphs, pipe tables, and four inline marks. No lists, no
  * links, no headings — every one of those is a thing to get wrong on a printed
  * examination, and none of them is what was missing. What was missing is that a
  * table printed inside a question arrived as a run of loose words (#88), and
@@ -32,6 +32,14 @@
  * lone asterisk is an asterisk. A mark only opens where something closes it and
  * neither end sits against a space, which is markdown's own flanking rule and is
  * what keeps a bare `*` out of trouble.
+ *
+ * **A code span is the fourth mark, and nothing inside it is markup** (#135).
+ * A computing paper names a variable, `gap`, in a fixed-width font, and a
+ * formula such as `=B3*C3*D3` inside backticks keeps both of the asterisks the
+ * italic rule would otherwise take (#121). It binds tighter than the other
+ * three, as it does in markdown: an asterisk inside a span can neither open nor
+ * close an italic around it. No escape works inside one, so a span cannot hold
+ * a backtick, which no paper has needed.
  */
 
 import { Fragment } from 'preact'
@@ -48,10 +56,11 @@ export interface Run {
   bold?: boolean
   italic?: boolean
   underline?: boolean
+  code?: boolean
 }
 
 /** The characters a backslash may protect, the pipe being `cellsOf`'s. */
-const ESCAPABLE = '*<|\\'
+const ESCAPABLE = '*<|`\\'
 
 /** Is this line a row of a pipe table? */
 function isRow(line: string): boolean {
@@ -91,6 +100,16 @@ export function cellsOf(row: string): string[] {
 /* --------------------------------------------------------- the inline marks */
 
 /**
+ * Where the code span opened by the backtick at `at` closes, or -1.
+ *
+ * An empty pair is not a span, so two backticks together print as themselves.
+ */
+function codeEnd(text: string, at: number): number {
+  const close = text.indexOf('`', at + 1)
+  return close > at + 1 ? close : -1
+}
+
+/**
  * Where the run opened at `from` closes, or -1.
  *
  * The character before a closer is never a space. That one rule is what stops
@@ -101,6 +120,10 @@ function closerOf(text: string, from: number, token: '*' | '**'): number {
   for (let at = from; at < text.length; at += 1) {
     if (text[at] === '\\') {
       at += 1
+      continue
+    }
+    if (text[at] === '`' && codeEnd(text, at) > -1) {
+      at = codeEnd(text, at)
       continue
     }
     if (text[at] !== '*') continue
@@ -123,6 +146,10 @@ function closingTag(text: string, from: number): number {
   for (let at = from; at < text.length; at += 1) {
     if (text[at] === '\\') {
       at += 1
+      continue
+    }
+    if (text[at] === '`' && codeEnd(text, at) > -1) {
+      at = codeEnd(text, at)
       continue
     }
     if (text.startsWith('</u>', at)) return at
@@ -151,6 +178,16 @@ function collect(text: string, marks: Omit<Run, 'text'>, out: Run[]): void {
       plain += text[at + 1]
       at += 1
       continue
+    }
+
+    if (ch === '`') {
+      const close = codeEnd(text, at)
+      if (close > -1) {
+        flush()
+        out.push({ text: text.slice(at + 1, close), ...marks, code: true })
+        at = close
+        continue
+      }
     }
 
     if (ch === '<' && !marks.underline && text.startsWith('<u>', at)) {
@@ -194,7 +231,8 @@ function merged(runs: Run[]): Run[] {
       last &&
       !!last.bold === !!run.bold &&
       !!last.italic === !!run.italic &&
-      !!last.underline === !!run.underline
+      !!last.underline === !!run.underline &&
+      !!last.code === !!run.code
     ) {
       last.text += run.text
       continue
@@ -311,6 +349,7 @@ export function Inline({ text }: { text: string }) {
     <>
       {runsOf(text).map((run, at) => {
         let node: ComponentChildren = run.text
+        if (run.code) node = <code>{node}</code>
         if (run.italic) node = <em>{node}</em>
         if (run.bold) node = <strong>{node}</strong>
         if (run.underline) node = <u>{node}</u>

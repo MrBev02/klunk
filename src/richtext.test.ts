@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blocksOf, cellsOf, plainText, runsOf, stripInline } from './richtext'
+import { blocksOf, cellsOf, hasMarkup, plainText, runsOf, stripInline } from './richtext'
 
 describe('the markup a question is allowed to carry', () => {
   const table = [
@@ -67,7 +67,7 @@ describe('the markup a question is allowed to carry', () => {
   })
 })
 
-describe('the three inline marks', () => {
+describe('the four inline marks', () => {
   it('reads bold, italic and underline', () => {
     expect(runsOf('Outline **TWO** benefits')).toEqual([
       { text: 'Outline ' },
@@ -123,6 +123,52 @@ describe('the three inline marks', () => {
     const [block] = blocksOf('| Metal | Note |\n| --- | --- |\n| Steel | **hard** |')
     expect(block).toEqual({ kind: 'table', head: ['Metal', 'Note'], rows: [['Steel', '**hard**']] })
     expect(runsOf('**hard**')).toEqual([{ text: 'hard', bold: true }])
+  })
+
+  it('reads a code span, and nothing inside it is markup', () => {
+    expect(runsOf('Change the value of `gap` on line 2')).toEqual([
+      { text: 'Change the value of ' },
+      { text: 'gap', code: true },
+      { text: ' on line 2' },
+    ])
+    expect(runsOf('`a **b** <u>c</u> \\* d`')).toEqual([
+      { text: 'a **b** <u>c</u> \\* d', code: true },
+    ])
+  })
+
+  it('keeps every asterisk of a formula written in a code span (#121)', () => {
+    // The three rows of #121's table, each of which loses asterisks unprotected.
+    for (const formula of ['=B3*C3', '=B3*C3*D3', '=IF(C3>10,B3*0.9*C3,B3*C3)']) {
+      expect(runsOf(`Enter \`${formula}\` in E3`)).toEqual([
+        { text: 'Enter ' },
+        { text: formula, code: true },
+        { text: ' in E3' },
+      ])
+    }
+  })
+
+  it('does not let an asterisk inside a span close an italic around it', () => {
+    expect(runsOf('*see `x*y` here*')).toEqual([
+      { text: 'see ', italic: true },
+      { text: 'x*y', italic: true, code: true },
+      { text: ' here', italic: true },
+    ])
+    expect(runsOf('<u>`a</u>b`</u>')).toEqual([{ text: 'a</u>b', underline: true, code: true }])
+  })
+
+  it('nests a code span inside the other marks', () => {
+    expect(runsOf('**`print()`**')).toEqual([{ text: 'print()', bold: true, code: true }])
+  })
+
+  it('prints an unmatched or empty backtick as itself', () => {
+    expect(runsOf('A lone ` backtick')).toEqual([{ text: 'A lone ` backtick' }])
+    expect(runsOf('Two together `` print')).toEqual([{ text: 'Two together `` print' }])
+    expect(runsOf('Escaped \\`not code\\`')).toEqual([{ text: 'Escaped `not code`' }])
+  })
+
+  it('keeps the text of a code span for a list and a search', () => {
+    expect(plainText('Trace `gap` through the loop')).toBe('Trace gap through the loop')
+    expect(hasMarkup('Trace `gap` through the loop')).toBe(false)
   })
 
   it('takes the marks off for a list and a search', () => {

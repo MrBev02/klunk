@@ -60,10 +60,11 @@ outline of what has been established.
 |---|---|
 | Reading a past paper or marking guide — `extract.ts`, `objective.ts`, `guide.ts`, `answerkey.ts`, the two format pickers, `pdftext.ts`, `pdfimage.ts`, `adopt.ts` | [docs/reading-papers.md](docs/reading-papers.md) |
 | Reading a syllabus — `syllabus.ts`, `headings.ts`, `ibdt.ts`, `ibguide.ts`, `formats.ts`, `ooxml.ts`, `xlsx.ts`, `syllabusedit.ts`, the Python generator | [docs/reading-syllabuses.md](docs/reading-syllabuses.md) |
-| What a question, a paper or a profile may say — the schemas, `richtext.tsx`, `render.tsx`, `question.tsx`, `editor.tsx`, `validate.ts`, `cover.ts`, the three prompts, printing to PDF | [docs/question-and-paper-model.md](docs/question-and-paper-model.md) |
+| What a question, a paper or a profile may say — the schemas, `richtext.tsx`, `code.tsx`, `render.tsx`, `question.tsx`, `editor.tsx`, `validate.ts`, `cover.ts`, the three prompts, printing to PDF | [docs/question-and-paper-model.md](docs/question-and-paper-model.md) |
 | Any parser change at all | [docs/corpus-counts.md](docs/corpus-counts.md), then `npm run test:corpus` |
 | A failure the code cannot explain — a push refused, a save that hangs, a browser driving the wrong machine, a diff of two identical-looking strings | [docs/environment.md](docs/environment.md) |
 | Whether something already exists, and why a screen is the shape it is | [docs/delivered.md](docs/delivered.md) |
+| How a screen should look — `styles.css`, any new panel, colour, type or border | [DESIGN.md](DESIGN.md), then [PRODUCT.md](PRODUCT.md) for who it is for |
 
 ## How to work here
 
@@ -116,9 +117,11 @@ klunk/                     this repo - app and tools only, public
                            questions a prompt for one is built from
     guideprompt.ts         the prompt for a marking guide no reader would take
     guideingest.ts         reading that reply back, repairing or refusing
-    richtext.tsx           the paragraphs, pipe tables and three inline marks a
+    richtext.tsx           the paragraphs, pipe tables and four inline marks a
                            question's prose may carry, and taking them back out
                            again
+    code.tsx               a code stimulus: its indentation kept on the way in,
+                           and the numbered block it prints as
     syllabusedit.ts        correcting a parsed model, pure and testable
     syllabusreview.tsx     every topic on screen, to correct or only to read
     syllabusmodels.tsx     the models already in the folder, read-only

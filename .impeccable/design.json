@@ -1,0 +1,389 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-13T12:34:25+00:00",
+  "title": "Design System: Klunk",
+  "extensions": {
+    "colorMeta": {
+      "blueprint-blue": {
+        "role": "primary",
+        "displayName": "Blueprint Blue",
+        "canonical": "oklch(41.4% 0.088 249.1)",
+        "cssVariable": "--blue",
+        "dark": "#7eb2e0",
+        "tonalRamp": [
+          "#00082e",
+          "#00244c",
+          "#11426c",
+          "#32618d",
+          "#5281b0",
+          "#73a3d3",
+          "#97c9fb",
+          "#c1f4ff"
+        ]
+      },
+      "blueprint-wash": {
+        "role": "primary",
+        "displayName": "Blueprint Wash",
+        "canonical": "oklch(94.6% 0.010 247.9)",
+        "cssVariable": "--blue-soft",
+        "dark": "#1c2a36",
+        "tonalRamp": [
+          "#080c0f",
+          "#202529",
+          "#3c4045",
+          "#595e63",
+          "#797e83",
+          "#9a9fa5",
+          "#bfc5cb",
+          "#e9eff5"
+        ]
+      },
+      "annotation-red": {
+        "role": "secondary",
+        "displayName": "Annotation Red",
+        "canonical": "oklch(49.3% 0.158 32.7)",
+        "cssVariable": "--red",
+        "dark": "#e08a76",
+        "tonalRamp": [
+          "#2d0000",
+          "#4f0000",
+          "#721e0e",
+          "#953f2e",
+          "#b9604d",
+          "#df816d",
+          "#ffa792",
+          "#ffd1bb"
+        ]
+      },
+      "annotation-wash": {
+        "role": "secondary",
+        "displayName": "Annotation Wash",
+        "canonical": "oklch(94.5% 0.017 35.3)",
+        "cssVariable": "--red-soft",
+        "dark": "#33211c",
+        "tonalRamp": [
+          "#120907",
+          "#2c211e",
+          "#483d3a",
+          "#675a57",
+          "#877a76",
+          "#a99b97",
+          "#cfc0bd",
+          "#faebe7"
+        ]
+      },
+      "approval-green": {
+        "role": "tertiary",
+        "displayName": "Approval Green",
+        "canonical": "oklch(47.9% 0.078 161.1)",
+        "cssVariable": "--green",
+        "dark": "#7dbd9b",
+        "tonalRamp": [
+          "#001302",
+          "#002f17",
+          "#084c32",
+          "#2f6b4f",
+          "#508c6e",
+          "#71ae8f",
+          "#97d4b4",
+          "#c0ffde"
+        ]
+      },
+      "approval-wash": {
+        "role": "tertiary",
+        "displayName": "Approval Wash",
+        "canonical": "oklch(94.6% 0.013 159.9)",
+        "cssVariable": "--green-soft",
+        "dark": "#1b2a23",
+        "tonalRamp": [
+          "#070d09",
+          "#1f2622",
+          "#3a423d",
+          "#57605b",
+          "#77807a",
+          "#98a19b",
+          "#bdc7c1",
+          "#e7f1eb"
+        ]
+      },
+      "drafting-paper": {
+        "role": "neutral",
+        "displayName": "Drafting Paper",
+        "canonical": "oklch(98.2% 0.007 88.6)",
+        "cssVariable": "--paper",
+        "dark": "#16181a",
+        "tonalRamp": [
+          "#0c0b08",
+          "#252420",
+          "#41403c",
+          "#5f5d59",
+          "#7f7d79",
+          "#a09e9a",
+          "#c6c4bf",
+          "#f0eee9"
+        ]
+      },
+      "sheet-white": {
+        "role": "neutral",
+        "displayName": "Sheet White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "cssVariable": "--paper-raised",
+        "dark": "#1e2124",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(21.5% 0.005 67.6)",
+        "cssVariable": "--ink",
+        "dark": "#ece8e1",
+        "tonalRamp": [
+          "#0d0b09",
+          "#262421",
+          "#423f3d",
+          "#605d5b",
+          "#7f7d7a",
+          "#a09e9b",
+          "#c6c3c1",
+          "#f1eeeb"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "oklch(39.4% 0.011 67.5)",
+        "cssVariable": "--ink-soft",
+        "dark": "#b8b2a9",
+        "tonalRamp": [
+          "#0e0a07",
+          "#28231f",
+          "#443f3a",
+          "#625d57",
+          "#827c77",
+          "#a39d97",
+          "#c9c3bd",
+          "#f3ede7"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "oklch(51.8% 0.017 70.7)",
+        "cssVariable": "--ink-faint",
+        "dark": "#968d81",
+        "tonalRamp": [
+          "#100a04",
+          "#29231b",
+          "#463e36",
+          "#645c53",
+          "#847c72",
+          "#a59d93",
+          "#cbc2b8",
+          "#f6ede2"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(87.8% 0.019 83.1)",
+        "cssVariable": "--rule",
+        "dark": "#32373c",
+        "tonalRamp": [
+          "#0f0a03",
+          "#292319",
+          "#453f34",
+          "#635d52",
+          "#837c71",
+          "#a49e91",
+          "#cac3b6",
+          "#f5eee0"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "oklch(76.0% 0.025 82.1)",
+        "cssVariable": "--rule-strong",
+        "dark": "#4c535a",
+        "tonalRamp": [
+          "#100a02",
+          "#2a2316",
+          "#463f31",
+          "#655d4e",
+          "#857c6d",
+          "#a69d8e",
+          "#ccc3b3",
+          "#f7eddc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The masthead title only."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All interface text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Panel titles and the masthead strapline, uppercase. Names a region, never carries a sentence."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Marks, counts and anything a teacher adds up, in tabular figures."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "control-feedback",
+        "value": "0.12s",
+        "purpose": "Border and background change on buttons and row controls."
+      },
+      {
+        "name": "press",
+        "value": "transform 0.06s, translateY(1px)",
+        "purpose": "A button pressing down when clicked. Off under reduced motion."
+      },
+      {
+        "name": "row-rise",
+        "value": "0.18s ease-out",
+        "purpose": "Question rows rising 4px into place on first paint. Off under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "60rem"
+      },
+      {
+        "name": "narrower",
+        "value": "52rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default action: a white sheet with a hairline edge.",
+      "html": "<button class=\"ds-btn\">Add a criterion</button>",
+      "css": ".ds-btn { font-family: 'Avenir Next', Corbel, 'Segoe UI', sans-serif; font-size: 0.92rem; font-weight: 600; padding: 0.42rem 0.85rem; min-height: 2.35rem; border: 1px solid #b9b0a0; border-radius: 3px; background: #ffffff; color: #1b1917; cursor: pointer; transition: border-color 0.12s, background 0.12s, transform 0.06s; } .ds-btn:hover { border-color: #1b1917; } .ds-btn:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a screen: solid ink, blueprint blue on hover.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save and close</button>",
+      "css": ".ds-btn { font-family: 'Avenir Next', Corbel, 'Segoe UI', sans-serif; font-size: 0.92rem; font-weight: 600; padding: 0.42rem 0.85rem; min-height: 2.35rem; border: 1px solid #b9b0a0; border-radius: 3px; background: #ffffff; color: #1b1917; cursor: pointer; transition: border-color 0.12s, background 0.12s, transform 0.06s; } .ds-btn:hover { border-color: #1b1917; } .ds-btn:active { transform: translateY(1px); } .ds-btn-primary { background: #1b1917; border-color: #1b1917; color: #fbf9f4; } .ds-btn-primary:hover { background: #1f4e79; border-color: #1f4e79; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "One control height; a placeholder is faint and italic so it never passes for an answer.",
+      "html": "<input class=\"ds-input\" placeholder=\"Trial HSC Examination\">",
+      "css": ".ds-input { font: inherit; font-size: 0.94rem; line-height: 1.45; padding: 0.42rem 0.6rem; min-height: 2.35rem; width: 100%; border: 1px solid #b9b0a0; border-radius: 3px; background: #ffffff; color: #1b1917; } .ds-input::placeholder { color: #6f675e; font-style: italic; opacity: 1; } .ds-input:focus-visible { outline: 2px solid #1f4e79; outline-offset: -1px; }"
+    },
+    {
+      "name": "Tabs",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Text tabs over a hairline; the active one is ink with a 2px annotation-red underline.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-on\">Questions<span class=\"ds-n\">98</span></button><button class=\"ds-tab\">Papers<span class=\"ds-n\">4</span></button></nav>",
+      "css": ".ds-tabs { display: flex; gap: 1.5rem; border-bottom: 1px solid #ddd6c9; } .ds-tab { position: relative; padding: 0.35rem 0 0.7rem; border: none; background: none; cursor: pointer; color: #6f675e; font-weight: 600; font-size: 0.95rem; } .ds-tab:hover { color: #4a4540; } .ds-tab-on { color: #1b1917; } .ds-tab-on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #a8321c; } .ds-n { font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 0.8rem; color: #6f675e; margin-left: 0.3rem; }"
+    },
+    {
+      "name": "Chips",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Ruled monospace tags: plain, marks and flag.",
+      "html": "<span class=\"ds-chip\">Short answer</span> <span class=\"ds-chip ds-chip-marks\">4m</span> <span class=\"ds-chip ds-chip-flag\">needs finishing</span>",
+      "css": ".ds-chip { display: inline-flex; font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 0.78rem; letter-spacing: 0.04em; padding: 0.12rem 0.4rem; border: 1px solid #b9b0a0; border-radius: 3px; color: #4a4540; } .ds-chip-marks { background: #1b1917; border-color: #1b1917; color: #fbf9f4; font-weight: 700; font-variant-numeric: tabular-nums; } .ds-chip-flag { background: #f8e9e5; border-color: #a8321c; color: #a8321c; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "A white sheet on the table, with an uppercase monospace label.",
+      "html": "<section class=\"ds-panel\"><p class=\"ds-panel-title\">Stimulus</p><p>Images are copied into bank/stimulus when the question is saved.</p></section>",
+      "css": ".ds-panel { background: #ffffff; border: 1px solid #ddd6c9; border-radius: 3px; padding: 1.1rem 1.25rem; } .ds-panel-title { font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6f675e; font-weight: 600; margin: 0 0 0.7rem; }"
+    },
+    {
+      "name": "Status Panel",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "A panel reporting a status carries a margin mark and says in words what it reports.",
+      "html": "<section class=\"ds-panel ds-panel-alert\"><p class=\"ds-panel-title\">2 problems</p><p>Paper totals 4 marks, profile expects 50.</p></section>",
+      "css": ".ds-panel { background: #ffffff; border: 1px solid #ddd6c9; border-radius: 3px; padding: 1.1rem 1.25rem; } .ds-panel-title { font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: #6f675e; font-weight: 600; margin: 0 0 0.7rem; } .ds-panel-alert { border-left: 3px solid #a8321c; background: #f8e9e5; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Drafting Table",
+    "overview": "Klunk produces formal, ink-on-paper examinations, so its screens read like a technical document on a drafting table rather than a soft dashboard. Structure comes from thin ruled lines on warm paper, not from shadows or cards floating over a background. Ink is near-black and carries almost everything. Colour is held back for meaning: blueprint blue for what is selected or open, annotation red for anything a teacher has to look at, approval green for what is settled.\n\nThe idea began with a Design and Technology faculty and holds for every subject. A trial paper in History is as much a formal document as one in D&T, and the teacher building it is checking a proof, not browsing a feed. Density is moderate: a question list is meant to be scanned at a glance, with marks in tabular figures because marks are the number that matters.\n\nThe printed paper is a separate system with its own stylesheet, `print.css`, and shares nothing with this one on purpose. It is black on white A4 and follows examination conventions whatever the screen is doing. This file governs the app's screens only.",
+    "keyCharacteristics": [
+      "Warm drafting paper under a faint ruled grid; white sheets for panels.",
+      "Hairline rules (1px) for structure. No drop shadows.",
+      "Near-black ink for text and primary actions.",
+      "Colour only where it means something, and never as the only signal.",
+      "A serif for the masthead, a humanist sans for the interface, monospace for labels, data and code.",
+      "System fonts only. The content-security policy loads no web fonts."
+    ],
+    "rules": [
+      {
+        "name": "The Annotation Rule",
+        "body": "Red marks only what a teacher must look at. If nothing needs checking, nothing on the screen is red, apart from the active tab's underline.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never Colour Alone Rule",
+        "body": "Every colour that carries meaning is paired with words or form. A dead tag is struck through and dashed as well as red; a status block says in its own words what it is reporting. This is WCAG 2.2 AA 1.4.1, and it is a floor, not a preference.",
+        "section": "colors"
+      },
+      {
+        "name": "The Monospace Means Literal Rule",
+        "body": "Monospace is for labels, numbers, file paths and program code. It is never decoration for looking technical.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Table Rule",
+        "body": "Nothing casts a shadow. A surface that needs to stand out gets a rule or a wash.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Margin Mark Rule",
+        "body": "A 3px bar down the left edge of a block is a margin mark, and it carries a status: Annotation Red for a fault or a doubt, Blueprint Blue for a note or the thing chosen, Approval Green for settled, Strong Rule for pending. It is always paired with words that say what the status is. A block with no status has no bar. It gets the hairline border every sheet has.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do structure a screen with hairline rules and white sheets on the drafting paper.",
+      "Do keep every clickable or typeable control at 2.35rem, apart from the small in-row variants.",
+      "Do give every signal colour a partner in words or form.",
+      "Do put marks and counts in tabular figures.",
+      "Do keep the grid as the page ground.",
+      "Do use a margin mark only on a block that reports a status, and pair it with its words."
+    ],
+    "donts": [
+      "Don't use drop shadows, floating cards or nested containers.",
+      "Don't use a left bar as decoration. A block with nothing to report gets the hairline border every sheet has.",
+      "Don't use red for anything that does not need a teacher's eye.",
+      "Don't use monospace to look technical. It is for labels, data and code.",
+      "Don't load a web font or any other network resource. The CSP forbids it.",
+      "Don't carry these screen styles onto the printed paper, which follows examination conventions in `print.css`."
+    ]
+  }
+}

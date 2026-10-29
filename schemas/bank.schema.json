@@ -95,6 +95,11 @@
           "additionalProperties": false,
           "properties": {
             "sampleAnswer": { "type": "string" },
+            "sampleStimulus": {
+              "type": "array",
+              "description": "A model answer words cannot carry: a flowchart or wireframe as an image, or a program whose indentation is its meaning as code. Printed on the marking guide only, after sampleAnswer. Image and code only; words belong in sampleAnswer.",
+              "items": { "$ref": "#/$defs/sampleStimulus" }
+            },
             "criteria": {
               "type": "array",
               "description": "Mark-by-mark or band criteria for the question as a whole. A question split into parts carries its criteria on the parts instead.",
@@ -230,12 +235,19 @@
       "required": ["kind"],
       "additionalProperties": false,
       "properties": {
-        "kind": { "type": "string", "enum": ["image", "text"] },
+        "kind": {
+          "type": "string",
+          "enum": ["image", "text", "code"],
+          "description": "A code stimulus is program code a question refers to. It prints in a fixed-width font in a bordered box, with its indentation kept and, unless lineNumbers is false, its lines numbered."
+        },
         "file": {
           "type": "string",
           "description": "Path relative to the bank file. Kept as a path rather than embedded base64 so the folder stays diffable and an image can be replaced without editing JSON."
         },
-        "text": { "type": "string" },
+        "text": {
+          "type": "string",
+          "description": "A text stimulus's prose, or a code stimulus's program. Code keeps the leading spaces of every line, the first included, with \\n between lines."
+        },
         "caption": { "type": "string" },
         "alt": {
           "type": "string",
@@ -244,13 +256,25 @@
         "align": {
           "type": "string",
           "enum": ["left", "centre", "right"],
-          "description": "Where an image sits across the text column. Absent means centre, which is what the examinations do, so the default is never written down. Ignored on a text stimulus, which prints as a block quote."
+          "description": "Where an image sits across the text column. Absent means centre, which is what the examinations do, so the default is never written down. Ignored on a text stimulus, which prints as a block quote, and on a code stimulus, which fills the column."
         },
         "maxHeightMm": {
           "type": "number",
-          "description": "Printed height cap. A tall diagram shrinks to an unreadable width on A4, so landscape is usually right."
+          "description": "Printed height cap. A tall diagram shrinks to an unreadable width on A4, so landscape is usually right. Images only."
+        },
+        "lineNumbers": {
+          "type": "boolean",
+          "description": "Code only. Absent means the lines are numbered, because a question about code says \"line 2\", so only false is ever written."
         }
       }
+    },
+
+    "sampleStimulus": {
+      "description": "A stimulus held as a model answer: image or code, never text.",
+      "allOf": [
+        { "$ref": "#/$defs/stimulus" },
+        { "properties": { "kind": { "enum": ["image", "code"] } } }
+      ]
     },
 
     "multipleChoiceConfig": {
@@ -404,6 +428,11 @@
               "marks": { "type": "number", "exclusiveMinimum": 0 },
               "answerLines": { "type": "integer", "minimum": 0 },
               "sampleAnswer": { "type": "string" },
+              "sampleStimulus": {
+                "type": "array",
+                "description": "This part's model drawing or program, printed on the marking guide only. See markingGuide.sampleStimulus.",
+                "items": { "$ref": "#/$defs/sampleStimulus" }
+              },
               "criteria": {
                 "type": "array",
                 "description": "A NESA marking guide marks part by part, under its own 'Question 11 (a)' heading. Flattening those into the question's own criteria loses which part each one belongs to, and then the printed guide puts them in the wrong place.",

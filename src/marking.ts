@@ -20,7 +20,7 @@
  * a browser.
  */
 
-import type { MarkCriterion, Question, QuestionType } from './types'
+import type { MarkCriterion, Question, QuestionType, Stimulus } from './types'
 
 /* ---------------------------------------------------------- what is offered */
 
@@ -99,6 +99,8 @@ export interface MarkingEntry {
   trueFalse?: boolean
   criteria?: MarkCriterion[]
   sampleAnswer?: string
+  /** A model program, kept with its indentation (#141). Never an image: a reply cannot carry one. */
+  sampleStimulus?: Stimulus[]
   answersCouldInclude?: string[]
   outcomes?: string[]
   /** What the model could not read here, kept as a warning on the question. */
