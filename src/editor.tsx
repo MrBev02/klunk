@@ -1643,7 +1643,12 @@ function TaggingFields({
   }, [index])
 
   const chosenKey = `${question.syllabus?.syllabusId ?? ''}::${question.syllabus?.courseId ?? ''}`
-  const chosen = courses.find((c) => c.key === chosenKey) ?? courses[0]
+  // No fallback to the first course in the folder (#113). A question that named
+  // nothing read as Biology Year 11 here while the library said it was tagged to
+  // nothing, and the course on show could not be chosen: a browser fires no
+  // `change` for the option already selected, so the one course a teacher could
+  // not record was the one in front of them.
+  const chosen = courses.find((c) => c.key === chosenKey)
 
   const topicIds = question.syllabus?.topicIds ?? []
   const pointIds = question.syllabus?.pointIds ?? []
@@ -1701,6 +1706,12 @@ function TaggingFields({
                 }))
               }}
             >
+              {/* Only while the question names none: it says what is true of the
+                  file, and picking a real course from it fires the change that
+                  records one. A question already tagged keeps the courses alone,
+                  since changing subject is a choice and untagging is not one
+                  anybody has asked for. */}
+              {!chosen && <option value="">Not tagged to a course</option>}
               {courses.map((c) => (
                 <option key={c.key} value={c.key}>
                   {c.label}
@@ -1709,7 +1720,11 @@ function TaggingFields({
             </select>
           </Field>
 
-          <Field label="Topics" for="tg-topic">
+          <Field
+            label="Topics"
+            for="tg-topic"
+            {...(chosen ? {} : { hint: 'Choose a course to see its topics.' })}
+          >
             <select
               id="tg-topic"
               class="input"
