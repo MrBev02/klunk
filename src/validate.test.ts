@@ -1589,6 +1589,17 @@ describe('setRefOptions', () => {
   it('refuses a marks override of nothing', () => {
     expect(setRefOptions('bank/b.json#q1', { marksOverride: 0 })).toBe('bank/b.json#q1')
   })
+
+  it('records pictures at the back, and clears back to a string', () => {
+    const back = setRefOptions('bank/b.json#q1', { stimulusAt: 'back' })
+    expect(back).toEqual({ file: 'bank/b.json', questionId: 'q1', stimulusAt: 'back' })
+    expect(setRefOptions(back, { stimulusAt: undefined })).toBe('bank/b.json#q1')
+  })
+
+  it('keeps pictures at the back when another field changes', () => {
+    const object = { file: 'bank/b.json', questionId: 'q1', stimulusAt: 'back' as const }
+    expect(setRefOptions(object, { group: 'Frames' })).toEqual({ ...object, group: 'Frames' })
+  })
 })
 
 /* --------------------------------------------------------------------- school */

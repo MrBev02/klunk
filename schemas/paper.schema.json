@@ -103,6 +103,10 @@
               "type": "string",
               "description": "A heading printed above this question, and above every one after it until another group is named. The 2025 Visual Arts trial heads the pairs of alternatives in its Section II 'Practice', 'Conceptual Framework' and 'Frames', which is how a student choosing one finds it. Held on the paper rather than on the question, because the same question can be filed under a different heading on another paper."
             },
+            "stimulusAt": {
+              "enum": ["back"],
+              "description": "Where this question's pictures print on this paper. Absent means under the question. 'back' moves every image stimulus, the question's and its parts', to a page after the last question headed 'Stimulus for Question N', and prints a line in its place saying where to find it. Text and code stimuli stay with the question, and the marking guide prints everything in place. Held on the paper rather than on the question, because the same picture may fit on the page in another paper."
+            },
             "note": { "type": "string", "description": "Teacher-facing. Never printed." }
           }
         }

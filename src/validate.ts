@@ -1183,7 +1183,7 @@ export function cleanPaper(draft: Paper, profile?: Profile): Paper {
  * Set what a paper says about one question, and keep the file tidy.
  *
  * A ref is a plain `bank.json#id` string until it needs to carry something.
- * `marksOverride`, `group` and `note` need the object form, so this upgrades on
+ * `marksOverride`, `group`, `stimulusAt` and `note` need the object form, so this upgrades on
  * the way in and drops back to a string the moment nothing is left, rather than
  * leaving `{"file":…,"questionId":…}` behind to say what a string already said.
  */
@@ -1195,6 +1195,7 @@ export function setRefOptions(
   patch: {
     marksOverride?: number | undefined
     group?: string | undefined
+    stimulusAt?: 'back' | undefined
     note?: string | undefined
   },
 ): PaperRef {
@@ -1207,15 +1208,20 @@ export function setRefOptions(
   const marksOverride = 'marksOverride' in patch ? patch.marksOverride : before.marksOverride
   const group = text('group' in patch ? patch.group : before.group)
   const note = text('note' in patch ? patch.note : before.note)
+  const stimulusAt = 'stimulusAt' in patch ? patch.stimulusAt : before.stimulusAt
 
   if (marksOverride !== undefined && Number.isFinite(marksOverride) && marksOverride > 0) {
     after.marksOverride = marksOverride
   }
   if (group !== undefined) after.group = group
+  if (stimulusAt === 'back') after.stimulusAt = stimulusAt
   if (note !== undefined) after.note = note
 
   const bare =
-    after.marksOverride === undefined && after.group === undefined && after.note === undefined
+    after.marksOverride === undefined &&
+    after.group === undefined &&
+    after.stimulusAt === undefined &&
+    after.note === undefined
   return bare ? `${after.file}#${after.questionId}` : after
 }
 

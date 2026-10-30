@@ -483,6 +483,17 @@ export interface PaperRefObject {
    * alternatives `Practice`, `Conceptual Framework` and `Frames`.
    */
   group?: string
+  /**
+   * Where this question's pictures print on this paper. Absent means under the
+   * question, as always.
+   *
+   * `back` moves every image stimulus, the question's and its parts', to a page
+   * after the last question, and leaves a line saying where to find it. Text and
+   * code stay. On the paper rather than the question because it is a layout
+   * decision: the same picture may fit on the page in another paper (#146). A
+   * name rather than a boolean so the Plates Booklet (#55) can be a second value.
+   */
+  stimulusAt?: 'back'
   note?: string
 }
 

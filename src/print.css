@@ -433,6 +433,26 @@
   font-size: 10pt;
 }
 
+/* A question's pictures moved to the back of the paper (#146). Each starts a
+   page of its own, so a student can turn to it and keep it open beside the
+   question, and two questions' pictures never share a page to be confused. */
+.sheet__back {
+  break-before: page;
+}
+
+.sheet__backhead {
+  margin: 0 0 5mm;
+  font-size: 15pt;
+  border-bottom: 1pt solid #000;
+  padding-bottom: 2mm;
+}
+
+.sheet__backpart {
+  margin: 5mm 0 2mm;
+  font-size: 12pt;
+  break-after: avoid;
+}
+
 /* ----------------------------------------------------------------- questions */
 
 .q-print {
@@ -689,6 +709,14 @@
 .stimulus--image {
   border-left: none;
   padding-left: 0;
+}
+
+/* Where a picture was, before it moved to the back. Set like a stimulus so it
+   reads as part of the question's material rather than its wording. */
+.stimulus__pointer {
+  margin: 3mm 0;
+  font-size: 10.5pt;
+  font-style: italic;
 }
 
 /* An image is a replaced element, so `width: auto` resolves to its own width

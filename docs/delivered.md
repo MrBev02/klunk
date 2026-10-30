@@ -456,6 +456,37 @@ sheet is page 9 of 9 and the key page 7 of 7, each starting a page and neither
 split. The student paper's page 8 holds only *End of paper*, pushed over by
 Question 14's ruled lines, which the sheet does not touch.
 
+## Pictures at the back of the paper
+
+**A paper can send one question's pictures to the back** (#146), for a picture
+too large to sit under its stem. The ref carries `stimulusAt: "back"`, set by
+*Print its pictures at the back of the paper* in the question's panel in the
+builder. The question prints *Refer to the stimulus for Question 18 at the back
+of this paper.* where the first picture was, and each such question gets a page
+after *End of paper* headed *Stimulus for Question 18*.
+
+- **On the paper's ref, not the question**, beside `marksOverride` and `group`:
+  whether a picture fits is a layout decision for one paper. The proposal was a
+  list of refs on the paper, which repeats each ref and goes stale when a
+  question is removed or swapped.
+- **A name rather than a boolean**, so the Plates Booklet (#55) can be a second
+  value of the same field.
+- **Images only.** Text and code stay with the question; Practice Paper 1's
+  Question 18 keeps its customer complaints under the stem.
+- **A part's pictures move too**, with the pointer naming the part,
+  *Question 18 (b)*, and a subheading of that name on the back page.
+- **The marking guide prints everything in place**, since a marker reads a
+  criterion beside the thing it is about.
+- **Before the answer sheet (#147), not after it.** The answer sheet is the page
+  torn off and marked apart, so it stays last.
+- **The checker warns** where the setting is on a question with no picture,
+  since it then prints nothing.
+
+Rendered from Practice Paper 1 in `subject-almanac` with Q18 set: pointer in
+place, complaints kept, back page after *End of paper*, guide unchanged. The
+user printed it to PDF and it looked right. That print came before #147 was
+merged, so the two have not yet been printed on one paper.
+
 ## Building a syllabus model in the app
 
 **A syllabus model is built from the `.docx` in the app** (#28, the 2013 half).

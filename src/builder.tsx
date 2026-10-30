@@ -10,6 +10,7 @@ import {
   newPaper,
   paperIsDirty,
   pickableQuestions,
+  picturesForBack,
   removeRef,
   removeSection,
   resolvePaper,
@@ -134,11 +135,7 @@ export function Builder({
     })
 
   /** Change what this paper says about one question, leaving the question alone. */
-  const setRef = (
-    at: number,
-    ri: number,
-    patch: { marksOverride?: number | undefined; group?: string | undefined },
-  ) =>
+  const setRef = (at: number, ri: number, patch: RefPatch) =>
     setPaper({
       ...paper,
       sections: paper.sections.map((s, i) =>
@@ -494,6 +491,7 @@ export function Builder({
                         <RefOverrides
                           entry={ref}
                           marks={rq?.question.marks}
+                          pictures={rq ? picturesForBack(rq.question).length > 0 : false}
                           onChange={(patch) => setRef(si, ri, patch)}
                         />
                       </li>
@@ -607,18 +605,28 @@ function SectionOverrides({
  * `marksOverride` and `group` live on the reference rather than on the question,
  * because the same question is worth what it is worth and sits under whatever
  * heading this paper gives it. Both have been in the schema and honoured by the
- * renderer since #52 and writable nowhere.
+ * renderer since #52 and writable nowhere. `stimulusAt` joined them for the same
+ * reason (#146): whether a picture fits under its question depends on the paper.
  */
+type RefPatch = {
+  marksOverride?: number | undefined
+  group?: string | undefined
+  stimulusAt?: 'back' | undefined
+}
+
 function RefOverrides({
   // Not `ref`. Preact reserves that prop name and intercepts it, which
   // typechecks perfectly and blanks the screen at run time.
   entry,
   marks,
+  pictures,
   onChange,
 }: {
   entry: PaperRef
   marks: number | undefined
-  onChange: (patch: { marksOverride?: number | undefined; group?: string | undefined }) => void
+  /** Whether the question has a picture that could move, so the box is worth offering. */
+  pictures: boolean
+  onChange: (patch: RefPatch) => void
 }) {
   const [open, setOpen] = useState(false)
   const set = typeof entry === 'object' ? entry : undefined
@@ -631,6 +639,7 @@ function RefOverrides({
       ? ''
       : `worth ${set.marksOverride} mark${set.marksOverride === 1 ? '' : 's'}`,
     set?.group ? `under \u201c${set.group}\u201d` : '',
+    set?.stimulusAt === 'back' ? 'pictures at the back' : '',
   ]
     .filter(Boolean)
     .join(', ')
@@ -638,7 +647,11 @@ function RefOverrides({
   return (
     <div class="picked__over">
       <button class="btn btn--small" onClick={() => setOpen(!open)}>
-        {open ? 'Hide' : 'Edit marks and subheading'}
+        {open
+          ? 'Hide'
+          : pictures
+            ? 'Edit marks, subheading and pictures'
+            : 'Edit marks and subheading'}
       </button>
       {!open && stated && <span class="muted picked__set">{stated}</span>}
       {open && (
@@ -674,6 +687,28 @@ function RefOverrides({
             />
           </Field>
         </div>
+      )}
+      {/* Outside the row above, whose first and last fields are sized by
+          position. Offered while it is set even with no picture left, so a
+          teacher can clear what the checker is warning about. */}
+      {open && (pictures || set?.stimulusAt === 'back') && (
+        <label class="checkline picked__back">
+          <input
+            type="checkbox"
+            checked={set?.stimulusAt === 'back'}
+            onChange={(e) =>
+              onChange({
+                stimulusAt: (e.target as HTMLInputElement).checked ? 'back' : undefined,
+              })
+            }
+          />
+          <span>
+            Print its pictures at the back of the paper
+            <span class="hint">
+              On a page of their own after the last question. Text stays with the question.
+            </span>
+          </span>
+        </label>
       )}
     </div>
   )

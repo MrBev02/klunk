@@ -18,6 +18,8 @@ import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
   optionLetter,
+  partName,
+  picturesForBack,
   rowAnswers,
   shuffledChoices,
   shuffledMatching,
@@ -38,6 +40,13 @@ export function PrintablePaper({ resolved, mode }: { resolved: ResolvedPaper; mo
   const sheet = answerSheetModel(resolved, cover)
 
   const running = cover.everyPage.length > 0
+
+  // After "End of paper", the way a data sheet or an insert follows the last
+  // question. The marking guide keeps every picture in place: a marker reads the
+  // criterion beside the thing it is about.
+  const atBack = resolved.sections
+    .flatMap((s) => s.questions)
+    .filter((q) => q.stimulusAt === 'back' && picturesForBack(q.question).length > 0)
 
   const body = (
     <>
@@ -86,6 +95,14 @@ export function PrintablePaper({ resolved, mode }: { resolved: ResolvedPaper; mo
 
       <footer class="sheet__end">End of paper</footer>
 
+      {mode === 'paper' &&
+        atBack.map((q) => (
+          <BackStimulus key={`${q.file}#${q.question.id}`} item={q} images={resolved.images} />
+        ))}
+
+      {/* Last, after any pictures moved to the back: it is the page torn off and
+          marked apart from the paper, and the last page is the one that comes
+          away cleanly. */}
       {sheet && <AnswerSheet sheet={sheet} guide={mode === 'guide'} />}
 
       {mode === 'guide' && paper.notes && (
@@ -404,6 +421,15 @@ function QuestionBlock({
    * only the second shape and drew every question in the first.
    */
   const asHeading = !printsInline(q.questionType)
+  const back = mode === 'paper' && item.stimulusAt === 'back'
+  const own = (
+    <Stimuli
+      items={q.stimulus}
+      bankFile={item.file}
+      images={images}
+      pointer={back ? pointerTo(item.number) : undefined}
+    />
+  )
 
   return (
     <div class="q-print">
@@ -412,9 +438,7 @@ function QuestionBlock({
           <h3 class="q-print__heading">
             Question {item.number} {marks}
           </h3>
-          {q.stimulus?.map((s, i) => (
-            <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
-          ))}
+          {own}
           {q.questionText.trim() && <RichText text={q.questionText} class="q-print__text" />}
         </div>
       ) : (
@@ -422,9 +446,7 @@ function QuestionBlock({
           <span class="q-print__n">{item.number}</span>
           <div class="q-print__body">
             <RichText text={q.questionText} class="q-print__text" />
-            {q.stimulus?.map((s, i) => (
-              <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
-            ))}
+            {own}
           </div>
           <span class="q-print__marks">{marks}</span>
         </div>
@@ -436,6 +458,75 @@ function QuestionBlock({
 
       {mode === 'guide' && <GuideBlock question={q} bankFile={item.file} images={images} />}
     </div>
+  )
+}
+
+/** The line printed where a picture was, naming the page it moved to. */
+function pointerTo(number: number, part?: string): string {
+  const name = part === undefined ? `${number}` : `${number} ${partName(part)}`
+  return `Refer to the stimulus for Question ${name} at the back of this paper.`
+}
+
+/**
+ * A question's or a part's stimuli, in order, or with the pictures replaced by
+ * one line saying where they went.
+ *
+ * The line takes the first picture's place, so a text stimulus written to follow
+ * the picture still follows it. Nothing prints for a list with no pictures in it.
+ */
+function Stimuli({
+  items,
+  bankFile,
+  images,
+  pointer,
+}: {
+  items?: Stimulus[] | undefined
+  bankFile: string
+  images: Map<string, string>
+  pointer?: string | undefined
+}) {
+  if (!items?.length) return null
+  const first = pointer === undefined ? -1 : items.findIndex((s) => s.kind === 'image')
+  return (
+    <>
+      {items.map((s, i) => {
+        if (first >= 0 && s.kind === 'image') {
+          return i === first ? (
+            <p key={i} class="stimulus__pointer">
+              {pointer}
+            </p>
+          ) : null
+        }
+        return <StimulusBlock key={i} stimulus={s} bankFile={bankFile} images={images} />
+      })}
+    </>
+  )
+}
+
+/**
+ * One question's pictures on a page of their own after the last question.
+ *
+ * Headed with the words the pointer used, so a student turning to the back finds
+ * the page by matching them. A part's pictures carry the part's name, since
+ * Question 18 can send pictures from the question and from (b) at once.
+ */
+function BackStimulus({ item, images }: { item: ResolvedQuestion; images: Map<string, string> }) {
+  return (
+    <section class="sheet__back">
+      <h2 class="sheet__backhead">Stimulus for Question {item.number}</h2>
+      {picturesForBack(item.question).map((group, gi) => (
+        <div key={gi} class="sheet__backgroup">
+          {group.part !== undefined && (
+            <h3 class="sheet__backpart">
+              Question {item.number} {partName(group.part)}
+            </h3>
+          )}
+          {group.images.map((s, i) => (
+            <StimulusBlock key={i} stimulus={s} bankFile={item.file} images={images} />
+          ))}
+        </div>
+      ))}
+    </section>
   )
 }
 
@@ -506,17 +597,17 @@ function PartStimulus({
   part,
   bankFile,
   images,
+  pointer,
 }: {
   part: QuestionPart
   bankFile: string
   images: Map<string, string>
+  pointer?: string | undefined
 }) {
   if (!part.stimulus?.length) return null
   return (
     <div class="parts__stim">
-      {part.stimulus.map((s, i) => (
-        <StimulusBlock key={i} stimulus={s} bankFile={bankFile} images={images} />
-      ))}
+      <Stimuli items={part.stimulus} bankFile={bankFile} images={images} pointer={pointer} />
     </div>
   )
 }
@@ -629,7 +720,14 @@ function QuestionBody({
                     ({part.marks} mark{part.marks === 1 ? '' : 's'})
                   </span>
                 </div>
-                <PartStimulus part={part} bankFile={item.file} images={images} />
+                <PartStimulus
+                  part={part}
+                  bankFile={item.file}
+                  images={images}
+                  pointer={
+                    item.stimulusAt === 'back' ? pointerTo(item.number, part.label) : undefined
+                  }
+                />
                 <Lines n={part.answerLines ?? Math.max(2, Math.round(part.marks * 2))} />
               </li>
             ))}

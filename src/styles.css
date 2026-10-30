@@ -1319,6 +1319,10 @@ textarea.input {
   max-width: 28rem;
 }
 
+.picked__back {
+  margin-top: 0.55rem;
+}
+
 /* What the panel holds, on the line with the button that opens it. */
 .picked__set {
   margin-left: 0.5rem;

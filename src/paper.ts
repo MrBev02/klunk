@@ -21,6 +21,7 @@ import type {
   QuestionRef,
   QuestionType,
   School,
+  Stimulus,
   TableRow,
 } from './types'
 import { parseRef, printsInline, refKey, sameLines } from './types'
@@ -33,6 +34,8 @@ export interface ResolvedQuestion {
   marks: number
   /** A heading printed above this question, where the paper starts a new group. */
   group?: string | undefined
+  /** Where its pictures print on this paper; absent means under the question. */
+  stimulusAt?: 'back' | undefined
   note?: string | undefined
   /** Titles of other papers marked as already sat that also use this question. */
   usedIn?: string[] | undefined
@@ -150,6 +153,32 @@ export interface Check {
   unfinished?: boolean | undefined
 }
 
+/* ------------------------------------------------------- pictures at the back */
+
+/**
+ * The pictures a question would send to the back of the paper, grouped by what
+ * they belong to: the question's own first, then each part's, in order.
+ *
+ * Images only. A text or code stimulus is short enough to stay with its question,
+ * and the customer complaints beside Practice Paper 1's Question 18 are the case
+ * that settled it (#146). A group with no images is left out, so a part with
+ * nothing to move gets no pointer.
+ */
+export function picturesForBack(q: Question): { part?: string; images: Stimulus[] }[] {
+  const images = (list?: Stimulus[]) => (list ?? []).filter((s) => s.kind === 'image')
+  const groups: { part?: string; images: Stimulus[] }[] = [{ images: images(q.stimulus) }]
+  for (const part of q.config?.parts ?? []) {
+    groups.push({ part: part.label, images: images(part.stimulus) })
+  }
+  return groups.filter((g) => g.images.length > 0)
+}
+
+/** A part as the paper names it: `a` becomes `(a)`, and `(a)` stays as it is. */
+export function partName(label: string): string {
+  const trimmed = label.trim()
+  return /^\(.*\)$/.test(trimmed) ? trimmed : `(${trimmed})`
+}
+
 /* ----------------------------------------------------------------- resolving */
 
 /**
@@ -239,6 +268,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
         number,
         marks: override ?? found.question.marks,
         group: typeof ref === 'object' ? ref.group : undefined,
+        stimulusAt: typeof ref === 'object' ? ref.stimulusAt : undefined,
         note: typeof ref === 'object' ? ref.note : undefined,
         usedIn: sat.get(found.question.id),
         syllabusId: found.syllabusId,
@@ -504,6 +534,20 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   for (const [key, count] of seen) {
     if (count > 1) {
       checks.push({ severity: 'error', message: `${key} appears ${count} times` })
+    }
+  }
+
+  // Set on a question with nothing to move, the setting prints nothing and says
+  // nothing, so the teacher who expected a page at the back would find it gone.
+  for (const section of resolved.sections) {
+    for (const q of section.questions) {
+      if (q.stimulusAt === 'back' && picturesForBack(q.question).length === 0) {
+        checks.push({
+          severity: 'warning',
+          where: `Question ${q.number}`,
+          message: 'has no pictures to print at the back of the paper.',
+        })
+      }
     }
   }
 

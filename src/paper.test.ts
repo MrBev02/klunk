@@ -19,7 +19,9 @@ import {
   structureDrift,
   paperIsDirty,
   paperIsSaved,
+  partName,
   pickableQuestions,
+  picturesForBack,
   removeRef,
   resolvePaper,
   rowAnswers,
@@ -623,6 +625,81 @@ describe('checkPaper', () => {
  * whole safeguard exists for, and it is silent: the paper checks out perfectly
  * against the profile while being unfit to sit.
  */
+/**
+ * #146. The setting lives on the paper's ref, so it has to survive the ref being
+ * resolved; a test that only built a `ResolvedQuestion` by hand would pass with
+ * `resolvePaper` dropping it (#105's lesson).
+ */
+describe('pictures at the back', () => {
+  const pictured = (): Question => ({
+    ...written('f', 15),
+    stimulus: [
+      { kind: 'image', file: 'stimulus/page.png' },
+      { kind: 'text', text: 'Customer complaints.' },
+    ],
+    config: {
+      parts: [
+        { label: 'a', text: 'Identify', marks: 5 },
+        { label: 'b', text: 'Explain', marks: 10, stimulus: [{ kind: 'image', file: 'b.png' }] },
+      ],
+    },
+  })
+
+  /** goodPaper with question f carrying pictures, and its ref set as given. */
+  const paperWith = (q: Question, stimulusAt?: 'back') => {
+    const { paper } = goodPaper()
+    const index = indexWith([...['a', 'b', 'c', 'd', 'e'].map((id) => mc(id)), q])
+    const ref = stimulusAt
+      ? { file: 'bank/test.json', questionId: 'f', stimulusAt }
+      : 'bank/test.json#f'
+    paper.sections[1]!.refs = [ref]
+    return resolvePaper(index, paper, profile)
+  }
+
+  it('carries the setting from the ref to the question it resolves to', () => {
+    const resolved = paperWith(pictured(), 'back')
+    const f = resolved.sections[1]!.questions[0]!
+    expect(f.stimulusAt).toBe('back')
+    expect(f.number).toBe(6)
+    expect(paperWith(pictured()).sections[1]!.questions[0]!.stimulusAt).toBeUndefined()
+  })
+
+  it("moves only pictures, the question's first and then each part's", () => {
+    const groups = picturesForBack(pictured())
+    expect(groups).toEqual([
+      { images: [{ kind: 'image', file: 'stimulus/page.png' }] },
+      { part: 'b', images: [{ kind: 'image', file: 'b.png' }] },
+    ])
+  })
+
+  it('leaves out a model drawing on the marking guide', () => {
+    const q: Question = {
+      ...written('f', 15),
+      markingGuide: { sampleStimulus: [{ kind: 'image', file: 'model.png' }] },
+    }
+    expect(picturesForBack(q)).toEqual([])
+  })
+
+  it('warns when the setting is on a question with no picture to move', () => {
+    const checks = checkPaper(paperWith(written('f', 15), 'back'))
+    expect(checks).toContainEqual({
+      severity: 'warning',
+      where: 'Question 6',
+      message: 'has no pictures to print at the back of the paper.',
+    })
+  })
+
+  it('says nothing about a question whose pictures do move', () => {
+    const checks = checkPaper(paperWith(pictured(), 'back'))
+    expect(checks.some((c) => c.message.includes('at the back'))).toBe(false)
+  })
+
+  it('names a part the way the paper prints it', () => {
+    expect(partName('a')).toBe('(a)')
+    expect(partName('(b)')).toBe('(b)')
+  })
+})
+
 describe('checkPaper against papers already sat', () => {
   /** A paper marked as sat, holding the given question ids from `bankPath`. */
   function satPaper(id: string, title: string, ids: string[], bankPath = 'bank/test.json') {
