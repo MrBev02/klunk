@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { formatDate } from './cover'
 import { asExamJson } from '../ai/exam'
 import { ExamFactory } from '../ai/examfactory'
@@ -51,6 +51,9 @@ const PAPER_STATUS: { value: PaperStatus; label: string }[] = [
   { value: 'final', label: 'Final, not yet sat' },
   { value: 'used', label: 'Already sat by students' },
 ]
+
+/** The width at which the builder's two columns become one: `.split--build` in styles.css. */
+const NARROW = '(max-width: 60rem)'
 
 export function Builder({
   index,
@@ -127,6 +130,61 @@ export function Builder({
   // even read as unsaved. The state is reset per paper in `app.tsx`; this is the
   // guarantee that does not depend on remembering to.
   const target = Math.min(aimedAt, paper.sections.length - 1)
+
+  /**
+   * Whether the bank is open as a panel over the page, on a narrow window.
+   *
+   * At 60rem and below the two columns become one, and the bank used to stack
+   * under the whole paper: on a three-section trial it started 2,431px down,
+   * so adding to Section I meant scrolling past every section to reach it and
+   * back up to see the question land (#160). It is a panel opened from the
+   * section instead, the way mimir's rail is. On a wide window it is always
+   * the right-hand column and this stays false.
+   */
+  const [bankOpen, setBankOpen] = useState(false)
+  /** The button that opened the panel, which gets the focus back when it shuts. */
+  const opener = useRef<HTMLElement | null>(null)
+
+  const addTo = (si: number) => {
+    setTarget(si)
+    if (matchMedia(NARROW).matches) {
+      opener.current = document.activeElement as HTMLElement | null
+      setBankOpen(true)
+    }
+  }
+
+  const closeBank = () => setBankOpen(false)
+
+  // A panel opened on a narrow window closes when the window widens enough to
+  // show the bank as a column again, or it would sit there open and unreachable.
+  useEffect(() => {
+    const wide = matchMedia(NARROW)
+    const shut = () => !wide.matches && setBankOpen(false)
+    wide.addEventListener('change', shut)
+    return () => wide.removeEventListener('change', shut)
+  }, [])
+
+  // The panel covers the page, so what is under it must not take the keyboard:
+  // without this, Tab walks out of the panel into the masthead and the tabs
+  // behind it. Those belong to the app shell rather than the builder, so they
+  // are found by their class.
+  //
+  // The focus goes back here, straight after the page stops being inert. It was
+  // sent from the close handler on the next frame, and Preact runs this cleanup
+  // after the paint, so the button was still inert when it was focused and the
+  // focus fell to the page body instead. Driven, not reasoned: Escape left it
+  // on BODY.
+  useEffect(() => {
+    if (!bankOpen) return
+    const behind = [
+      ...document.querySelectorAll<HTMLElement>('.masthead, .tabs, .split--build > main'),
+    ]
+    for (const el of behind) el.inert = true
+    return () => {
+      for (const el of behind) el.inert = false
+      opener.current?.focus()
+    }
+  }, [bankOpen])
 
   /** Change one section of the paper, keeping the rest as it was. */
   const setSection = (at: number, patch: Patch<PaperSection>) =>
@@ -440,11 +498,15 @@ export function Builder({
               {section.refs.length === 0 ? (
                 <p class="sec__empty">
                   Nothing yet.{' '}
-                  {si !== target && (
-                    <button class="btn btn--small" onClick={() => setTarget(si)}>
-                      Add to this section
-                    </button>
-                  )}
+                  {/* On the section already being added to, only on a narrow
+                      window: on a wide one the bank beside it says so already,
+                      and on a narrow one this is the only way to open it. */}
+                  <button
+                    class={`btn btn--small${si === target ? ' bank-opener' : ''}`}
+                    onClick={() => addTo(si)}
+                  >
+                    Add to this section
+                  </button>
                 </p>
               ) : (
                 <ol class="picked">
@@ -501,9 +563,9 @@ export function Builder({
                 </ol>
               )}
 
-              {si !== target && section.refs.length > 0 && (
-                <p class="sec__empty">
-                  <button class="btn btn--small" onClick={() => setTarget(si)}>
+              {section.refs.length > 0 && (
+                <p class={`sec__empty${si === target ? ' bank-opener' : ''}`}>
+                  <button class="btn btn--small" onClick={() => addTo(si)}>
                     Add to this section
                   </button>
                 </p>
@@ -525,6 +587,8 @@ export function Builder({
         onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
         onLinkSyllabus={linkSyllabus}
         linkCourse={linkCourse}
+        panel={bankOpen}
+        onClose={closeBank}
       />
     </div>
   )
@@ -1148,6 +1212,8 @@ function BankRail({
   onAdd,
   onLinkSyllabus,
   linkCourse,
+  panel,
+  onClose,
 }: {
   options: ReturnType<typeof allQuestions>
   /** No questions in the folder at all, as against none left for this section. */
@@ -1165,9 +1231,46 @@ function BankRail({
    * whose courses are being mixed.
    */
   linkCourse?: { subject: string; onEdit: () => void } | undefined
+  /** Open as a panel over the page, which only happens on a narrow window. */
+  panel: boolean
+  onClose: () => void
 }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState<string | null>(null)
+  const close = useRef<HTMLButtonElement>(null)
+
+  // Into the panel when it opens, so a keyboard is where the eye is.
+  useEffect(() => {
+    if (panel) requestAnimationFrame(() => close.current?.focus())
+  }, [panel])
+
+  /**
+   * The rail's own sheet, which on a narrow window is a panel over the page.
+   * Close and Escape are drawn and heard always but only reachable then:
+   * `.bank__close` is hidden on a wide window, where there is nothing to shut.
+   *
+   * A function rather than a component: one defined in here would be a new
+   * type every render, Preact would remount the rail, and the search box would
+   * lose its focus at every keystroke.
+   */
+  const sheet = (children: preact.ComponentChildren) => (
+    <aside
+      class="bank"
+      data-open={panel}
+      aria-label={`Questions to add to ${targetName}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && panel) onClose()
+      }}
+    >
+      {children}
+    </aside>
+  )
+
+  const closer = (
+    <button class="btn bank__close" ref={close} onClick={onClose}>
+      Close
+    </button>
+  )
 
   const shown = useMemo(() => {
     const needle = text.trim().toLowerCase()
@@ -1176,9 +1279,10 @@ function BankRail({
   }, [options, text])
 
   if (noSection) {
-    return (
-      <aside class="bank">
+    return sheet(
+      <>
         <div class="bank__head">
+          {closer}
           <span class="rail__label">Adding to</span>
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
         </div>
@@ -1186,13 +1290,14 @@ function BankRail({
           Start this paper again from a profile that has sections. This one has none, so there is
           nowhere to put a question.
         </p>
-      </aside>
+      </>,
     )
   }
 
-  return (
-    <aside class="bank">
+  return sheet(
+    <>
       <div class="bank__head">
+        {closer}
         <span class="rail__label">Adding to</span>
         <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>{targetName}</p>
         {spec && (
@@ -1292,7 +1397,7 @@ function BankRail({
           })}
         </ul>
       )}
-    </aside>
+    </>,
   )
 }
 
