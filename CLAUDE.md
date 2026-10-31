@@ -125,6 +125,8 @@ klunk/                     this repo - app and tools only, public
       ooxml.ts             Word markup to paragraphs and tables
       xlsx.ts              a spreadsheet to rows of text
       page.ts              a PDF page as positioned text
+      lines.ts             that text grouped into lines and cells, which
+                           every PDF reader starts from
       pdftext.ts, pdfimage.ts, textlayer.ts
                            the only places pdf.js is used
     questions/             a question on screen, and the editor

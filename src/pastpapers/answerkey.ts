@@ -28,7 +28,7 @@
  */
 
 import type { PageText } from '../documents/page'
-import { toLines } from './extract'
+import { toLines } from '../documents/lines'
 import { type ExtractedGuide, NotAGuideError } from './guide'
 
 /**

@@ -31,14 +31,13 @@
  */
 
 import type { PageText } from '../documents/page'
+import { type Line, toLines } from '../documents/lines'
 import {
   type ExtractedOption,
   type ExtractedPaper,
   type ExtractedQuestion,
-  type Line,
   NotAPaperError,
   type QuestionSpan,
-  toLines,
 } from './extract'
 
 /** `1. A library self-service kiosk has been designed…` */
