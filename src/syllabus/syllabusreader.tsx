@@ -31,7 +31,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import { readDocxXml, NotADocxError } from '../documents/docx'
 import { DocumentOptions, Field } from '../shared/fields'
-import { historyOf, type DocumentNote } from '../folder/manifest'
+import { groupFor, historyOf, type DocumentNote } from '../folder/manifest'
 import {
   FORMAT_DESCRIPTIONS,
   readSyllabusPdf,
@@ -365,7 +365,10 @@ export function SyllabusReader({
               }}
             >
               <option value="">Choose a file…</option>
-              <DocumentOptions paths={documents} manifest={index.manifest} want="syllabus" />
+              <DocumentOptions
+                {...groupFor(documents, index.manifest, 'syllabus')}
+                want="syllabus"
+              />
             </select>
           </Field>
         )}

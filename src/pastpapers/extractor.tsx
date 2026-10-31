@@ -58,7 +58,7 @@ import {
   Field,
   normaliseBankPath,
 } from '../shared/fields'
-import { historyOf, type DocumentNote } from '../folder/manifest'
+import { groupFor, historyOf, type DocumentNote } from '../folder/manifest'
 import { applyGuide, NotAGuideError } from './guide'
 import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
 import { readMarking } from '../ai/guideingest'
@@ -1246,7 +1246,7 @@ function PdfSlot({
                 onChange={(e) => onChoose((e.target as HTMLSelectElement).value)}
               >
                 <option value="">{optional ? 'None' : 'Choose a PDF…'}</option>
-                <DocumentOptions paths={inFolder} manifest={manifest} want={want} />
+                <DocumentOptions {...groupFor(inFolder, manifest, want)} want={want} />
               </select>
             </p>
           )}

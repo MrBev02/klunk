@@ -19,18 +19,17 @@
  * Tests are not held to them. A test of the text-layer reader in documents/
  * runs the whole past-paper pipeline on purpose, and that is the point of it.
  *
- * Today's breaches are listed by name, each with the issue that removes it.
- * A new breach fails, and so does a listed one that has gone, so the list
- * cannot quietly outlive its reasons.
+ * A breach that has to stay for a while is listed by name in KNOWN, with the
+ * issue that removes it. A new breach fails, and so does a listed one that has
+ * gone, so the list cannot quietly outlive its reasons. It started with three
+ * (#173) and is empty since #175 and #182 removed them; keep it that way where
+ * the fix is small enough to make instead.
  */
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const KNOWN: Record<string, string> = {
-  // The document picker groups files with the folder layer (#182).
-  'shared/fields.tsx -> folder/manifest': '#182',
-}
+const KNOWN: Record<string, string> = {}
 
 /** Every source file under src/, as a path relative to it with forward slashes. */
 function sources(): string[] {
