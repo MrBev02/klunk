@@ -23,6 +23,7 @@ import {
   NumField,
   patched,
   type Patch,
+  ScreenBar,
   TopicChipLabel,
   TopicOptions,
 } from './fields'
@@ -121,6 +122,7 @@ export function QuestionEditor({
   index,
   folder,
   editing,
+  from,
   onCancel,
   onSaved,
 }: {
@@ -128,6 +130,8 @@ export function QuestionEditor({
   folder: FileSystemDirectoryHandle
   /** The question being changed, or null to write a new one. */
   editing: Editing | null
+  /** Where this screen was opened from, in the words on the tabs: the bar's trail. */
+  from: string[]
   onCancel: () => void
   onSaved: (message: string) => void
 }) {
@@ -308,175 +312,187 @@ export function QuestionEditor({
     }
   }
 
+  const title = editing?.fresh ? 'Check this question' : editing ? 'Edit question' : 'New question'
+
   return (
-    <div class="split split--build">
-      <main class="form">
-        <section class="panel">
-          <p class="panel__title">
-            {editing?.fresh ? 'Check this question' : editing ? 'Edit question' : 'New question'}
-          </p>
+    <>
+      {/* The actions were in the sidebar, Save first and Cancel last, where the
+          cover and profile editors had Cancel first at the top. One bar and one
+          order now, the main action last (#159). */}
+      <ScreenBar trail={[...from, title]}>
+        <button
+          class="btn"
+          onClick={() =>
+            alsoSaved.length > 0
+              ? onSaved(
+                  `Saved ${alsoSaved.length} question${alsoSaved.length === 1 ? '' : 's'} to ${bankPath}`,
+                )
+              : onCancel()
+          }
+        >
+          {alsoSaved.length > 0 ? 'Done' : 'Cancel'}
+        </button>
+        {!editing && (
+          <button class="btn" disabled={blocked || saving} onClick={() => void save(true)}>
+            Save and write another
+          </button>
+        )}
+        <button
+          class="btn btn--primary"
+          disabled={blocked || saving}
+          onClick={() => void save(false)}
+        >
+          {saving
+            ? 'Saving…'
+            : editing?.fresh
+              ? 'Save into the bank'
+              : editing
+                ? 'Save changes'
+                : 'Save and close'}
+        </button>
+      </ScreenBar>
 
-          <div class="fieldrow">
-            <Field label="Type" for="q-type">
-              <select
-                id="q-type"
+      <div class="split split--build">
+        <main class="form">
+          <section class="panel">
+            <p class="panel__title">{title}</p>
+
+            <div class="fieldrow">
+              <Field label="Type" for="q-type">
+                <select
+                  id="q-type"
+                  class="input"
+                  value={draft.questionType}
+                  onChange={(e) =>
+                    changeType((e.target as HTMLSelectElement).value as QuestionType)
+                  }
+                >
+                  {QUESTION_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {QUESTION_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Marks" for="q-marks">
+                <NumField
+                  id="q-marks"
+                  value={Number.isFinite(draft.marks) ? draft.marks : undefined}
+                  min={0}
+                  onChange={(n) => {
+                    setMarksTouched(true)
+                    set({ marks: n ?? Number.NaN })
+                  }}
+                />
+              </Field>
+
+              <Field label="Difficulty" for="q-diff" hint="1 easiest, 5 hardest">
+                <select
+                  id="q-diff"
+                  class="input"
+                  value={draft.difficulty === undefined ? '' : String(draft.difficulty)}
+                  onChange={(e) => {
+                    const v = (e.target as HTMLSelectElement).value
+                    set({ difficulty: v ? Number(v) : undefined })
+                  }}
+                >
+                  <option value="">Not set</option>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={String(n)}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            <Field
+              label="What the question asks"
+              for="q-text"
+              hint="**bold**, *italic*, <u>underline</u>, `code`. A blank line starts a paragraph, and a table goes in as | pipe | rows |."
+            >
+              <textarea
+                id="q-text"
                 class="input"
-                value={draft.questionType}
-                onChange={(e) => changeType((e.target as HTMLSelectElement).value as QuestionType)}
-              >
-                {QUESTION_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {QUESTION_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Marks" for="q-marks">
-              <NumField
-                id="q-marks"
-                value={Number.isFinite(draft.marks) ? draft.marks : undefined}
-                min={0}
-                onChange={(n) => {
-                  setMarksTouched(true)
-                  set({ marks: n ?? Number.NaN })
-                }}
+                rows={3}
+                value={draft.questionText}
+                placeholder="Explain how a designer establishes the needs of a client."
+                onInput={(e) => set({ questionText: (e.target as HTMLTextAreaElement).value })}
               />
             </Field>
+          </section>
 
-            <Field label="Difficulty" for="q-diff" hint="1 easiest, 5 hardest">
-              <select
-                id="q-diff"
-                class="input"
-                value={draft.difficulty === undefined ? '' : String(draft.difficulty)}
-                onChange={(e) => {
-                  const v = (e.target as HTMLSelectElement).value
-                  set({ difficulty: v ? Number(v) : undefined })
-                }}
-              >
-                <option value="">Not set</option>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <TypeFields
+            question={draft}
+            setConfig={setConfig}
+            setDraft={setDraft}
+            removePart={removePart}
+          />
 
-          <Field
-            label="What the question asks"
-            for="q-text"
-            hint="**bold**, *italic*, <u>underline</u>, `code`. A blank line starts a paragraph, and a table goes in as | pipe | rows |."
-          >
-            <textarea
-              id="q-text"
-              class="input"
-              rows={3}
-              value={draft.questionText}
-              placeholder="Explain how a designer establishes the needs of a client."
-              onInput={(e) => set({ questionText: (e.target as HTMLTextAreaElement).value })}
-            />
-          </Field>
-        </section>
+          <StimulusFields
+            stimuli={stimuli}
+            setStimuli={setStimuli}
+            directory={imageDirectoryFor(bankPath)}
+            parts={draft.config?.parts ?? []}
+          />
 
-        <TypeFields
-          question={draft}
-          setConfig={setConfig}
-          setDraft={setDraft}
-          removePart={removePart}
-        />
+          <GuideFields
+            question={draft}
+            setDraft={setDraft}
+            stimuli={stimuli}
+            setStimuli={setStimuli}
+          />
 
-        <StimulusFields
-          stimuli={stimuli}
-          setStimuli={setStimuli}
-          directory={imageDirectoryFor(bankPath)}
-          parts={draft.config?.parts ?? []}
-        />
+          <TaggingFields index={index} question={draft} setDraft={setDraft} />
 
-        <GuideFields
-          question={draft}
-          setDraft={setDraft}
-          stimuli={stimuli}
-          setStimuli={setStimuli}
-        />
+          <SourceFields question={draft} setDraft={setDraft} />
 
-        <TaggingFields index={index} question={draft} setDraft={setDraft} />
+          <DestinationFields
+            index={index}
+            editing={editing}
+            bank={bank}
+            setBank={setBank}
+            newBankPath={newBankPath}
+            setNewBankPath={setNewBankPath}
+            newBankName={newBankName}
+            setNewBankName={setNewBankName}
+            bankPath={bankPath}
+            pathFault={pathFault}
+            id={draft.id}
+            setId={(id) => {
+              setIdTouched(true)
+              set({ id })
+            }}
+          />
+        </main>
 
-        <SourceFields question={draft} setDraft={setDraft} />
-
-        <DestinationFields
-          index={index}
-          editing={editing}
-          bank={bank}
-          setBank={setBank}
-          newBankPath={newBankPath}
-          setNewBankPath={setNewBankPath}
-          newBankName={newBankName}
-          setNewBankName={setNewBankName}
-          bankPath={bankPath}
-          pathFault={pathFault}
-          id={draft.id}
-          setId={(id) => {
-            setIdTouched(true)
-            set({ id })
-          }}
-        />
-      </main>
-
-      <aside class="rail">
-        <div class="panel">
-          <div class="rowbtns">
-            <button
-              class="btn btn--primary"
-              disabled={blocked || saving}
-              onClick={() => void save(false)}
-            >
-              {saving
-                ? 'Saving…'
-                : editing?.fresh
-                  ? 'Save into the bank'
-                  : editing
-                    ? 'Save changes'
-                    : 'Save and close'}
-            </button>
-            {!editing && (
-              <button class="btn" disabled={blocked || saving} onClick={() => void save(true)}>
-                Save and write another
-              </button>
+        <aside class="rail">
+          {/* Still here with the buttons gone: which bank it lands in, what has
+            been written so far, and why a save failed are read beside the
+            faults that decide whether Save can be pressed. */}
+          <div class="panel">
+            <p class="panel__title">Saves to</p>
+            <p class="muted mono editor__where">{bankPath}</p>
+            {alsoSaved.length > 0 && (
+              <p class="hint">Written so far: {alsoSaved.map((saved) => saved.id).join(', ')}</p>
             )}
-            <button
-              class="btn"
-              onClick={() =>
-                alsoSaved.length > 0
-                  ? onSaved(
-                      `Saved ${alsoSaved.length} question${alsoSaved.length === 1 ? '' : 's'} to ${bankPath}`,
-                    )
-                  : onCancel()
-              }
-            >
-              {alsoSaved.length > 0 ? 'Done' : 'Cancel'}
-            </button>
+            {failed && <p class="missing">{failed}</p>}
           </div>
-          <p class="muted mono editor__where">{bankPath}</p>
-          {alsoSaved.length > 0 && (
-            <p class="hint">Written so far: {alsoSaved.map((saved) => saved.id).join(', ')}</p>
-          )}
-          {failed && <p class="missing">{failed}</p>}
-        </div>
 
-        <Faults faults={faults} pathFault={pathFault} />
+          <Faults faults={faults} pathFault={pathFault} />
 
-        <div class="panel editor__preview">
-          <p class="panel__title">As it will read</p>
-          {draft.questionText.trim() ? (
-            <QuestionDetail question={question} bankFile={bankPath} images={previewImages} />
-          ) : (
-            <p class="muted">The preview appears once the question has some text in it.</p>
-          )}
-        </div>
-      </aside>
-    </div>
+          <div class="panel editor__preview">
+            <p class="panel__title">As it will read</p>
+            {draft.questionText.trim() ? (
+              <QuestionDetail question={question} bankFile={bankPath} images={previewImages} />
+            ) : (
+              <p class="muted">The preview appears once the question has some text in it.</p>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
   )
 }
 

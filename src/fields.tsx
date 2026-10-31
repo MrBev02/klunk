@@ -1,5 +1,5 @@
 /**
- * The form controls both editors share.
+ * The form controls the editors share, and the bar they sit under.
  *
  * These started inside the question editor and moved here when the prompt
  * factory needed the same labelled field, the same number box that can be
@@ -12,6 +12,43 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { groupFor } from './manifest'
 import type { Check } from './paper'
 import type { DocumentPurpose, Manifest, SyllabusTopic } from './types'
+
+/**
+ * The bar across the top of a screen that takes the place of the tabs.
+ *
+ * The question, profile and cover editors and Help each hide the tabs, so a
+ * stray click cannot throw away half a form. That cost the teacher any sense
+ * of where they were, and each screen had grown its own place for Cancel and
+ * Save: top left on two, a sidebar on the third, in the opposite order (#159).
+ *
+ * `trail` is where the screen was opened from, ending with the screen itself,
+ * in the words on the tabs and headings. The actions go in as children, Cancel
+ * first and the main action last, so every screen reads the same way.
+ *
+ * Sticky, so Save is still there at the foot of a long form.
+ */
+export function ScreenBar({
+  trail,
+  children,
+}: {
+  trail: string[]
+  children?: preact.ComponentChildren
+}) {
+  return (
+    <div class="screenbar">
+      <nav aria-label="Where you are">
+        <ol class="screenbar__trail">
+          {trail.map((step, i) => (
+            <li key={i} aria-current={i === trail.length - 1 ? 'page' : undefined}>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </nav>
+      {children && <div class="screenbar__actions">{children}</div>}
+    </div>
+  )
+}
 
 export function Field({
   label,

@@ -22,7 +22,7 @@
 
 import { useMemo, useState } from 'preact/hooks'
 import { IdentificationFields } from './coversheet'
-import { Field, NumField, patched, type Patch } from './fields'
+import { Field, NumField, ScreenBar, patched, type Patch } from './fields'
 import { profilePath, saveProfile, type ContentIndex } from './storage'
 import {
   QUESTION_TYPE_LABELS,
@@ -40,12 +40,15 @@ export function ProfileEditor({
   index,
   folder,
   editing,
+  from,
   onCancel,
   onSaved,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
   editing: EditingProfile
+  /** Where this screen was opened from, in the words on the tabs: the bar's trail. */
+  from: string[]
   onCancel: () => void
   onSaved: (message: string) => void
 }) {
@@ -126,23 +129,20 @@ export function ProfileEditor({
 
   return (
     <div class="editor">
-      <div class="editor__head">
-        <p class="panel__title">
-          {editing ? `Editing ${editing.profile.name}` : 'A new paper structure'}
-        </p>
-        <div class="rowbtns">
-          <button class="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            class="btn btn--primary"
-            disabled={saving || errors.length > 0}
-            onClick={() => void save()}
-          >
-            {saving ? 'Saving…' : editing ? 'Save changes' : 'Create profile'}
-          </button>
-        </div>
-      </div>
+      <ScreenBar
+        trail={[...from, editing ? `Editing ${editing.profile.name}` : 'A new paper structure']}
+      >
+        <button class="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          class="btn btn--primary"
+          disabled={saving || errors.length > 0}
+          onClick={() => void save()}
+        >
+          {saving ? 'Saving…' : editing ? 'Save changes' : 'Create profile'}
+        </button>
+      </ScreenBar>
 
       {!editing && (
         <p class="hint">

@@ -37,6 +37,15 @@ import { isUnfinished } from './validate'
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
 type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
 
+/** Each view by the words on its tab, which is how a screen's bar names where it came from. */
+const VIEW_NAMES: Record<View, string> = {
+  library: 'Questions',
+  build: 'Papers',
+  draft: 'Draft with AI',
+  paper: 'From a past paper',
+  syllabus: 'Syllabus',
+}
+
 /** Something that would discard unsaved work, held until a teacher confirms it. */
 interface Guarded {
   /**
@@ -407,6 +416,15 @@ export function App() {
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
   }, [])
 
+  // Where a full-screen editor or help was opened from: the tab, and the paper
+  // when one is open on Papers, so the cover editor reads "Papers › Trial HSC
+  // Examination › Your cover sheet" rather than nothing at all. Empty before a
+  // folder is open, where help is the only screen with a bar.
+  const here =
+    phase === 'ready' && folder
+      ? [VIEW_NAMES[view], ...(view === 'build' && paper ? [paper.title || 'Untitled paper'] : [])]
+      : []
+
   return (
     <div class="shell">
       <header class="masthead">
@@ -439,17 +457,21 @@ export function App() {
               </button>
             </>
           )}
-          <button
-            class="btn btn--quiet"
-            title="How Klunk works, and what to do when something looks wrong"
-            onClick={() => showHelp(!help)}
-          >
-            {help ? 'Close help' : 'Help'}
-          </button>
+          {/* Gone while help is open: the bar on the help page is its one way
+              out, and a masthead button reading Close help was a second (#159). */}
+          {!help && (
+            <button
+              class="btn btn--quiet"
+              title="How Klunk works, and what to do when something looks wrong"
+              onClick={() => showHelp(true)}
+            >
+              Help
+            </button>
+          )}
         </div>
       </header>
 
-      {help && <Help onClose={() => showHelp(false)} />}
+      {help && <Help from={here} onClose={() => showHelp(false)} />}
 
       {/* Everything else is hidden rather than unmounted while help is open,
           for the reason the tabs are hidden rather than unmounted while the
@@ -551,6 +573,7 @@ export function App() {
             index={index}
             folder={folder}
             editing={editor === 'new' ? null : editor}
+            from={here}
             onCancel={() => showEditor(null)}
             onSaved={(message) => {
               showEditor(null)
@@ -568,6 +591,7 @@ export function App() {
             index={index}
             folder={folder}
             editing={profileEditor === 'new' ? null : profileEditor}
+            from={here}
             onCancel={() => showProfileEditor(null)}
             onSaved={(message) => {
               showProfileEditor(null)
@@ -585,6 +609,7 @@ export function App() {
           <CoverEditor
             index={index}
             folder={folder}
+            from={here}
             onCancel={() => showCoverEditor(false)}
             onSaved={(message) => {
               showCoverEditor(false)
