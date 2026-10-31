@@ -1603,6 +1603,46 @@ textarea.input {
   max-height: calc(100vh - 2rem);
 }
 
+/* Only for the narrow window's panel: on a wide one the bank is always beside
+   the paper, so there is nothing to open on the section already being added to
+   and nothing to close (#160). */
+.bank__close,
+.bank-opener {
+  display: none;
+}
+
+/*
+ * On a narrow window the bank is a panel over the page, opened from a section's
+ * Add to this section, rather than a block stacked under the whole paper. Flat
+ * like every other sheet: it covers the page outright, so it needs no shadow to
+ * sit above it, and the builder makes what is underneath inert while it is open.
+ */
+@media (max-width: 60rem) {
+  .bank {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .bank[data-open='true'] {
+    display: flex;
+  }
+
+  .bank__close {
+    display: inline-block;
+    float: right;
+    margin-left: 0.75rem;
+  }
+
+  .bank-opener {
+    display: revert;
+  }
+}
+
 .bank__head {
   padding: 0.75rem 0.9rem;
   border-bottom: 1px solid var(--rule);
