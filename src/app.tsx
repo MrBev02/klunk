@@ -9,6 +9,7 @@ import { Help } from './help'
 import { duplicateModels, knownIds } from './modelcheck'
 import { paperIsDirty, paperIsSaved } from './paper'
 import { ProfileEditor, type EditingProfile } from './profile'
+import { parseRoute, routeHash, VIEW_NAMES, type Route, type Takeover, type View } from './route'
 import { SyllabusReader } from './syllabusreader'
 import { QuestionRow } from './question'
 import { ProfileInstaller, profilesOnOffer, SyllabusNote } from './setup'
@@ -35,16 +36,9 @@ import { QUESTION_TYPE_LABELS, questionHaystack, type Paper, type QuestionRef } 
 import { isUnfinished } from './validate'
 
 type Phase = 'starting' | 'empty' | 'scanning' | 'ready' | 'error'
-type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
 
-/** Each view by the words on its tab, which is how a screen's bar names where it came from. */
-const VIEW_NAMES: Record<View, string> = {
-  library: 'Questions',
-  build: 'Papers',
-  draft: 'Draft with AI',
-  paper: 'From a past paper',
-  syllabus: 'Syllabus',
-}
+/** The address for a place, written so that an empty hash clears it rather than keeping the old one. */
+const urlFor = (hash: string) => hash || `${location.pathname}${location.search}`
 
 /** Something that would discard unsaved work, held until a teacher confirms it. */
 interface Guarded {
@@ -424,6 +418,156 @@ export function App() {
     phase === 'ready' && folder
       ? [VIEW_NAMES[view], ...(view === 'build' && paper ? [paper.title || 'Untitled paper'] : [])]
       : []
+
+  // ------------------------------------------------------------------ address
+  //
+  // Where the teacher is, kept in the hash so Back and Reload keep their place
+  // (#159). The state stays the truth; the address follows it, and Back is
+  // read back into it. src/route.ts has the format.
+
+  const takeover: Takeover | undefined =
+    editor !== null
+      ? editor === 'new'
+        ? 'new-question'
+        : 'question'
+      : profileEditor !== null
+        ? profileEditor === 'new'
+          ? 'new-structure'
+          : 'structure'
+        : coverEditor
+          ? 'cover'
+          : undefined
+
+  const hash = routeHash(
+    folder
+      ? { view, ...(paper ? { paperId: paper.id } : {}), ...(takeover ? { takeover } : {}), help }
+      : { help },
+  )
+
+  /**
+   * Move to a place, and say which place was actually reached.
+   *
+   * Not always the one asked for: a paper deleted since, or an editor that was
+   * changing a question whose draft went with the reload, has nothing to open,
+   * and the screen it was opened from is shown instead. The caller writes that
+   * back into the address so it never names a screen that is not there.
+   */
+  const applyRoute = useCallback(
+    (route: Route): Route => {
+      if (route.help !== help) showHelp(route.help)
+      if (!folder || !route.view) return { help: route.help }
+
+      setView(route.view)
+
+      const target =
+        route.view === 'build' && route.paperId
+          ? (index.papers.find((p) => p.data.id === route.paperId)?.data ?? null)
+          : route.view === 'build'
+            ? null
+            : paper
+      if (target?.id !== paper?.id) setPaper(target)
+
+      // An editor for something that already exists cannot be rebuilt from
+      // the address, so only the three that start empty are reopened.
+      const wanted = route.takeover
+      const keep = wanted === takeover
+      const opens = keep
+        ? wanted
+        : wanted === 'question' || wanted === 'structure'
+          ? undefined
+          : wanted
+      if (!keep) {
+        if (takeover === 'new-question' || takeover === 'question') showEditor(null)
+        if (takeover === 'new-structure' || takeover === 'structure') showProfileEditor(null)
+        if (takeover === 'cover') showCoverEditor(false)
+        if (opens === 'new-question') showEditor('new')
+        if (opens === 'new-structure') showProfileEditor('new')
+        if (opens === 'cover') showCoverEditor(true)
+      }
+
+      return {
+        view: route.view,
+        ...(target ? { paperId: target.id } : {}),
+        ...(opens ? { takeover: opens } : {}),
+        help: route.help,
+      }
+    },
+    [
+      folder,
+      help,
+      index,
+      paper,
+      takeover,
+      showEditor,
+      showHelp,
+      showProfileEditor,
+      showCoverEditor,
+    ],
+  )
+
+  // The address is read once, when the folder first opens. Not on the welcome
+  // screen: a reload whose folder access has lapsed lands there, and reading
+  // the address then would replace "#/papers/trial" with nothing before the
+  // teacher has had the chance to reopen the folder and go back to it.
+  const [routed, setRouted] = useState(false)
+  useEffect(() => {
+    if (routed || phase !== 'ready') return
+    const route = parseRoute(location.hash)
+    const reached = route ? applyRoute(route) : null
+    history.replaceState(null, '', urlFor(reached ? routeHash(reached) : hash))
+    setRouted(true)
+  }, [routed, phase, applyRoute, hash])
+
+  // Then every change of place is written. Opening something adds an entry.
+  // Closing it steps back to the entry it was opened from rather than adding
+  // another, so Back after Cancel does not reopen what Cancel closed.
+  useEffect(() => {
+    if (!routed || hash === location.hash) return
+    const state = history.state as { from?: string } | null
+    if (state?.from === hash) history.back()
+    else history.pushState({ from: location.hash }, '', urlFor(hash))
+  }, [routed, hash])
+
+  // Back and Forward. A move that would close or swap a paper with unsaved
+  // changes goes through the same question as every other one, and the
+  // address is put back until it is answered.
+  useEffect(() => {
+    const onPop = () => {
+      const route = parseRoute(location.hash)
+      // Help's own #help-… anchors, and anything else that is not an address
+      // Klunk wrote, leave the screen as it is.
+      if (!route) return
+
+      const losesPaper =
+        dirty && paper !== null && route.view === 'build' && (route.paperId ?? null) !== paper.id
+      if (losesPaper) {
+        const asked = location.hash
+        history.pushState({ from: asked }, '', urlFor(hash))
+        setPending({
+          what: 'Going back',
+          confirm: 'Go back anyway',
+          run: () => {
+            applyRoute(route)
+          },
+        })
+        return
+      }
+
+      const reached = routeHash(applyRoute(route))
+      if (reached !== location.hash) history.replaceState(history.state, '', urlFor(reached))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [applyRoute, dirty, paper, hash])
+
+  // Reload and closing the tab are the browser's to ask about, and it only
+  // asks when the page says there is something to lose.
+  useEffect(() => {
+    if (!dirty) return
+    const onLeave = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [dirty])
 
   return (
     <div class="shell">
