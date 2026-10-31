@@ -9,9 +9,8 @@
 
 import { Fragment } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { groupFor } from '../folder/manifest'
 import type { Check } from './validate'
-import type { DocumentPurpose, Manifest, SyllabusTopic } from './types'
+import type { DocumentPurpose, SyllabusTopic } from './types'
 
 /**
  * The bar across the top of a screen that takes the place of the tabs.
@@ -236,17 +235,26 @@ const GROUP_LABELS: Record<DocumentPurpose, { matching: string; other: string }>
  *
  * A folder Klunk has opened nothing in gets a plain list, because a single
  * heading reading "Not opened yet" over the whole thing is decoration.
+ *
+ * The caller does the sorting, with `groupFor` in `folder/manifest.ts`, and
+ * spreads the result in. This only draws the three groups, so shared/ need not
+ * reach into the folder layer to know what the manifest says (#182).
  */
 export function DocumentOptions({
-  paths,
-  manifest,
+  matching,
+  unknown,
+  other,
   want,
 }: {
-  paths: string[]
-  manifest: Manifest
+  /** Known to be what this slot wants. */
+  matching: string[]
+  /** Never opened, so it might be anything. */
+  unknown: string[]
+  /** Known to be something else, or refused by this slot. */
+  other: string[]
   want: DocumentPurpose
 }) {
-  const grouped = groupFor(paths, manifest, want)
+  const grouped = { matching, unknown, other }
   const labels = GROUP_LABELS[want]
   const options = (group: string[]) =>
     group.map((p) => (
