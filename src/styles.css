@@ -1329,10 +1329,6 @@ textarea.input {
   line-height: 1.5;
 }
 
-/* The per-paper half of the cover, folded away by default. A teacher opens a
-   paper to pick questions, and the date and the year group are read far more
-   often than they are typed, so the summary line carries them and the boxes
-   stay out of the way until they are wanted. */
 /* The wording and per-question overrides, both folded away by default. A row of
    empty boxes on every section and every question would bury the questions,
    which is what the screen is for. */
@@ -1413,6 +1409,10 @@ textarea.input {
   vertical-align: bottom;
 }
 
+/* A paper's cover settings, folded away by default. A teacher opens a paper to
+   pick questions, and the date and the year group are read far more often than
+   they are typed, so the summary line carries them and the boxes stay out of
+   the way until they are wanted. The row matches .paperstatus above it. */
 .papercover {
   display: flex;
   align-items: center;
@@ -1421,11 +1421,41 @@ textarea.input {
   margin-top: 0.6rem;
 }
 
+.papercover .rail__label {
+  margin-bottom: 0;
+}
+
 .papercover__body {
   flex: 1 1 100%;
   border-top: 1px solid var(--rule);
   padding-top: 0.8rem;
   margin-top: 0.2rem;
+}
+
+/* The paper's half and the folder's half, ruled apart so the line between
+   "this paper" and "every paper" is on the page rather than in a hint. */
+.papercover__group + .papercover__group {
+  border-top: 1px solid var(--rule);
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+}
+
+.papercover__head {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin: 0 0 0.7rem;
+}
+
+.papercover__school {
+  margin: 0;
+}
+
+.papercover__act {
+  margin-top: 0.6rem;
+}
+
+.papercover__own {
+  margin-top: 0.7rem;
 }
 
 /* The chosen logo beside the buttons that change it, so the preview and the

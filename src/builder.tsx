@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
+import { formatDate } from './cover'
 import { asExamJson } from './exam'
 import { ExamFactory } from './examfactory'
 import { CopyButton, Field, NumField, patched, type Patch } from './fields'
@@ -837,7 +838,12 @@ function describeOverride(value: number | string[]): string {
 }
 
 /**
- * The half of the cover that belongs to this paper and not to the school.
+ * Every cover setting a paper has, in one panel: this paper's own facts, then
+ * what the folder's cover sheet gives every paper, with the way to change it.
+ *
+ * The two halves were three places (#153): a "Cover" disclosure, a "More
+ * settings" disclosure inside it holding overrides of the folder's school and
+ * logo, and a Cover sheet panel on the Papers tab, each with its own name.
  *
  * `course` and `yearGroup` are filled in when the paper is created, from the
  * syllabus and the course the profile names, so this is usually a matter of
@@ -861,7 +867,6 @@ function CoverFields({
   onEditCover: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [more, setMore] = useState(false)
 
   /**
    * What a blank box means, said in words.
@@ -886,153 +891,222 @@ function CoverFields({
     setPaper(Object.keys(next).length > 0 ? { ...rest, school: next } : rest)
   }
 
-  const filled = [paper.school?.course, paper.school?.yearGroup, paper.school?.date].filter(Boolean)
+  // The name that will print, which is the paper's own where it has one. The
+  // summary showed the folder's even when this paper overrode it.
+  const schoolName = paper.school?.name?.trim() || school?.name
+  const ownSchool = Boolean(paper.school?.name?.trim() || paper.school?.logoFile?.trim())
+  const [different, setDifferent] = useState(ownSchool)
+
+  // The profile's list wins whole, as it does in coverModel, so the count has
+  // to come from the same place or it describes a cover that never prints.
+  const fromProfile = profile?.paper.cover?.identification
+  const boxes = (fromProfile ?? school?.identification ?? []).filter((f) => f.label.trim()).length
+
+  const summary = [
+    schoolName ?? 'No school name yet',
+    paper.school?.course,
+    paper.school?.yearGroup,
+    formatDate(paper.school?.date) ?? 'no date set',
+  ].filter(Boolean)
 
   return (
     <div class="papercover">
+      {/* Laid out like the Status row above it: a label naming the thing, what
+          it is now, and the one control that changes it. It was a bare "Cover"
+          button, and what it opened held a second disclosure and a link to a
+          third screen (#153). */}
+      <span class="rail__label">Cover sheet</span>
+      {!open && <span class="muted paperstatus__note">{summary.join(' · ')}</span>}
       <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? 'Hide the cover' : 'Cover'}
+        {open ? 'Hide' : 'Edit'}
       </button>
-      {!open && (
-        <span class="muted paperstatus__note">
-          {school?.name ?? 'No school name yet'}
-          {filled.length > 0 ? ` · ${filled.join(' · ')}` : ' · no date yet'}
-        </span>
-      )}
 
       {open && (
         <div class="papercover__body">
-          <p class="hint">
-            Your school's name, logo and the boxes a student fills in are the same on every paper in
-            this folder.{' '}
-            <button class="btn btn--small" onClick={onEditCover}>
-              Edit the cover sheet
-            </button>
-          </p>
+          {/* Everything that belongs to this paper, in one place. Subtitle and
+              notes were behind "More settings", a second disclosure inside
+              this one, for being set less often; two more boxes cost less than
+              a layer a teacher has to know is there. */}
+          <section class="papercover__group">
+            <h3 class="papercover__head">This paper</h3>
 
-          <div class="fieldrow">
-            <Field label="Subject" for="pc-course" hint="Printed under the title, in capitals">
-              <input
-                id="pc-course"
-                class="input"
-                value={paper.school?.course ?? ''}
-                placeholder="Design and Technology"
-                onInput={(e) => setSchool({ course: (e.target as HTMLInputElement).value })}
-              />
-            </Field>
-
-            <Field label="Year group" for="pc-year" hint="Or the level, for an IB paper">
-              <input
-                id="pc-year"
-                class="input"
-                value={paper.school?.yearGroup ?? ''}
-                placeholder="Year 12"
-                onInput={(e) => setSchool({ yearGroup: (e.target as HTMLInputElement).value })}
-              />
-            </Field>
-
-            <Field label="Date" for="pc-date" hint="The day students sit it">
-              <input
-                id="pc-date"
-                class="input"
-                type="date"
-                value={paper.school?.date ?? ''}
-                onInput={(e) => setSchool({ date: (e.target as HTMLInputElement).value })}
-              />
-            </Field>
-          </div>
-
-          {/* Blank means take the profile's, which is what the paper does for
-              every field it does not state. Until #106 there was no box at all
-              and every paper overrode the profile whether the teacher meant to
-              or not. */}
-          <div class="fieldrow">
-            <Field
-              label="Reading time"
-              for="pc-reading"
-              hint={inherits(profile?.paper.readingMinutes, 'reading time')}
-            >
-              <NumField
-                id="pc-reading"
-                value={paper.readingMinutes}
-                min={0}
-                placeholder={
-                  profile?.paper.readingMinutes === undefined
-                    ? ''
-                    : String(profile.paper.readingMinutes)
-                }
-                onChange={(n) => setPaper(patched(paper, { readingMinutes: n }))}
-              />
-            </Field>
-
-            <Field
-              label="Working time"
-              for="pc-working"
-              hint={inherits(profile?.paper.workingMinutes, 'working time')}
-            >
-              <NumField
-                id="pc-working"
-                value={paper.workingMinutes}
-                min={0}
-                placeholder={
-                  profile?.paper.workingMinutes === undefined
-                    ? ''
-                    : String(profile.paper.workingMinutes)
-                }
-                onChange={(n) => setPaper(patched(paper, { workingMinutes: n }))}
-              />
-            </Field>
-          </div>
-
-          <Field
-            label="General instructions"
-            for="pc-instructions"
-            hint="One per line. Blank takes the profile's."
-          >
-            <textarea
-              id="pc-instructions"
-              class="input"
-              rows={3}
-              value={(paper.instructions ?? []).join('\n')}
-              placeholder={
-                profile?.paper.instructions?.length
-                  ? profile.paper.instructions.join('\n')
-                  : 'Write using black pen\nDraw diagrams using pencil'
-              }
-              onInput={(e) =>
-                setPaper({
-                  ...paper,
-                  instructions: (e.target as HTMLTextAreaElement).value.split('\n'),
-                })
-              }
-            />
-          </Field>
-
-          {/* Behind a toggle because a teacher sets these once a year at most,
-              and the four above are on every paper. */}
-          <button class="btn btn--quiet" aria-expanded={more} onClick={() => setMore(!more)}>
-            {more ? 'Fewer settings' : 'More settings'}
-          </button>
-
-          {more && (
-            <>
-              <Field label="Subtitle" for="pc-subtitle" hint="Printed under the paper's title">
+            <div class="fieldrow">
+              <Field label="Subject" for="pc-course" hint="Printed under the title, in capitals">
                 <input
-                  id="pc-subtitle"
+                  id="pc-course"
                   class="input"
-                  value={paper.subtitle ?? ''}
-                  placeholder="Trial examination"
-                  onInput={(e) =>
-                    setPaper(patched(paper, { subtitle: (e.target as HTMLInputElement).value }))
-                  }
+                  value={paper.school?.course ?? ''}
+                  placeholder="Design and Technology"
+                  onInput={(e) => setSchool({ course: (e.target as HTMLInputElement).value })}
                 />
               </Field>
 
-              <div class="fieldrow">
+              <Field label="Year group" for="pc-year" hint="Or the level, for an IB paper">
+                <input
+                  id="pc-year"
+                  class="input"
+                  value={paper.school?.yearGroup ?? ''}
+                  placeholder="Year 12"
+                  onInput={(e) => setSchool({ yearGroup: (e.target as HTMLInputElement).value })}
+                />
+              </Field>
+
+              <Field label="Date" for="pc-date" hint="The day students sit it">
+                <input
+                  id="pc-date"
+                  class="input"
+                  type="date"
+                  value={paper.school?.date ?? ''}
+                  onInput={(e) => setSchool({ date: (e.target as HTMLInputElement).value })}
+                />
+              </Field>
+            </div>
+
+            <Field label="Subtitle" for="pc-subtitle" hint="Printed under the paper's title">
+              <input
+                id="pc-subtitle"
+                class="input"
+                value={paper.subtitle ?? ''}
+                placeholder="Trial examination"
+                onInput={(e) =>
+                  setPaper(patched(paper, { subtitle: (e.target as HTMLInputElement).value }))
+                }
+              />
+            </Field>
+
+            {/* Blank means take the profile's, which is what the paper does for
+                every field it does not state. Until #106 there was no box at all
+                and every paper overrode the profile whether the teacher meant to
+                or not. */}
+            <div class="fieldrow">
+              <Field
+                label="Reading time"
+                for="pc-reading"
+                hint={inherits(profile?.paper.readingMinutes, 'reading time')}
+              >
+                <NumField
+                  id="pc-reading"
+                  value={paper.readingMinutes}
+                  min={0}
+                  placeholder={
+                    profile?.paper.readingMinutes === undefined
+                      ? ''
+                      : String(profile.paper.readingMinutes)
+                  }
+                  onChange={(n) => setPaper(patched(paper, { readingMinutes: n }))}
+                />
+              </Field>
+
+              <Field
+                label="Working time"
+                for="pc-working"
+                hint={inherits(profile?.paper.workingMinutes, 'working time')}
+              >
+                <NumField
+                  id="pc-working"
+                  value={paper.workingMinutes}
+                  min={0}
+                  placeholder={
+                    profile?.paper.workingMinutes === undefined
+                      ? ''
+                      : String(profile.paper.workingMinutes)
+                  }
+                  onChange={(n) => setPaper(patched(paper, { workingMinutes: n }))}
+                />
+              </Field>
+            </div>
+
+            <Field
+              label="General instructions"
+              for="pc-instructions"
+              hint="One per line. Blank takes the profile's."
+            >
+              <textarea
+                id="pc-instructions"
+                class="input"
+                rows={3}
+                value={(paper.instructions ?? []).join('\n')}
+                placeholder={
+                  profile?.paper.instructions?.length
+                    ? profile.paper.instructions.join('\n')
+                    : 'Write using black pen\nDraw diagrams using pencil'
+                }
+                onInput={(e) =>
+                  setPaper({
+                    ...paper,
+                    instructions: (e.target as HTMLTextAreaElement).value.split('\n'),
+                  })
+                }
+              />
+            </Field>
+
+            <Field
+              label="Your own notes"
+              for="pc-notes"
+              hint="Printed on the marking guide, never on the student paper"
+            >
+              <textarea
+                id="pc-notes"
+                class="input"
+                rows={2}
+                value={paper.notes ?? ''}
+                placeholder="Print single sided."
+                onInput={(e) =>
+                  setPaper(patched(paper, { notes: (e.target as HTMLTextAreaElement).value }))
+                }
+              />
+            </Field>
+          </section>
+
+          {/* The folder's half, said rather than edited here: it is one file
+              every paper reads, so changing it belongs on its own screen. */}
+          <section class="papercover__group">
+            <h3 class="papercover__head">Every paper in this folder</h3>
+            {school ? (
+              <p class="papercover__school">
+                <strong>{school.name}</strong>
+                {' · '}
+                {school.logoFile ? 'logo' : 'no logo'}
+                {' · '}
+                {identificationSummary(boxes)}
+              </p>
+            ) : (
+              <p class="hint">No school name, logo or boxes for a student yet.</p>
+            )}
+            {fromProfile && (
+              <p class="hint">
+                The {profile?.name} structure sets its own boxes for a student to fill in.
+              </p>
+            )}
+            <div class="rowbtns papercover__act">
+              <button class="btn btn--small" onClick={onEditCover}>
+                {school ? 'Edit the cover sheet' : 'Set up your cover sheet'}
+              </button>
+            </div>
+
+            {/* A campus that prints its own name is real, so the override stays,
+                but behind a box that says what it does. Unticking clears both
+                fields: a hidden override nobody remembers setting is the fault
+                this replaces. */}
+            <label class="checkline">
+              <input
+                type="checkbox"
+                checked={different}
+                onChange={(e) => {
+                  const on = (e.target as HTMLInputElement).checked
+                  setDifferent(on)
+                  if (!on) setSchool({ name: undefined, logoFile: undefined })
+                }}
+              />
+              Print a different school on this paper
+            </label>
+
+            {different && (
+              <div class="fieldrow papercover__own">
                 <Field
                   label="School name"
                   for="pc-school"
-                  hint={`Blank uses ${school?.name ?? 'the folder\u2019s cover sheet'}`}
+                  hint={`Blank prints ${school?.name ?? 'no school name'}`}
                 >
                   <input
                     id="pc-school"
@@ -1057,25 +1131,8 @@ function CoverFields({
                   />
                 </Field>
               </div>
-
-              <Field
-                label="Your own notes"
-                for="pc-notes"
-                hint="Printed on the marking guide, never on the student paper"
-              >
-                <textarea
-                  id="pc-notes"
-                  class="input"
-                  rows={2}
-                  value={paper.notes ?? ''}
-                  placeholder="Print single sided."
-                  onInput={(e) =>
-                    setPaper(patched(paper, { notes: (e.target as HTMLTextAreaElement).value }))
-                  }
-                />
-              </Field>
-            </>
-          )}
+            )}
+          </section>
         </div>
       )}
     </div>
