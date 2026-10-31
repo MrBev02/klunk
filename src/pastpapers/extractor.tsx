@@ -1346,8 +1346,8 @@ function TranscribePanel({
             'this paper.'
           : courseName === undefined
             ? 'The prompt does not say how the paper is laid out. Choose a course above to ' +
-              'take that from its profile.'
-            : `No paper profile for ${courseName} in this folder, so the prompt does not say ` +
+              'take that from its paper structure.'
+            : `No paper structure for ${courseName} in this folder, so the prompt does not say ` +
               'how the paper is laid out.'}
       </p>
 

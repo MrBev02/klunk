@@ -984,7 +984,7 @@ describe('saveProfile', () => {
         replacingId: 'mine',
         path: 'klunk/profiles/mine.json',
       }),
-    ).rejects.toThrow(/holds another profile, "Theirs"/)
+    ).rejects.toThrow(/holds another paper structure, "Theirs"/)
     expect(readJson(files, 'klunk/profiles/other.json')).toEqual(theirs)
   })
 })

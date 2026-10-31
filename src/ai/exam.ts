@@ -153,7 +153,7 @@ export function readExam(pasted: string, ctx: ExamContext): ExamRead {
       // something the teacher would otherwise look for on the paper and not
       // find.
       notes.push(
-        `${spec.name} came back with its own instructions. Your profile's are printed ` +
+        `${spec.name} came back with its own instructions. The paper structure's are printed ` +
           'instead: ' +
           spec.instructions,
       )
@@ -172,9 +172,9 @@ export function readExam(pasted: string, ctx: ExamContext): ExamRead {
     // Said here rather than left to `checkPaper`, because it explains why a
     // section further down has nothing from the profile against it.
     notes.push(
-      `The profile has ${specs.length} section${specs.length === 1 ? '' : 's'} and the ` +
+      `The paper structure has ${specs.length} section${specs.length === 1 ? '' : 's'} and the ` +
         `reply has ${sections.length}. The paper is built as it came back, and the ` +
-        'checker will say where it and the profile disagree.',
+        'checker will say where it and the paper structure disagree.',
     )
   }
 
@@ -252,7 +252,7 @@ function sectionsFrom(
         unsectioned: true,
         note:
           'The reply held one list of questions and no sections, so they are all in one ' +
-          'section and none of them is against your profile. Move them into sections on ' +
+          'section and none of them is against the paper structure. Move them into sections on ' +
           'the paper, or ask for the paper again.',
       }
     }
@@ -281,7 +281,7 @@ function sectionsFrom(
     unsectioned: true,
     note:
       'The reply held one list of questions and no sections, so they are all in one ' +
-      'section and none of them is against your profile. Move them into sections on ' +
+      'section and none of them is against the paper structure. Move them into sections on ' +
       'the paper, or ask for the paper again.',
   }
 }

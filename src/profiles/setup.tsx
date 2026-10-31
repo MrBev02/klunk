@@ -18,7 +18,7 @@ import { installProfile, SHIPPED_PROFILES, type ShippedProfile } from './shipped
 import type { ContentIndex } from '../folder/storage'
 
 /**
- * Why a folder is being offered no stock profile, or `null` if it is being
+ * Why a folder is being offered no stock paper structure, or `null` if it is being
  * offered some.
  *
  * Two different absences, and a teacher can act on the difference. Klunk having
@@ -160,7 +160,7 @@ export function ProfileInstaller({
         <p class="muted">
           Building towards a different exam?{' '}
           <button class="btn btn--small" onClick={onBuild}>
-            Describe your own paper
+            New paper structure
           </button>
         </p>
       )}
@@ -168,12 +168,12 @@ export function ProfileInstaller({
         <>
           <p>
             {why === 'several-syllabuses'
-              ? 'This folder holds more than one syllabus, so Klunk cannot tell which exam a stock profile would be for.'
-              : 'Klunk has no stock profile for this subject.'}
+              ? 'This folder holds more than one syllabus, so Klunk cannot tell which exam a stock paper structure would be for.'
+              : 'Klunk has no stock paper structure for this subject.'}
           </p>
           <div class="rowbtns">
             <button class="btn btn--primary" onClick={onBuild}>
-              Describe your own paper
+              New paper structure
             </button>
           </div>
         </>
