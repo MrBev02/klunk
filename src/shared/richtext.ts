@@ -1,7 +1,7 @@
 /**
  * The little bit of markup a question's text is allowed to carry.
  *
- * Blank-line paragraphs, pipe tables, and four inline marks. No lists, no
+ * Blank-line paragraphs, pipe tables, four inline marks and formulas. No lists, no
  * links, no headings — every one of those is a thing to get wrong on a printed
  * examination, and none of them is what was missing. What was missing is that a
  * table printed inside a question arrived as a run of loose words (#88), and
@@ -13,8 +13,8 @@
  * / Compare the two groups …` — and `stimulus` renders in one fixed place, so a
  * field would mean splitting the stem and deciding where the split falls.
  *
- * **Why it is written by hand.** The app's dependencies are `preact` and
- * `pdfjs-dist`. A markdown library would be a third, would bring far more syntax
+ * **Why it is written by hand.** The app's dependencies are `preact`,
+ * `pdfjs-dist` and KaTeX. A markdown library would be a fourth, would bring far more syntax
  * than this wants, and would need a sanitiser behind it. The precedent is
  * `CriterionPoints` in `render.tsx`, which turns newlines into bullets and is
  * the only other markup transform in the app.
@@ -40,6 +40,17 @@
  * three, as it does in markdown: an asterisk inside a span can neither open nor
  * close an italic around it. No escape works inside one, so a span cannot hold
  * a backtick, which no paper has needed.
+ *
+ * **A formula is `\(…\)` inside a sentence and `\[…\]` on its own line**
+ * (#151), set by KaTeX in `richtextview.tsx`. Not `$…$`, because a mathematics
+ * paper prints prices: `A jacket costs $80 and a hat costs $25` would set
+ * `80 and a hat costs ` as a formula, and nothing on the proof would say why.
+ * `\(` collides with nothing a paper prints, it is LaTeX's own inline
+ * delimiter, and a model asked for LaTeX produces it untaught. A formula binds
+ * tighter than everything else, a code span included: `\(a*b*c\)` keeps its
+ * asterisks, and nothing inside one is an escape. It sits on one line, because
+ * a line is a paragraph here. Written first in Mimir's copy of this file, which
+ * reads what Klunk releases and so has to read it identically.
  */
 
 const SEPARATOR = /^\|(?:\s*:?-{3,}:?\s*\|)+$/
@@ -54,6 +65,8 @@ export interface Run {
   italic?: boolean
   underline?: boolean
   code?: boolean
+  /** The run's text is TeX, set within the line or on its own. */
+  math?: 'inline' | 'display'
 }
 
 /** The characters a backslash may protect, the pipe being `cellsOf`'s. */
@@ -107,6 +120,22 @@ function codeEnd(text: string, at: number): number {
 }
 
 /**
+ * The formula opened at `at`, if `\(` or `\[` opens one there.
+ *
+ * `end` is the index of the closer's backslash. An empty formula is not one,
+ * for the reason an empty code span is not, and an opener with no closer
+ * prints as itself.
+ */
+function mathAt(text: string, at: number): { end: number; display: boolean } | null {
+  if (text[at] !== '\\') return null
+  const open = text[at + 1]
+  if (open !== '(' && open !== '[') return null
+  const end = text.indexOf(open === '(' ? '\\)' : '\\]', at + 2)
+  if (end <= at + 2 || text.slice(at + 2, end).trim() === '') return null
+  return { end, display: open === '[' }
+}
+
+/**
  * Where the run opened at `from` closes, or -1.
  *
  * The character before a closer is never a space. That one rule is what stops
@@ -115,6 +144,12 @@ function codeEnd(text: string, at: number): number {
  */
 function closerOf(text: string, from: number, token: '*' | '**'): number {
   for (let at = from; at < text.length; at += 1) {
+    // Before the escape, which would otherwise eat the `(` of `\(`.
+    const math = mathAt(text, at)
+    if (math) {
+      at = math.end + 1
+      continue
+    }
     if (text[at] === '\\') {
       at += 1
       continue
@@ -141,6 +176,11 @@ function closerOf(text: string, from: number, token: '*' | '**'): number {
 /** Where the `<u>` opened before `from` is closed, or -1. */
 function closingTag(text: string, from: number): number {
   for (let at = from; at < text.length; at += 1) {
+    const math = mathAt(text, at)
+    if (math) {
+      at = math.end + 1
+      continue
+    }
     if (text[at] === '\\') {
       at += 1
       continue
@@ -170,6 +210,20 @@ function collect(text: string, marks: Omit<Run, 'text'>, out: Run[]): void {
 
   for (let at = 0; at < text.length; at += 1) {
     const ch = text[at]!
+
+    // Before the escape. `\\(` still escapes the backslash, because `mathAt`
+    // only opens on a backslash followed by the bracket itself.
+    const math = mathAt(text, at)
+    if (math) {
+      flush()
+      out.push({
+        text: text.slice(at + 2, math.end).trim(),
+        ...marks,
+        math: math.display ? 'display' : 'inline',
+      })
+      at = math.end + 1
+      continue
+    }
 
     if (ch === '\\' && ESCAPABLE.includes(text[at + 1] ?? '')) {
       plain += text[at + 1]
@@ -224,8 +278,11 @@ function merged(runs: Run[]): Run[] {
   const out: Run[] = []
   for (const run of runs) {
     const last = out[out.length - 1]
+    // Two formulas side by side are two formulas, never one.
     if (
       last &&
+      !last.math &&
+      !run.math &&
       !!last.bold === !!run.bold &&
       !!last.italic === !!run.italic &&
       !!last.underline === !!run.underline &&
@@ -325,7 +382,13 @@ export function plainText(text: string): string {
  * summary still reads as the sentence it summarises — only the emphasis is
  * missing, where a flattened table is nonsense. Counting them would print the
  * whole stem twice for every question carrying one bold word.
+ *
+ * A formula is counted, though it is inline, because it is the table's case
+ * and not the bold word's (#151): the summary shows `3x^2 \times 4x^5`, which
+ * is the source of the thing rather than the thing.
  */
 export function hasMarkup(text: string): boolean {
-  return blocksOf(text).some((block) => block.kind === 'table')
+  return blocksOf(text).some((block) =>
+    block.kind === 'table' ? true : runsOf(block.text).some((run) => run.math !== undefined),
+  )
 }

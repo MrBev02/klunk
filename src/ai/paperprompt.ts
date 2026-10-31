@@ -295,6 +295,10 @@ function shape(spec: PaperPromptSpec): string {
  * text, which has to be copied with its indentation, and the indentation is the
  * fault the question asks about, so a model that flattens it has visibly broken
  * the example rather than quietly losing something.
+ *
+ * Question 4 also ends on a display formula (#151), written with `\frac`
+ * because that is the command a single backslash silently ruins: `\f` is a
+ * valid JSON escape, so a model copying the shape has to see it doubled.
  */
 const EXAMPLE = `[
   {
@@ -337,8 +341,8 @@ const EXAMPLE = `[
   {
     "number": 4,
     "questionType": "short_answer",
-    "questionText": "The table shows the temperature recorded in the workshop.\\n\\n| Time | Temperature (\u00b0C) |\\n| --- | --- |\\n| 8 am | 18.8 |\\n| 12 noon | 27.1 |\\n| 4 pm | 24.6 |\\n\\nIdentify the **greatest** change between two readings.",
-    "marks": 2,
+    "questionText": "The table shows the temperature recorded in the workshop.\\n\\n| Time | Temperature (\u00b0C) |\\n| --- | --- |\\n| 8 am | 18.8 |\\n| 12 noon | 27.1 |\\n| 4 pm | 24.6 |\\n\\nIdentify the **greatest** change between two readings.\\nCalculate the mean temperature using\\n\\\\[ \\\\bar{T} = \\\\frac{T_1 + T_2 + T_3}{3} \\\\]",
+    "marks": 3,
     "section": "II"
   },
   {
@@ -386,7 +390,9 @@ function example(spec: PaperPromptSpec): string {
     'difference between questions 3 and 6: question 3 prints a picture, so it',
     'is described in "stimulusNote", while question 6 prints its program as',
     'text, so the program is copied into "stimulus" with its indentation, and',
-    'without the line numbers the paper prints beside it.',
+    'without the line numbers the paper prints beside it. Note the formula at',
+    'the end of question 4: LaTeX between \\[ and \\], on a line of its own, with',
+    'every backslash doubled because it is inside a JSON string.',
     spec.range
       ? `Return only questions ${spec.range.from} to ${spec.range.to}, in one array.`
       : 'Return every question of the paper in one array.',

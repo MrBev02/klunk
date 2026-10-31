@@ -43,6 +43,7 @@ import {
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
+  questionLabel,
   type Profile,
   type Question,
   type QuestionType,
@@ -721,7 +722,9 @@ function DraftCard({
     <li class={`draft draft--${state}`}>
       <div class="draft__head">
         <span class="draft__n">{at + 1}</span>
-        <span class="draft__stem">{q.questionText}</span>
+        {/* The label rather than the raw text, as in the extractor and the
+            library, so markup is never printed as its source (#151). */}
+        <span class="draft__stem">{questionLabel(q)}</span>
         <span class="draft__state">
           {saved
             ? 'Saved'
