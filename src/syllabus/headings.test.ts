@@ -625,6 +625,90 @@ describe('parseHeadingsXml on the Drama shape', () => {
   })
 })
 
+/**
+ * Mathematics Advanced Stage 6 (2017): every focus area headed twice, once as a
+ * `Topic:` overview and once bare above each of its topics, and a topic's
+ * content divided into sub-topics by plain paragraphs carrying its code (#203).
+ */
+const MATHS_2017 = body(
+  heading('Heading1', 'Example Year 11 Course Content'),
+  heading('Heading2', 'Topic: Functions'),
+  heading('Heading3', 'Outcomes'),
+  para('A student:'),
+  bullet('uses algebraic techniques MA11-1'),
+  heading('Heading3', 'Topic Focus'),
+  para('What the focus area is about.'),
+  heading('Heading3', 'Subtopics'),
+  para('MA-F1 Working with Functions'),
+  heading('Heading2', 'Functions'),
+  heading('Heading3', 'MA-F1 Working with Functions'),
+  heading('Heading3', 'Outcomes'),
+  bullet('uses algebraic techniques MA11-1'),
+  bullet('models with functions MA11-2'),
+  heading('Heading3', 'Content'),
+  para('F1.1: Algebraic techniques'),
+  para('Students:'),
+  item(0, 'use index laws and surds'),
+  para('F1.2: Introduction to functions'),
+  para('Students:'),
+  item(0, 'identify types of functions'),
+  item(1, 'use the vertical line test'),
+  heading('Heading2', 'Topic: Trigonometric Functions'),
+  heading('Heading3', 'Outcomes'),
+  bullet('solves trigonometric problems MA11-3'),
+  heading('Heading2', 'Trigonometric Functions'),
+  heading('Heading3', 'MA-T1 Trigonometry and Measure of Angles'),
+  heading('Heading3', 'Outcomes'),
+  bullet('solves trigonometric problems MA11-3'),
+  heading('Heading3', 'Content'),
+  para('T1.1 Trigonometry'),
+  item(0, 'use the sine rule'),
+  heading('Heading2', 'Trigonometric Functions'),
+  heading('Heading3', 'MA-T2 Trigonometric Functions and Identities'),
+  heading('Heading3', 'Outcomes'),
+  bullet('solves trigonometric problems MA11-3'),
+  heading('Heading3', 'Content'),
+  item(0, 'define the reciprocal trigonometric functions'),
+  para('F1.3: a paragraph carrying another topic’s code'),
+  item(0, 'T2.1 a bullet carrying its own'),
+)
+
+describe('parseHeadingsXml on the 2017 mathematics shape', () => {
+  const topics = parseHeadingsXml(MATHS_2017)[0]?.topics ?? []
+
+  it('takes each sub-topic for a topic, grouped under its MA code', () => {
+    // No topic for either overview and none for the repeated `Trigonometric
+    // Functions`, which before #203 were three empty topics.
+    expect(topics.map((t) => [t.group ?? '', t.name])).toEqual([
+      ['MA-F1 Working with Functions', 'F1.1: Algebraic techniques'],
+      ['MA-F1 Working with Functions', 'F1.2: Introduction to functions'],
+      ['MA-T1 Trigonometry and Measure of Angles', 'T1.1 Trigonometry'],
+      ['', 'MA-T2 Trigonometric Functions and Identities'],
+    ])
+  })
+
+  it('keeps a sub-item under its point, and the MA block outcomes on every sub-topic', () => {
+    const intro = topics[1]!
+    const points = intro.points ?? []
+    expect(points.map((p) => [p.text, p.parent ?? ''])).toEqual([
+      ['identify types of functions', ''],
+      ['use the vertical line test', points[0]?.id],
+    ])
+    expect(topics[0]?.outcomes).toEqual(['MA11-1', 'MA11-2'])
+    expect(intro.outcomes).toEqual(['MA11-1', 'MA11-2'])
+  })
+
+  it('divides a topic only by a paragraph carrying its own code', () => {
+    // MA-T2 prints no sub-topics, so both of these stay its content points: the
+    // paragraph names F1, and the bullet is a bullet.
+    expect((topics[3]?.points ?? []).map((p) => p.text)).toEqual([
+      'define the reciprocal trigonometric functions',
+      'F1.3: a paragraph carrying another topic’s code',
+      'T2.1 a bullet carrying its own',
+    ])
+  })
+})
+
 describe('parseHeadingsXml refusing', () => {
   it('refuses a document with no course heading', () => {
     const xml = body(heading('Heading1', 'Rationale'), para('Prose and nothing else.'))

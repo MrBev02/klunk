@@ -214,6 +214,43 @@ const INCLUDING_RE = /^including:?$/i
 /** `Inquiry question: What distinguishes one cell from another?` */
 const INQUIRY_RE = /^inquiry question:\s*(.+)$/i
 
+/**
+ * The overview a 2017 mathematics syllabus prints above each focus area.
+ *
+ * Mathematics Advanced Stage 6 (2017) heads every focus area twice (#203).
+ * `Topic: Functions` opens an overview holding its own `Outcomes`, a `Topic
+ * Focus` and a list of `Subtopics`, and then each of those sub-topics sits under
+ * a bare `Functions` heading of its own:
+ *
+ * ```
+ * Topic: Functions                 overview: Outcomes, Topic Focus, Subtopics
+ * Functions                        the focus area again
+ *   MA-F1 Working with Functions   Outcomes, Subtopic Focus, Content
+ * ```
+ *
+ * The overview's next heading is `Outcomes`, so it opened a topic that never
+ * reached any content, eleven of them across the two courses. And the repeat,
+ * meeting a `Content` block still open, became a sub-heading of the topic above
+ * it: the second `Trigonometric Functions` was filed as an empty topic in a
+ * group named after MA-T1. So the overview names the focus area, and a heading
+ * repeating that name only closes what is open. The rule needs the document's
+ * own `Topic:` to fire, which no other syllabus in the corpus prints.
+ */
+const FOCUS_OVERVIEW_RE = /^topic:\s*(.+)$/i
+
+/**
+ * The code of a 2017 mathematics topic, `F1` in `MA-F1 Working with Functions`.
+ *
+ * Its content is divided into sub-topics, `F1.1: Algebraic techniques`, by a
+ * plain paragraph and not a heading, and its dot points already nest a level
+ * under that (#203). Klunk's model has room for one of the two, so a sub-topic
+ * becomes the topic and `MA-F1` its group, which keeps every sub-item under the
+ * point it belongs to. The user chose that over making the sub-topic a point.
+ * The paragraph has to carry its own topic's code to count, so a content point
+ * that happens to open with a number cannot divide a topic.
+ */
+const MATHS_TOPIC_CODE_RE = /^[A-Z]{2,}-([A-Z]+\d+)\s/
+
 /** The two block markers, which is the whole contract the shapes have in common. */
 const OUTCOMES_BLOCK = 'outcomes'
 const CONTENT_BLOCK = 'content'
@@ -627,6 +664,7 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
   let courseLevel: number | undefined
   let section: { name: string; outcomes: string[]; lead: Line[]; subs: Sub[] } | null = null
   let mode: 'outcomes' | 'content' | null = null
+  let focusArea: string | null = null
 
   const closeSection = () => {
     if (course && section) addSection(course, section)
@@ -659,6 +697,11 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
           if (text && !course.outcomes.has(code)) course.outcomes.set(code, text)
         }
       } else if (mode === 'content') {
+        const code = tidyHeading(section.name).match(MATHS_TOPIC_CODE_RE)?.[1]
+        if (code && block.listLevel === undefined && block.text.trim().startsWith(`${code}.`)) {
+          section.subs.push({ name: block.text.trim(), points: [] })
+          continue
+        }
         const line = lineOf(block, vocabulary)
         const sub = section.subs[section.subs.length - 1]
         if (sub) sub.points.push(line)
@@ -682,6 +725,7 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
       }
       course = building
       courseLevel = block.headingLevel
+      focusArea = null
       continue
     }
 
@@ -702,6 +746,16 @@ export function parseHeadingsXml(xml: string): SyllabusCourse[] {
     }
 
     const key = headingKey(block.text)
+    const overview = FOCUS_OVERVIEW_RE.exec(key)
+    if (overview) {
+      closeSection()
+      focusArea = (overview[1] as string).trim()
+      continue
+    }
+    if (focusArea !== null && key === focusArea) {
+      closeSection()
+      continue
+    }
     if (key === OUTCOMES_BLOCK) {
       mode = 'outcomes'
       continue

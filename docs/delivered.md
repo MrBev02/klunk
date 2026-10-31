@@ -985,5 +985,22 @@ their chips; Design and Technology getting a plain list, having no areas; and
 Textiles re-read through the reader to `Areas of study: Design · …`, an
 `AREA OF STUDY` heading over each, and `Clear the area of study on all 18 topics`.
 
+## The 2017 Mathematics Advanced syllabus
+
+**The syllabus the 2025 HSC paper was set on reads as its sub-topics** (#203).
+It read before, as 12 and 16 topics of which 11 were empty, with focus areas
+filed under the wrong topic. Now `F1.2: Introduction to functions` is a topic
+grouped under `MA-F1 Working with Functions`, with its dot points and their
+sub-points nested as printed. The model shape was the user's choice of three;
+the reasoning is in [reading-syllabuses.md](reading-syllabuses.md).
+
+Verified by driving it on `../klunk-content`: Year 11 at 17 topics, 156 content
+points and 9 outcomes, Year 12 at 16, 147 and 10, matching the hand counts; the
+focus areas listed as the MA codes; F1.2 opening to `Y11-02.04 identify types of
+functions` with `use the vertical line test` under it as `Y11-02.04.02`, and the
+heading line carrying MA11-1, MA11-2, MA11-8 and MA11-9. Not saved to the folder.
+Driving it found #204: MA-T2, having no sub-topics and so no group, is drawn
+inside the MA-T1 box above it.
+
 Note on history: the commit "Papers survive a moved or renamed bank" also contains
 the stimulus-image loading, which its message does not mention.

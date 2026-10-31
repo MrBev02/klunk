@@ -30,6 +30,7 @@ import {
   ENGLISH,
   ENTERPRISE,
   MATHS,
+  MATHS_2017,
   VISUAL_ARTS,
   have,
 } from '../testing/corpus'
@@ -138,6 +139,47 @@ const EXPECTED: Record<string, Expected> = {
           'Applications of calculus',
           'Random variables',
           'Financial mathematics',
+        ],
+      },
+    },
+  },
+  // The syllabus the 2025 HSC paper was set on (#203). Every focus area is headed
+  // twice, once as a `Topic:` overview and once bare above each of its topics,
+  // and a topic's content is divided into sub-topics, `F1.1: Algebraic
+  // techniques`, by plain paragraphs. Read before the fix as 12 and 16 topics,
+  // 11 of them empty, with focus areas filed under the topic before them.
+  //
+  // A sub-topic is the topic and its MA code the group, the user's choice, which
+  // keeps the dot points' own sub-items (60 and 73) under the points they
+  // belong to. Counts read off the document by hand first. MA-T2, MA-F2 and
+  // MA-T3 print no sub-topics, so each is a topic and none is a group.
+  'Mathematics Advanced Stage 6 (2017)': {
+    path: MATHS_2017,
+    format: 'headings',
+    courses: {
+      y11: {
+        topics: 17,
+        points: 156,
+        outcomes: 9,
+        groups: [
+          'MA-F1 Working with Functions',
+          'MA-T1 Trigonometry and Measure of Angles',
+          'MA-C1 Introduction to Differentiation',
+          'MA-E1 Logarithms and Exponentials',
+          'MA-S1 Probability and Discrete Probability Distributions',
+        ],
+      },
+      y12: {
+        topics: 16,
+        points: 147,
+        outcomes: 10,
+        groups: [
+          'MA-C2 Differential Calculus',
+          'MA-C3 Applications of Differentiation',
+          'MA-C4 Integral Calculus',
+          'MA-M1 Modelling Financial Situations',
+          'MA-S2 Descriptive Statistics and Bivariate Data Analysis',
+          'MA-S3 Random Variables',
         ],
       },
     },

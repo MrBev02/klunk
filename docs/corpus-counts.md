@@ -26,6 +26,7 @@ established by hand off the documents rather than inherited:
 | Drama Stage 6 (2009) | pre **3 / 15 / 18** | hsc **3 / 20 / 19** |
 | English Advanced 11–12 (2024) | y11 **9 / 30 / 6** | y12 **12 / 43 / 6** |
 | Mathematics Advanced 11–12 (2024) | y11 **27 / 201 / 11** | y12 **25 / 158 / 9** |
+| Mathematics Advanced Stage 6 (2017) | y11 **17 / 156 / 9** | y12 **16 / 147 / 10** |
 | Visual Arts Stage 6 (2016) | pre **17 / 132 / 10** | hsc **17 / 132 / 10** |
 | Computing Technology 7–10 (2022) | s4 **24 / 246 / 1** | s5 **24 / 246 / 10** |
 | Biology Stage 6 (2017) | y11 **19 / 122 / 11** | y12 **24 / 149 / 11** |
