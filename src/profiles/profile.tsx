@@ -439,10 +439,13 @@ function SectionFields({
   // offers a choice rather than two boxes that can disagree.
   const ranged = section.minQuestions !== undefined || section.maxQuestions !== undefined
 
+  // Bounded, the way the cover sheet's identification rows are (#196). With
+  // only a gap between them, one section's last fields sat as near the next
+  // section's name as their own.
   return (
-    <div class="editor__sub">
-      <div class="panel__head">
-        <strong>{section.name || `Section ${index + 1}`}</strong>
+    <div class="secfield">
+      <div class="secfield__head">
+        <strong class="secfield__name">{section.name || `Section ${index + 1}`}</strong>
         <div class="rowbtns">
           <button
             class="btn btn--icon"
@@ -466,166 +469,170 @@ function SectionFields({
         </div>
       </div>
 
-      <div class="fieldrow">
-        <Field label="Name">
-          <input
-            class="input"
-            value={section.name}
-            placeholder="Section I"
-            onInput={(e) => onChange({ name: (e.target as HTMLInputElement).value })}
-          />
-        </Field>
-
-        <Field label="Id" hint="Papers record which section a question filled">
-          <input
-            class="input mono"
-            value={section.id}
-            placeholder="I"
-            onInput={(e) => onChange({ id: (e.target as HTMLInputElement).value })}
-          />
-        </Field>
-
-        <Field label="Marks">
-          <NumField value={section.marks} min={1} onChange={(n) => onChange({ marks: n ?? 0 })} />
-        </Field>
-
-        <Field label="Suggested time" hint="Minutes, optional">
-          <NumField
-            value={section.suggestedMinutes}
-            min={0}
-            onChange={(n) => onChange({ suggestedMinutes: n })}
-          />
-        </Field>
-      </div>
-
-      <Field label="How many questions">
-        <div class="rowbtns">
-          <label class="checkline">
+      <div class="secfield__body">
+        <div class="fieldrow">
+          <Field label="Name">
             <input
-              type="radio"
-              checked={!ranged}
-              onChange={() => onChange({ minQuestions: undefined, maxQuestions: undefined })}
+              class="input"
+              value={section.name}
+              placeholder="Section I"
+              onInput={(e) => onChange({ name: (e.target as HTMLInputElement).value })}
             />
-            <span>Always the same number</span>
-          </label>
-          <label class="checkline">
-            <input
-              type="radio"
-              checked={ranged}
-              onChange={() =>
-                onChange({
-                  questionCount: undefined,
-                  minQuestions: section.questionCount ?? 1,
-                  maxQuestions: section.questionCount ?? 1,
-                })
-              }
-            />
-            <span>It varies</span>
-          </label>
-        </div>
-      </Field>
+          </Field>
 
-      <div class="fieldrow">
-        {ranged ? (
-          <>
-            <Field label="Fewest">
-              <NumField
-                value={section.minQuestions}
-                min={1}
-                onChange={(n) => onChange({ minQuestions: n })}
-              />
-            </Field>
-            <Field label="Most">
-              <NumField
-                value={section.maxQuestions}
-                min={1}
-                onChange={(n) => onChange({ maxQuestions: n })}
-              />
-            </Field>
-          </>
-        ) : (
-          <Field label="Questions">
+          <Field label="Id" hint="Papers record which section a question filled">
+            <input
+              class="input mono"
+              value={section.id}
+              placeholder="I"
+              onInput={(e) => onChange({ id: (e.target as HTMLInputElement).value })}
+            />
+          </Field>
+
+          <Field label="Marks">
+            <NumField value={section.marks} min={1} onChange={(n) => onChange({ marks: n ?? 0 })} />
+          </Field>
+
+          <Field label="Suggested time" hint="Minutes, optional">
             <NumField
-              value={section.questionCount}
+              value={section.suggestedMinutes}
+              min={0}
+              onChange={(n) => onChange({ suggestedMinutes: n })}
+            />
+          </Field>
+        </div>
+
+        <Field label="How many questions">
+          <div class="rowbtns">
+            <label class="checkline">
+              <input
+                type="radio"
+                checked={!ranged}
+                onChange={() => onChange({ minQuestions: undefined, maxQuestions: undefined })}
+              />
+              <span>Always the same number</span>
+            </label>
+            <label class="checkline">
+              <input
+                type="radio"
+                checked={ranged}
+                onChange={() =>
+                  onChange({
+                    questionCount: undefined,
+                    minQuestions: section.questionCount ?? 1,
+                    maxQuestions: section.questionCount ?? 1,
+                  })
+                }
+              />
+              <span>It varies</span>
+            </label>
+          </div>
+        </Field>
+
+        <div class="fieldrow">
+          {ranged ? (
+            <>
+              <Field label="Fewest">
+                <NumField
+                  value={section.minQuestions}
+                  min={1}
+                  onChange={(n) => onChange({ minQuestions: n })}
+                />
+              </Field>
+              <Field label="Most">
+                <NumField
+                  value={section.maxQuestions}
+                  min={1}
+                  onChange={(n) => onChange({ maxQuestions: n })}
+                />
+              </Field>
+            </>
+          ) : (
+            <Field label="Questions">
+              <NumField
+                value={section.questionCount}
+                min={1}
+                onChange={(n) => onChange({ questionCount: n })}
+              />
+            </Field>
+          )}
+
+          <Field label="Marks each" hint="Only where every question is worth the same">
+            <NumField
+              value={section.marksPerQuestion}
+              min={0}
+              step={0.5}
+              onChange={(n) => onChange({ marksPerQuestion: n })}
+            />
+          </Field>
+        </div>
+
+        {/* A section of alternatives. Ordinary in most subjects and absent from
+          Design and Technology, which is why it took until a Visual Arts trial
+          to come up. */}
+        <Field label="Do students answer all of these?">
+          <div class="rowbtns">
+            <label class="checkline">
+              <input
+                type="radio"
+                checked={section.chooseCount === undefined}
+                onChange={() => onChange({ chooseCount: undefined })}
+              />
+              <span>Yes, every question</span>
+            </label>
+            <label class="checkline">
+              <input
+                type="radio"
+                checked={section.chooseCount !== undefined}
+                onChange={() => onChange({ chooseCount: 1 })}
+              />
+              <span>No, they choose from them</span>
+            </label>
+          </div>
+        </Field>
+
+        {section.chooseCount !== undefined && (
+          <Field
+            label="How many they answer"
+            hint="Every question here has to be worth the same, because a student picks one and the marks cannot depend on which."
+          >
+            <NumField
+              value={section.chooseCount}
               min={1}
-              onChange={(n) => onChange({ questionCount: n })}
+              onChange={(n) => onChange({ chooseCount: n })}
             />
           </Field>
         )}
 
-        <Field label="Marks each" hint="Only where every question is worth the same">
-          <NumField
-            value={section.marksPerQuestion}
-            min={0}
-            step={0.5}
-            onChange={(n) => onChange({ marksPerQuestion: n })}
+        <Field label="Kinds of question that belong here">
+          <div class="tagrow">
+            {QUESTION_TYPES.map((type) => {
+              const on = (section.questionTypes ?? []).includes(type)
+              return (
+                <label key={type} class="checkline">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      onChange({ questionTypes: toggled(section.questionTypes, type) })
+                    }
+                  />
+                  <span>{QUESTION_TYPE_LABELS[type]}</span>
+                </label>
+              )
+            })}
+          </div>
+        </Field>
+
+        <Field label="Instructions for this section" hint="Optional, printed under the heading">
+          <input
+            class="input"
+            value={section.instructions ?? ''}
+            placeholder="Attempt Questions 11–14. Allow about 1 hour for this section."
+            onInput={(e) => onChange({ instructions: (e.target as HTMLInputElement).value })}
           />
         </Field>
       </div>
-
-      {/* A section of alternatives. Ordinary in most subjects and absent from
-          Design and Technology, which is why it took until a Visual Arts trial
-          to come up. */}
-      <Field label="Do students answer all of these?">
-        <div class="rowbtns">
-          <label class="checkline">
-            <input
-              type="radio"
-              checked={section.chooseCount === undefined}
-              onChange={() => onChange({ chooseCount: undefined })}
-            />
-            <span>Yes, every question</span>
-          </label>
-          <label class="checkline">
-            <input
-              type="radio"
-              checked={section.chooseCount !== undefined}
-              onChange={() => onChange({ chooseCount: 1 })}
-            />
-            <span>No, they choose from them</span>
-          </label>
-        </div>
-      </Field>
-
-      {section.chooseCount !== undefined && (
-        <Field
-          label="How many they answer"
-          hint="Every question here has to be worth the same, because a student picks one and the marks cannot depend on which."
-        >
-          <NumField
-            value={section.chooseCount}
-            min={1}
-            onChange={(n) => onChange({ chooseCount: n })}
-          />
-        </Field>
-      )}
-
-      <Field label="Kinds of question that belong here">
-        <div class="tagrow">
-          {QUESTION_TYPES.map((type) => {
-            const on = (section.questionTypes ?? []).includes(type)
-            return (
-              <label key={type} class="checkline">
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => onChange({ questionTypes: toggled(section.questionTypes, type) })}
-                />
-                <span>{QUESTION_TYPE_LABELS[type]}</span>
-              </label>
-            )
-          })}
-        </div>
-      </Field>
-
-      <Field label="Instructions for this section" hint="Optional, printed under the heading">
-        <input
-          class="input"
-          value={section.instructions ?? ''}
-          placeholder="Attempt Questions 11–14. Allow about 1 hour for this section."
-          onInput={(e) => onChange({ instructions: (e.target as HTMLInputElement).value })}
-        />
-      </Field>
     </div>
   )
 }
