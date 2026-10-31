@@ -92,45 +92,72 @@ in the file beside it.
 
 ## Layout
 
+`src/` is a folder per area of the app (#173). Files were moved into them and
+kept their names, so a file named anywhere in `docs/` is still that file.
+Tests sit beside what they test. `src/testing/boundaries.test.ts` holds the
+dependencies between folders: nothing imports `app/`, `documents/` imports
+only itself, `shared/` only itself, and `folder/` only itself and `shared/`.
+Its few known breaches are listed there, each with the issue that removes it.
+
 ```
 klunk/                     this repo - app and tools only, public
   schemas/                 the six JSON formats
   profiles/                paper rules per course (these DO ship)
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
-    ooxml.ts               Word markup to paragraphs and tables, deciding nothing
-    xlsx.ts                spreadsheet to rows of text, deciding nothing
-    syllabus.ts            the 2013 content-table reader, and the model
-    headings.ts            the Outcomes/Content reader and the prose reader
-    ibdt.ts                the IB DP Design Technology syllabus map reader, and
-                           the SL/HL split both IB readers share
-    ibguide.ts             the IB DP Design Technology subject guide reader
-    formats.ts             picks the syllabus reader that fits the document
-    extract.ts             the NESA past paper reader
-    objective.ts           the numbered multiple-choice paper reader
-    paperformats.ts        picks the paper reader that fits the document
-    guide.ts               the NESA marking guide reader
-    answerkey.ts           the grid-of-answers markscheme reader
-    guideformats.ts        picks the guide reader that fits the document
-    paperprompt.ts         the prompt for a paper no reader would take
-    marking.ts             what a marking guide says, and the skeleton of the
+    app/                   the shell: tabs, the address, help, the stylesheet
+      route.ts             where the teacher is, as the hash, both directions
+    shared/                what every other folder builds on
+      types.ts             the six formats as TypeScript
+      validate.ts          the checks a question, bank or profile must pass
+      richtext.tsx         the paragraphs, pipe tables and four inline marks a
+                           question's prose may carry, and taking them back
+                           out again
+      code.tsx             a code stimulus: its indentation kept on the way
+                           in, and the numbered block it prints as
+      fields.tsx           the form controls and the bar the editors share
+      modelcheck.ts        tags that name nothing, and two models of one
+                           document
+    folder/                the teacher's folder
+      storage.ts           reading and writing it
+      manifest.ts          what each document in it turned out to be, pure
+    documents/             a file to text, deciding nothing
+      ooxml.ts             Word markup to paragraphs and tables
+      xlsx.ts              a spreadsheet to rows of text
+      page.ts              a PDF page as positioned text
+      pdftext.ts, pdfimage.ts, textlayer.ts
+                           the only places pdf.js is used
+    questions/             a question on screen, and the editor
+    papers/                a paper: building, checking, the cover, printing
+      cover.ts             the cover sheet's three layers resolved, no JSX
+      coversheet.tsx       the form over school.json (named apart from
+                           cover.ts so `import './cover'` cannot mean either)
+    profiles/              paper structures, and the ones Klunk ships
+    syllabus/              a syllabus document to a model, and correcting it
+      syllabus.ts          the 2013 content-table reader, and the model
+      headings.ts          the Outcomes/Content reader and the prose reader
+      ibdt.ts              the IB DP Design Technology syllabus map reader,
+                           and the SL/HL split both IB readers share
+      ibguide.ts           the IB DP Design Technology subject guide reader
+      formats.ts           picks the syllabus reader that fits the document
+      syllabusedit.ts      correcting a parsed model, pure and testable
+      syllabusreview.tsx   every topic on screen, to correct or only to read
+      syllabusmodels.tsx   the models already in the folder, read-only
+    pastpapers/            a past paper and its marking guide into a bank
+      extract.ts           the NESA past paper reader
+      objective.ts         the numbered multiple-choice paper reader
+      paperformats.ts      picks the paper reader that fits the document
+      guide.ts             the NESA marking guide reader
+      answerkey.ts         the grid-of-answers markscheme reader
+      guideformats.ts      picks the guide reader that fits the document
+      marking.ts           what a marking guide says, and the skeleton of the
                            questions a prompt for one is built from
-    guideprompt.ts         the prompt for a marking guide no reader would take
-    guideingest.ts         reading that reply back, repairing or refusing
-    richtext.tsx           the paragraphs, pipe tables and four inline marks a
-                           question's prose may carry, and taking them back out
-                           again
-    code.tsx               a code stimulus: its indentation kept on the way in,
-                           and the numbered block it prints as
-    syllabusedit.ts        correcting a parsed model, pure and testable
-    syllabusreview.tsx     every topic on screen, to correct or only to read
-    syllabusmodels.tsx     the models already in the folder, read-only
-    manifest.ts            what each document in the folder turned out to be, pure
-    modelcheck.ts          tags that name nothing, and two models of one document
-    cover.ts               the cover sheet's three layers resolved, no JSX
-    coversheet.tsx         the form over school.json (named apart from cover.ts
-                           so `import './cover'` cannot mean either one)
-    fixtures/              fictional sample data for development
+    ai/                    the prompts Klunk writes, and reading replies back
+      paperprompt.ts       the prompt for a paper no reader would take
+      guideprompt.ts       the prompt for a marking guide no reader would take
+      guideingest.ts       reading that reply back, repairing or refusing
+    testing/               the corpus manifest, the boundary test, fixtures/
+                           (fictional sample data for development)
 ../klunk-content/          NOT in git - the teacher's content folder equivalent
   source/                  downloaded syllabus docs and past papers
   syllabus/                generated models
@@ -232,9 +259,9 @@ npm run format:check   # what CI's `format` job runs; does not gate the deploy
 
 # The reference implementation of the syllabus generator. NOT the route a
 # teacher takes any more — that is the "From a syllabus" tab, which reads the
-# .docx in the browser (src/docx.ts + src/syllabus.ts). This is kept because
-# src/syllabus.corpus.test.ts checks the port against it, and they must agree
-# exactly on all four documents.
+# .docx in the browser (src/documents/docx.ts + src/syllabus/syllabus.ts).
+# This is kept because src/syllabus/syllabus.corpus.test.ts checks the port
+# against it, and they must agree exactly on all four documents.
 python3 tools/nesa_stage6_syllabus.py <syllabus.docx> \
     --id nsw-hsc-design-technology --name "Design and Technology" \
     --out ../klunk-content/syllabus/nsw-hsc-design-technology.json

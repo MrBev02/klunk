@@ -5,9 +5,11 @@ papers, the 2025 HSC Biology paper and guide, and two Enterprise Computing
 scans. **Do not re-derive any of it, and do not contradict it without new
 evidence.**
 
-Read this before touching `src/extract.ts`, `src/objective.ts`,
-`src/paperformats.ts`, `src/guide.ts`, `src/answerkey.ts`,
-`src/guideformats.ts`, `src/pdftext.ts`, `src/pdfimage.ts` or `src/adopt.ts`.
+Read this before touching `src/pastpapers/extract.ts`,
+`src/pastpapers/objective.ts`, `src/pastpapers/paperformats.ts`,
+`src/pastpapers/guide.ts`, `src/pastpapers/answerkey.ts`,
+`src/pastpapers/guideformats.ts`, `src/documents/pdftext.ts`,
+`src/documents/pdfimage.ts` or `src/pastpapers/adopt.ts`.
 
 ---
 

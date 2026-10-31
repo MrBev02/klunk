@@ -38,12 +38,13 @@ then a globally unique question id, with ambiguity reported rather than guessed.
 
 ## Writing a question in the app
 
-**A teacher can write a question in the app** (#1). The form is field-for-field with
-`bank.schema.json`, previews the whole question beside itself as it is typed, and
-validates against the schema's rules restated in `src/validate.ts`, because a JSON
-Schema validator would be a second dependency. Saving re-reads the bank from disk
-rather than trusting the index, refuses to write over a file that is not a bank, and
-never copies an image over one already there.
+**A teacher can write a question in the app** (#1). The form is field-for-field
+with `bank.schema.json`, previews the whole question beside itself as it is
+typed, and validates against the schema's rules restated in
+`src/shared/validate.ts`, because a JSON Schema validator would be a second
+dependency. Saving re-reads the bank from disk rather than trusting the index,
+refuses to write over a file that is not a bank, and never copies an image over
+one already there.
 
 Verified in the browser: a short answer and a multiple choice question written in the
 app, saved into an existing bank without disturbing the fourteen already in it, the
@@ -52,12 +53,13 @@ naming the same option letter the editor previewed.
 
 ## Drafting with AI
 
-**The prompt factory is built** (#2), on the "Draft with AI" tab. `src/prompt.ts`
-composes a prompt from the chosen course, topics and content points, with their exact
-ids, what a mark is worth in this subject, where the type sits on the real paper, and
-the JSON to answer with. `src/ingest.ts` reads back whatever comes out, fenced or
-prefaced or wrapped, and either repairs something unambiguous and says so, drops
-something it cannot trust and says so, or refuses.
+**The prompt factory is built** (#2), on the "Draft with AI" tab.
+`src/ai/prompt.ts` composes a prompt from the chosen course, topics and content
+points, with their exact ids, what a mark is worth in this subject, where the
+type sits on the real paper, and the JSON to answer with. `src/ai/ingest.ts`
+reads back whatever comes out, fenced or prefaced or wrapped, and either repairs
+something unambiguous and says so, drops something it cannot trust and says so,
+or refuses.
 
 The decisions worth not reversing: Klunk assigns question ids and stamps
 `syllabusId`/`courseId` itself, so the model can only *choose among* the ids the
@@ -134,21 +136,23 @@ that — the code read as complete.
 
 ## Reading a past paper into a bank
 
-**A past paper fills a bank** (#3), on the "From a past paper" tab. `src/extract.ts`
-and `src/guide.ts` take positioned text and no PDF, so every rule in them is
-testable without one; `src/pdftext.ts` is the only place pdf.js is named;
-`src/adopt.ts` is the one place the readers meet `bank.schema.json`. The papers
-are offered from the teacher's own folder, because that is where they are
-downloaded, so no file dialog is needed. Nothing is written until every question
-has been seen, and one a bank file could not hold goes to the editor rather than
-into a bank. Since #105 that is narrower than every error: a question Klunk read
-only half of saves, marked `needs-finishing`.
+**A past paper fills a bank** (#3), on the "From a past paper" tab.
+`src/pastpapers/extract.ts` and `src/pastpapers/guide.ts` take positioned text
+and no PDF, so every rule in them is testable without one;
+`src/documents/pdftext.ts` is the only place pdf.js is named;
+`src/pastpapers/adopt.ts` is the one place the readers meet `bank.schema.json`.
+The papers are offered from the teacher's own folder, because that is where they
+are downloaded, so no file dialog is needed. Nothing is written until every
+question has been seen, and one a bank file could not hold goes to the editor
+rather than into a bank. Since #105 that is narrower than every error: a
+question Klunk read only half of saves, marked `needs-finishing`.
 
-Verified in the browser: the 2019 paper and guide read into fourteen questions and
-forty marks, provenance on each, outcomes from the mapping grid, the extended
-response showing all five bands, and all fourteen saved into a bank that still
-validates. `src/extract.corpus.test.ts` runs all eleven years and skips itself
-when the content folder is absent, so CI never sees a NESA paper.
+Verified in the browser: the 2019 paper and guide read into fourteen questions
+and forty marks, provenance on each, outcomes from the mapping grid, the
+extended response showing all five bands, and all fourteen saved into a bank
+that still validates. `src/pastpapers/extract.corpus.test.ts` runs all eleven
+years and skips itself when the content folder is absent, so CI never sees a
+NESA paper.
 
 **There are two paper readers now, and a paper that fits neither says so**
 (#64). `extract.ts` is NESA's and every rule in it is: a `Section I` heading has
@@ -160,12 +164,12 @@ first requires a question to have been recognised. The panel then rendered
 "0 questions read · 0 marks" over the line *Everything here has been saved or
 discarded*, which told the teacher the run had succeeded.
 
-- **`src/objective.ts`** reads a paper that is numbered questions and nothing
-  else, and **`src/paperformats.ts`** is `formats.ts` applied to papers: try each
-  reader in order, each refuses what it does not recognise, report on screen
-  which one claimed the document. NESA runs first, because its Section I is ten
-  numbered questions with four options each and the second reader would
-  otherwise claim ten questions of a fourteen-question paper.
+- **`src/pastpapers/objective.ts`** reads a paper that is numbered questions and
+  nothing else, and **`src/pastpapers/paperformats.ts`** is `formats.ts` applied
+  to papers: try each reader in order, each refuses what it does not recognise,
+  report on screen which one claimed the document. NESA runs first, because its
+  Section I is ten numbered questions with four options each and the second
+  reader would otherwise claim ten questions of a fourteen-question paper.
 - **The refusal condition is silence, not emptiness.** `extractPaper` throws when
   it read no questions *and* had nothing to say. A single page carrying
   `Question 11 (continued)` yields no question and a note naming the parent it
@@ -416,13 +420,13 @@ same group. It has its own label now.
 ## Describing your own examination
 
 **A teacher of any subject can describe their own examination** (#27), on the
-Papers tab and the first-run screen. `src/profile.tsx` is a form over
+Papers tab and the first-run screen. `src/profiles/profile.tsx` is a form over
 `profile.schema.json`, `validateProfile` restates its rules, and four of those
 rules go beyond the schema because each produces a profile that looks fine and
-then rejects every paper built against it. Klunk shipping one profile and telling
-everyone else to copy a JSON file was the same failure `src/shipped.ts` was
-written to fix, left in place for every subject but D&T. **#8 is now a teacher's
-afternoon rather than a code change.**
+then rejects every paper built against it. Klunk shipping one profile and
+telling everyone else to copy a JSON file was the same failure
+`src/profiles/shipped.ts` was written to fix, left in place for every subject
+but D&T. **#8 is now a teacher's afternoon rather than a code change.**
 
 ## A multiple choice answer sheet at the back
 
@@ -430,8 +434,8 @@ afternoon rather than a code change.**
 under *Marks awarded column*. The student paper gains a page after *End of
 paper*: question numbers down the side, option letters across the top, the
 cover's identification fields at its head. The guide prints the same grid as a
-key with the correct cells filled. The rules are in `src/answersheet.ts`, apart
-from the JSX for the reason `cover.ts` is.
+key with the correct cells filled. The rules are in `src/papers/answersheet.ts`,
+apart from the JSX for the reason `cover.ts` is.
 
 - **On the profile, not the paper**, decided with the user: it is how this kind
   of paper is printed, beside the cover's other switch, and it reaches papers
@@ -490,10 +494,11 @@ merged, so the two have not yet been printed on one paper.
 ## Building a syllabus model in the app
 
 **A syllabus model is built from the `.docx` in the app** (#28, the 2013 half).
-`src/docx.ts` reads one zip member with `DecompressionStream`; `src/syllabus.ts`
-is the parser and takes XML and no file. `src/syllabus.corpus.test.ts` checks it
-against the Python tool on all four documents and they agree exactly, which is
-what makes the port trustworthy rather than merely plausible.
+`src/documents/docx.ts` reads one zip member with `DecompressionStream`;
+`src/syllabus/syllabus.ts` is the parser and takes XML and no file.
+`src/syllabus/syllabus.corpus.test.ts` checks it against the Python tool on all
+four documents and they agree exactly, which is what makes the port trustworthy
+rather than merely plausible.
 
 **The document does not have to be in the folder** (#57). It was offered only
 from a scan of the folder, and a folder holding none got a panel saying to go
@@ -506,15 +511,16 @@ into the folder either way. Driven on a brand new empty folder: Drama read from
 `~/Downloads` to 3 / 15 / 18 and 3 / 20 / 19, saved and validating, and the same
 file read through the folder select afterwards gave the identical parse.
 
-**All three shapes of NESA syllabus now read** (#28, #34). `src/ooxml.ts` reports
-what the markup says about each paragraph — text, heading level, bold, list — and
-decides nothing; `src/headings.ts` holds the two new readers; `src/formats.ts`
+**All three shapes of NESA syllabus now read** (#28, #34).
+`src/documents/ooxml.ts` reports what the markup says about each paragraph —
+text, heading level, bold, list — and decides nothing;
+`src/syllabus/headings.ts` holds the two new readers; `src/syllabus/formats.ts`
 picks between all three and reports which one claimed the document, on screen,
 because if Klunk has taken a document for the wrong shape the counts underneath
 are what shows it. Each reader refuses what it does not recognise rather than
 producing half a model, which is what makes trying them in order safe. The 2013
-reader goes first: Design and Technology has headings too and would be read badly
-by the others.
+reader goes first: Design and Technology has headings too and would be read
+badly by the others.
 
 Verified in the browser against `../klunk-content`, not just reasoned about:
 Drama, English Advanced and Visual Arts each read to the counts above, Visual Arts
@@ -547,18 +553,19 @@ tags — about 40% of what the content means, with every count still looking
 right. Both are fixed and checked in the browser by the user.
 
 The regression numbers are 19 / 122 / 11 and 24 / 149 / 11 with the modules as
-groups, and `src/headings.corpus.test.ts` now gates each document separately, so
-one absent file no longer skips the whole corpus in silence (#65 in the middle of
-a fix rather than in theory).
+groups, and `src/syllabus/headings.corpus.test.ts` now gates each document
+separately, so one absent file no longer skips the whole corpus in silence (#65
+in the middle of a fix rather than in theory).
 
 ## The IB model, out of two unrelated documents
 
-**IB DP Design Technology reads too, from a spreadsheet** (#4). `src/xlsx.ts` is
-the workbook half of what `ooxml.ts` does for Word: shared strings, merged cells
-carried down, rows out, deciding nothing. `src/ibdt.ts` is the reader and takes
-rows and no file. It finds the sheet by its six column headings rather than by
-coordinates, so it refuses the other seven sheets of the workbook instead of
-reading assessment comparisons as content.
+**IB DP Design Technology reads too, from a spreadsheet** (#4).
+`src/documents/xlsx.ts` is the workbook half of what `ooxml.ts` does for Word:
+shared strings, merged cells carried down, rows out, deciding nothing.
+`src/syllabus/ibdt.ts` is the reader and takes rows and no file. It finds the
+sheet by its six column headings rather than by coordinates, so it refuses the
+other seven sheets of the workbook instead of reading assessment comparisons as
+content.
 
 Klunk still ships no model. The document is the teacher's own copy of the
 old-to-new syllabus map, and the model goes into their folder as
@@ -576,11 +583,12 @@ and five understandings the model gives them.
 **And now from the guide itself, which is what should have been read first**
 (#58). The spreadsheet is not the IB's: it is a third party's transcription, a
 teacher may not have it, and nothing obliges one to exist for the next revision.
-`src/ibguide.ts` takes positioned text and no PDF, the way `src/extract.ts`
-does, so every rule in it is testable without one and `src/pdftext.ts` stays the
-only place pdf.js is named. `src/ibdt.ts` now also holds the SL/HL split both
-readers use, because two copies of it would drift and the agreement between the
-two models is the whole point.
+`src/syllabus/ibguide.ts` takes positioned text and no PDF, the way
+`src/pastpapers/extract.ts` does, so every rule in it is testable without one
+and `src/documents/pdftext.ts` stays the only place pdf.js is named.
+`src/syllabus/ibdt.ts` now also holds the SL/HL split both readers use, because
+two copies of it would drift and the agreement between the two models is the
+whole point.
 
 The guide reader carries no more than the map does — not the guiding question,
 the teaching hours or the linking questions, all of which the guide prints. That
@@ -629,16 +637,17 @@ dead would say something false and loud about ids that are perfectly real.
 ## Correcting a model before it is written
 
 **A syllabus can be read topic by topic and corrected before it is written**
-(#42). "Check what was found" was four numbers and a list of focus areas, which is
-everything #26 says is not enough: the count was right while the content was
-wrong. So `src/syllabusreview.tsx` puts every topic on screen with its group, its
-outcomes, its content points and their ids, and the published heading where the
-tidied name has moved away from it, because that is the line a teacher compares
-against the page. `src/syllabusedit.ts` holds the corrections as pure functions
-over `SyllabusCourse[]`, so all of it is testable without a `.docx`: merge a topic
-into the one above (#26 by hand), split one at a content point (the same rule
-firing wrongly), clear the group across a whole course (#14 by hand), edit or
-delete any name, point, outcome or skill, add a point the reader dropped.
+(#42). "Check what was found" was four numbers and a list of focus areas, which
+is everything #26 says is not enough: the count was right while the content was
+wrong. So `src/syllabus/syllabusreview.tsx` puts every topic on screen with its
+group, its outcomes, its content points and their ids, and the published heading
+where the tidied name has moved away from it, because that is the line a teacher
+compares against the page. `src/syllabus/syllabusedit.ts` holds the corrections
+as pure functions over `SyllabusCourse[]`, so all of it is testable without a
+`.docx`: merge a topic into the one above (#26 by hand), split one at a content
+point (the same rule firing wrongly), clear the group across a whole course (#14
+by hand), edit or delete any name, point, outcome or skill, add a point the
+reader dropped.
 
 Three decisions worth not reversing. **Ids never renumber**: deleting `HSC-02`
 leaves `HSC-03` alone and a new topic takes an id past the end, never a vacated
@@ -674,7 +683,7 @@ one folder was never counted. The missing edge was on the profile, which named a
 syllabus and could not name a course, while a question has carried
 `syllabus.courseId` since the beginning.
 
-`inCourse` in `src/storage.ts` is the sibling of `inSyllabus` and takes
+`inCourse` in `src/folder/storage.ts` is the sibling of `inSyllabus` and takes
 **deliberately the same rule rather than a stricter one**: a question naming a
 course is held to it, one naming none is offered, because all that is known then
 is a bare topic id that could belong to any course in the model. That is #47's
@@ -712,10 +721,10 @@ else. It failed for the right reason only because the rule it was testing works.
 
 ## Tags that name nothing, and two models of one document
 
-**A syllabus tag that names nothing is now reported, and so are two models of one
-document** (#44). Both were silent, and both are what a re-read over a corrected
-model produces. `src/modelcheck.ts` holds all of it, taking loaded models rather
-than a folder so it tests without one.
+**A syllabus tag that names nothing is now reported, and so are two models of
+one document** (#44). Both were silent, and both are what a re-read over a
+corrected model produces. `src/shared/modelcheck.ts` holds all of it, taking
+loaded models rather than a folder so it tests without one.
 
 Three things it will not do, and each is a case where firing would make the
 warning noise a teacher learns to ignore. **A question naming no syllabus is left
@@ -763,13 +772,14 @@ confirm bolted to it.
 
 ## The help screen
 
-**A teacher can read how Klunk works** (#38). `src/help.tsx` is the one screen
-that is prose rather than a form: the shape of the work, what lands in the
-folder, the three ways questions get in, and troubleshooting keyed to the exact
-words on screen so it can be scanned for what a teacher is looking at. Most of it
-is not a description of buttons but the *reasons* behind the decisions that read
-as faults from outside — no syllabus ships, the AI step is copy-and-paste, a
-missing picture prints a grey box, the browser asks for the folder again.
+**A teacher can read how Klunk works** (#38). `src/app/help.tsx` is the one
+screen that is prose rather than a form: the shape of the work, what lands in
+the folder, the three ways questions get in, and troubleshooting keyed to the
+exact words on screen so it can be scanned for what a teacher is looking at.
+Most of it is not a description of buttons but the *reasons* behind the
+decisions that read as faults from outside — no syllabus ships, the AI step is
+copy-and-paste, a missing picture prints a grey box, the browser asks for the
+folder again.
 
 **The help page carries the one address in Klunk that points off this computer**
 (#40), the issue tracker, for the teacher who has nobody local to ask or whose
@@ -815,7 +825,7 @@ permission click is always spent before the folder can be found to be gone.
 
 **The folder remembers what each document turned out to be** (#74), which is what
 #73 wanted: "From a syllabus" was offering 37 documents of which 24 were past
-papers and marking guides. `src/manifest.ts` is pure over plain values,
+papers and marking guides. `src/folder/manifest.ts` is pure over plain values,
 `manifest.json` is the one file Klunk owns that is found by **path rather than by
 `type`**, and `DocumentOptions` in `fields.tsx` sorts every list of documents into
 what this slot wants, what nobody has opened, and what is known to be something

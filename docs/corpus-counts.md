@@ -18,8 +18,8 @@ Textiles and Design at **18 / 104 / 11** and **15 / 80 / 13**.
 
 ## The heading and prose shapes
 
-The counts for the other two shapes, in `src/headings.corpus.test.ts`, established
-by hand off the documents rather than inherited:
+The counts for the other two shapes, in `src/syllabus/headings.corpus.test.ts`,
+established by hand off the documents rather than inherited:
 
 | | first course | second course |
 |---|---|---|
@@ -78,8 +78,8 @@ neither `Including:` nor NESA's licence terms reached the model.
 
 The IB syllabus, counted off the guide's Overview table and its numbered
 understandings rather than off either parser. **Both documents must give these**,
-the guide in `src/ibguide.corpus.test.ts` and the map in
-`src/ibdt.corpus.test.ts`:
+the guide in `src/syllabus/ibguide.corpus.test.ts` and the map in
+`src/syllabus/ibdt.corpus.test.ts`:
 
 | | first course | second course |
 |---|---|---|

@@ -7,8 +7,8 @@
 # or an accidental save into the repo directory cannot become a public
 # disclosure of an unreleased exam.
 #
-# If you need a sample for development, write a fake one under src/fixtures/
-# and keep it obviously fictional.
+# If you need a sample for development, write a fake one under
+# src/testing/fixtures/ and keep it obviously fictional.
 # ---------------------------------------------------------------------------
 
 bank/
@@ -17,6 +17,13 @@ papers/
 templates/
 content/
 sample_exams/
+
+# The app's own source folder for papers, which `papers/` above matched once
+# #173 put src/ into a folder per area. Exempted by name, the one folder,
+# rather than by anchoring `papers/` to the root: a content folder copied into
+# a subdirectory is the accident these rules are for, wherever it lands. Every
+# rule below still applies inside it, so a PDF saved there is still ignored.
+!src/papers/
 
 # Syllabus models, all of them, not just the IB ones.
 #
@@ -31,7 +38,11 @@ sample_exams/
 # from their own copy into their own folder. If a syllabus ever arrives under a
 # licence that clearly permits republication, this is the line to revisit, and
 # the model's source.redistributable flag is the thing to check first.
-syllabus/*.json
+#
+# At any depth. `syllabus/*.json` alone has a slash in it, so git anchored it to
+# the repository root, and a model saved into src/syllabus/ (a folder since #173)
+# or any other syllabus/ below the root could have been committed.
+**/syllabus/*.json
 
 # The teacher's own cover branding, and the logo it points at.
 #

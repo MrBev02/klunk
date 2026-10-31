@@ -5,10 +5,12 @@ headings shapes, the reform exports, the 2017 sciences, a junior 7–10 document
 and the IB DP Design Technology guide and syllabus map. **Do not re-derive any
 of it, and do not contradict it without new evidence.**
 
-Read this before touching `src/syllabus.ts`, `src/headings.ts`, `src/ibdt.ts`,
-`src/ibguide.ts`, `src/formats.ts`, `src/ooxml.ts`, `src/xlsx.ts`,
-`src/syllabusedit.ts` or `tools/nesa_stage6_syllabus.py`. The counts every one
-of those must still produce are in [corpus-counts.md](corpus-counts.md).
+Read this before touching `src/syllabus/syllabus.ts`,
+`src/syllabus/headings.ts`, `src/syllabus/ibdt.ts`, `src/syllabus/ibguide.ts`,
+`src/syllabus/formats.ts`, `src/documents/ooxml.ts`, `src/documents/xlsx.ts`,
+`src/syllabus/syllabusedit.ts` or `tools/nesa_stage6_syllabus.py`. The counts
+every one of those must still produce are in
+[corpus-counts.md](corpus-counts.md).
 
 ---
 
@@ -68,8 +70,8 @@ Advanced 11–12 (2024).
   so. 8.1 is Preliminary, 8.2 is HSC, 8.3 to 8.5 are for both, so both courses
   carry the same 132 points. Its topics get **no outcomes**: the outcomes map to
   content areas, three of which have no section, and pairing them by name would
-  be the #14 mistake again. `outcomesFor` in `src/prompt.ts` already falls back
-  to the whole course.
+  be the #14 mistake again. `outcomesFor` in `src/ai/prompt.ts` already falls
+  back to the whole course.
 - **Word keeps mathematics in its own namespace.** Reading `<w:t>` alone silently
   mutilates **159 of the 359** content points in Mathematics Advanced, leaving
   sentences that still parse and still count. `<m:t>` has to be read too. What
@@ -78,7 +80,8 @@ Advanced 11–12 (2024).
   so this cannot disturb the others.
 
 Music 1 is published only as a legacy `.doc`, which is not a zip and which
-`src/docx.ts` cannot open. Drama is the Creative Arts sibling that #34 asked for.
+`src/documents/docx.ts` cannot open. Drama is the Creative Arts sibling that #34
+asked for.
 
 ## The NSW Curriculum Reform documents
 

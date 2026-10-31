@@ -4,10 +4,12 @@ The decisions behind `bank.schema.json`, `paper.schema.json` and
 `profile.schema.json`, and behind the markup a question's prose may carry.
 Every one has evidence under it. **Do not reverse one without new evidence.**
 
-Read this before touching `src/richtext.tsx`, `src/code.tsx`, `src/render.tsx`,
-`src/question.tsx`, `src/editor.tsx`, `src/validate.ts`, `src/cover.ts`,
-`src/paper.ts`, the three prompt files, or any of the schemas — and before
-adding a question type or changing what a paper inherits from its profile.
+Read this before touching `src/shared/richtext.tsx`, `src/shared/code.tsx`,
+`src/papers/render.tsx`, `src/questions/question.tsx`,
+`src/questions/editor.tsx`, `src/shared/validate.ts`, `src/papers/cover.ts`,
+`src/papers/paper.ts`, the three prompt files, or any of the schemas — and
+before adding a question type or changing what a paper inherits from its
+profile.
 
 ---
 
@@ -24,9 +26,10 @@ no links, no headings.
   `ingest.ts` needs nothing either way: `asString` trims the ends and keeps
   interior newlines. The reason first written here, *it is also what an AI draft
   already comes back as*, was an assumption and was false; see #101.
-- **`src/richtext.tsx` is written by hand**, about 130 lines. A markdown library
-  would be a third dependency, would bring far more syntax than this wants, and
-  would need a sanitiser behind it. The precedent is `CriterionPoints`.
+- **`src/shared/richtext.tsx` is written by hand**, about 130 lines. A markdown
+  library would be a third dependency, would bring far more syntax than this
+  wants, and would need a sanitiser behind it. The precedent is
+  `CriterionPoints`.
 - **A table is known by its separator row**, not by holding a pipe, so a sentence
   mentioning `A|B` is prose. A pipe inside a cell is written `\|` and survives a
   round trip through the editor.
@@ -279,12 +282,12 @@ years, word for word:
 | 10–12 | *place an X next to **each** alternative that answers the question. (Multiple items may be selected).* |
 | 13–15 | *draw lines linking items on the left with matching items on the right* — 2024 adds *(Multiple lines can start and end from any item)* |
 
-- **The evidence was `src/paperprompt.ts`.** #89's transcription prompt told the
-  model: where the paper says more than one may be selected, or asks the student
-  to match two lists, "use `short_answer` and put the options or the lists in
-  `questionText`". That rule was written *because* of these papers, and it costs
-  the options their letters, the shuffle, the marking guide's answer, and
-  `plainText` search.
+- **The evidence was `src/ai/paperprompt.ts`.** #89's transcription prompt told
+  the model: where the paper says more than one may be selected, or asks the
+  student to match two lists, "use `short_answer` and put the options or the
+  lists in `questionText`". That rule was written *because* of these papers, and
+  it costs the options their letters, the shuffle, the marking guide's answer,
+  and `plainText` search.
 - **The decision is that the enum stays closed and grows by evidence**, not that
   a profile declares its own types. An open list buys a label: `render.tsx` would
   fall to its `default` and rule blank lines under a question headed *Matching*,
