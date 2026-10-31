@@ -102,6 +102,11 @@ desktop.ini
 # skill is part of the project and belongs in the repo.
 .claude/settings.local.json
 
+# The impeccable design tool's critique runs, one file per run (#184). A
+# per-machine archive the tool reads back, not project documentation. Its
+# config.json and design.json beside it are tracked on purpose.
+.impeccable/critique/
+
 # Python (the generators in tools/)
 __pycache__/
 *.py[cod]
