@@ -22,7 +22,7 @@
 import { useState } from 'preact/hooks'
 import type { ContentIndex } from '../folder/storage'
 import { summarise } from './syllabus'
-import { DEFAULT_GROUP_LABEL, SyllabusReview, lowerLabel, pluralLabel } from './syllabusreview'
+import { DEFAULT_GROUP_LABEL, SyllabusReview, lowerLabel, pluralLabel } from './review'
 import type { Loaded, Syllabus } from '../shared/types'
 
 export function SyllabusModels({ index }: { index: ContentIndex }) {

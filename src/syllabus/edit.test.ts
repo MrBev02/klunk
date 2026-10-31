@@ -31,7 +31,7 @@ import {
   splitTopic,
   SyllabusEditError,
   tidyCourses,
-} from './syllabusedit'
+} from './edit'
 import type { Question, QuestionRef, SyllabusCourse } from '../shared/types'
 
 /** The Biology shape from #78: items with sub-items under them, and capabilities. */

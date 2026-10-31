@@ -12,8 +12,8 @@
  *
  * Named apart from `cover.ts`, which holds the resolution rules, because a
  * `cover.ts` and a `cover.tsx` side by side make `import './cover'` mean
- * whichever the bundler reaches first. Same split as `syllabusedit.ts` and
- * `syllabusreview.tsx`.
+ * whichever the bundler reaches first. Same split as `syllabus/edit.ts` and
+ * `syllabus/review.tsx`.
  */
 
 import { useEffect, useMemo, useState } from 'preact/hooks'

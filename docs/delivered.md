@@ -504,7 +504,7 @@ rather than merely plausible.
 from a scan of the folder, and a folder holding none got a panel saying to go
 and put one there, which is an instruction where a control belongs: a syllabus
 is downloaded to Downloads, and nothing about building a model requires it to be
-moved first. So `syllabusreader.tsx` takes one from anywhere, by picker or by
+moved first. So `syllabus/reader.tsx` takes one from anywhere, by picker or by
 drop, and reads it where it lies **without copying it in**. The model is the
 artefact this screen writes, it records the filename as its source, and it goes
 into the folder either way. Driven on a brand new empty folder: Drama read from
@@ -639,10 +639,10 @@ dead would say something false and loud about ids that are perfectly real.
 **A syllabus can be read topic by topic and corrected before it is written**
 (#42). "Check what was found" was four numbers and a list of focus areas, which
 is everything #26 says is not enough: the count was right while the content was
-wrong. So `src/syllabus/syllabusreview.tsx` puts every topic on screen with its
+wrong. So `src/syllabus/review.tsx` puts every topic on screen with its
 group, its outcomes, its content points and their ids, and the published heading
 where the tidied name has moved away from it, because that is the line a teacher
-compares against the page. `src/syllabus/syllabusedit.ts` holds the corrections
+compares against the page. `src/syllabus/edit.ts` holds the corrections
 as pure functions over `SyllabusCourse[]`, so all of it is testable without a
 `.docx`: merge a topic into the one above (#26 by hand), split one at a content
 point (the same rule firing wrongly), clear the group across a whole course (#14
@@ -936,7 +936,7 @@ was the word on screen, which was hardcoded `Focus area` for all four vocabulari
 - **Pluralising it is not `+ 's'`.** Driving the panel over the real Textiles
   document printed "Area of studys" over the three areas it had just found
   correctly. English pluralises the head noun of a noun phrase, which is the word
-  before `of`. `pluralLabel` in `syllabusreview.tsx`, with a test, because the
+  before `of`. `pluralLabel` in `syllabus/review.tsx`, with a test, because the
   fault is invisible in the code and unmissable on screen.
 
 ## Reading a saved model

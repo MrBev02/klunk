@@ -10,7 +10,7 @@ import { duplicateModels, knownIds } from '../shared/modelcheck'
 import { paperIsDirty, paperIsSaved } from '../papers/paper'
 import { ProfileEditor, type EditingProfile } from '../profiles/profile'
 import { parseRoute, routeHash, VIEW_NAMES, type Route, type Takeover, type View } from './route'
-import { SyllabusReader } from '../syllabus/syllabusreader'
+import { SyllabusReader } from '../syllabus/reader'
 import { QuestionRow } from '../questions/question'
 import { ProfileInstaller, profilesOnOffer, SyllabusNote } from '../profiles/setup'
 import {
