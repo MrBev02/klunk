@@ -20,7 +20,7 @@
 import type { ExtractedPaper, ExtractedQuestion } from './extract'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
 import type { Cutout } from '../documents/pdfimage'
-import type { Check } from '../papers/paper'
+import type { Check } from '../shared/validate'
 import {
   QUESTION_TYPE_LABELS,
   type Question,

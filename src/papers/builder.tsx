@@ -16,11 +16,11 @@ import {
   removeSection,
   resolvePaper,
   structureDrift,
-  type Check,
   type FieldOverride,
   type StructureDrift,
   type ResolvedPaper,
 } from './paper'
+import type { Check } from '../shared/validate'
 import { QuestionDetail, shortType } from '../questions/question'
 import { cleanPaper, isUnfinished, setRefOptions, unfinishedReasons } from '../shared/validate'
 import { PrintablePaper, type PrintMode } from './render'

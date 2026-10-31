@@ -19,7 +19,7 @@
  */
 
 import { cleanCode } from '../shared/code'
-import type { Check } from '../papers/paper'
+import type { Check } from '../shared/validate'
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
