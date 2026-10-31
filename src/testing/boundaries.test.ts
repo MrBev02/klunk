@@ -15,6 +15,10 @@
  *   - shared/ imports only shared/. It is what every other folder builds on.
  *   - folder/ imports only folder/ and shared/.
  *   - Nothing but a test imports testing/.
+ *   - A .ts file never imports a .tsx one (#176). Logic is .ts and screens
+ *     are .tsx, in every folder, so this is what keeps the line between them
+ *     without a ui/ subfolder in each. A file that both parses and draws is
+ *     split in two, as richtext.ts and richtextview.tsx are.
  *
  * Tests are not held to them. A test of the text-layer reader in documents/
  * runs the whole past-paper pipeline on purpose, and that is the point of it.
@@ -26,7 +30,7 @@
  * the fix is small enough to make instead.
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const KNOWN: Record<string, string> = {}
@@ -49,6 +53,9 @@ function resolve(from: string, spec: string): string {
 }
 
 function breaks(from: string, to: string): boolean {
+  // An import names no extension, so whether it reaches a screen is read off
+  // the file it lands on.
+  if (from.endsWith('.ts') && existsSync(`src/${to}.tsx`)) return true
   const here = from.split('/')[0]
   const there = to.split('/')[0]
   if (there === 'app') return here !== 'app'

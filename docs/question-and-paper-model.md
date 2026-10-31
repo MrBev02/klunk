@@ -4,8 +4,10 @@ The decisions behind `bank.schema.json`, `paper.schema.json` and
 `profile.schema.json`, and behind the markup a question's prose may carry.
 Every one has evidence under it. **Do not reverse one without new evidence.**
 
-Read this before touching `src/shared/richtext.tsx`, `src/shared/code.tsx`,
-`src/papers/render.tsx`, `src/questions/question.tsx`,
+Read this before touching `src/shared/richtext.ts`,
+`src/shared/richtextview.tsx`, `src/shared/code.ts`,
+`src/shared/codeblock.tsx`, `src/papers/render.tsx`,
+`src/questions/question.tsx`,
 `src/questions/editor.tsx`, `src/shared/validate.ts`, `src/papers/cover.ts`,
 `src/papers/paper.ts`, the three prompt files, or any of the schemas — and
 before adding a question type or changing what a paper inherits from its
@@ -26,7 +28,7 @@ no links, no headings.
   `ingest.ts` needs nothing either way: `asString` trims the ends and keeps
   interior newlines. The reason first written here, *it is also what an AI draft
   already comes back as*, was an assumption and was false; see #101.
-- **`src/shared/richtext.tsx` is written by hand**, about 130 lines. A markdown
+- **`src/shared/richtext.ts` is written by hand**, about 130 lines. A markdown
   library would be a third dependency, would bring far more syntax than this
   wants, and would need a sanitiser behind it. The precedent is
   `CriterionPoints`.
@@ -55,14 +57,14 @@ matrix recovered.
 **Nothing had ever told a model that any of that markup exists, and a real
 import lost a table because of it** (#101). Reported off a paper transcribed
 through the AI route: a question carrying a table of data came back as a
-paragraph of loose values. `richtext.tsx` had read and printed a pipe table
+paragraph of loose values. `richtext.ts` had read and printed a pipe table
 since #88, and `paperprompt.ts`, `prompt.ts` and `guideprompt.ts` all described
 `questionText` as "the question exactly as a student reads it" and stopped
 there. The only thing that had ever produced a pipe table was `extract.ts`'s own
 table recovery, which is why it went unnoticed: every table Klunk had seen came
 from a reader rather than from a reply.
 
-- **The claim in `richtext.tsx`'s header was the fault in one line.** *It is also
+- **The claim in `richtext.ts`'s header was the fault in one line.** *It is also
   what an AI draft already comes back as, so `ingest.ts` needs nothing.* The
   second half is true and the first half was never checked. A format only one
   half of the system knows is a format the other half destroys.
@@ -97,7 +99,7 @@ from a reader rather than from a reply.
   whole stem twice for every question carrying one bold word.
 - **One copy of the rules, in `markupRules`**, which all three prompts call. Two
   copies drift, and the whole point is that the vocabulary a model is told
-  matches the one `richtext.tsx` reads. The paper prompt's worked example carries
+  matches the one `richtext.ts` reads. The paper prompt's worked example carries
   a real table, and its test parses that example and runs it back through
   `blocksOf`: a prompt teaching a shape the reader does not read would be worse
   than one teaching nothing.
