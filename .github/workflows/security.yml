@@ -1,0 +1,60 @@
+# Known vulnerabilities in what Klunk is built from (#169).
+#
+# Apart from the deploy on purpose. An advisory against a development tool,
+# which is where every one found so far has been, says nothing about the
+# static files Pages serves, so it must not stop a teacher-facing deploy. It
+# shows as a red X instead, the way the format job does.
+#
+# Code scanning is CodeQL's default setup, switched on in the repository's
+# settings, so it has no workflow here to keep up to date.
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Advisories are published against code that has not changed, so a quiet
+  # week with no commits would otherwise never find out. Sunday 19:00 UTC,
+  # which is early Monday morning in Sydney.
+  schedule:
+    - cron: '0 19 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Every installed package, development tools included: the dev server runs
+  # on a developer's own machine, and that is where the advisories so far have
+  # pointed. High and above fails; moderate is reported in the log.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm audit --audit-level=high
+
+  # On a pull request, what the change itself adds: a dependency with a known
+  # advisory, caught before it reaches main rather than by the audit after.
+  # Reads the dependency graph, so it needs no install.
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

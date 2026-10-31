@@ -1,0 +1,38 @@
+# Dependency updates (#169).
+#
+# Security fixes arrive on their own, as soon as an advisory is published:
+# that is Dependabot security updates, switched on in the repository's
+# settings rather than here. This file is the routine version updates.
+#
+# Weekly and grouped, so a week of releases is one pull request per ecosystem
+# rather than one per package. Each still has to pass the build, which runs
+# the typecheck and the whole test suite, before it can be merged.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      timezone: Australia/Sydney
+    groups:
+      # Development tools and the two runtime libraries move at different
+      # speeds, and a pdf.js update is the one that can change what a teacher
+      # sees in a read paper. Kept apart so it is reviewed on its own.
+      runtime:
+        dependency-type: production
+      tooling:
+        dependency-type: development
+    open-pull-requests-limit: 5
+
+  # The workflow's actions are pinned by major version, and a major bump has
+  # broken this deploy before (upload-pages-artifact v4 dropped dotfiles).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      timezone: Australia/Sydney
+    groups:
+      actions:
+        patterns: ['*']
