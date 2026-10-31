@@ -10,7 +10,7 @@
 import { Fragment } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { groupFor } from '../folder/manifest'
-import type { Check } from '../papers/paper'
+import type { Check } from './validate'
 import type { DocumentPurpose, Manifest, SyllabusTopic } from './types'
 
 /**

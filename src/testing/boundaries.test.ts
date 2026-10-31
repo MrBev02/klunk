@@ -28,9 +28,6 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const KNOWN: Record<string, string> = {
-  // The Check type, which belongs in shared/ (#175).
-  'shared/validate.ts -> papers/paper': '#175',
-  'shared/fields.tsx -> papers/paper': '#175',
   // The document picker groups files with the folder layer (#182).
   'shared/fields.tsx -> folder/manifest': '#182',
 }

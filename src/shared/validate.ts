@@ -33,8 +33,36 @@
  * recover. Blocking is the better trade there.
  */
 
-import type { Check } from '../papers/paper'
 import { hasSample, parseRef, sameLines, STIMULUS_ALIGNS } from './types'
+
+// What every check reports, from a question's fields to a whole paper's
+// marks. Here rather than in papers/paper.ts, where checkPaper also makes
+// them, because this file and the shared form controls both need the type,
+// and taking it from paper.ts was the last link of an import cycle (#175).
+
+export type Severity = 'error' | 'warning'
+
+export interface Check {
+  severity: Severity
+  message: string
+  /** Section title, when the check belongs to one. */
+  where?: string | undefined
+  /**
+   * The question can be written down as it stands, and a teacher has to come
+   * back to it. Set by `validateQuestion` alone.
+   *
+   * Deliberately a second axis rather than a third severity. Two different
+   * things are unfinished: an error a bank file can still hold (parts that do
+   * not add up), and a warning that means work is outstanding (no answer
+   * recorded, no marking guide). One flag across both is what stops those two
+   * growing separate mechanisms that come to disagree about what unfinished
+   * means.
+   *
+   * So a save is blocked by `severity === 'error' && !unfinished`, and the
+   * question is unfinished if anything at all carries this.
+   */
+  unfinished?: boolean | undefined
+}
 import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
 import type {
   IdentificationField,
