@@ -21,6 +21,7 @@ import {
   shuffledResponses,
 } from '../papers/paper'
 import { markRange } from '../papers/render'
+import { hasMarkup } from '../shared/richtext'
 import { Inline, RichText } from '../shared/richtextview'
 import { joinPath } from '../folder/storage'
 import type { Stimulus } from '../shared/types'
@@ -119,10 +120,12 @@ export function QuestionRow({
       {open && (
         <div class="qrow__detail">
           {/* The collapsed row above already shows the stem, so repeating it
-              here just pushed the answers further down the screen. */}
+              here just pushed the answers further down the screen. Unless it
+              holds a table or a formula, which the row can only show as its
+              source, as the extractor and the factory already ask (#151). */}
           <QuestionDetail
             question={q}
-            showStem={false}
+            showStem={hasMarkup(q.questionText)}
             bankFile={item.file}
             images={images}
             known={known}

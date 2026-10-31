@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import { ingestQuestions } from './ingest'
 import { buildPaperPrompt, type PaperPromptSpec } from './paperprompt'
-import { blocksOf } from '../shared/richtext'
+import { blocksOf, runsOf } from '../shared/richtext'
 import type { Profile, Syllabus, SyllabusCourse } from '../shared/types'
 
 const BASE: PaperPromptSpec = {
@@ -182,11 +182,34 @@ describe('the markup', () => {
     expect(withTable, 'the example must demonstrate a table').toBeTruthy()
 
     const blocks = blocksOf(withTable!['questionText']!)
-    expect(blocks.map((b) => b.kind)).toEqual(['text', 'table', 'text'])
+    // Prose either side of the table. The question goes on past it to a
+    // formula (#151), which the next test reads.
+    expect(blocks.map((b) => b.kind)).toEqual(['text', 'table', 'text', 'text', 'text'])
     const table = blocks[1]!
     if (table.kind !== 'table') throw new Error('unreachable')
     expect(table.head).toEqual(['Time', 'Temperature (\u00b0C)'])
     expect(table.rows).toHaveLength(3)
+  })
+
+  it('shows a formula that Klunk itself reads as a formula (#151)', () => {
+    // Through JSON.parse, as a reply is, so a backslash the example forgot to
+    // double shows up here as a form feed in place of `\frac`.
+    const questions = exampleIn(prompt) as Record<string, string>[]
+    const withFormula = questions.find((q) => (q['questionText'] ?? '').includes('\\['))
+    expect(withFormula, 'the example must demonstrate a formula').toBeTruthy()
+
+    const blocks = blocksOf(withFormula!['questionText']!)
+    const last = blocks[blocks.length - 1]!
+    if (last.kind !== 'text') throw new Error('the formula should be the last paragraph')
+    expect(runsOf(last.text)).toEqual([
+      { text: '\\bar{T} = \\frac{T_1 + T_2 + T_3}{3}', math: 'display' },
+    ])
+  })
+
+  it('teaches the formula delimiters, and refuses the dollar sign', () => {
+    expect(prompt).toContain('\\( \\) around a formula inside a sentence')
+    expect(prompt).toContain('Never $, which')
+    expect(prompt).toContain('every backslash is doubled')
   })
 
   it('keeps the fill-in table type apart from a table the student only reads', () => {

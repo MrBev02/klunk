@@ -3181,3 +3181,18 @@ code,
 .richtable th {
   font-weight: 600;
 }
+
+/* A formula (#151). KaTeX sets its own size relative to the text around it,
+   which at 1.21em is a step larger than Klunk's prose, so it is brought back to
+   the line. A display formula is a block of its own and, like a table, must
+   not push the panel sideways. */
+.formula .katex {
+  font-size: 1.05em;
+}
+
+.formula .katex-display {
+  margin: 0.4rem 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

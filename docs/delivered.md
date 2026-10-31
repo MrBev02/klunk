@@ -386,6 +386,15 @@ Unticking **Number the lines** saved `"lineNumbers": false` and printed without
 numbers. A drafted reply carrying a code stimulus pasted back with its
 indentation whole.
 
+**A question can carry a formula** (#151). `\(…\)` sets one within a line and
+`\[…\]` on a line of its own, in LaTeX, rendered by KaTeX on screen, on the
+paper and on the guide. `$` stays a dollar sign. All three prompts teach it,
+and a reply that wrote its backslashes singly is repaired with a note. Verified
+in the browser, as recorded under #151 in
+[question-and-paper-model.md](question-and-paper-model.md). The cost: KaTeX
+takes `dist-single` from 2.10 MB to **3.82 MB**, about 1.1 MB of it the `.woff`
+and `.ttf` copies of its fonts that its stylesheet lists after `.woff2`.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

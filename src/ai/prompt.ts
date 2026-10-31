@@ -611,6 +611,12 @@ function guideNotes(type: QuestionType, marks: number | undefined): string[] {
  *
  * `where` names the fields, because they differ: a marking guide's markup lives
  * on a criterion and a sample answer, not on a question stem.
+ *
+ * The doubled backslash is spelled out for a formula (#151) because getting it
+ * wrong is silent in the worst case: `\frac` and `\times` are valid JSON
+ * escapes, a form feed and a tab, so a reply can parse and still have lost
+ * the formula. `extractJson` repairs the commoner case, where `\(` makes the
+ * whole reply fail to parse.
  */
 export function markupRules(where: string): string {
   return [
@@ -633,7 +639,13 @@ export function markupRules(where: string): string {
     '- **bold**, *italic* and <u>underline</u>, where the text is printed that',
     '  way.',
     '- `code` in backticks, only where the paper prints it in a fixed-width font,',
-    '  such as a variable name or a formula. Nothing inside backticks is markup.',
+    '  such as a variable name or a spreadsheet formula. Nothing inside backticks',
+    '  is markup.',
+    '- Mathematics in LaTeX: \\( \\) around a formula inside a sentence, and \\[ \\]',
+    '  around one set on its own line, such as \\(3x^2 \\times 4x^5\\). Never $, which',
+    '  a paper uses for dollars. Keep each formula on one line. Inside a JSON string',
+    '  every backslash is doubled, so that formula is written',
+    '  "\\\\(3x^2 \\\\times 4x^5\\\\)".',
     '- Write \\*, \\|, \\< or \\` for one of those characters where it is not markup.',
     '',
     'No headings, no bullet lists, no links, no images.',

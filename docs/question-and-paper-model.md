@@ -149,6 +149,56 @@ were saved verbatim to disk. A search for `=B3*C3*D3` found the question. The
 student paper and the marking guide both printed the stem and the sample
 answer the same way.
 
+**A formula is `\(…\)` within a line and `\[…\]` on its own, set by KaTeX**
+(#151). It was written and tested first in Mimir's copy of `richtext.ts`, which
+reads what Klunk releases and so has to read it identically, and came across
+with its ten tests.
+
+- **`$` is not a delimiter, because a mathematics paper prints prices.**
+  `A jacket costs $80 and a hat costs $25` would set `80 and a hat costs ` as a
+  formula, silently, which is #101's `__x__` again. `\(` collides with nothing
+  a paper prints and a model asked for LaTeX writes it untaught.
+- **A formula binds tighter than every other mark, a code span included.**
+  `mathAt` is checked before the escape rule in `collect`, `closerOf` and
+  `closingTag`, or the escape eats the `(` of `\(`. `\\(` is still an escaped
+  backslash. A code span that opens first wins, so `` `\(x\)` `` is code.
+- **`hasMarkup` counts a formula, though it is inline.** It is the table's
+  case and not the bold word's: a two-line summary shows `3x^2 \times 4x^5`,
+  the source rather than the thing. This was found by driving it, not reading
+  it. The AI review card showed the stem only in its heading, which printed the
+  raw `questionText` with its delimiters, and the set formula appeared nowhere.
+  The heading now uses `questionLabel` as the extractor's does, and the library
+  row asks `hasMarkup` as the other two views do. It had been
+  `showStem={false}` there since #88, so an opened library row never showed a
+  table either.
+- **A single backslash is the reply fault to expect, and in its worst form it
+  is silent.** Inside a JSON string `\frac` is a form feed and `rac`, and
+  `\times` a tab and `imes`, so a reply can parse and still have lost the
+  formula. The prompt spells the doubling out and the paper prompt's worked
+  example ends on a `\frac`, which its test reads back through `JSON.parse`
+  and `runsOf`. The commoner form, `\(` itself undoubled, makes the whole reply
+  fail to parse; `extractJson` repairs that, only after every other way of
+  reading the reply has failed and only inside a `\(…\)` or `\[…\]` that
+  crosses no quotation mark or line, and says it did.
+- **`Formula` lets KaTeX write into its own span with `katex.render`, in a
+  layout effect,** rather than handing Preact a string of HTML. It runs before
+  paint, before a print, and does not wait on the throttled timer a plain
+  effect uses in a hidden tab.
+- **A new dependency needs the dev server restarted.** Vite's prebuilt
+  dependencies are fixed at start, so after `npm install katex` the running
+  server answered 504 for it and the app loaded blank with nothing in the
+  console. A reload did not help; a restart did.
+
+Driven on `../klunk-content`: a stem holding `$80`, `$25`, an inline and a
+display formula, and a sample answer with both, typed into the editor. The
+preview set them, the prices stayed prices, and both fields were saved
+verbatim. A search for `frac` found it. A drafted reply pasted back with one
+question written with single backslashes and one doubled: the note said the
+backslashes were doubled, all seven formulas were set on the review cards, and
+both questions saved verbatim. The student paper and the marking guide set
+every formula in black. No bank written before this held a `\(` or `\[`, so
+nothing existing changed how it prints.
+
 ## Program code is a stimulus
 
 **A program a question refers to is `{"kind": "code"}` on the stimulus list**

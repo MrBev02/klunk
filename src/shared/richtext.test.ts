@@ -179,3 +179,82 @@ describe('the four inline marks', () => {
     )
   })
 })
+
+describe('mathematics in question text', () => {
+  it('leaves prices alone, which is why $ is not a delimiter', () => {
+    expect(runsOf('A jacket costs $80 and a hat costs $25.')).toEqual([
+      { text: 'A jacket costs $80 and a hat costs $25.' },
+    ])
+  })
+
+  it('reads an inline formula', () => {
+    expect(runsOf('Simplify \\(3x^2 \\times 4x^5\\).')).toEqual([
+      { text: 'Simplify ' },
+      { text: '3x^2 \\times 4x^5', math: 'inline' },
+      { text: '.' },
+    ])
+  })
+
+  it('reads a display formula', () => {
+    expect(runsOf('\\[ x = \\frac{-b}{2a} \\]')).toEqual([
+      { text: 'x = \\frac{-b}{2a}', math: 'display' },
+    ])
+  })
+
+  it('keeps asterisks inside a formula and does not let them close an italic', () => {
+    expect(runsOf('*Find \\(a*b\\) here*')).toEqual([
+      { text: 'Find ', italic: true },
+      { text: 'a*b', italic: true, math: 'inline' },
+      { text: ' here', italic: true },
+    ])
+  })
+
+  it('carries bold onto a formula inside it', () => {
+    expect(runsOf('**\\(x = 4\\)**')).toEqual([{ text: 'x = 4', bold: true, math: 'inline' }])
+  })
+
+  it('does not let a closing tag inside a formula close the underline around it', () => {
+    expect(runsOf('<u>\\(a</u>b\\) end</u>')).toEqual([
+      { text: 'a</u>b', underline: true, math: 'inline' },
+      { text: ' end', underline: true },
+    ])
+  })
+
+  it('leaves a formula written inside a code span as code', () => {
+    // The span opened first, so its contents are not markup of any kind.
+    expect(runsOf('`\\(x\\)`')).toEqual([{ text: '\\(x\\)', code: true }])
+  })
+
+  it('keeps two formulas side by side apart', () => {
+    expect(runsOf('\\(a\\)\\(b\\)')).toEqual([
+      { text: 'a', math: 'inline' },
+      { text: 'b', math: 'inline' },
+    ])
+  })
+
+  it('prints an unclosed or empty opener as itself', () => {
+    expect(runsOf('a \\( b')).toEqual([{ text: 'a \\( b' }])
+    expect(runsOf('a \\(\\) b')).toEqual([{ text: 'a \\(\\) b' }])
+  })
+
+  it('lets an escaped backslash stop a formula opening', () => {
+    expect(runsOf('\\\\(x\\)')).toEqual([{ text: '\\(x\\)' }])
+  })
+
+  it('keeps a formula inside a table cell', () => {
+    const [table] = blocksOf('| Score | Frequency |\n| --- | --- |\n| \\(x\\) | 3 |')
+    expect(table).toEqual({ kind: 'table', head: ['Score', 'Frequency'], rows: [['\\(x\\)', '3']] })
+  })
+
+  it('counts a formula as markup a one-line summary cannot show, as a table is', () => {
+    expect(hasMarkup('Simplify \\(3x^2 \\times 4x^5\\).')).toBe(true)
+    expect(hasMarkup('A jacket costs $80 and a hat costs $25.')).toBe(false)
+    expect(hasMarkup('Outline **TWO** benefits')).toBe(false)
+  })
+
+  it('searches the TeX source, so a student can look for frac', () => {
+    expect(plainText('Write \\(\\frac{9}{4}\\) as a mixed numeral.')).toBe(
+      'Write \\frac{9}{4} as a mixed numeral.',
+    )
+  })
+})

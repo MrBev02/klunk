@@ -19,6 +19,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "katex": "^0.19.1",
     "pdfjs-dist": "^6.4.299",
     "preact": "^11.1.0"
   },

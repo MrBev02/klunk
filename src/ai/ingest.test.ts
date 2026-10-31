@@ -98,6 +98,46 @@ describe('extractJson', () => {
   })
 })
 
+/**
+ * A formula written with single backslashes (#151). The prompt asks for them
+ * doubled; a model that forgets writes `\(` inside a JSON string, which is not
+ * an escape, so nothing parses. The fixtures are written with String.raw so
+ * that what is in the test is exactly what a model would paste.
+ */
+describe('a formula whose backslashes were not doubled', () => {
+  const textOf = (found: ReturnType<typeof extractJson>) =>
+    (JSON.parse((found as { json: string }).json) as { q: string }[])[0]!.q
+
+  it('doubles them, and says so', () => {
+    const found = extractJson(String.raw`[{"q":"Simplify \(3x^2 \times 4x^5\)."}]`)
+    expect(textOf(found)).toBe(String.raw`Simplify \(3x^2 \times 4x^5\).`)
+    expect((found as { note?: string }).note).toContain('Doubled the backslashes')
+  })
+
+  it('keeps \\frac a fraction rather than a form feed', () => {
+    const found = extractJson(
+      String.raw`Here:` +
+        '\n```json\n' +
+        String.raw`[{"q":"Use\n\[ \bar{x} = \frac{a}{n} \]"}]` +
+        '\n```',
+    )
+    expect(textOf(found)).toBe('Use\n' + String.raw`\[ \bar{x} = \frac{a}{n} \]`)
+  })
+
+  it('leaves a reply that doubled them alone', () => {
+    const found = extractJson(String.raw`[{"q":"Simplify \\(3x^2 \\times 4x^5\\)."}]`)
+    expect(textOf(found)).toBe(String.raw`Simplify \(3x^2 \times 4x^5\).`)
+    expect(found).not.toHaveProperty('note')
+  })
+
+  it('does not reach past a quotation mark into the next string', () => {
+    // An opener with no closer in its own string is not a span, and the reply
+    // stays as broken as it came rather than being rewritten somewhere else.
+    const found = extractJson(String.raw`[{"q":"a \( b","r":"c \) d"}]`)
+    expect(found).not.toHaveProperty('note')
+  })
+})
+
 /* ------------------------------------------------------------------ the shapes */
 
 describe('what came back', () => {
