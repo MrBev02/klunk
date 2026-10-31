@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { lowerLabel, pluralLabel } from './syllabusreview'
+import { lowerLabel, pluralLabel } from './review'
 
 describe('pluralLabel', () => {
   it('pluralises the head noun of a noun phrase, not its tail', () => {

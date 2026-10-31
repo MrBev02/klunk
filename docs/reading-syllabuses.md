@@ -8,7 +8,7 @@ of it, and do not contradict it without new evidence.**
 Read this before touching `src/syllabus/syllabus.ts`,
 `src/syllabus/headings.ts`, `src/syllabus/ibdt.ts`, `src/syllabus/ibguide.ts`,
 `src/syllabus/formats.ts`, `src/documents/ooxml.ts`, `src/documents/xlsx.ts`,
-`src/syllabus/syllabusedit.ts` or `tools/nesa_stage6_syllabus.py`. The counts
+`src/syllabus/edit.ts` or `tools/nesa_stage6_syllabus.py`. The counts
 every one of those must still produce are in
 [corpus-counts.md](corpus-counts.md).
 
@@ -308,7 +308,7 @@ that a name or an id shown without what it hangs off is ambiguous on screen.
   schema says the arrangement out loud by giving `id` the optional third group
   and `parent` only two: **two levels and no third**, checked rather than assumed
   on both documents.
-- **`renumbered` in `syllabusedit.ts` had to learn it too**, or a split or a
+- **`renumbered` in `syllabus/edit.ts` had to learn it too**, or a split or a
   merge quietly flattened every sub-item into a sibling of its parent — and the
   result would still have validated, `parent` still agreeing with the ids, so
   nothing would have said so. A point whose parent did not survive a cut is

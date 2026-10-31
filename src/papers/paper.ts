@@ -300,7 +300,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
  * own. Those are the words used throughout, in the code and on screen (#106).
  *
  * Pure over a paper and a profile, with no `ContentIndex` and no folder, so it
- * tests without one — the arrangement `manifest.ts` and `syllabusedit.ts` use.
+ * tests without one — the arrangement `manifest.ts` and `syllabus/edit.ts` use.
  * `checkPaper` calls it rather than deriving the same facts a second time: one
  * implementation feeding both the verdict and the remedy is the whole reason
  * this is a function.

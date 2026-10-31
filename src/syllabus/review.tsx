@@ -14,7 +14,7 @@
  * of form fields, because the job here is to read this against the document on
  * the desk, and a page of textareas is a worse thing to read than a page of text.
  *
- * Every operation lives in `syllabusedit.ts` and is pure, so what this file holds
+ * Every operation lives in `syllabus/edit.ts` and is pure, so what this file holds
  * is which button calls which one.
  */
 
@@ -37,7 +37,7 @@ import {
   setOutcomeCode,
   setTopicGroup,
   splitTopic,
-} from './syllabusedit'
+} from './edit'
 import type { SyllabusCourse, SyllabusTopic } from '../shared/types'
 
 /**
