@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'preact/hooks'
-import { Field, NumField, patched, type Patch } from './fields'
+import { Field, NumField, ScreenBar, patched, type Patch } from './fields'
 import { DEFAULT_BOXES, DEFAULT_LOGO_WIDTH_MM } from './cover'
 import { copyFileInto, joinPath, safeFilename, saveSchool, type ContentIndex } from './storage'
 import type { IdentificationField, School } from './types'
@@ -26,11 +26,14 @@ import { cleanSchool, validateSchool } from './validate'
 export function CoverEditor({
   index,
   folder,
+  from,
   onCancel,
   onSaved,
 }: {
   index: ContentIndex
   folder: FileSystemDirectoryHandle
+  /** Where this screen was opened from, in the words on the tabs: the bar's trail. */
+  from: string[]
   onCancel: () => void
   onSaved: (message: string) => void
 }) {
@@ -114,21 +117,18 @@ export function CoverEditor({
 
   return (
     <div class="editor">
-      <div class="editor__head">
-        <p class="panel__title">{existing ? 'Your cover sheet' : 'Set up your cover sheet'}</p>
-        <div class="rowbtns">
-          <button class="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            class="btn btn--primary"
-            disabled={saving || errors.length > 0}
-            onClick={() => void save()}
-          >
-            {saving ? 'Saving…' : existing ? 'Save changes' : 'Create cover sheet'}
-          </button>
-        </div>
-      </div>
+      <ScreenBar trail={[...from, existing ? 'Your cover sheet' : 'Set up your cover sheet']}>
+        <button class="btn" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          class="btn btn--primary"
+          disabled={saving || errors.length > 0}
+          onClick={() => void save()}
+        >
+          {saving ? 'Saving…' : existing ? 'Save changes' : 'Create cover sheet'}
+        </button>
+      </ScreenBar>
 
       <p class="hint">
         This is the front page of every paper you print from this folder: your school's name and

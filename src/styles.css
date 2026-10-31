@@ -844,6 +844,13 @@ textarea.input {
   top: 1rem;
 }
 
+/* Under a screen bar, which is sticky too: at 1rem the rail slid up behind
+   it, and the question editor's bank path went under the Save buttons. The
+   bar is one control high plus its padding and its 0.5rem gap. */
+.screenbar ~ .split .rail {
+  top: 4.6rem;
+}
+
 .rail__group {
   margin-bottom: 1.25rem;
 }
@@ -1677,6 +1684,57 @@ textarea.input {
   max-width: 33rem;
   margin: 0 auto 0.6rem;
   color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- screenbar */
+
+/* The bar a full-screen editor or help sits under, in place of the tabs
+   (#159). The preview bar's sheet, so the two read as one kind of thing: where
+   you are on the left, what you can do on the right. */
+.screenbar {
+  display: flex;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  position: sticky;
+  top: 0.5rem;
+  z-index: 5;
+}
+
+.screenbar__trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-faint);
+}
+
+/* The separator is drawn, not typed into the step, so a screen reader reads
+   the list as a list of places. */
+.screenbar__trail li + li::before {
+  content: '›';
+  margin: 0 0.5rem;
+  color: var(--rule-strong);
+}
+
+.screenbar__trail [aria-current] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.screenbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-left: auto;
 }
 
 /* ------------------------------------------------------------------ preview */

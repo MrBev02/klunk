@@ -24,6 +24,8 @@
  * is actually looking at rather than for what they would call it.
  */
 
+import { ScreenBar } from './fields'
+
 /**
  * The one address in the app that points off this computer.
  *
@@ -49,14 +51,23 @@ const CONTENTS: { id: string; title: string }[] = [
   { id: 'help-report', title: 'Reporting something wrong' },
 ]
 
-export function Help({ onClose }: { onClose: () => void }) {
+/**
+ * `from` is the screen help was opened over, which is still there underneath
+ * and is where Back to Klunk returns. There used to be three ways out (Close
+ * help in the masthead, and Back to Klunk at the top and at the foot); the bar
+ * stays on screen, so one is enough (#159).
+ */
+export function Help({ from, onClose }: { from: string[]; onClose: () => void }) {
   return (
     <section class="help">
-      <div class="help__top">
-        <h2 class="help__title">How Klunk works</h2>
-        <button class="btn" onClick={onClose}>
+      <ScreenBar trail={[...from, 'Help']}>
+        <button class="btn btn--primary" onClick={onClose}>
           Back to Klunk
         </button>
+      </ScreenBar>
+
+      <div class="help__top">
+        <h2 class="help__title">How Klunk works</h2>
       </div>
 
       <p class="help__lede">
@@ -592,11 +603,6 @@ export function Help({ onClose }: { onClose: () => void }) {
           Everything posted there is public and stays public, so write what happened in your own
           words and keep your questions and papers out of it.
         </p>
-        <div class="rowbtns">
-          <button class="btn btn--primary" onClick={onClose}>
-            Back to Klunk
-          </button>
-        </div>
       </section>
     </section>
   )
