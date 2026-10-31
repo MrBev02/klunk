@@ -1,6 +1,6 @@
 ---
 name: Klunk
-description: Exam papers, from questions you have. A drafting table for building examinations.
+description: Exam papers and marking guides. A drafting table for building examinations.
 colors:
   blueprint-blue: "#1f4e79"
   blueprint-wash: "#e8eef4"

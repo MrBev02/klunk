@@ -412,7 +412,7 @@ export function App() {
       <header class="masthead">
         <div class="masthead__mark">
           <h1 class="masthead__title">Klunk</h1>
-          <span class="masthead__rule">exam papers, from questions you have</span>
+          <span class="masthead__rule">exam papers and marking guides</span>
         </div>
         {/* Help sits with the folder controls but outside them, because the
             teacher who has not got a folder open yet is the likeliest to want
