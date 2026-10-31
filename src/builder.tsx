@@ -349,7 +349,7 @@ export function Builder({
             <button class="btn" onClick={() => setShowJson(!showJson)}>
               {showJson ? 'Hide the JSON' : 'Copy as JSON'}
             </button>
-            <button class="btn btn--small" onClick={onClose}>
+            <button class="btn" onClick={onClose}>
               Close
             </button>
           </div>
@@ -552,7 +552,7 @@ function SectionOverrides({
 
   return (
     <div class="sec__over">
-      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
         {open ? 'Hide' : 'Edit section wording'}
       </button>
       {!open && count > 0 && (
@@ -646,7 +646,7 @@ function RefOverrides({
 
   return (
     <div class="picked__over">
-      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
         {open
           ? 'Hide'
           : pictures
@@ -890,7 +890,7 @@ function CoverFields({
 
   return (
     <div class="papercover">
-      <button class="btn btn--small" onClick={() => setOpen(!open)}>
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
         {open ? 'Hide the cover' : 'Cover'}
       </button>
       {!open && (
@@ -1010,7 +1010,7 @@ function CoverFields({
 
           {/* Behind a toggle because a teacher sets these once a year at most,
               and the four above are on every paper. */}
-          <button class="btn btn--small" onClick={() => setMore(!more)}>
+          <button class="btn btn--quiet" aria-expanded={more} onClick={() => setMore(!more)}>
             {more ? 'Fewer settings' : 'More settings'}
           </button>
 

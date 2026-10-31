@@ -39,6 +39,7 @@ rounded:
   sm: "3px"
 spacing:
   control-height: "2.35rem"
+  control-height-small: "1.75rem"
   panel-padding: "1.1rem 1.25rem"
 components:
   button:
@@ -60,7 +61,13 @@ components:
     backgroundColor: "{colors.sheet-white}"
     textColor: "{colors.ink}"
     rounded: "{rounded.sm}"
-    padding: "0.22rem 0.5rem"
+    padding: "0.2rem 0.6rem"
+    height: "{spacing.control-height-small}"
+  button-quiet:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink-soft}"
+    padding: "0.2rem 0"
+    height: "{spacing.control-height-small}"
   input:
     backgroundColor: "{colors.sheet-white}"
     textColor: "{colors.ink}"
@@ -184,7 +191,10 @@ stack is built from faces that ship on school Macs and Windows machines.
 ### Hierarchy
 
 - **Display** (2.1rem, line-height 1): the masthead title only.
-- **Body** (16px, line-height 1.55): all interface text.
+- **Body** (16px, line-height 1.55): all interface text, and the tabs.
+- **Control** (600, 0.92rem): the text of every button, whatever its variant.
+  A variant says how much an action matters by its fill, border and height,
+  never by a smaller size of text.
 - **Label** (600, 0.78rem, 0.15em tracking, uppercase): panel titles and the
   masthead strapline. A label names a region; it never carries a sentence.
 - **Data** (700, tabular figures): marks, counts and anything a teacher adds up.
@@ -205,8 +215,10 @@ The page ground is a ruled grid of 24px squares drawn in Blueprint Blue at 5%.
 It echoes the graph paper that drawing questions print on, and it stays.
 
 Every control a teacher can click or type into is one height, 2.35rem, so a row
-of mixed fields and buttons lines up exactly. The two small button variants are
-deliberately shorter, because they sit inside rows and beside chips.
+of mixed fields and buttons lines up exactly. The small, icon and letter buttons
+share one shorter height, 1.75rem, because they sit inside rows and beside
+chips; it is above the 24px minimum target on purpose. A row of buttons centres
+its children rather than stretching them.
 
 ## Elevation & Depth
 
@@ -244,9 +256,18 @@ down a pixel when clicked.
 - **Shape:** nearly square (3px), one control height (2.35rem).
 - **Default:** Sheet White with a Strong Rule border and Ink text, 600 weight.
 - **Primary:** solid Ink with Drafting Paper text; turns Blueprint Blue on hover.
-- **Hover / Focus:** border goes to Ink on hover. Focus is the browser's own ring
-  for now; only fields have a themed outline.
-- **Small and icon:** shorter variants for inside rows and beside chips.
+- **Hover:** border goes to Ink.
+- **Focus:** a 2px Blueprint Blue ring outside the edge, on buttons and tabs.
+- **Small, icon and letter:** the compact height, for real actions inside rows
+  and beside chips: add an option, attach an image, remove, move up.
+- **Quiet:** no fill and no border, Soft Ink text with an underline in Strong
+  Rule that goes to Ink on hover. For what is not the work itself: showing or
+  hiding more of the page (Cover, More settings, Edit section wording, Show the
+  whole question) and the masthead's folder chores. A toggle carries
+  `aria-expanded`. The underline is what tells a teacher it can be pressed.
+- **Which one:** the action a screen exists for is Primary; other actions that
+  finish or leave a screen (Preview, Close, Cancel) are Default; actions on one
+  row are Small or Icon; disclosure and housekeeping is Quiet.
 - **Disabled:** 45% opacity, no pointer.
 
 ### Chips

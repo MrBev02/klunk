@@ -771,7 +771,7 @@ function DraftCard({
       )}
 
       <div class="rowbtns">
-        <button class="btn btn--small" onClick={() => setOpen(!open)}>
+        <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide the question' : 'Show the whole question'}
         </button>
         {!saved && (
