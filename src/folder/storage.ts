@@ -1002,9 +1002,9 @@ export async function saveProfile(
   if (existing !== null && options?.replacingId !== profile.id) {
     throw new Error(
       isProfile(existing)
-        ? `${path} is already there and holds another profile, "${existing.name}". ` +
+        ? `${path} is already there and holds another paper structure, "${existing.name}". ` +
             'Give this one a different id.'
-        : `${path} is already there and is not a profile`,
+        : `${path} is already there and is not a paper structure`,
     )
   }
 

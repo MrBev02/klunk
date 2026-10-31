@@ -140,13 +140,13 @@ export function ProfileEditor({
           disabled={saving || errors.length > 0}
           onClick={() => void save()}
         >
-          {saving ? 'Saving…' : editing ? 'Save changes' : 'Create profile'}
+          {saving ? 'Saving…' : editing ? 'Save changes' : 'Create paper structure'}
         </button>
       </ScreenBar>
 
       {!editing && (
         <p class="hint">
-          A profile is the exam structure: how many sections, what each is worth, which kinds of
+          A paper structure sets out the exam: how many sections, what each is worth, which kinds of
           question belong where. Klunk checks every paper against it, and tells the AI prompt where
           a question sits on the real paper.
         </p>

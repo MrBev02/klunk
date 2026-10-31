@@ -708,17 +708,17 @@ export function validateProfile(
   const warn = (message: string, where?: string) =>
     out.push({ severity: 'warning', message, where })
 
-  if (!profile.name?.trim()) err('The profile needs a name')
+  if (!profile.name?.trim()) err('The paper structure needs a name')
 
   if (!profile.id?.trim()) {
-    err('The profile needs an id')
+    err('The paper structure needs an id')
   } else if (!PROFILE_ID_SHAPE.test(profile.id)) {
     err(
       `"${profile.id}" cannot be an id. Lower-case letters, digits and single ` +
         'hyphens only, because it is also the filename.',
     )
   } else if (takenIds.has(profile.id)) {
-    err(`This folder already has a profile with the id "${profile.id}"`)
+    err(`This folder already has a paper structure with the id "${profile.id}"`)
   }
 
   // Beyond the schema, and the reason is #47's: a course id is only unique
@@ -729,7 +729,7 @@ export function validateProfile(
   if (courseId) {
     if (!profile.syllabusId?.trim()) {
       err(
-        `This profile names the course "${courseId}" but no syllabus, so Klunk ` +
+        `This paper structure names the course "${courseId}" but no syllabus, so Klunk ` +
           'cannot tell which subject that course belongs to. Choose a syllabus as well.',
       )
     } else {

@@ -362,7 +362,7 @@ export function ExamFactory({
               <div key={at} style={{ marginTop: '1rem' }}>
                 <p class="rail__label">
                   {section.name}
-                  {section.profileSectionId ? '' : ' · not matched to your profile'} ·{' '}
+                  {section.profileSectionId ? '' : ' · not matched to the paper structure'} ·{' '}
                   {section.drafts.length} question{section.drafts.length === 1 ? '' : 's'}
                 </p>
                 {section.rejected.map((r) => (

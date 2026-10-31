@@ -94,17 +94,17 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
             browser remembers it.
           </li>
           <li>
-            <strong>Put two things in that folder.</strong> A <em>paper profile</em>, which is the
-            exam structure, and a <em>syllabus model</em>, which is the outcomes, topics and content
-            points you tag questions against.
+            <strong>Put two things in that folder.</strong> A <em>paper structure</em>, which is the
+            shape of the exam, and a <em>syllabus model</em>, which is the outcomes, topics and
+            content points you tag questions against.
           </li>
           <li>
             <strong>Add your questions.</strong> Write them yourself, draft them with your school's
             AI, or read them out of a past paper.
           </li>
           <li>
-            <strong>Build a paper</strong> against the profile, check it, then print the student
-            paper and the marking guide.
+            <strong>Build a paper</strong> against the paper structure, check it, then print the
+            student paper and the marking guide.
           </li>
         </ol>
         <p class="muted">
@@ -128,10 +128,10 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         </p>
 
         <p>
-          <strong>A paper profile</strong> is the exam structure: total marks, how many sections,
-          what each section is worth, which question types go where, and how long students get. The
-          checker compares your paper against it. Klunk comes with the profile for NSW HSC Design
-          and Technology. For any other exam, use <strong>Describe your own paper</strong> on the
+          <strong>A paper structure</strong> sets out the exam: total marks, how many sections, what
+          each section is worth, which question types go where, and how long students get. The
+          checker compares your paper against it. Klunk comes with the paper structure for NSW HSC
+          Design and Technology. For any other exam, use <strong>New paper structure</strong> on the
           Papers tab.
         </p>
 
@@ -159,9 +159,9 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         </p>
 
         <p class="muted">
-          You need a profile before you can build a paper. You do not need a syllabus model to write
-          questions or build papers, but without one you cannot tag a question to a topic, and Klunk
-          cannot tell you what a paper covers.
+          You need a paper structure before you can build a paper. You do not need a syllabus model
+          to write questions or build papers, but without one you cannot tag a question to a topic,
+          and Klunk cannot tell you what a paper covers.
         </p>
       </section>
 
@@ -196,7 +196,7 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
           <dt>
             <code>profiles/</code>
           </dt>
-          <dd>The exam structures described above.</dd>
+          <dd>The paper structures described above.</dd>
 
           <dt>
             <code>school.json</code>
@@ -347,26 +347,27 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         <h3 class="setup__head">Building and printing a paper</h3>
 
         <p>
-          Open the Papers tab and start a paper against a profile, then add questions from your
-          library. The rail down the side shows which section you are adding to and what that
+          Open the Papers tab and start a paper against a paper structure, then add questions from
+          your library. The rail down the side shows which section you are adding to and what that
           section still needs.
         </p>
 
         <p>
           The <strong>Checks</strong> panel updates as you build. It compares your paper against the
-          profile: marks, section totals and question types. It also warns you about the things you
-          would want to catch anyway. A question from a public paper your students may have seen. A
-          question that is already on a paper they have sat. A question belonging to another
-          subject. A question tagged to nothing. A question that is not finished. A section your
-          profile has and the paper does not.
+          paper structure: marks, section totals and question types. It also warns you about the
+          things you would want to catch anyway. A question from a public paper your students may
+          have seen. A question that is already on a paper they have sat. A question belonging to
+          another subject. A question tagged to nothing. A question that is not finished. A section
+          your paper structure has and the paper does not.
         </p>
 
         <p>
-          <strong>Differences from the profile</strong> appears when a paper and its profile
-          disagree: a section one has and the other does not, or a paper keeping its own reading
-          time. Each line has a button that brings the paper into line, and nothing is written until
-          you save. Papers built before Klunk understood this kept a copy of their profile's times
-          and instructions, so you may see it on a paper you have not touched.
+          <strong>Differences from the paper structure</strong> appears when a paper and its paper
+          structure disagree: a section one has and the other does not, or a paper keeping its own
+          reading time. Each line has a button that brings the paper into line, and nothing is
+          written until you save. Papers built before Klunk understood this kept a copy of their
+          paper structure's times and instructions, so you may see it on a paper you have not
+          touched.
         </p>
 
         <p>
@@ -408,20 +409,21 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
           The things that change paper by paper are on the paper itself, under{' '}
           <strong>Cover</strong>: the subject, the year group, the date, reading and working time,
           and the general instructions. Klunk fills in the subject and year group when you create
-          the paper, from the syllabus your profile names.
+          the paper, from the syllabus your paper structure names.
         </p>
 
         <p>
           Leave reading time, working time or the instructions blank and the paper takes them from
-          its profile, so changing the profile changes every paper built against it. Type a number
-          to give one paper its own. <strong>More settings</strong> holds the rest: a subtitle, a
-          school name and logo for this paper alone, and notes that print on the marking guide.
+          its paper structure, so changing the paper structure changes every paper built against it.
+          Type a number to give one paper its own. <strong>More settings</strong> holds the rest: a
+          subtitle, a school name and logo for this paper alone, and notes that print on the marking
+          guide.
         </p>
 
         <p>
           If one kind of paper needs a different set of boxes, such as a trial that prints a student
-          number grid where your other exams print a name, set that on the profile rather than on
-          the folder.
+          number grid where your other exams print a name, set that on the paper structure rather
+          than on the folder.
         </p>
 
         <p class="muted">
@@ -514,10 +516,10 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
             on the <strong>Syllabus</strong> tab.
           </dd>
 
-          <dt>"No profile in this folder yet"</dt>
+          <dt>"No paper structure in this folder yet"</dt>
           <dd>
-            A paper needs an exam structure to be built against. Add the stock profile if it matches
-            your subject, or describe your own on the Papers tab.
+            Add the stock paper structure if it matches your subject, or click New paper structure
+            on the Papers tab. A paper is built against one.
           </dd>
 
           <dt>"… files could not be read"</dt>

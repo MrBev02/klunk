@@ -436,7 +436,9 @@ export function Factory({
         noProfile={
           chosen && !profile ? (
             <section class="panel panel--note">
-              <p class="panel__title">No paper profile for {chosen.syllabus.name} in this folder</p>
+              <p class="panel__title">
+                No paper structure for {chosen.syllabus.name} in this folder
+              </p>
               <p>
                 The prompt cannot say where this kind of question sits on the real paper, and it
                 asks for a general two ruled lines a mark instead of this exam's own spacing. The

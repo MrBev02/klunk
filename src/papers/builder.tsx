@@ -343,7 +343,7 @@ export function Builder({
             onInput={(e) => setPaper({ ...paper, title: (e.target as HTMLInputElement).value })}
           />
           <p class="muted" style={{ fontSize: '0.86rem' }}>
-            {profile ? profile.name : 'No profile, so Klunk cannot check this paper'} ·{' '}
+            {profile ? profile.name : 'No paper structure, so Klunk cannot check this paper'} ·{' '}
             <span class="mono">papers/{paper.id}.json</span>
           </p>
 
@@ -629,7 +629,10 @@ function SectionOverrides({
       {open && (
         <>
           <div class="fieldrow">
-            <Field label="Heading" hint={`Blank prints ${spec?.name ?? 'the profile\u2019s name'}`}>
+            <Field
+              label="Heading"
+              hint={`Blank prints ${spec?.name ?? 'the paper structure\u2019s name'}`}
+            >
               <input
                 class="input"
                 value={section.title ?? ''}
@@ -649,7 +652,7 @@ function SectionOverrides({
           {/* Worded around the apostrophe. A JSX attribute is a literal
               string, so the \u2019 escape the rest of this file uses would
               print here as its own six characters. */}
-          <Field label="Instruction" hint="Blank prints the instruction from the profile">
+          <Field label="Instruction" hint="Blank prints the instruction from the paper structure">
             <textarea
               class="input"
               rows={2}
@@ -821,15 +824,15 @@ function StructurePanel({
   return (
     <section class="panel panel--note">
       <p class="panel__title">
-        {count} difference{count === 1 ? '' : 's'} from the profile
+        {count} difference{count === 1 ? '' : 's'} from the paper structure
       </p>
 
       <ul class="plain drift">
         {drift.missingSections.map((spec) => (
           <li key={`m-${spec.id}`} class="drift__row">
             <span>
-              <strong>{spec.name}</strong> is in the profile and not on this paper. The profile
-              gives it {spec.marks} mark{spec.marks === 1 ? '' : 's'}.
+              <strong>{spec.name}</strong> is in the paper structure and not on this paper. The
+              paper structure gives it {spec.marks} mark{spec.marks === 1 ? '' : 's'}.
             </span>
             <button class="btn btn--small" onClick={() => onAdd(spec.id)}>
               Add {spec.name}
@@ -840,8 +843,8 @@ function StructurePanel({
         {drift.orphanSections.map((orphan) => (
           <li key={`o-${orphan.at}`} class="drift__row">
             <span>
-              <strong>{named(orphan.at)}</strong> names "{orphan.profileSectionId}", which the
-              profile does not have.
+              <strong>{named(orphan.at)}</strong> names "{orphan.profileSectionId}", which the paper
+              structure does not have.
               {orphan.refs > 0 &&
                 ` It holds ${orphan.refs} question${orphan.refs === 1 ? '' : 's'}.`}
             </span>
@@ -858,8 +861,8 @@ function StructurePanel({
         {drift.unlinkedSections.map((section) => (
           <li key={`u-${section.at}`} class="drift__row">
             <span>
-              <strong>{named(section.at)}</strong> is not linked to a profile section, so its marks
-              and question count are not checked.
+              <strong>{named(section.at)}</strong> is not linked to a section of the paper
+              structure, so its marks and question count are not checked.
             </span>
           </li>
         ))}
@@ -873,8 +876,8 @@ function StructurePanel({
               </span>
               {'. '}
               {override.inProfile === undefined
-                ? 'The profile has none.'
-                : `The profile says ${describeOverride(override.inProfile)}.`}
+                ? 'The paper structure has none.'
+                : `The paper structure says ${describeOverride(override.inProfile)}.`}
             </span>
             <button class="btn btn--small" onClick={() => onInherit(override.field)}>
               Inherit {OVERRIDE_LABELS[override.field]}
@@ -944,7 +947,7 @@ function CoverFields({
   const inherits = (value: number | undefined, what: string) =>
     value === undefined
       ? `Blank prints no ${what}.`
-      : `Blank takes ${value} minute${value === 1 ? '' : 's'} from the profile.`
+      : `Blank takes ${value} minute${value === 1 ? '' : 's'} from the paper structure.`
 
   const setSchool = (patch: Patch<NonNullable<Paper['school']>>) => {
     const next = patched(paper.school ?? {}, patch)
@@ -1083,7 +1086,7 @@ function CoverFields({
             <Field
               label="General instructions"
               for="pc-instructions"
-              hint="One per line. Blank takes the profile's."
+              hint="One per line. Blank takes the paper structure's."
             >
               <textarea
                 id="pc-instructions"
@@ -1287,8 +1290,8 @@ function BankRail({
           <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
         </div>
         <p class="bank__empty">
-          Start this paper again from a profile that has sections. This one has none, so there is
-          nowhere to put a question.
+          Start this paper again from a paper structure that has sections. This one has none, so
+          there is nowhere to put a question.
         </p>
       </>,
     )
@@ -1307,7 +1310,7 @@ function BankRail({
         )}
         {onLinkSyllabus && (
           <p class="bank__unlinked">
-            This paper's profile does not say which subject it is for, so every question in the
+            This paper's structure does not say which subject it is for, so every question in the
             folder is offered here, including any from another subject.{' '}
             <button class="btn btn--small" onClick={onLinkSyllabus}>
               Link a syllabus
@@ -1316,7 +1319,7 @@ function BankRail({
         )}
         {linkCourse && (
           <p class="bank__unlinked">
-            This paper's profile does not say which course of {linkCourse.subject} it is for, so
+            This paper's structure does not say which course of {linkCourse.subject} it is for, so
             questions from every course in it are offered here.{' '}
             <button class="btn btn--small" onClick={linkCourse.onEdit}>
               Choose a course
@@ -1406,7 +1409,7 @@ function Checks({ checks }: { checks: Check[] }) {
     return (
       <section class="panel panel--ok">
         <p class="panel__title">Checks</p>
-        <p>Everything matches the profile.</p>
+        <p>Everything matches the paper structure.</p>
       </section>
     )
   }
@@ -1510,13 +1513,13 @@ function StartPaper({
   if (profiles.length === 0) {
     return (
       <section class="panel setup">
-        <p class="panel__title">No profile in this folder yet</p>
+        <p class="panel__title">No paper structure in this folder yet</p>
         {/* "Pick the exam you are building towards" is only true when there is
             something to pick, which for every subject but Design and Technology
             there is not (#48). */}
         <p>
-          A profile says how a paper is built: how many sections, what each is worth, which question
-          types belong where.
+          A paper structure says how a paper is built: how many sections, what each is worth, which
+          question types belong where.
           {profilesOnOffer(index).offered.length > 0
             ? ' Pick the exam you are building towards and Klunk writes it into profiles/ here.'
             : ''}
@@ -1550,7 +1553,7 @@ function StartPaper({
             style={{ marginBottom: '0.7rem' }}
           />
           <label class="rail__label" for="np-profile">
-            Profile
+            Paper structure
           </label>
           <select
             id="np-profile"
@@ -1671,8 +1674,8 @@ function StartPaper({
           <section class="hero">
             <h2>No papers yet</h2>
             <p>
-              Start one on the left. Klunk fills in the sections your profile expects, then you pick
-              questions into them.
+              Start one on the left. Klunk fills in the sections your paper structure expects, then
+              you pick questions into them.
             </p>
           </section>
         ) : (

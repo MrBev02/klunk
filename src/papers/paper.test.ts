@@ -531,7 +531,7 @@ describe('checkPaper', () => {
     paper = addRef(paper, 1, 'bank/test.json#f')
 
     const checks = checkPaper(resolvePaper(index, paper, profile))
-    const said = checks.find((c) => c.message.includes('which the profile does not have'))
+    const said = checks.find((c) => c.message.includes('which the paper structure does not have'))
     expect(said?.severity).toBe('error')
     expect(said?.message).toContain('"III"')
     expect(said?.message).toContain('not checked')
@@ -544,7 +544,7 @@ describe('checkPaper', () => {
     for (const id of ['a', 'b', 'c', 'd', 'e']) paper = addRef(paper, 0, `bank/test.json#${id}`)
 
     const said = checkPaper(resolvePaper(index, paper, profile)).find((c) =>
-      c.message.includes('not linked to a profile section'),
+      c.message.includes('not linked to a section of the paper structure'),
     )
     expect(said?.severity).toBe('warning')
     // Named by its position rather than the literal word "Section".
@@ -616,7 +616,7 @@ describe('checkPaper', () => {
   it('says so when there is no profile rather than pretending the paper is fine', () => {
     const { index, paper } = goodPaper()
     const checks = checkPaper(resolvePaper(index, paper, undefined))
-    expect(checks.some((c) => c.message.includes('No profile set'))).toBe(true)
+    expect(checks.some((c) => c.message.includes('No paper structure set'))).toBe(true)
   })
 })
 

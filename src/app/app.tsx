@@ -1163,20 +1163,20 @@ function Library({
           {both
             ? canGiveProfile
               ? 'This folder is empty. Klunk can give you one of the two things it needs, and you build the other yourself.'
-              : 'This folder is empty. It needs a paper profile and a syllabus model, and you build both yourself.'
+              : 'This folder is empty. It needs a paper structure and a syllabus model, and you build both yourself.'
             : needsProfile
               ? canGiveProfile
-                ? 'The syllabus model is in place. This folder still needs a paper profile, and Klunk can give you that.'
-                : 'The syllabus model is in place. This folder still needs a paper profile, which you describe yourself.'
-              : 'The profile is in place. The syllabus model is the one you build yourself.'}
+                ? 'The syllabus model is in place. This folder still needs a paper structure, and Klunk can give you that.'
+                : 'The syllabus model is in place. This folder still needs a paper structure, which you describe yourself.'
+              : 'The paper structure is in place. The syllabus model is the one you build yourself.'}
         </p>
 
         {needsProfile && (
           <>
-            <h3 class="setup__head">{both && '1 · '}A paper profile</h3>
+            <h3 class="setup__head">{both && '1 · '}A paper structure</h3>
             <p>
-              A profile is the exam structure: how many sections, what each is worth, which question
-              types belong where. The checker compares your paper against it.
+              A paper structure sets out the exam: how many sections, what each is worth, which
+              question types belong where. The checker compares your paper against it.
             </p>
             <ProfileInstaller
               index={index}
@@ -1349,7 +1349,7 @@ function Library({
             {index.syllabuses.length} syllabus model
             {index.syllabuses.length === 1 ? '' : 's'}
             <br />
-            {index.profiles.length} profile{index.profiles.length === 1 ? '' : 's'}
+            {index.profiles.length} paper structure{index.profiles.length === 1 ? '' : 's'}
             <br />
             {index.papers.length} paper{index.papers.length === 1 ? '' : 's'}
           </p>

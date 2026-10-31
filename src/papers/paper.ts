@@ -530,7 +530,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   if (!profile) {
     checks.push({
       severity: 'warning',
-      message: 'No profile set, so marks and structure cannot be checked',
+      message: 'No paper structure set, so marks and sections cannot be checked',
     })
     return sortChecks(checks)
   }
@@ -538,7 +538,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   if (resolved.totalMarks !== profile.paper.totalMarks) {
     checks.push({
       severity: 'error',
-      message: `Paper totals ${resolved.totalMarks} marks, profile expects ${profile.paper.totalMarks}`,
+      message: `Paper totals ${resolved.totalMarks} marks, paper structure expects ${profile.paper.totalMarks}`,
     })
   }
 
@@ -554,7 +554,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
     checks.push({
       severity: 'error',
       where: spec.name,
-      message: `not on this paper. The profile gives it ${spec.marks} mark${
+      message: `not on this paper. The paper structure gives it ${spec.marks} mark${
         spec.marks === 1 ? '' : 's'
       }.`,
     })
@@ -565,7 +565,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
       severity: 'error',
       where: resolved.sections[orphan.at]?.title ?? `Section ${orphan.at + 1}`,
       message:
-        `names "${orphan.profileSectionId}", which the profile does not have. ` +
+        `names "${orphan.profileSectionId}", which the paper structure does not have. ` +
         'Its marks and question count are not checked.',
     })
   }
@@ -576,7 +576,8 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
     checks.push({
       severity: 'warning',
       where: resolved.sections[unlinked.at]?.title ?? `Section ${unlinked.at + 1}`,
-      message: 'not linked to a profile section, so its marks and question count are not checked.',
+      message:
+        'not linked to a section of the paper structure, so its marks and question count are not checked.',
     })
   }
 
@@ -590,7 +591,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
       checks.push({
         severity: 'error',
         where,
-        message: `${section.marks} marks, profile expects ${spec.marks}`,
+        message: `${section.marks} marks, paper structure expects ${spec.marks}`,
       })
     }
 
@@ -624,21 +625,21 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
       checks.push({
         severity: 'error',
         where,
-        message: `${n} question${n === 1 ? '' : 's'}, profile expects exactly ${spec.questionCount}`,
+        message: `${n} question${n === 1 ? '' : 's'}, paper structure expects exactly ${spec.questionCount}`,
       })
     }
     if (spec.minQuestions !== undefined && n < spec.minQuestions) {
       checks.push({
         severity: 'error',
         where,
-        message: `${n} question${n === 1 ? '' : 's'}, profile expects at least ${spec.minQuestions}`,
+        message: `${n} question${n === 1 ? '' : 's'}, paper structure expects at least ${spec.minQuestions}`,
       })
     }
     if (spec.maxQuestions !== undefined && n > spec.maxQuestions) {
       checks.push({
         severity: 'error',
         where,
-        message: `${n} questions, profile allows at most ${spec.maxQuestions}`,
+        message: `${n} questions, paper structure allows at most ${spec.maxQuestions}`,
       })
     }
 
