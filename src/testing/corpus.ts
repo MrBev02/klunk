@@ -108,6 +108,8 @@ export const DRAMA = `${SOURCE}/nsw-hsc-drama/drama-st6-syl-from2010.docx`
 export const VISUAL_ARTS = `${SOURCE}/nsw-hsc-visual-arts/visual-arts-st6-syl-amended-2016.docx`
 export const ENGLISH = `${SOURCE}/nsw-hsc-english/NESA - english_advanced_11_12_2024 (S6).docx`
 export const MATHS = `${SOURCE}/nsw-hsc-maths/NESA - mathematics_advanced_11_12_2024 (S6).docx`
+/** The syllabus the 2025 HSC paper was set on, and the one with sub-topics (#203). */
+export const MATHS_2017 = `${SOURCE}/nsw-hsc-maths/mathematics-advanced-stage-6-syllabus-2017.docx`
 export const BIOLOGY = `${SOURCE}/nsw-hsc-biology/biology-stage-6-syllabus-2017.docx`
 export const COMPUTING = `${SOURCE}/nsw-computing-technology-7-10/NESA - computing_technology_7_10_2022 (S4, S5, LS).docx`
 
@@ -203,8 +205,18 @@ export const SUITES: Record<string, CorpusSuite> = {
     needs: { what: 'python3 on the path', met: havePython },
   },
   'headings.corpus': {
-    what: 'the Outcomes/Content and prose readers, over seven syllabuses',
-    docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, ENTERPRISE, VISUAL_ARTS, DT_SYLLABUS],
+    what: 'the Outcomes/Content and prose readers, over eight syllabuses',
+    docs: [
+      DRAMA,
+      ENGLISH,
+      MATHS,
+      MATHS_2017,
+      COMPUTING,
+      BIOLOGY,
+      ENTERPRISE,
+      VISUAL_ARTS,
+      DT_SYLLABUS,
+    ],
   },
   'textlayer.corpus': {
     what: 'refusing a scan for holding no text, over three documents that have none',

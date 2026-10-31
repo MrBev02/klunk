@@ -362,6 +362,49 @@ continues on the 2017 one*, and the first HSC examination for the new course is
 2028. So a folder holding two models for one subject is the normal state for a
 year, not an accident. See #29.
 
+## The 2017 Mathematics Advanced syllabus
+
+**A 2017 mathematics topic is divided into sub-topics by plain paragraphs, and
+every focus area is headed twice** (#203). Established from Mathematics Advanced
+Stage 6 (2017), the syllabus the 2025 HSC paper was set on, after the user could
+not get it into Klunk accurately. It is the reform contract otherwise, and the
+course headings (`Mathematics Advanced Year 11 Course Content`) already read.
+
+```
+Topic: Functions                  overview: Outcomes, Topic Focus, Subtopics
+Functions                         the focus area again, above each topic
+  MA-F1 Working with Functions    Outcomes, Subtopic Focus, Content
+    F1.2: Introduction to functions        a plain paragraph
+      • identify types of functions …      ilvl 0
+          – use the vertical line test …   ilvl 1
+```
+
+- **It read as 12 and 16 topics, 11 of them empty.** Each `Topic:` overview has
+  an `Outcomes` heading after it, so it opened a topic that never reached a
+  `Content` block. The bare repeat met the previous topic's `Content` still open
+  and became its sub-heading, so the second `Trigonometric Functions` was an
+  empty topic grouped under `MA-T1`. The sub-topics arrived as dot points, flat
+  beside the points they head. The user's description of what was wrong
+  ("missing and wrong topics, focus areas") was exact.
+- **Five levels against Klunk's three.** Focus area, MA topic, sub-topic, dot
+  point and sub-dot. The user chose **the sub-topic as the topic and the MA code
+  as its group**: `F1.2: Introduction to functions` under `MA-F1 Working with
+  Functions`. That keeps all 60 and 73 sub-dots under their dot points, which
+  #78 shows a sub-item needs. The focus area is not stored, but the letter in
+  `MA-F1` carries it. Making the MA code the topic would have flattened the
+  sub-dots, and a sub-topic level in the schema was judged too large.
+- **The rules are the document's own words.** A `Topic:` heading names the focus
+  area and opens nothing; a heading repeating that name only closes what is
+  open; and a paragraph divides a topic only when it is not a list item and opens
+  with that topic's own code and a full stop, `F1.` under `MA-F1`. No other
+  syllabus in the corpus prints `Topic:`, and the eight others did not move.
+- **MA-T2, MA-F2 and MA-T3 print no sub-topics**, so each is one topic with no
+  group, the 2024 document's rule for a focus area without sub-headings.
+- **Outcomes are complete**: MA11-1 to MA11-9 and MA12-1 to MA12-10, and every
+  sub-topic carries its MA block's outcomes.
+- **The formulas are as lossy as the 2024 document's** (`cosec A = 1sin A`).
+  That is `ooxml.ts` reading equation leaves only, and not part of #203.
+
 ## IB DP Design Technology
 
 **IB DP Design Technology changed:** first teaching August 2025, first assessment May
