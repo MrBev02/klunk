@@ -21,13 +21,8 @@
  */
 
 import type { PageText } from '../documents/page'
-import {
-  toLines,
-  type ExtractedCriterion,
-  type ExtractedPaper,
-  type ExtractedQuestion,
-  type Line,
-} from './extract'
+import { toLines, type Line } from '../documents/lines'
+import { type ExtractedCriterion, type ExtractedPaper, type ExtractedQuestion } from './extract'
 
 /* ------------------------------------------------------------------ the output */
 

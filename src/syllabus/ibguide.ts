@@ -40,7 +40,7 @@
  */
 
 import type { PageText } from '../documents/page'
-import { toLines } from '../pastpapers/extract'
+import { toLines } from '../documents/lines'
 import { ibCourses, nameFor, pointText, type IbTopicRead } from './ibdt'
 import { NotASyllabusError } from './syllabus'
 import type { SyllabusCourse } from '../shared/types'
