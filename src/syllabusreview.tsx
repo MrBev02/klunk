@@ -212,12 +212,16 @@ function CourseReview({
 
       <div class="rowbtns">
         <button
-          class="btn btn--small"
+          class="btn btn--quiet"
           onClick={() => setOpen(open.length === 0 ? course.topics.map((t) => t.id) : [])}
         >
           {open.length === 0 ? 'Open every topic' : 'Close every topic'}
         </button>
-        <button class="btn btn--small" onClick={() => setShowOutcomes(!showOutcomes)}>
+        <button
+          class="btn btn--quiet"
+          aria-expanded={showOutcomes}
+          onClick={() => setShowOutcomes(!showOutcomes)}
+        >
           {showOutcomes ? 'Hide the outcomes' : `Show the ${course.outcomes?.length ?? 0} outcomes`}
         </button>
         {grouped > 0 && apply && (

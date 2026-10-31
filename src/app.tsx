@@ -427,11 +427,11 @@ export function App() {
                 onSwitch={requestSwitch}
                 onAdd={requestAddFolder}
               />
-              <button class="btn btn--small" onClick={() => void load(folder)}>
+              <button class="btn btn--quiet" onClick={() => void load(folder)}>
                 Reload
               </button>
               <button
-                class="btn btn--small"
+                class="btn btn--quiet"
                 title="Klunk stops remembering this folder. Nothing in it is changed."
                 onClick={requestForget}
               >
@@ -440,7 +440,7 @@ export function App() {
             </>
           )}
           <button
-            class="btn btn--small"
+            class="btn btn--quiet"
             title="How Klunk works, and what to do when something looks wrong"
             onClick={() => showHelp(!help)}
           >
@@ -799,7 +799,7 @@ function Switcher({
         </button>
       ))}
       <button
-        class="btn btn--small"
+        class="btn btn--quiet"
         onClick={onAdd}
         title="Point Klunk at another subject's folder"
       >
@@ -1153,7 +1153,7 @@ function Library({
 
         {(type || course || topic || text || untaggedOnly || unfinishedOnly) && (
           <button
-            class="btn btn--small"
+            class="btn btn--quiet"
             onClick={() => {
               setType('')
               setCourse('')

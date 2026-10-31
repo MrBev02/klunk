@@ -1224,7 +1224,7 @@ function PdfSlot({
         </>
       ) : (
         <>
-          <button class="btn btn--small" disabled={busy}>
+          <button class="btn" disabled={busy}>
             {busy ? 'Copying…' : `Choose ${what} on this computer`}
           </button>
           <p class="hint">Or drag it onto this box.</p>
@@ -1652,7 +1652,7 @@ function ExtractedCard({
       )}
 
       <div class="rowbtns">
-        <button class="btn btn--small" onClick={() => setOpen(!open)}>
+        <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? 'Hide the question' : 'Show the whole question'}
         </button>
         {!saved && (

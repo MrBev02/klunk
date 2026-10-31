@@ -445,7 +445,7 @@ function SectionFields({
         <strong>{section.name || `Section ${index + 1}`}</strong>
         <div class="rowbtns">
           <button
-            class="btn btn--small"
+            class="btn btn--icon"
             disabled={index === 0}
             title="Move up"
             onClick={() => onMove(-1)}
@@ -453,7 +453,7 @@ function SectionFields({
             ↑
           </button>
           <button
-            class="btn btn--small"
+            class="btn btn--icon"
             disabled={index === count - 1}
             title="Move down"
             onClick={() => onMove(1)}

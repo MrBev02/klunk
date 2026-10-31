@@ -192,7 +192,7 @@ export function ExamFactory({
           papers above it are the daily one, and a form for a paper that does
           not exist yet was the first thing on the tab a teacher opens to find
           the paper they were already writing. */}
-      <button class="btn btn--small" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
         {open ? 'Hide AI drafting' : 'Draft a whole paper with AI'}
       </button>
 

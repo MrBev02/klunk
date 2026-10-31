@@ -51,6 +51,20 @@
    */
   --control-h: 2.35rem;
 
+  /* The compact height, shared by the small, icon and letter buttons so a row
+     of them lines up. Above WCAG 2.2's 24px target on purpose: the icon
+     buttons were 22px wide (#152). */
+  --control-h-sm: 1.75rem;
+
+  /*
+   * The start of the type scale (#140). Every button's text is one size
+   * whatever its variant (#152): five sizes had grown up, and a 12.5px Close
+   * beside 14.7px Preview read as unfinished rather than as less important.
+   * A variant says how much an action matters by its fill, border and height.
+   */
+  --fs-body: 1rem;
+  --fs-control: 0.92rem;
+
   color-scheme: light dark;
 }
 
@@ -455,7 +469,7 @@ code,
   cursor: pointer;
   color: var(--ink-faint);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-body);
   letter-spacing: 0.02em;
 }
 
@@ -535,7 +549,7 @@ code,
 
 .btn {
   font-family: var(--ui);
-  font-size: 0.92rem;
+  font-size: var(--fs-control);
   font-weight: 600;
   padding: 0.42rem 0.85rem;
   border: 1px solid var(--rule-strong);
@@ -576,20 +590,61 @@ code,
   border-color: var(--blue);
 }
 
-/* The two small variants are deliberately not control height: they sit inside
-   rows and beside chips, where a full-height button would dominate. */
+/* Buttons and tabs had only the browser's own focus ring, which is thin and
+   easy to lose on the grid. The fields' blue, set outside the edge so it never
+   covers the label. */
+.btn:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* The compact variants are deliberately not control height: they sit inside
+   rows and beside chips, where a full-height button would dominate. Shorter,
+   not smaller: the text stays the size of every other button. */
 .btn--small {
-  font-size: 0.78rem;
-  padding: 0.22rem 0.5rem;
-  min-height: 0;
+  padding: 0.2rem 0.6rem;
+  line-height: 1.3;
+  min-height: var(--control-h-sm);
 }
 
 .btn--icon {
   font-family: var(--mono);
-  padding: 0.15rem 0.42rem;
-  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
   line-height: 1.3;
-  min-height: 0;
+  min-height: var(--control-h-sm);
+  min-width: var(--control-h-sm);
+}
+
+/*
+ * For an action that is not the work itself: showing or hiding more of the
+ * page, and the masthead's folder chores. These were small buttons, and a
+ * page of bordered boxes at two sizes gave every one the same weight as Save
+ * (#152). Underlined so it still reads as something to press,
+ * which a teacher would not guess of bare text.
+ */
+.btn--quiet {
+  padding: 0.2rem 0;
+  line-height: 1.3;
+  min-height: var(--control-h-sm);
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 0.22em;
+}
+
+/* No text column to line up with in the masthead, and four of them side by
+   side ran together as one underlined phrase. */
+.masthead .btn--quiet {
+  padding-inline: 0.35rem;
+}
+
+.btn--quiet:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--ink);
+  text-decoration-color: currentColor;
 }
 
 .input {
@@ -668,8 +723,11 @@ textarea.input {
   padding: 0;
 }
 
+/* Centred rather than stretched: a row mixing heights stretched a small Close
+   to full height around its smaller text (#152). */
 .rowbtns {
   display: flex;
+  align-items: center;
   gap: 0.45rem;
   flex-wrap: wrap;
 }
@@ -1867,10 +1925,10 @@ textarea.input--code {
 
 .btn--letter {
   font-family: var(--mono);
-  padding: 0.1rem 0.45rem;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  min-height: 0;
+  padding: 0.2rem 0.45rem;
+  line-height: 1.3;
+  min-height: var(--control-h-sm);
+  min-width: var(--control-h-sm);
 }
 
 .btn--letter.is-on {
