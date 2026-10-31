@@ -72,3 +72,72 @@ export const NO_TEXT_IN_PAPER =
 export const NO_TEXT_IN_GUIDE =
   'This PDF holds no text, only a picture of each page. Read it with an AI below, or use ' +
   'the original file if you have one.'
+
+/* ------------------------------------------------- a paper set as mathematics */
+
+/**
+ * Fonts that exist only to set mathematics (#198).
+ *
+ * A NESA mathematics paper reads to the right number of questions and the right
+ * marks, and nearly every formula in it is wrong: an exponent drops to the
+ * baseline (`t − 8t + 12` for t² − 8t + 12), π and θ come out as `p` and `q`,
+ * `f`, ∫ and √ vanish, and the 2026 paper's brackets read as `^x − 1h`. A
+ * count-based check cannot see any of it, and neither can the text, because
+ * `p` and `q` are ordinary letters. The fonts can.
+ *
+ * Measured over every PDF in the content folder that has text, 30 documents.
+ * The 2025 and 2026 HSC Mathematics Advanced papers and the 2025 marking guide
+ * all set formulas in `SymbolGreekII-Italic`, two of them in MathMagic's
+ * `MMaVariableA`/`B`, `MMBinary` and `MMEtc`, and the 2026 paper in
+ * `EuclidSymbol` and `EuclidExtra`. None of the other 27, eleven years of
+ * Design and Technology papers and guides, the Biology pair and the IB papers
+ * and guide, uses any font on this list. The rest of the list is not from the
+ * corpus: they are the maths fonts of MathType, TeX and Word's equation editor,
+ * named because they mean the same thing and a school's own paper will be set
+ * in one of them.
+ *
+ * **Plain `Symbol` is left off deliberately.** Word sets its bullet points in
+ * it, so a school paper with a bulleted list would be refused for nothing.
+ * `AppleSymbols` is left off for the same reason: both maths papers use it, but
+ * it is a general symbol font.
+ */
+const MATHEMATICS_FONT =
+  /^(SymbolGreek|MMa|MMBinary|MMEtc|Euclid|MT ?Extra|MathematicalPi|MT(SY|MI|EX)|CM(MI|SY|EX)\d|LMMath|LatinModernMath|STIX(Two)?Math|CambriaMath|Cambria-Math|AsanaMath)/i
+
+/**
+ * How many runs in a mathematics font make a paper a mathematics paper.
+ *
+ * Not one, because a science paper may set a single μ or Ω in a Greek symbol
+ * font and is not thereby unreadable. The fewest in any of the three
+ * mathematics documents is 26, the 2025 paper's `SymbolGreekII-Italic` alone;
+ * the most in any other document is none.
+ */
+const MATHEMATICS_PIECES = 10
+
+/**
+ * Is this document set as mathematics, which no text reader can keep?
+ *
+ * **Asked before any reader, unlike `hasNoText`,** because every reader takes
+ * a mathematics paper and reads it confidently wrong. So this can cost a
+ * document that reads, and the evidence for it is the measurement above.
+ */
+export function isSetAsMathematics(pages: PageText[]): boolean {
+  let count = 0
+  for (const page of pages) {
+    for (const piece of page.pieces) {
+      if (piece.font !== undefined && MATHEMATICS_FONT.test(piece.font)) count += 1
+      if (count >= MATHEMATICS_PIECES) return true
+    }
+  }
+  return false
+}
+
+/** What to tell a teacher who has handed over a mathematics paper. */
+export const MATHEMATICS_IN_PAPER =
+  'Transcribe this paper with an AI below. Its formulas are set in mathematics fonts, ' +
+  'which Klunk cannot read from a PDF.'
+
+/** The same for its marking guide. */
+export const MATHEMATICS_IN_GUIDE =
+  'Read this marking guide with an AI below. Its formulas are set in mathematics fonts, ' +
+  'which Klunk cannot read from a PDF.'

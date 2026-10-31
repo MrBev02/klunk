@@ -205,3 +205,51 @@ untouched.
   `A. B.` matches as one option whose text is `B.` (#87). It says `Read 2 options
   rather than four`, so it is loud rather than silent.
 
+
+## A paper set as mathematics
+
+**A mathematics paper reads to the right count and is wrong on almost every
+formula, so it is refused before any reader sees it** (#198). Established from
+the 2025 and 2026 HSC Mathematics Advanced papers and the 2025 marking guide.
+
+- **The count was right while the content was wrong**, the lesson CLAUDE.md
+  opens with. The NESA reader found 31 questions and 100 marks in 2025, and 33
+  and 100 in 2026, sections and year correct and not one note. Inside them an
+  exponent drops to the baseline (`h = t − 8t + 12` for t² − 8t + 12), π and θ
+  come out as `p` and `q`, `f`, ∫ and √ vanish (`What is dx ? x + 5`), the 2026
+  paper's brackets read `^x − 1h`, and options drawn as graphs become axis
+  labels.
+- **The text cannot say so, and the fonts can.** `p` and `q` are ordinary
+  letters. Every PDF in the folder with text was measured by font through
+  pdf.js, 30 documents: all three mathematics documents set formulas in
+  `SymbolGreekII-Italic`, two in MathMagic's `MMaVariableA`/`B`, `MMBinary` and
+  `MMEtc`, and the 2026 paper in `EuclidSymbol` and `EuclidExtra`. None of the
+  other 27 uses any of them. The fewest in a mathematics document is 26 pieces,
+  so the line is ten, which a single μ in a science paper does not reach.
+- **Plain `Symbol` and `AppleSymbols` are left off.** Both mathematics papers
+  use `AppleSymbols`, but it is a general symbol font, and Word sets bullet
+  points in `Symbol`, so either would refuse an ordinary school paper.
+- **pdf.js keeps a font's real name only when asked**, with
+  `fontExtraProperties`, and resolves it only through `getOperatorList`. Text
+  content alone names fonts by handles such as `g_d3_f6`. So `PDF_OPTIONS` is
+  shared by the app and every corpus suite: a suite opening without it would see
+  no fonts and pass whether or not the check works. It costs about 15 ms a
+  paper.
+- **Refused, rather than read with a warning, by the user's decision.** The
+  structure was right and is lost, but 31 confident wrong questions on review
+  cards is the worse outcome, and a refusal opens the transcription prompt,
+  which carries formulas since #151. The marking guide is refused the same way.
+- **Unlike a scan, this is asked before any reader**, because every reader takes
+  the paper. So it can cost a document that reads, and the corpus test reads all
+  30 other PDFs to show that it does not.
+- **The refusal is not written to the manifest.** Every other refusal is, and
+  files the document under "Not a past paper" next time, which is what a refusal
+  meant until this one. A mathematics paper is a past paper Klunk cannot read, so
+  it is thrown as `MathematicsPaperError` (and a guide as `MathematicsGuideError`),
+  still a `NotAPaperError` to everything that catches one, and the extractor
+  skips `remember` for it. Found by asking whether the paper was still visible:
+  the first refusal had filed it under "Not a past paper".
+
+Driven on `../klunk-content` afterwards: the 2025 paper with its guide refused
+with the message and the transcription prompt opened beneath it, the formula
+rule in it; the 2025 D&T paper with its guide still read to fifteen questions.

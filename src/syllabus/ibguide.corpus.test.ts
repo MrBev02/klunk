@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { IB_GUIDE, IB_MAP, have } from '../testing/corpus'
 import { readSyllabusPdf, readSyllabusWorkbook } from './formats'
-import { pagesFromDocument } from '../documents/pdftext'
+import { PDF_OPTIONS, pagesFromDocument } from '../documents/pdftext'
 import { summarise } from './syllabus'
 import type { SyllabusCourse } from '../shared/types'
 import { readWorkbook } from '../documents/xlsx'
@@ -42,7 +42,7 @@ async function pages() {
   // The legacy build is the one that runs under Node, as in `extract.corpus`.
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const data = new Uint8Array(readFileSync(GUIDE))
-  const doc = await pdfjs.getDocument({ data }).promise
+  const doc = await pdfjs.getDocument({ data, ...PDF_OPTIONS }).promise
   return pagesFromDocument(doc as never)
 }
 

@@ -182,6 +182,17 @@ than the wrong account.
   deviceId with the words "Connected to browser Browser 2". Trust `osPlatform` and
   `isLocal`, never the name. Confirm with `navigator.userAgentData.platform` in the
   page before believing you are in the right place.
+- **A reload can keep the old page, and with it every old module** (#198).
+  After editing three files, the driven tab went on refusing nothing, through
+  `location.reload()` and a Ctrl+Shift+R, while `curl` showed the dev server
+  serving the new code. The tab's HTML still loaded `main.tsx?t=…542352` where
+  the server's said `…843970`, so every import beneath it carried its old
+  timestamp and came back 304. Check it with
+  `performance.getEntriesByType('resource')` against `curl` of the page; the
+  cure is a URL the tab has not cached, such as `/klunk/?fresh=1#/…`, in a new
+  tab if the page has unsaved work. `fetch` from the page cannot do the check,
+  because `connect-src 'none'` blocks it, and a hand-typed `import()` of a
+  module with no `?t=` is a different, stale instance that proves nothing.
 - **A save that hangs with no error is the browser, not the code.** No notice,
   no console error, the button still enabled: check the connected browser first.
   A hidden tab was blamed for this once and then a save went through from a

@@ -395,6 +395,13 @@ in the browser, as recorded under #151 in
 takes `dist-single` from 2.10 MB to **3.82 MB**, about 1.1 MB of it the `.woff`
 and `.ttf` copies of its fonts that its stylesheet lists after `.woff2`.
 
+**A mathematics past paper is sent to an AI rather than read wrongly** (#198).
+A paper or marking guide set in mathematics fonts is refused before any reader
+sees it, with a message saying why, and the transcription prompt opens below.
+Verified in the browser on the 2025 HSC Mathematics Advanced paper and guide,
+and the 2025 D&T paper still reads; the measurement behind it is in
+[reading-papers.md](reading-papers.md).
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

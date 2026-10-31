@@ -16,9 +16,16 @@ import { describe, expect, it } from 'vitest'
 import type { PageText } from './page'
 import { NotAPaperError } from '../pastpapers/extract'
 import { NotAGuideError } from '../pastpapers/guide'
-import { readMarkingGuide } from '../pastpapers/guideformats'
-import { readPastPaper } from '../pastpapers/paperformats'
-import { hasNoText, NO_TEXT_IN_GUIDE, NO_TEXT_IN_PAPER } from './textlayer'
+import { MathematicsGuideError, readMarkingGuide } from '../pastpapers/guideformats'
+import { MathematicsPaperError, readPastPaper } from '../pastpapers/paperformats'
+import {
+  hasNoText,
+  isSetAsMathematics,
+  MATHEMATICS_IN_GUIDE,
+  MATHEMATICS_IN_PAPER,
+  NO_TEXT_IN_GUIDE,
+  NO_TEXT_IN_PAPER,
+} from './textlayer'
 
 /** A page holding a full-page image and no text, which is what a scan gives. */
 function scanned(number: number): PageText {
@@ -66,6 +73,7 @@ describe('refusing a scanned paper', () => {
   it('says there is no text, rather than listing the shapes it reads', () => {
     expect(() => readPastPaper(scan)).toThrow(NotAPaperError)
     expect(() => readPastPaper(scan)).toThrow(NO_TEXT_IN_PAPER)
+    expect(() => readPastPaper(scan)).not.toThrow(MathematicsPaperError)
   })
 
   it('does not mention Section I, which is the one thing that is not wrong', () => {
@@ -103,5 +111,56 @@ describe('refusing a scanned marking guide', () => {
   it('still lists the shapes for a document that has text and is neither', () => {
     const prose = [page(1, 'A letter to the parents of Year 11, about the swimming carnival.')]
     expect(() => readMarkingGuide(prose)).toThrow(/markscheme/)
+  })
+})
+
+/**
+ * A paper set as mathematics (#198). The real papers cannot come into this
+ * repository; what they establish is that their formulas are set in fonts that
+ * exist only for mathematics, and that is what a piece's `font` says here.
+ */
+describe('refusing a paper set as mathematics', () => {
+  /** Six objective questions, every line set in `font`. */
+  function paperIn(font: string | undefined): PageText[] {
+    return Array.from({ length: 6 }, (_, i) => {
+      const p = page(i + 1, ...question(i + 1))
+      return { ...p, pieces: p.pieces.map((piece) => ({ ...piece, ...(font ? { font } : {}) })) }
+    })
+  }
+
+  it('refuses a paper whose formulas are set in a mathematics font, before any reader', () => {
+    // The same six questions read as an objective paper in Times. Only the
+    // font differs, which is the point: the reader would have taken it.
+    expect(readPastPaper(paperIn('Times-Roman')).paper.questions).toHaveLength(6)
+    const maths = paperIn('SymbolGreekII-Italic')
+    expect(isSetAsMathematics(maths)).toBe(true)
+    // Still a refusal to anything catching one, and its own kind, so the
+    // manifest does not file a mathematics paper as "Not a past paper".
+    expect(() => readPastPaper(maths)).toThrow(NotAPaperError)
+    expect(() => readPastPaper(maths)).toThrow(MathematicsPaperError)
+    expect(() => readMarkingGuide(maths)).toThrow(MathematicsGuideError)
+    expect(() => readPastPaper(maths)).toThrow(MATHEMATICS_IN_PAPER)
+    expect(() => readMarkingGuide(maths)).toThrow(MATHEMATICS_IN_GUIDE)
+  })
+
+  it('knows the fonts of MathType, TeX and Word equations, not only the ones NESA used', () => {
+    for (const font of ['EuclidSymbol', 'MTExtra', 'CMMI10', 'CambriaMath', 'STIXTwoMath']) {
+      expect(isSetAsMathematics(paperIn(font)), font).toBe(true)
+    }
+  })
+
+  it('does not refuse for plain Symbol, which Word sets its bullet points in', () => {
+    expect(isSetAsMathematics(paperIn('Symbol'))).toBe(false)
+    expect(isSetAsMathematics(paperIn('AppleSymbols'))).toBe(false)
+  })
+
+  it('does not refuse for a single Greek letter in a science paper', () => {
+    const one = paperIn('Times-Roman')
+    one[0]!.pieces[0] = { ...one[0]!.pieces[0]!, font: 'SymbolGreekII-Italic' }
+    expect(isSetAsMathematics(one)).toBe(false)
+  })
+
+  it('says nothing about a document opened without font names', () => {
+    expect(isSetAsMathematics(paperIn(undefined))).toBe(false)
   })
 })

@@ -48,7 +48,12 @@ import { adoptPaper, applyMarking, type Adopted } from './adopt'
 import type { Editing } from '../questions/editor'
 import type { PageText } from '../documents/page'
 import { NotAPaperError, stampSource, type ExtractedQuestion } from './extract'
-import { PAPER_FORMAT_DESCRIPTIONS, readPastPaper, type PaperFormat } from './paperformats'
+import {
+  MathematicsPaperError,
+  PAPER_FORMAT_DESCRIPTIONS,
+  readPastPaper,
+  type PaperFormat,
+} from './paperformats'
 import { courseChoices, profileFor } from '../ai/factory'
 import {
   bankPathFault,
@@ -60,7 +65,12 @@ import {
 } from '../shared/fields'
 import { groupFor, historyOf, type DocumentNote } from '../folder/manifest'
 import { applyGuide, NotAGuideError } from './guide'
-import { GUIDE_FORMAT_DESCRIPTIONS, readMarkingGuide, type GuideFormat } from './guideformats'
+import {
+  GUIDE_FORMAT_DESCRIPTIONS,
+  MathematicsGuideError,
+  readMarkingGuide,
+  type GuideFormat,
+} from './guideformats'
 import { readMarking } from '../ai/guideingest'
 import { buildGuidePrompt } from '../ai/guideprompt'
 import { ingestQuestions, type Draft } from '../ai/ingest'
@@ -378,7 +388,10 @@ export function Extractor({
         } catch (err) {
           if (!(err instanceof NotAGuideError)) throw err
           refusedGuide = `${guidePath}: ${err.message}`
-          remember({ path: guidePath, refused: 'marking guide', when: today })
+          // A mathematics guide is a guide, so it is not filed as one that is not (#198).
+          if (!(err instanceof MathematicsGuideError)) {
+            remember({ path: guidePath, refused: 'marking guide', when: today })
+          }
           // The answers are in there, they are simply not in a shape any reader
           // knows. Setting fifteen of them by hand was the only route out of
           // this until #94.
@@ -450,7 +463,11 @@ export function Extractor({
       // the subject guide out of the top of this list next time. Anything else
       // that threw says nothing about what the document is.
       if (err instanceof NotAPaperError) {
-        remember({ path: paperPath, refused: 'paper', when: today })
+        // Except a mathematics paper, which is a past paper Klunk cannot read:
+        // remembered as refused, it would be offered under "Not a past paper" (#198).
+        if (!(err instanceof MathematicsPaperError)) {
+          remember({ path: paperPath, refused: 'paper', when: today })
+        }
         // The questions are in there, so this is the refusal that opens a second
         // route instead of closing the screen. #89 opened it only for a document
         // holding no text, to keep a shape worth a reader from being sent to an
@@ -576,7 +593,10 @@ export function Extractor({
         } catch (err) {
           if (!(err instanceof NotAGuideError)) throw err
           notes.push(`${guidePath}: ${err.message}`)
-          remember({ path: guidePath, refused: 'marking guide', when: today })
+          // A mathematics guide is a guide, so it is not filed as one that is not (#198).
+          if (!(err instanceof MathematicsGuideError)) {
+            remember({ path: guidePath, refused: 'marking guide', when: today })
+          }
           setMarkingAsk({ scanned: hasNoText(guidePages), path: guidePath })
         }
       } catch (err) {
