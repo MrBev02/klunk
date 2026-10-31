@@ -19,8 +19,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "pdfjs-dist": "^6.2.108",
-    "preact": "^10.24.0"
+    "pdfjs-dist": "^6.4.299",
+    "preact": "^11.1.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
