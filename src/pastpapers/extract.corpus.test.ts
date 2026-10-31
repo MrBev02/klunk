@@ -32,7 +32,7 @@ import {
 } from '../testing/corpus'
 import { extractPaper } from './extract'
 import { applyGuide, extractGuide } from './guide'
-import { pagesFromDocument } from '../documents/pdftext'
+import { PDF_OPTIONS, pagesFromDocument } from '../documents/pdftext'
 
 /**
  * What each year's paper holds.
@@ -64,7 +64,7 @@ async function open(file: string) {
   // conversion the app actually performs.
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const data = new Uint8Array(readFileSync(file))
-  const doc = await pdfjs.getDocument({ data }).promise
+  const doc = await pdfjs.getDocument({ data, ...PDF_OPTIONS }).promise
   return pagesFromDocument(doc as never)
 }
 

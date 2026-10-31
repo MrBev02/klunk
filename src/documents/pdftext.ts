@@ -49,6 +49,9 @@ export interface PdfPageLike {
   /** [x0, y0, x1, y1] in points. */
   view: number[]
   getTextContent(): Promise<{ items: unknown[] }>
+  /** Called only for what it resolves into `commonObjs`: the page's fonts. */
+  getOperatorList(): Promise<unknown>
+  commonObjs: { has(id: string): boolean; get(id: string): unknown }
   getViewport(options: { scale: number }): { width: number; height: number }
   render(options: { canvas: HTMLCanvasElement; viewport: unknown; intent?: string }): {
     promise: Promise<void>
@@ -90,17 +93,37 @@ export async function pagesFromDocument(doc: PdfDocumentLike): Promise<PageText[
     const page = await doc.getPage(n)
     const width = (page.view[2] ?? 595) - (page.view[0] ?? 0)
     const content = await page.getTextContent()
+    // Text content names a font only by a handle such as `g_d3_f6`. The real
+    // name is resolved into `commonObjs` by the operator list and nothing else,
+    // and only kept at all under `PDF_OPTIONS` (#198). It costs about 15 ms a
+    // paper: the eleven D&T papers in 431 to 527 ms against 251 to 359 without.
+    await page.getOperatorList()
+    const fonts = new Map<string, string | undefined>()
+    const fontOf = (handle: string | undefined): string | undefined => {
+      if (handle === undefined) return undefined
+      if (!fonts.has(handle)) {
+        const font = page.commonObjs.has(handle)
+          ? (page.commonObjs.get(handle) as { name?: unknown } | null)
+          : null
+        const name = typeof font?.name === 'string' ? font.name : undefined
+        // `ABCDEF+` marks a subset, and is different in every document.
+        fonts.set(handle, name?.replace(/^[A-Z]{6}\+/, ''))
+      }
+      return fonts.get(handle)
+    }
     const pieces: TextPiece[] = []
     for (const raw of content.items) {
-      const item = raw as { str?: string; width?: number; transform?: number[] }
+      const item = raw as { str?: string; width?: number; transform?: number[]; fontName?: string }
       // Marked content and other non-text items have no `str` at all.
       if (typeof item.str !== 'string' || item.str === '' || !item.transform) continue
       if (isRotated(item.transform)) continue
+      const font = fontOf(item.fontName)
       pieces.push({
         x: item.transform[4] ?? 0,
         y: item.transform[5] ?? 0,
         width: item.width ?? 0,
         str: item.str,
+        ...(font === undefined ? {} : { font }),
       })
     }
     pages.push({ number: n, width, pieces })
@@ -126,9 +149,19 @@ export async function openPdf(bytes: Uint8Array): Promise<PdfDocumentLike> {
 
   // This detaches `bytes`. Whatever else needs the file must use the document
   // returned here, not the array that was passed in.
-  const doc = await pdfjs.getDocument({ data: bytes }).promise
+  const doc = await pdfjs.getDocument({ data: bytes, ...PDF_OPTIONS }).promise
   return doc as unknown as PdfDocumentLike
 }
+
+/**
+ * How every PDF is opened, in the app and in the corpus suites alike.
+ *
+ * `fontExtraProperties` keeps each font's real name, which pdf.js otherwise
+ * drops once it has loaded the glyphs. Without it every piece's `font` is
+ * absent, a paper set in mathematics fonts reads as any other, and a corpus
+ * suite opening it differently would pass whether or not the check works.
+ */
+export const PDF_OPTIONS = { fontExtraProperties: true } as const
 
 /** Open a PDF and read its text, for a caller that wants nothing else from it. */
 export async function readPdf(bytes: Uint8Array): Promise<PageText[]> {

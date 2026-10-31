@@ -100,6 +100,21 @@ export const EC_2024_SCAN = `${SOURCE}/enterprise-computing-2024-year11-scan.pdf
  */
 export const EC_2025_SCAN_MG = `${SOURCE}/enterprise-computing-2025-year11-scan_mg.pdf`
 
+/* -------------------------------------------------------- mathematics papers */
+
+/**
+ * Two HSC Mathematics Advanced papers and one marking guide (#198), which every
+ * text reader took and read wrongly.
+ *
+ * The NESA reader found all 31 questions and 100 marks of the 2025 paper, and
+ * 33 and 100 of the 2026 one, with no note, while losing nearly every formula
+ * in them. They are the evidence that a paper set in mathematics fonts is
+ * refused before any reader sees it. The 2026 paper came without its guide.
+ */
+export const MATHS_2025_PAPER = `${SOURCE}/2025-hsc-maths-advanced.pdf`
+export const MATHS_2025_GUIDE = `${SOURCE}/2025-hsc-maths-adv-mg.pdf`
+export const MATHS_2026_PAPER = `${SOURCE}/2026-hsc-maths-advanced.pdf`
+
 /* --------------------------------------------------------- NESA syllabuses */
 
 export const DT_SYLLABUS = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
@@ -207,8 +222,17 @@ export const SUITES: Record<string, CorpusSuite> = {
     docs: [DRAMA, ENGLISH, MATHS, COMPUTING, BIOLOGY, ENTERPRISE, VISUAL_ARTS, DT_SYLLABUS],
   },
   'textlayer.corpus': {
-    what: 'refusing a scan for holding no text, over three documents that have none',
-    docs: [EC_2025_SCAN, EC_2024_SCAN, EC_2025_SCAN_MG],
+    what:
+      'refusing a scan for holding no text, and a paper set as mathematics, over six ' +
+      'documents and every other PDF here as the case against',
+    docs: [
+      EC_2025_SCAN,
+      EC_2024_SCAN,
+      EC_2025_SCAN_MG,
+      MATHS_2025_PAPER,
+      MATHS_2025_GUIDE,
+      MATHS_2026_PAPER,
+    ],
   },
   'ibdt.corpus': {
     what: 'the IB syllabus map reader',

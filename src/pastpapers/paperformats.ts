@@ -21,7 +21,12 @@
 import type { PageText } from '../documents/page'
 import { NotAPaperError, type ExtractedPaper, extractPaper } from './extract'
 import { readObjectivePaper } from './objective'
-import { hasNoText, NO_TEXT_IN_PAPER } from '../documents/textlayer'
+import {
+  hasNoText,
+  isSetAsMathematics,
+  MATHEMATICS_IN_PAPER,
+  NO_TEXT_IN_PAPER,
+} from '../documents/textlayer'
 
 export type PaperFormat = 'nesa' | 'objective'
 
@@ -48,6 +53,15 @@ export interface PaperReading {
 }
 
 /**
+ * A past paper refused for its formulas, not for being something else (#198).
+ *
+ * A `NotAPaperError`, so everything that catches a refusal still does. Its own
+ * class because the manifest must not record it: a refusal there files the
+ * document under "Not a past paper", which a mathematics paper is not.
+ */
+export class MathematicsPaperError extends NotAPaperError {}
+
+/**
  * Read a PDF as a past paper, whichever shape it is.
  *
  * @throws NotAPaperError when no reader recognises it, carrying the list of what
@@ -58,6 +72,11 @@ export interface PaperReading {
  *   all says that instead, because the shapes are not what is wrong with a scan.
  */
 export function readPastPaper(pages: PageText[]): PaperReading {
+  // First, because both readers take a mathematics paper: the NESA reader
+  // finds all 31 questions and 100 marks of the 2025 paper and keeps almost
+  // none of its formulas (#198). A refusal opens the transcription prompt.
+  if (isSetAsMathematics(pages)) throw new MathematicsPaperError(MATHEMATICS_IN_PAPER)
+
   for (const [format, read] of READERS) {
     try {
       return { format, paper: read(pages) }

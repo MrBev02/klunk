@@ -15,7 +15,12 @@
 import type { PageText } from '../documents/page'
 import { readAnswerKey } from './answerkey'
 import { type ExtractedGuide, NotAGuideError, extractGuide } from './guide'
-import { hasNoText, NO_TEXT_IN_GUIDE } from '../documents/textlayer'
+import {
+  hasNoText,
+  isSetAsMathematics,
+  MATHEMATICS_IN_GUIDE,
+  NO_TEXT_IN_GUIDE,
+} from '../documents/textlayer'
 
 export type GuideFormat = 'nesa' | 'answerkey'
 
@@ -41,13 +46,20 @@ export interface GuideReading {
   guide: ExtractedGuide
 }
 
+/** A marking guide refused for its formulas, kept out of the manifest as the paper's is. */
+export class MathematicsGuideError extends NotAGuideError {}
+
 /**
  * Read a PDF as a marking guide, whichever shape it is.
  *
  * @throws NotAGuideError when no reader recognises it, or, for a document holding
- *   no text at all, saying that instead.
+ *   no text at all, saying that instead. Also, before any reader is tried, for a
+ *   guide set in mathematics fonts, whose answers would read as confidently as
+ *   its paper's questions and be as wrong (#198).
  */
 export function readMarkingGuide(pages: PageText[]): GuideReading {
+  if (isSetAsMathematics(pages)) throw new MathematicsGuideError(MATHEMATICS_IN_GUIDE)
+
   for (const [format, read] of READERS) {
     try {
       return { format, guide: read(pages) }

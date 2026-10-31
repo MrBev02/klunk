@@ -15,17 +15,32 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { EC_2024_SCAN, EC_2025_SCAN, EC_2025_SCAN_MG, have } from '../testing/corpus'
+import {
+  EC_2024_SCAN,
+  EC_2025_SCAN,
+  EC_2025_SCAN_MG,
+  MATHS_2025_GUIDE,
+  MATHS_2025_PAPER,
+  MATHS_2026_PAPER,
+  allDocuments,
+  have,
+} from '../testing/corpus'
 import { NotAPaperError } from '../pastpapers/extract'
 import { NotAGuideError } from '../pastpapers/guide'
-import { readMarkingGuide } from '../pastpapers/guideformats'
-import { readPastPaper } from '../pastpapers/paperformats'
-import { pagesFromDocument } from './pdftext'
-import { hasNoText } from './textlayer'
+import { MathematicsGuideError, readMarkingGuide } from '../pastpapers/guideformats'
+import { MathematicsPaperError, readPastPaper } from '../pastpapers/paperformats'
+import { PDF_OPTIONS, pagesFromDocument } from './pdftext'
+import {
+  MATHEMATICS_IN_GUIDE,
+  MATHEMATICS_IN_PAPER,
+  hasNoText,
+  isSetAsMathematics,
+} from './textlayer'
 
 async function pagesOf(path: string) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(readFileSync(path)) }).promise
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(readFileSync(path)), ...PDF_OPTIONS })
+    .promise
   return pagesFromDocument(doc as never)
 }
 
@@ -68,4 +83,59 @@ describe('a scanned paper holds no text', () => {
       },
     )
   }
+})
+
+/**
+ * A paper set as mathematics (#198). Before this, every reader took both papers
+ * and read them to the right number of questions and marks with nearly every
+ * formula wrong, which is why the refusal comes before any reader.
+ */
+const MATHEMATICS = [
+  { path: MATHS_2025_PAPER, what: 'the 2025 HSC Mathematics Advanced paper', paper: true },
+  { path: MATHS_2026_PAPER, what: 'the 2026 HSC Mathematics Advanced paper', paper: true },
+  { path: MATHS_2025_GUIDE, what: 'the 2025 marking guide', paper: false },
+]
+
+describe('a paper set as mathematics is refused before any reader', () => {
+  for (const doc of MATHEMATICS) {
+    it.skipIf(!have(doc.path))(`${doc.what} is refused, and told to go to an AI`, async () => {
+      const pages = await pagesOf(doc.path)
+
+      expect(isSetAsMathematics(pages)).toBe(true)
+      if (doc.paper) {
+        expect(() => readPastPaper(pages)).toThrow(MathematicsPaperError)
+        expect(() => readPastPaper(pages)).toThrow(MATHEMATICS_IN_PAPER)
+      } else {
+        expect(() => readMarkingGuide(pages)).toThrow(MathematicsGuideError)
+        expect(() => readMarkingGuide(pages)).toThrow(MATHEMATICS_IN_GUIDE)
+      }
+    })
+  }
+
+  // The case against, and the one that matters more: a refusal before any
+  // reader can cost a document that reads. Every PDF any suite reads, which is
+  // eleven years of D&T papers and guides, the Biology pair and the IB papers
+  // and guide.
+  const others = allDocuments().filter(
+    (path) => path.endsWith('.pdf') && !MATHEMATICS.some((m) => m.path === path),
+  )
+
+  it.skipIf(!have(...others))(
+    `none of the ${others.length} other PDFs is taken for mathematics`,
+    async () => {
+      // The fonts are known for all of them, so a pass is not merely every
+      // document having no font name at all.
+      for (const path of others) {
+        const pages = await pagesOf(path)
+        const pieces = pages.flatMap((page) => page.pieces)
+        if (pieces.length > 0)
+          expect(
+            pieces.some((piece) => piece.font),
+            path,
+          ).toBe(true)
+        expect(isSetAsMathematics(pages), path).toBe(false)
+      }
+    },
+    120_000,
+  )
 })

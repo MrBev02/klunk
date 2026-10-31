@@ -16,6 +16,12 @@ export interface TextPiece {
   /** Advance width, so the end of the piece is known and gaps can be measured. */
   width: number
   str: string
+  /**
+   * The font's PostScript name, its subset prefix taken off, where pdf.js could
+   * say. Absent from a document opened without `PDF_OPTIONS`. Read only to tell
+   * a paper set in mathematics fonts, whose formulas no text reader keeps (#198).
+   */
+  font?: string
 }
 
 export interface PageText {

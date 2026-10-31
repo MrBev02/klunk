@@ -26,7 +26,7 @@ import { NotAGuideError, applyGuide, extractGuide } from './guide'
 import { readMarkingGuide } from './guideformats'
 import { readObjectivePaper } from './objective'
 import { readPastPaper } from './paperformats'
-import { pagesFromDocument } from '../documents/pdftext'
+import { PDF_OPTIONS, pagesFromDocument } from '../documents/pdftext'
 
 const PAPER = IB_PAPER
 const GUIDE = IB_MARKSCHEME
@@ -35,7 +35,7 @@ const available = have(PAPER, GUIDE)
 async function open(file: string) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const data = new Uint8Array(readFileSync(file))
-  const doc = await pdfjs.getDocument({ data }).promise
+  const doc = await pdfjs.getDocument({ data, ...PDF_OPTIONS }).promise
   return pagesFromDocument(doc as never)
 }
 
