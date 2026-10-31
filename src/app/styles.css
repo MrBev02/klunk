@@ -2129,13 +2129,15 @@ button.chip {
   gap: 0.75rem;
 }
 
-.idfield {
+.idfield,
+.secfield {
   border: 1px solid var(--rule);
   border-radius: var(--r);
   background: var(--paper-raised);
 }
 
-.idfield__head {
+.idfield__head,
+.secfield__head {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -2154,7 +2156,8 @@ button.chip {
   color: var(--ink-faint);
 }
 
-.idfield__name {
+.idfield__name,
+.secfield__name {
   flex: 1 1 auto;
   min-width: 0;
   font-weight: 600;
@@ -2168,13 +2171,24 @@ button.chip {
   color: var(--ink-faint);
 }
 
-.idfield__head .rowbtns {
+.idfield__head .rowbtns,
+.secfield__head .rowbtns {
   flex: none;
   margin: 0;
 }
 
-.idfield__body {
+.idfield__body,
+.secfield__body {
   padding: 0.75rem 0.7rem 0.85rem;
+}
+
+/* A paper structure's sections (#196) share the identification rows' look,
+ * because they are the same kind of repeating group with controls in its head.
+ * Spaced further apart, since each holds a dozen fields rather than three.
+ * The bottom margin is for Add a section, which otherwise sat against the last
+ * box; between two boxes the margins collapse to one. */
+.secfield {
+  margin: 1rem 0;
 }
 
 /* Divided off, because it is a different kind of statement from the boxes
