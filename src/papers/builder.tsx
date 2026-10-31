@@ -1,0 +1,1719 @@
+import { useEffect, useMemo, useState } from 'preact/hooks'
+import { formatDate } from './cover'
+import { asExamJson } from '../ai/exam'
+import { ExamFactory } from '../ai/examfactory'
+import { CopyButton, Field, NumField, patched, type Patch } from '../shared/fields'
+import {
+  addRef,
+  addSection,
+  checkPaper,
+  moveRef,
+  newPaper,
+  paperIsDirty,
+  pickableQuestions,
+  picturesForBack,
+  removeRef,
+  removeSection,
+  resolvePaper,
+  structureDrift,
+  type Check,
+  type FieldOverride,
+  type StructureDrift,
+  type ResolvedPaper,
+} from './paper'
+import { QuestionDetail, shortType } from '../questions/question'
+import { cleanPaper, isUnfinished, setRefOptions, unfinishedReasons } from '../shared/validate'
+import { PrintablePaper, type PrintMode } from './render'
+import { ProfileInstaller, profilesOnOffer } from '../profiles/setup'
+import { allQuestions, deletePaper, savePaper, type ContentIndex } from '../folder/storage'
+import {
+  QUESTION_TYPE_LABELS,
+  questionHaystack,
+  questionLabel,
+  refKey,
+  type Paper,
+  type PaperRef,
+  type PaperSection,
+  type Profile,
+  type ProfileSection,
+  type School,
+} from '../shared/types'
+
+/**
+ * The three states a paper can be in, worded for a teacher rather than for the
+ * schema. Typed against `Paper` so the options cannot drift from the enum the
+ * schema validates, and so a value added there shows up here as a type error.
+ */
+type PaperStatus = NonNullable<Paper['status']>
+
+const PAPER_STATUS: { value: PaperStatus; label: string }[] = [
+  { value: 'draft', label: 'Draft, still being built' },
+  { value: 'final', label: 'Final, not yet sat' },
+  { value: 'used', label: 'Already sat by students' },
+]
+
+export function Builder({
+  index,
+  folder,
+  paper,
+  setPaper,
+  onBuildProfile,
+  onEditProfile,
+  onEditCover,
+  dirty,
+  onClose,
+  onSaved,
+}: {
+  index: ContentIndex
+  folder: FileSystemDirectoryHandle
+  paper: Paper | null
+  setPaper: (p: Paper | null) => void
+  /** Open the profile editor on a new profile, or on one already in the folder. */
+  onBuildProfile: () => void
+  onEditProfile: (profile: Profile, path: string) => void
+  /** Open the folder's cover sheet, which every paper in it prints. */
+  onEditCover: () => void
+  /** Whether the paper on screen differs from the one in the folder. */
+  dirty: boolean
+  /** Routed through the app's guard, because Close discards as much as Forget does. */
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const profiles = index.profiles.map((p) => p.data)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState('')
+  const [failed, setFailed] = useState('')
+  const [preview, setPreview] = useState<PrintMode | null>(null)
+  const [aimedAt, setTarget] = useState(0)
+
+  // Whether this paper is the one already in `papers/<id>.json`, rather than a
+  // new one that happens to want the same file. Decided once, at mount, because
+  // that is the only moment the two can be told apart: a paper opened from the
+  // folder starts identical to its file and a new one does not. The builder is
+  // keyed on the paper in `app.tsx`, so mount is per paper.
+  const [owns, setOwns] = useState(() => paper !== null && !paperIsDirty(index, paper))
+  /**
+   * Whether the exam is on screen as JSON.
+   *
+   * Behind a toggle rather than copied straight to the clipboard by one click.
+   * What this hands over is the whole paper, questions and marking guides and
+   * all, and it exists to be pasted into somebody else's AI — so the rule the
+   * prompt factory works to applies here too: it is on screen, readable, before
+   * it is copied.
+   */
+  const [showJson, setShowJson] = useState(false)
+
+  if (!paper) {
+    return (
+      <StartPaper
+        index={index}
+        folder={folder}
+        profiles={profiles}
+        papers={index.papers}
+        onStart={setPaper}
+        onBuildProfile={onBuildProfile}
+        onEditProfile={onEditProfile}
+        onEditCover={onEditCover}
+        onInstalled={onSaved}
+        onRescan={onSaved}
+      />
+    )
+  }
+
+  // Which section a question would be added to. Kept inside the paper's own
+  // range rather than used as stored, because adding to a section that is not
+  // there is silent: `addRef` rewrites the section whose index matches and there
+  // is none, so the paper comes back unchanged, nothing is said, and it does not
+  // even read as unsaved. The state is reset per paper in `app.tsx`; this is the
+  // guarantee that does not depend on remembering to.
+  const target = Math.min(aimedAt, paper.sections.length - 1)
+
+  /** Change one section of the paper, keeping the rest as it was. */
+  const setSection = (at: number, patch: Patch<PaperSection>) =>
+    setPaper({
+      ...paper,
+      sections: paper.sections.map((s, i) => (i === at ? patched(s, patch) : s)),
+    })
+
+  /** Change what this paper says about one question, leaving the question alone. */
+  const setRef = (at: number, ri: number, patch: RefPatch) =>
+    setPaper({
+      ...paper,
+      sections: paper.sections.map((s, i) =>
+        i === at
+          ? { ...s, refs: s.refs.map((r, j) => (j === ri ? setRefOptions(r, patch) : r)) }
+          : s,
+      ),
+    })
+
+  const profile = profiles.find((p) => p.id === paper.profileId)
+  // Everything that decides works on the tidied paper, the way `profile.tsx`
+  // keeps its form state raw and validates the cleaned value. Feeding
+  // `resolvePaper` the raw one is what made clearing the instructions box show
+  // an empty cover: `['']` is not nullish, so it shadows the profile, and the
+  // teacher would watch the instructions vanish and come back after a save.
+  //
+  // `dirty` and `owns` deliberately still read the raw paper (`app.tsx` and the
+  // mount above). A paper opened from disk holding the old shadow values is
+  // byte-identical to its file and must keep showing Saved, or every existing
+  // paper would look changed the moment it was opened, `owns` would be false,
+  // and the next save would be refused as a duplicate filename.
+  const tidy = cleanPaper(paper, profile)
+  const resolved = resolvePaper(index, tidy, profile)
+  const checks = checkPaper(resolved)
+  const errors = checks.filter((c) => c.severity === 'error')
+  const drift = structureDrift(tidy, profile)
+
+  const save = async () => {
+    setSaving(true)
+    setSaved('')
+    setFailed('')
+    try {
+      const { path } = await savePaper(folder, tidy, { replacing: owns })
+      // From here this paper is the one in that file, so the next save is an
+      // edit rather than a first write and must not be refused by its own.
+      setOwns(true)
+      // What was written is now what is held, or the two disagree the instant
+      // the write succeeds and the unsaved notice sticks on with nothing a
+      // teacher could do about it.
+      setPaper(tidy)
+      setSaved(`Saved to ${path}`)
+      onSaved()
+    } catch (err) {
+      // Kept apart from the success message rather than sharing one line: a
+      // failed save leaves the paper dirty, and the dirty notice must not be
+      // what hides the reason it is still dirty.
+      setFailed(`Could not save: ${(err as Error).message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (preview) {
+    return (
+      <div class="preview">
+        <div class="preview__bar">
+          <button class="btn" onClick={() => setPreview(null)}>
+            ← Back to building
+          </button>
+          <span class="muted">
+            {preview === 'paper' ? 'Student paper' : 'Marking guide'}
+            {errors.length > 0 &&
+              ` · ${errors.length} unresolved problem${errors.length === 1 ? '' : 's'}`}
+          </span>
+          <div class="preview__actions">
+            <button class="btn" onClick={() => setPreview(preview === 'paper' ? 'guide' : 'paper')}>
+              Show {preview === 'paper' ? 'marking guide' : 'student paper'}
+            </button>
+            <button class="btn btn--primary" onClick={() => printPaper(paper.title, preview)}>
+              Print / Save as PDF
+            </button>
+          </div>
+        </div>
+        {/* Chrome and Edge both print the date, the page title and the address
+            across the top and bottom of every page unless this is unticked, and
+            it reads as something Klunk put there. No page can turn it off: it is
+            the browser's own setting and it is remembered once it is changed.
+            The copy therefore names the control, which the two agree on, and not
+            the browser. */}
+        <p class="preview__tip">
+          In the print dialog, open <strong>More settings</strong> and untick{' '}
+          <strong>Headers and footers</strong>. That stops your browser printing the date and the
+          web address on every page. You only have to do it once.
+        </p>
+        <PrintablePaper resolved={resolved} mode={preview} />
+      </div>
+    )
+  }
+
+  const targetSpec = profile?.paper.sections.find(
+    (s) => s.id === paper.sections[target]?.profileSectionId,
+  )
+  const inFolder = allQuestions(index)
+  const pickable = pickableQuestions(
+    index,
+    paper,
+    targetSpec,
+    profile?.syllabusId,
+    profile?.courseId,
+  )
+
+  // A profile that names no syllabus cannot tell one subject from another, so
+  // the rail offers everything in the folder. That is the honest thing to do
+  // and the wrong thing to leave unsaid, and it is one field on a form the
+  // teacher already owns. Silent where the folder holds no model to link to.
+  const profilePath = index.profiles.find((p) => p.data.id === profile?.id)?.path
+  const linkSyllabus =
+    profile && !profile.syllabusId && index.syllabuses.length > 0 && profilePath
+      ? () => onEditProfile(profile, profilePath)
+      : undefined
+
+  // The same omission one level down, and it goes unsaid the same way. Only
+  // worth raising where the model actually has more than one course: a syllabus
+  // with a single course is fully named by naming the subject, so asking a
+  // teacher to pick its only course would be noise.
+  const model = index.syllabuses.find((s) => s.data.id === profile?.syllabusId)?.data
+  const linkCourse =
+    profile && !profile.courseId && model && model.courses.length > 1 && profilePath
+      ? { subject: model.name, onEdit: () => onEditProfile(profile, profilePath) }
+      : undefined
+
+  // Built only while the panel is open: it walks every question of the paper and
+  // nothing else on this screen wants it.
+  const examJson = useMemo(
+    () =>
+      showJson
+        ? asExamJson(
+            resolved,
+            model
+              ? `${model.name}${profile?.courseId ? `, ${model.courses.find((c) => c.id === profile.courseId)?.name ?? ''}` : ''}`
+              : undefined,
+          )
+        : '',
+    [showJson, resolved, model, profile],
+  )
+
+  return (
+    <div class="split split--build">
+      <main>
+        <section class="panel">
+          <p class="panel__title">Paper</p>
+          <input
+            class="input"
+            style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '0.5rem' }}
+            value={paper.title}
+            onInput={(e) => setPaper({ ...paper, title: (e.target as HTMLInputElement).value })}
+          />
+          <p class="muted" style={{ fontSize: '0.86rem' }}>
+            {profile ? profile.name : 'No profile, so Klunk cannot check this paper'} ·{' '}
+            <span class="mono">papers/{paper.id}.json</span>
+          </p>
+
+          <div class="paperstatus">
+            <label class="rail__label" for="paper-status">
+              Status
+            </label>
+            <select
+              id="paper-status"
+              class="input"
+              value={paper.status ?? 'draft'}
+              onChange={(e) =>
+                setPaper({
+                  ...paper,
+                  status: (e.target as HTMLSelectElement).value as PaperStatus,
+                })
+              }
+            >
+              {PAPER_STATUS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <span class="muted paperstatus__note">
+              {/* "Save to record the change" used to be appended here. It was
+                  standing in for an unsaved-changes indicator that did not
+                  exist; there is one now, so the hint can go back to saying
+                  what the setting does. */}
+              {paper.status === 'used'
+                ? 'Its questions now raise a warning on any other paper that uses them.'
+                : 'Mark a paper as sat and Klunk warns when another paper reuses its questions.'}
+            </span>
+          </div>
+
+          <CoverFields
+            paper={paper}
+            setPaper={setPaper}
+            profile={profile}
+            school={index.schools[0]?.data}
+            onEditCover={onEditCover}
+          />
+
+          <div class="rowbtns" style={{ marginTop: '0.8rem' }}>
+            {/* The button says which of the two states the paper is in, because
+                nothing else on this screen did. A teacher who has changed
+                something sees "Save changes"; one who has not sees a Save that
+                is plainly not waiting to be pressed. */}
+            <button
+              class="btn btn--primary"
+              disabled={saving || !dirty}
+              onClick={() => void save()}
+            >
+              {saving ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
+            </button>
+            <button class="btn" onClick={() => setPreview('paper')}>
+              Preview paper
+            </button>
+            <button class="btn" onClick={() => setPreview('guide')}>
+              Preview marking guide
+            </button>
+            <button class="btn" onClick={() => setShowJson(!showJson)}>
+              {showJson ? 'Hide the JSON' : 'Copy as JSON'}
+            </button>
+            <button class="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
+
+          {showJson && (
+            <div style={{ marginTop: '0.8rem' }}>
+              <p class="hint">
+                The whole exam in one piece, questions and marking guides included, for pasting into
+                an AI as the pattern for a new paper. Pictures are left out, and so is where each
+                question came from. Read it back in on the <strong>Papers</strong> tab, where it
+                becomes new questions and a new paper — this one is never changed.
+              </p>
+              <CopyButton text={examJson} label="Copy the exam" />
+              <pre class="promptbox">{examJson}</pre>
+            </div>
+          )}
+          {failed && <p class="setup__problem">{failed}</p>}
+          {!failed && (
+            <p class="muted" style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+              {/* A paper that has never been saved and one with an edit in it
+                  are different states, and both used to read "Not yet in
+                  papers/x.json" — which is false of a paper opened from that
+                  very file. `owns` is what tells them apart. */}
+              {dirty ? (
+                owns ? (
+                  <>
+                    Changes not yet saved to <span class="mono">papers/{paper.id}.json</span>.
+                  </>
+                ) : (
+                  <>
+                    Not yet in <span class="mono">papers/{paper.id}.json</span>.
+                  </>
+                )
+              ) : (
+                (saved ?? '')
+              )}
+            </p>
+          )}
+        </section>
+
+        <Checks checks={checks} />
+
+        <StructurePanel
+          drift={drift}
+          resolved={resolved}
+          onAdd={(id) => {
+            if (!profile) return
+            setPaper(addSection(paper, profile, id))
+            // A teacher who has just added Section III wants to fill it.
+            setTarget(paper.sections.length)
+          }}
+          onRemove={(at) => setPaper(removeSection(paper, at))}
+          onInherit={(field) => setPaper(patched(paper, { [field]: undefined }))}
+        />
+
+        {paper.sections.map((section, si) => {
+          const spec = profile?.paper.sections.find((s) => s.id === section.profileSectionId)
+          const rs = resolved.sections[si]
+          const got = rs?.marks ?? 0
+          const want = spec?.marks
+
+          return (
+            <section class={`sec ${si === target ? 'sec--target' : ''}`} key={si}>
+              <header class="sec__head">
+                <h3 class="sec__name">{rs?.title ?? `Section ${si + 1}`}</h3>
+                <span class="sec__rule">
+                  {countRule(spec, section.refs.length)}
+                  {' · '}
+                  <strong
+                    style={{ color: want !== undefined && got !== want ? 'var(--red)' : 'inherit' }}
+                  >
+                    {got}
+                    {want !== undefined ? `/${want}` : ''} marks
+                  </strong>
+                </span>
+              </header>
+
+              {/* Blank takes the profile's, the same rule the cover uses. A
+                  section's own heading and instruction are read by
+                  `resolvePaper` and were writable nowhere until #106. */}
+              <SectionOverrides
+                section={section}
+                spec={spec}
+                onChange={(patch) => setSection(si, patch)}
+              />
+
+              {section.refs.length === 0 ? (
+                <p class="sec__empty">
+                  Nothing yet.{' '}
+                  {si !== target && (
+                    <button class="btn btn--small" onClick={() => setTarget(si)}>
+                      Add to this section
+                    </button>
+                  )}
+                </p>
+              ) : (
+                <ol class="picked">
+                  {section.refs.map((ref, ri) => {
+                    const rq = rs?.questions.find(
+                      (q) => `${q.file}#${q.question.id}` === refKey(ref),
+                    )
+                    return (
+                      <li key={refKey(ref)}>
+                        <span class="picked__n">{rq?.number ?? '·'}</span>
+                        <span class="picked__marks">{rq ? `${rq.marks}m` : '?'}</span>
+                        <span class="picked__text">
+                          {rq ? (
+                            questionLabel(rq.question)
+                          ) : (
+                            <em class="missing">missing: {refKey(ref)}</em>
+                          )}
+                        </span>
+                        <span class="picked__btns">
+                          <button
+                            class="btn btn--icon"
+                            title="Move up"
+                            onClick={() => setPaper(moveRef(paper, si, ri, -1))}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            class="btn btn--icon"
+                            title="Move down"
+                            onClick={() => setPaper(moveRef(paper, si, ri, 1))}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            class="btn btn--icon"
+                            title="Remove from paper"
+                            onClick={() => setPaper(removeRef(paper, si, ri))}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                        {/* What this paper says about this question, which is
+                            not the question. The same question sits under a
+                            different heading on another paper (#52). */}
+                        <RefOverrides
+                          entry={ref}
+                          marks={rq?.question.marks}
+                          pictures={rq ? picturesForBack(rq.question).length > 0 : false}
+                          onChange={(patch) => setRef(si, ri, patch)}
+                        />
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
+
+              {si !== target && section.refs.length > 0 && (
+                <p class="sec__empty">
+                  <button class="btn btn--small" onClick={() => setTarget(si)}>
+                    Add to this section
+                  </button>
+                </p>
+              )}
+            </section>
+          )
+        })}
+      </main>
+
+      <BankRail
+        options={pickable}
+        bankEmpty={inFolder.length === 0}
+        // Below the one section `paper.schema.json` requires, so only a
+        // hand-edited file gets here. It still must not offer a + that quietly
+        // does nothing.
+        noSection={target < 0}
+        targetName={resolved.sections[target]?.title ?? `Section ${target + 1}`}
+        spec={targetSpec ? describeSpec(targetSpec) : ''}
+        onAdd={(file, id) => setPaper(addRef(paper, target, `${file}#${id}`))}
+        onLinkSyllabus={linkSyllabus}
+        linkCourse={linkCourse}
+      />
+    </div>
+  )
+}
+
+/**
+ * What this paper says about one of its sections, where it differs from the
+ * profile.
+ *
+ * Behind a toggle, because a section normally prints exactly what the profile
+ * says and a row of three empty boxes on every section would bury the questions.
+ * Every box is blank-means-inherit, the same rule as the cover's.
+ */
+function SectionOverrides({
+  section,
+  spec,
+  onChange,
+}: {
+  section: PaperSection
+  spec: ProfileSection | undefined
+  onChange: (patch: Patch<PaperSection>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const set = (patch: Patch<PaperSection>) => onChange(patch)
+  const count = [section.title, section.subtitle, section.instructions].filter(Boolean).length
+
+  return (
+    <div class="sec__over">
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? 'Hide' : 'Edit section wording'}
+      </button>
+      {!open && count > 0 && (
+        <span class="muted paperstatus__note">
+          {count} thing{count === 1 ? '' : 's'} set on this paper
+        </span>
+      )}
+
+      {open && (
+        <>
+          <div class="fieldrow">
+            <Field label="Heading" hint={`Blank prints ${spec?.name ?? 'the profile\u2019s name'}`}>
+              <input
+                class="input"
+                value={section.title ?? ''}
+                placeholder={spec?.name ?? 'Section I'}
+                onInput={(e) => set({ title: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+            <Field label="Subtitle" hint="Printed under the heading">
+              <input
+                class="input"
+                value={section.subtitle ?? ''}
+                placeholder="Objective response"
+                onInput={(e) => set({ subtitle: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
+          </div>
+          {/* Worded around the apostrophe. A JSX attribute is a literal
+              string, so the \u2019 escape the rest of this file uses would
+              print here as its own six characters. */}
+          <Field label="Instruction" hint="Blank prints the instruction from the profile">
+            <textarea
+              class="input"
+              rows={2}
+              value={section.instructions ?? ''}
+              placeholder={spec?.instructions ?? 'Attempt ALL questions.'}
+              onInput={(e) => set({ instructions: (e.target as HTMLTextAreaElement).value })}
+            />
+          </Field>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * What this paper says about one question, which is not the question.
+ *
+ * `marksOverride` and `group` live on the reference rather than on the question,
+ * because the same question is worth what it is worth and sits under whatever
+ * heading this paper gives it. Both have been in the schema and honoured by the
+ * renderer since #52 and writable nowhere. `stimulusAt` joined them for the same
+ * reason (#146): whether a picture fits under its question depends on the paper.
+ */
+type RefPatch = {
+  marksOverride?: number | undefined
+  group?: string | undefined
+  stimulusAt?: 'back' | undefined
+}
+
+function RefOverrides({
+  // Not `ref`. Preact reserves that prop name and intercepts it, which
+  // typechecks perfectly and blanks the screen at run time.
+  entry,
+  marks,
+  pictures,
+  onChange,
+}: {
+  entry: PaperRef
+  marks: number | undefined
+  /** Whether the question has a picture that could move, so the box is worth offering. */
+  pictures: boolean
+  onChange: (patch: RefPatch) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const set = typeof entry === 'object' ? entry : undefined
+
+  // What the button carried instead was a bare middle dot, which said that
+  // something was set here and never what (#114). This reads on from the button
+  // label beside it, so it stays lower case.
+  const stated = [
+    set?.marksOverride === undefined
+      ? ''
+      : `worth ${set.marksOverride} mark${set.marksOverride === 1 ? '' : 's'}`,
+    set?.group ? `under \u201c${set.group}\u201d` : '',
+    set?.stimulusAt === 'back' ? 'pictures at the back' : '',
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  return (
+    <div class="picked__over">
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open
+          ? 'Hide'
+          : pictures
+            ? 'Edit marks, subheading and pictures'
+            : 'Edit marks and subheading'}
+      </button>
+      {!open && stated && <span class="muted picked__set">{stated}</span>}
+      {open && (
+        <div class="fieldrow">
+          <Field
+            label="Marks override"
+            hint={
+              marks === undefined
+                ? 'Blank uses the question\u2019s own marks'
+                : `Blank uses ${marks}, and the bank keeps its own`
+            }
+          >
+            <NumField
+              value={set?.marksOverride}
+              min={1}
+              placeholder={marks === undefined ? '' : String(marks)}
+              onChange={(n) => onChange({ marksOverride: n })}
+            />
+          </Field>
+          {/* Named for what it is on the page rather than for `group`, and a
+              subheading rather than a subsection: it prints, and the checker
+              and the profile know nothing about it. The example is the one it
+              was built for (#52). */}
+          <Field
+            label="Subheading"
+            hint="Prints above this question and every one after it, until the next subheading. Visual Arts heads the questions students choose from: Practice, Conceptual Framework, Frames."
+          >
+            <input
+              class="input"
+              value={set?.group ?? ''}
+              placeholder="Conceptual Framework"
+              onInput={(e) => onChange({ group: (e.target as HTMLInputElement).value })}
+            />
+          </Field>
+        </div>
+      )}
+      {/* Outside the row above, whose first and last fields are sized by
+          position. Offered while it is set even with no picture left, so a
+          teacher can clear what the checker is warning about. */}
+      {open && (pictures || set?.stimulusAt === 'back') && (
+        <label class="checkline picked__back">
+          <input
+            type="checkbox"
+            checked={set?.stimulusAt === 'back'}
+            onChange={(e) =>
+              onChange({
+                stimulusAt: (e.target as HTMLInputElement).checked ? 'back' : undefined,
+              })
+            }
+          />
+          <span>
+            Print its pictures at the back of the paper
+            <span class="hint">
+              On a page of their own after the last question. Text stays with the question.
+            </span>
+          </span>
+        </label>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Where this paper and its profile disagree, and what to do about each one.
+ *
+ * A profile is the template and a paper is an instance of it. A paper inherits a
+ * field by not stating it and overrides it by stating its own, so everything
+ * here is one of three things: a section the profile has and this paper does
+ * not, a section this paper has and the profile does not, or a field this paper
+ * overrides.
+ *
+ * It shows what each button will do before it is pressed, which is the panel
+ * #44 wrote for a syllabus re-read. Nothing reaches the folder: the paper goes
+ * unsaved, Save lights up, and Close asks before discarding.
+ *
+ * Renders nothing when there is nothing to say. `Checks` already prints
+ * "Everything matches the profile" directly above, and a second panel saying so
+ * again is noise.
+ */
+function StructurePanel({
+  drift,
+  resolved,
+  onAdd,
+  onRemove,
+  onInherit,
+}: {
+  drift: StructureDrift
+  resolved: ResolvedPaper
+  onAdd: (profileSectionId: string) => void
+  onRemove: (at: number) => void
+  onInherit: (field: FieldOverride['field']) => void
+}) {
+  if (!drift.any) return null
+
+  const named = (at: number) => resolved.sections[at]?.title ?? `Section ${at + 1}`
+  const count =
+    drift.missingSections.length +
+    drift.orphanSections.length +
+    drift.unlinkedSections.length +
+    drift.overrides.length
+
+  return (
+    <section class="panel panel--note">
+      <p class="panel__title">
+        {count} difference{count === 1 ? '' : 's'} from the profile
+      </p>
+
+      <ul class="plain drift">
+        {drift.missingSections.map((spec) => (
+          <li key={`m-${spec.id}`} class="drift__row">
+            <span>
+              <strong>{spec.name}</strong> is in the profile and not on this paper. The profile
+              gives it {spec.marks} mark{spec.marks === 1 ? '' : 's'}.
+            </span>
+            <button class="btn btn--small" onClick={() => onAdd(spec.id)}>
+              Add {spec.name}
+            </button>
+          </li>
+        ))}
+
+        {drift.orphanSections.map((orphan) => (
+          <li key={`o-${orphan.at}`} class="drift__row">
+            <span>
+              <strong>{named(orphan.at)}</strong> names "{orphan.profileSectionId}", which the
+              profile does not have.
+              {orphan.refs > 0 &&
+                ` It holds ${orphan.refs} question${orphan.refs === 1 ? '' : 's'}.`}
+            </span>
+            <button class="btn btn--small" onClick={() => onRemove(orphan.at)}>
+              {orphan.refs > 0
+                ? `Remove ${named(orphan.at)} and its ${orphan.refs} question${
+                    orphan.refs === 1 ? '' : 's'
+                  }`
+                : `Remove ${named(orphan.at)}`}
+            </button>
+          </li>
+        ))}
+
+        {drift.unlinkedSections.map((section) => (
+          <li key={`u-${section.at}`} class="drift__row">
+            <span>
+              <strong>{named(section.at)}</strong> is not linked to a profile section, so its marks
+              and question count are not checked.
+            </span>
+          </li>
+        ))}
+
+        {drift.overrides.map((override) => (
+          <li key={override.field} class="drift__row">
+            <span>
+              This paper overrides <strong>{OVERRIDE_LABELS[override.field]}</strong>:{' '}
+              <span class="drift__value" title={describeOverride(override.onPaper)}>
+                {describeOverride(override.onPaper)}
+              </span>
+              {'. '}
+              {override.inProfile === undefined
+                ? 'The profile has none.'
+                : `The profile says ${describeOverride(override.inProfile)}.`}
+            </span>
+            <button class="btn btn--small" onClick={() => onInherit(override.field)}>
+              Inherit {OVERRIDE_LABELS[override.field]}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <p class="hint">Nothing is written until you save.</p>
+    </section>
+  )
+}
+
+const OVERRIDE_LABELS: Record<FieldOverride['field'], string> = {
+  readingMinutes: 'reading time',
+  workingMinutes: 'working time',
+  instructions: 'the general instructions',
+}
+
+/** A value as the panel reads it out, minutes or a count of lines. */
+function describeOverride(value: number | string[]): string {
+  if (typeof value === 'number') return `${value} minute${value === 1 ? '' : 's'}`
+  const lines = value.map((line) => line.trim()).filter(Boolean)
+  return `${lines.length} line${lines.length === 1 ? '' : 's'}`
+}
+
+/**
+ * Every cover setting a paper has, in one panel: this paper's own facts, then
+ * what the folder's cover sheet gives every paper, with the way to change it.
+ *
+ * The two halves were three places (#153): a "Cover" disclosure, a "More
+ * settings" disclosure inside it holding overrides of the folder's school and
+ * logo, and a Cover sheet panel on the Papers tab, each with its own name.
+ *
+ * `course` and `yearGroup` are filled in when the paper is created, from the
+ * syllabus and the course the profile names, so this is usually a matter of
+ * reading them rather than typing them. They are still boxes, because a profile
+ * cannot know that this particular paper is the half-yearly rather than the
+ * trial, and because until now nothing in the app could correct a prefill.
+ *
+ * `date` has never been writable anywhere and every paper wants one.
+ */
+function CoverFields({
+  paper,
+  setPaper,
+  profile,
+  school,
+  onEditCover,
+}: {
+  paper: Paper
+  setPaper: (p: Paper) => void
+  profile: Profile | undefined
+  school: School | undefined
+  onEditCover: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  /**
+   * What a blank box means, said in words.
+   *
+   * Blank has to be visibly different from a typed zero, or a teacher cannot
+   * tell "take the profile's" from "this paper has none". Three signals do it
+   * together: the box is empty, the placeholder shows the profile's number in
+   * grey, and this says what blank will do. Written from the profile rather than
+   * from the box, so it does not change while somebody is typing.
+   */
+  const inherits = (value: number | undefined, what: string) =>
+    value === undefined
+      ? `Blank prints no ${what}.`
+      : `Blank takes ${value} minute${value === 1 ? '' : 's'} from the profile.`
+
+  const setSchool = (patch: Patch<NonNullable<Paper['school']>>) => {
+    const next = patched(paper.school ?? {}, patch)
+    // An empty block is dropped rather than left as `school: {}`. It would be a
+    // difference against a paper on disk that has none, and the unsaved-changes
+    // notice would report a change nobody made.
+    const { school: _was, ...rest } = paper
+    setPaper(Object.keys(next).length > 0 ? { ...rest, school: next } : rest)
+  }
+
+  // The name that will print, which is the paper's own where it has one. The
+  // summary showed the folder's even when this paper overrode it.
+  const schoolName = paper.school?.name?.trim() || school?.name
+  const ownSchool = Boolean(paper.school?.name?.trim() || paper.school?.logoFile?.trim())
+  const [different, setDifferent] = useState(ownSchool)
+
+  // The profile's list wins whole, as it does in coverModel, so the count has
+  // to come from the same place or it describes a cover that never prints.
+  const fromProfile = profile?.paper.cover?.identification
+  const boxes = (fromProfile ?? school?.identification ?? []).filter((f) => f.label.trim()).length
+
+  const summary = [
+    schoolName ?? 'No school name yet',
+    paper.school?.course,
+    paper.school?.yearGroup,
+    formatDate(paper.school?.date) ?? 'no date set',
+  ].filter(Boolean)
+
+  return (
+    <div class="papercover">
+      {/* Laid out like the Status row above it: a label naming the thing, what
+          it is now, and the one control that changes it. It was a bare "Cover"
+          button, and what it opened held a second disclosure and a link to a
+          third screen (#153). */}
+      <span class="rail__label">Cover sheet</span>
+      {!open && <span class="muted paperstatus__note">{summary.join(' · ')}</span>}
+      <button class="btn btn--quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? 'Hide' : 'Edit'}
+      </button>
+
+      {open && (
+        <div class="papercover__body">
+          {/* Everything that belongs to this paper, in one place. Subtitle and
+              notes were behind "More settings", a second disclosure inside
+              this one, for being set less often; two more boxes cost less than
+              a layer a teacher has to know is there. */}
+          <section class="papercover__group">
+            <h3 class="papercover__head">This paper</h3>
+
+            <div class="fieldrow">
+              <Field label="Subject" for="pc-course" hint="Printed under the title, in capitals">
+                <input
+                  id="pc-course"
+                  class="input"
+                  value={paper.school?.course ?? ''}
+                  placeholder="Design and Technology"
+                  onInput={(e) => setSchool({ course: (e.target as HTMLInputElement).value })}
+                />
+              </Field>
+
+              <Field label="Year group" for="pc-year" hint="Or the level, for an IB paper">
+                <input
+                  id="pc-year"
+                  class="input"
+                  value={paper.school?.yearGroup ?? ''}
+                  placeholder="Year 12"
+                  onInput={(e) => setSchool({ yearGroup: (e.target as HTMLInputElement).value })}
+                />
+              </Field>
+
+              <Field label="Date" for="pc-date" hint="The day students sit it">
+                <input
+                  id="pc-date"
+                  class="input"
+                  type="date"
+                  value={paper.school?.date ?? ''}
+                  onInput={(e) => setSchool({ date: (e.target as HTMLInputElement).value })}
+                />
+              </Field>
+            </div>
+
+            <Field label="Subtitle" for="pc-subtitle" hint="Printed under the paper's title">
+              <input
+                id="pc-subtitle"
+                class="input"
+                value={paper.subtitle ?? ''}
+                placeholder="Trial examination"
+                onInput={(e) =>
+                  setPaper(patched(paper, { subtitle: (e.target as HTMLInputElement).value }))
+                }
+              />
+            </Field>
+
+            {/* Blank means take the profile's, which is what the paper does for
+                every field it does not state. Until #106 there was no box at all
+                and every paper overrode the profile whether the teacher meant to
+                or not. */}
+            <div class="fieldrow">
+              <Field
+                label="Reading time"
+                for="pc-reading"
+                hint={inherits(profile?.paper.readingMinutes, 'reading time')}
+              >
+                <NumField
+                  id="pc-reading"
+                  value={paper.readingMinutes}
+                  min={0}
+                  placeholder={
+                    profile?.paper.readingMinutes === undefined
+                      ? ''
+                      : String(profile.paper.readingMinutes)
+                  }
+                  onChange={(n) => setPaper(patched(paper, { readingMinutes: n }))}
+                />
+              </Field>
+
+              <Field
+                label="Working time"
+                for="pc-working"
+                hint={inherits(profile?.paper.workingMinutes, 'working time')}
+              >
+                <NumField
+                  id="pc-working"
+                  value={paper.workingMinutes}
+                  min={0}
+                  placeholder={
+                    profile?.paper.workingMinutes === undefined
+                      ? ''
+                      : String(profile.paper.workingMinutes)
+                  }
+                  onChange={(n) => setPaper(patched(paper, { workingMinutes: n }))}
+                />
+              </Field>
+            </div>
+
+            <Field
+              label="General instructions"
+              for="pc-instructions"
+              hint="One per line. Blank takes the profile's."
+            >
+              <textarea
+                id="pc-instructions"
+                class="input"
+                rows={3}
+                value={(paper.instructions ?? []).join('\n')}
+                placeholder={
+                  profile?.paper.instructions?.length
+                    ? profile.paper.instructions.join('\n')
+                    : 'Write using black pen\nDraw diagrams using pencil'
+                }
+                onInput={(e) =>
+                  setPaper({
+                    ...paper,
+                    instructions: (e.target as HTMLTextAreaElement).value.split('\n'),
+                  })
+                }
+              />
+            </Field>
+
+            <Field
+              label="Your own notes"
+              for="pc-notes"
+              hint="Printed on the marking guide, never on the student paper"
+            >
+              <textarea
+                id="pc-notes"
+                class="input"
+                rows={2}
+                value={paper.notes ?? ''}
+                placeholder="Print single sided."
+                onInput={(e) =>
+                  setPaper(patched(paper, { notes: (e.target as HTMLTextAreaElement).value }))
+                }
+              />
+            </Field>
+          </section>
+
+          {/* The folder's half, said rather than edited here: it is one file
+              every paper reads, so changing it belongs on its own screen. */}
+          <section class="papercover__group">
+            <h3 class="papercover__head">Every paper in this folder</h3>
+            {school ? (
+              <p class="papercover__school">
+                <strong>{school.name}</strong>
+                {' · '}
+                {school.logoFile ? 'logo' : 'no logo'}
+                {' · '}
+                {identificationSummary(boxes)}
+              </p>
+            ) : (
+              <p class="hint">No school name, logo or boxes for a student yet.</p>
+            )}
+            {fromProfile && (
+              <p class="hint">
+                The {profile?.name} structure sets its own boxes for a student to fill in.
+              </p>
+            )}
+            <div class="rowbtns papercover__act">
+              <button class="btn btn--small" onClick={onEditCover}>
+                {school ? 'Edit the cover sheet' : 'Set up your cover sheet'}
+              </button>
+            </div>
+
+            {/* A campus that prints its own name is real, so the override stays,
+                but behind a box that says what it does. Unticking clears both
+                fields: a hidden override nobody remembers setting is the fault
+                this replaces. */}
+            <label class="checkline">
+              <input
+                type="checkbox"
+                checked={different}
+                onChange={(e) => {
+                  const on = (e.target as HTMLInputElement).checked
+                  setDifferent(on)
+                  if (!on) setSchool({ name: undefined, logoFile: undefined })
+                }}
+              />
+              Print a different school on this paper
+            </label>
+
+            {different && (
+              <div class="fieldrow papercover__own">
+                <Field
+                  label="School name"
+                  for="pc-school"
+                  hint={`Blank prints ${school?.name ?? 'no school name'}`}
+                >
+                  <input
+                    id="pc-school"
+                    class="input"
+                    value={paper.school?.name ?? ''}
+                    placeholder={school?.name ?? 'Your school'}
+                    onInput={(e) => setSchool({ name: (e.target as HTMLInputElement).value })}
+                  />
+                </Field>
+
+                <Field
+                  label="Logo file"
+                  for="pc-logo"
+                  hint="Blank uses the folder's. A path relative to this paper."
+                >
+                  <input
+                    id="pc-logo"
+                    class="input"
+                    value={paper.school?.logoFile ?? ''}
+                    placeholder={school?.logoFile ?? 'logo.png'}
+                    onInput={(e) => setSchool({ logoFile: (e.target as HTMLInputElement).value })}
+                  />
+                </Field>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BankRail({
+  options,
+  bankEmpty,
+  noSection,
+  targetName,
+  spec,
+  onAdd,
+  onLinkSyllabus,
+  linkCourse,
+}: {
+  options: ReturnType<typeof allQuestions>
+  /** No questions in the folder at all, as against none left for this section. */
+  bankEmpty: boolean
+  /** The paper has no section to add to, so there is nothing this rail can do. */
+  noSection: boolean
+  targetName: string
+  spec: string
+  onAdd: (file: string, id: string) => void
+  /** Given only when the profile names no syllabus, so nothing can be filtered. */
+  onLinkSyllabus?: (() => void) | undefined
+  /**
+   * Given only when the profile names a syllabus that has several courses and
+   * says which none of them. Carries the subject's name so the notice can say
+   * whose courses are being mixed.
+   */
+  linkCourse?: { subject: string; onEdit: () => void } | undefined
+}) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState<string | null>(null)
+
+  const shown = useMemo(() => {
+    const needle = text.trim().toLowerCase()
+    if (!needle) return options
+    return options.filter((o) => questionHaystack(o.question).includes(needle))
+  }, [options, text])
+
+  if (noSection) {
+    return (
+      <aside class="bank">
+        <div class="bank__head">
+          <span class="rail__label">Adding to</span>
+          <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Nowhere yet</p>
+        </div>
+        <p class="bank__empty">
+          Start this paper again from a profile that has sections. This one has none, so there is
+          nowhere to put a question.
+        </p>
+      </aside>
+    )
+  }
+
+  return (
+    <aside class="bank">
+      <div class="bank__head">
+        <span class="rail__label">Adding to</span>
+        <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>{targetName}</p>
+        {spec && (
+          <p class="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.78rem' }}>
+            {spec}
+          </p>
+        )}
+        {onLinkSyllabus && (
+          <p class="bank__unlinked">
+            This paper's profile does not say which subject it is for, so every question in the
+            folder is offered here, including any from another subject.{' '}
+            <button class="btn btn--small" onClick={onLinkSyllabus}>
+              Link a syllabus
+            </button>
+          </p>
+        )}
+        {linkCourse && (
+          <p class="bank__unlinked">
+            This paper's profile does not say which course of {linkCourse.subject} it is for, so
+            questions from every course in it are offered here.{' '}
+            <button class="btn btn--small" onClick={linkCourse.onEdit}>
+              Choose a course
+            </button>
+          </p>
+        )}
+        <input
+          class="input"
+          type="search"
+          placeholder="Search the bank…"
+          value={text}
+          onInput={(e) => setText((e.target as HTMLInputElement).value)}
+        />
+      </div>
+
+      {shown.length === 0 ? (
+        <p class="bank__empty">
+          {/* An empty folder used to be told its questions were all already on the
+              paper, which is a confusing thing to read when you have written none.
+              Reachable in earnest now that a new folder can be set up in the app. */}
+          {/* "Every question of the right type is already on this paper" used
+              to stand here, and it stopped being true once the rail filtered by
+              syllabus: the rest may be another subject's, and saying so is what
+              tempts a teacher into printing one. This claims only what is
+              known. */}
+          {bankEmpty
+            ? 'No questions in this folder yet. Write one on the Questions tab and it will appear here.'
+            : options.length === 0
+              ? 'Nothing in this folder fits this section.'
+              : 'Nothing matches that search.'}
+        </p>
+      ) : (
+        <ul class="bank__list">
+          {shown.map((o) => {
+            const key = `${o.file}#${o.question.id}`
+            return (
+              <li key={key}>
+                <span class="bank__marks">{o.question.marks}m</span>
+                <span
+                  class="bank__stem"
+                  title="Click to see the whole question"
+                  onClick={() => setOpen(open === key ? null : key)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <span class="chip chip--type" style={{ marginRight: '0.3rem' }}>
+                    {shortType(o.question)}
+                  </span>
+                  {/* Marked and still offered, for the reason the empty-rail
+                      copy above gives: a rail that quietly drops questions is
+                      how a teacher concludes their bank is empty. A question
+                      may well go on a draft paper and be finished afterwards,
+                      and `checkPaper` names it either way. */}
+                  {isUnfinished(o.question) && (
+                    <span
+                      class="chip chip--flag"
+                      style={{ marginRight: '0.3rem' }}
+                      title={unfinishedReasons(o.question).join(' ')}
+                    >
+                      needs finishing
+                    </span>
+                  )}
+                  {questionLabel(o.question)}
+                </span>
+                <button
+                  class="btn btn--icon"
+                  title={`Add to ${targetName}`}
+                  onClick={() => onAdd(o.file, o.question.id)}
+                >
+                  +
+                </button>
+                {open === key && (
+                  <div style={{ gridColumn: '1 / -1', padding: '0.5rem 0 0.7rem' }}>
+                    <QuestionDetail question={o.question} />
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </aside>
+  )
+}
+
+function Checks({ checks }: { checks: Check[] }) {
+  if (checks.length === 0) {
+    return (
+      <section class="panel panel--ok">
+        <p class="panel__title">Checks</p>
+        <p>Everything matches the profile.</p>
+      </section>
+    )
+  }
+
+  const errors = checks.filter((c) => c.severity === 'error')
+  return (
+    <section class={`panel ${errors.length ? 'panel--alert' : 'panel--note'}`}>
+      <p class="panel__title">
+        {errors.length > 0
+          ? `${errors.length} problem${errors.length === 1 ? '' : 's'}`
+          : 'Worth knowing'}
+        {errors.length > 0 && checks.length - errors.length > 0
+          ? `, ${checks.length - errors.length} to note`
+          : ''}
+      </p>
+      <ul class="plain">
+        {checks.map((c, i) => (
+          <li key={i} style={{ marginBottom: '0.2rem' }}>
+            <span class="mono" style={{ opacity: 0.7 }}>
+              {c.severity === 'error' ? '✕' : '!'}
+            </span>{' '}
+            {c.where && <span class="muted">{c.where}: </span>}
+            {c.message}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function StartPaper({
+  index,
+  folder,
+  profiles,
+  papers,
+  onStart,
+  onBuildProfile,
+  onEditProfile,
+  onEditCover,
+  onInstalled,
+  onRescan,
+}: {
+  index: ContentIndex
+  folder: FileSystemDirectoryHandle
+  profiles: Profile[]
+  papers: ContentIndex['papers']
+  onStart: (p: Paper) => void
+  onBuildProfile: () => void
+  onEditProfile: (profile: Profile, path: string) => void
+  onEditCover: () => void
+  onInstalled: () => void
+  /** Re-read the folder: a deleted paper leaves the list, a drafted one joins it. */
+  onRescan: () => void
+}) {
+  const [profileId, setProfileId] = useState(profiles[0]?.id ?? '')
+  const [title, setTitle] = useState('Trial HSC Examination')
+  // Which paper is waiting on a second click, by path. Deleting one is not
+  // undoable and papers are in no history, so the first click only asks.
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [failed, setFailed] = useState('')
+
+  // A rescan is the folder being read again, which is what every failure here
+  // asks for, so both the open confirm and the message go with it. Found by
+  // driving it: a refusal naming the paper the file used to hold stayed on
+  // screen under a row that had since changed to the paper it now holds.
+  useEffect(() => {
+    setConfirming(null)
+    setFailed('')
+  }, [papers])
+
+  const school = index.schools[0]
+  const slug = useMemo(
+    () =>
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'paper',
+    [title],
+  )
+
+  /** The paper this title would write over, if the folder already holds one. */
+  const taken = papers.find((p) => p.data.id === slug)
+
+  const remove = async (target: Paper) => {
+    setDeleting(true)
+    setFailed('')
+    try {
+      await deletePaper(folder, target)
+      setConfirming(null)
+      onRescan()
+    } catch (err) {
+      // Left on screen with the confirm still open, because every reason this
+      // fails is the folder disagreeing with the list the click came from.
+      setFailed((err as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  if (profiles.length === 0) {
+    return (
+      <section class="panel setup">
+        <p class="panel__title">No profile in this folder yet</p>
+        {/* "Pick the exam you are building towards" is only true when there is
+            something to pick, which for every subject but Design and Technology
+            there is not (#48). */}
+        <p>
+          A profile says how a paper is built: how many sections, what each is worth, which question
+          types belong where.
+          {profilesOnOffer(index).offered.length > 0
+            ? ' Pick the exam you are building towards and Klunk writes it into profiles/ here.'
+            : ''}
+        </p>
+        {/* This used to end by telling a teacher to copy `schemas/profile.schema.json`
+            and change the sections to match, which is the app giving up on its own
+            premise for every subject it does not ship a profile for. */}
+        <ProfileInstaller
+          index={index}
+          folder={folder}
+          onBuild={onBuildProfile}
+          onInstalled={onInstalled}
+        />
+      </section>
+    )
+  }
+
+  return (
+    <div class="split">
+      <aside class="rail">
+        <section class="panel">
+          <p class="panel__title">New paper</p>
+          <label class="rail__label" for="np-title">
+            Title
+          </label>
+          <input
+            id="np-title"
+            class="input"
+            value={title}
+            onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
+            style={{ marginBottom: '0.7rem' }}
+          />
+          <label class="rail__label" for="np-profile">
+            Profile
+          </label>
+          <select
+            id="np-profile"
+            class="input"
+            value={profileId}
+            onChange={(e) => setProfileId((e.target as HTMLSelectElement).value)}
+            style={{ marginBottom: '0.7rem' }}
+          >
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button
+            class="btn btn--primary"
+            disabled={taken !== undefined}
+            onClick={() => {
+              const profile = profiles.find((p) => p.id === profileId)
+              if (!profile) return
+              const model = index.syllabuses.find((s) => s.data.id === profile.syllabusId)?.data
+              onStart(
+                newPaper(profile, slug, title, {
+                  subject: model?.name,
+                  course: model?.courses.find((c) => c.id === profile.courseId)?.name,
+                }),
+              )
+            }}
+          >
+            Create paper
+          </button>
+          {/* The file is named from the title, and every new paper starts with
+              the same title, so the second one asks for the first one's file.
+              Caught here rather than at the save, because a teacher who wanted
+              that paper wanted to open it, and one who wanted a new paper only
+              has to say which. */}
+          {taken ? (
+            <div class="setup__problem" style={{ fontSize: '0.8rem' }}>
+              <span class="mono">papers/{slug}.json</span> already holds "{taken.data.title}". Give
+              this paper a different title, or open the one already there.
+              <div class="rowbtns" style={{ marginTop: '0.5rem' }}>
+                <button class="btn btn--small" onClick={() => onStart(taken.data)}>
+                  Open "{taken.data.title}"
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p class="muted mono" style={{ fontSize: '0.75rem', marginTop: '0.6rem' }}>
+              papers/{slug}.json
+            </p>
+          )}
+        </section>
+
+        {/* A profile is not something a teacher sets up once and never looks at
+            again: a school's trial has different working time from the real
+            paper, and until now changing that meant editing the file by hand. */}
+        <section class="panel">
+          <p class="panel__title">Paper structures</p>
+          <ul class="plain setup__list">
+            {index.profiles.map(({ data, path }) => (
+              <li key={path} class="setup__row">
+                <div>
+                  <strong>{data.name}</strong>
+                  <br />
+                  <span class="muted mono setup__meta">
+                    {data.paper.totalMarks} marks · {data.paper.sections.length} section
+                    {data.paper.sections.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <button class="btn btn--small" onClick={() => onEditProfile(data, path)}>
+                  Edit
+                </button>
+              </li>
+            ))}
+          </ul>
+          <ProfileInstaller
+            index={index}
+            folder={folder}
+            onBuild={onBuildProfile}
+            onInstalled={onInstalled}
+          />
+        </section>
+
+        {/* One folder has one of these, so it is a panel rather than a list.
+            Every paper in the folder prints it, which is the whole reason it is
+            here and not on the profile. */}
+        <section class="panel">
+          <p class="panel__title">Cover sheet</p>
+          {school ? (
+            <>
+              <p class="muted setup__meta">
+                <strong>{school.data.name}</strong>
+                <br />
+                {school.data.logoFile ? `Logo: ${school.data.logoFile}` : 'No logo'}
+                {' · '}
+                {identificationSummary(school.data.identification?.length ?? 0)}
+              </p>
+              <button class="btn btn--small" onClick={onEditCover}>
+                Edit the cover sheet
+              </button>
+            </>
+          ) : (
+            <>
+              <p class="hint">
+                Add your school's name and logo, and the boxes a student fills in. Every paper you
+                print from this folder uses them.
+              </p>
+              <button class="btn" onClick={onEditCover}>
+                Set up your cover sheet
+              </button>
+            </>
+          )}
+        </section>
+      </aside>
+
+      <main>
+        {papers.length === 0 ? (
+          <section class="hero">
+            <h2>No papers yet</h2>
+            <p>
+              Start one on the left. Klunk fills in the sections your profile expects, then you pick
+              questions into them.
+            </p>
+          </section>
+        ) : (
+          <>
+            <p class="rail__label">Papers in this folder</p>
+            <ul class="qlist">
+              {papers.map((p, i) => (
+                <li
+                  class="qrow"
+                  key={p.path}
+                  style={{ animationDelay: `${Math.min(i, 6) * 10}ms` }}
+                >
+                  {/* The ✕ is a sibling of the row button rather than inside it,
+                      since a button cannot hold another one. */}
+                  <div class="qrow__line">
+                    <button class="qrow__head" onClick={() => onStart(p.data)}>
+                      <span class="qrow__marks">{p.data.sections.length}§</span>
+                      <span class="qrow__stem">
+                        {p.data.title}
+                        <br />
+                        <span class="muted mono" style={{ fontSize: '0.75rem' }}>
+                          {p.path}
+                        </span>
+                      </span>
+                      <span class="qrow__tail">
+                        {p.data.status === 'used' && (
+                          <span class="chip chip--flag">already sat</span>
+                        )}
+                        {p.data.status === 'final' && <span class="chip">final</span>}
+                        <span class="qrow__caret">›</span>
+                      </span>
+                    </button>
+                    <button
+                      class="btn btn--icon qrow__drop"
+                      title={`Delete ${p.data.title}`}
+                      onClick={() => {
+                        setFailed('')
+                        setConfirming(confirming === p.path ? null : p.path)
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {confirming === p.path && (
+                    <div class="qrow__detail qrow__detail--danger">
+                      <p>
+                        Deleting <strong>{p.data.title}</strong> removes{' '}
+                        <span class="mono">{p.path}</span> from this folder. The questions stay in
+                        your banks.
+                      </p>
+                      {/* A paper students have sat is a record of an exam rather
+                          than a draft, and the row's chip is above the fold of
+                          this panel once it is open. */}
+                      {p.data.status === 'used' && (
+                        <p class="setup__problem">Students have sat this paper.</p>
+                      )}
+                      {failed && <p class="setup__problem">{failed}</p>}
+                      <div class="rowbtns">
+                        <button class="btn" onClick={() => setConfirming(null)}>
+                          Cancel
+                        </button>
+                        <button
+                          class="btn btn--primary"
+                          disabled={deleting}
+                          onClick={() => void remove(p.data)}
+                        >
+                          {deleting ? 'Deleting…' : 'Delete this paper'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* Under the papers, because opening and printing one is what this tab
+            is for and drafting a new one with an AI is the occasional route
+            (#118). It opens closed, so the tab shows the folder's papers rather
+            than a form for a paper that does not exist yet. */}
+        <ExamFactory
+          index={index}
+          folder={folder}
+          profiles={profiles}
+          papers={papers}
+          onStart={onStart}
+          onSaved={onRescan}
+        />
+      </main>
+    </div>
+  )
+}
+
+/* --------------------------------------------------------------------- utils */
+
+/**
+ * Print, having first told the browser what the paper is called.
+ *
+ * Chrome names a saved PDF after the page title, so every paper a teacher
+ * printed arrived in Downloads as `Klunk.pdf` and the second one overwrote the
+ * first. The title is also what Chrome prints in its own page header, so this
+ * fixes both at once.
+ *
+ * Restored afterwards rather than left set, because the title is the browser tab
+ * and the tab is not showing one paper for the rest of the session. `afterprint`
+ * fires whether the dialog was used or cancelled.
+ */
+function printPaper(title: string, mode: PrintMode): void {
+  const was = document.title
+  document.title = mode === 'guide' ? `${title} marking guide` : title
+
+  const restore = () => {
+    document.title = was
+    window.removeEventListener('afterprint', restore)
+  }
+  window.addEventListener('afterprint', restore)
+  window.print()
+}
+
+function identificationSummary(n: number): string {
+  if (n === 0) return 'nothing for a student to fill in'
+  return `${n} thing${n === 1 ? '' : 's'} for a student to fill in`
+}
+
+function countRule(
+  spec: { questionCount?: number; minQuestions?: number; maxQuestions?: number } | undefined,
+  actual: number,
+): string {
+  if (!spec) return `${actual} question${actual === 1 ? '' : 's'}`
+  if (spec.questionCount !== undefined) return `${actual}/${spec.questionCount} questions`
+  const lo = spec.minQuestions ?? 0
+  const hi = spec.maxQuestions
+  return `${actual} question${actual === 1 ? '' : 's'} (${lo}${hi ? `-${hi}` : '+'})`
+}
+
+function describeSpec(spec: { questionTypes?: string[]; marksPerQuestion?: number }): string {
+  const bits: string[] = []
+  if (spec.questionTypes?.length) {
+    bits.push(
+      spec.questionTypes
+        .map((t) => QUESTION_TYPE_LABELS[t as keyof typeof QUESTION_TYPE_LABELS] ?? t)
+        .join(', '),
+    )
+  }
+  if (spec.marksPerQuestion !== undefined) bits.push(`${spec.marksPerQuestion} mark each`)
+  return bits.join(' · ')
+}

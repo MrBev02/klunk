@@ -110,16 +110,17 @@ than the wrong account.
 
   Three things now hold.
 
-  **Every document is named once, in `src/corpus.ts`.** Six suites each kept
-  their own path string, so a typo in one was indistinguishable from a document
-  nobody had, and both read as an ordinary skip.
+  **Every document is named once, in `src/testing/corpus.ts`.** Six suites each
+  kept their own path string, so a typo in one was indistinguishable from a
+  document nobody had, and both read as an ordinary skip.
 
-  **Every run says what it did not test.** `src/corpus.test.ts` writes a summary
-  naming each suite that did not run in full and the documents it wanted — and
-  says so in the good case too, `all 6 suites ran against 36 real documents`,
-  because a warning that only appears when something is wrong teaches nobody what
-  right looks like. It writes to `process.stderr` and **not** through `console`,
-  which vitest captures here and prints neither. Checked, not assumed.
+  **Every run says what it did not test.** `src/testing/corpus.test.ts` writes a
+  summary naming each suite that did not run in full and the documents it wanted
+  — and says so in the good case too, `all 6 suites ran against 36 real
+  documents`, because a warning that only appears when something is wrong
+  teaches nobody what right looks like. It writes to `process.stderr` and
+  **not** through `console`, which vitest captures here and prints neither.
+  Checked, not assumed.
 
   **`npm run test:corpus` fails where `npm test` skips.** That is the pass that
   catches a mistyped path, run when it matters rather than nagging every time: a
@@ -142,13 +143,14 @@ than the wrong account.
 - **Python's stdout is not UTF-8 on the Windows machine, and that broke the port
   comparison for weeks** (#72). `sys.stdout.encoding` is `cp1252` there, the
   console codepage, and it stays `cp1252` when stdout is a pipe. So a tool that
-  writes a model to stdout writes it in cp1252, and `src/syllabus.corpus.test.ts`
-  reads that back with `encoding: 'utf8'`. A non-breaking space is one byte
-  `0xA0` in cp1252 and not valid UTF-8 at all, so it arrived as U+FFFD and both
-  documents failed on a diff of one space against another. The port was right the
-  whole time. `tools/nesa_stage6_syllabus.py` writes UTF-8 on `sys.stdout.buffer`
-  now, matching what `--out` always did; **any Python tool added here has to do
-  the same**, and this would not have shown up on the Mac.
+  writes a model to stdout writes it in cp1252, and
+  `src/syllabus/syllabus.corpus.test.ts` reads that back with `encoding:
+  'utf8'`. A non-breaking space is one byte `0xA0` in cp1252 and not valid UTF-8
+  at all, so it arrived as U+FFFD and both documents failed on a diff of one
+  space against another. The port was right the whole time.
+  `tools/nesa_stage6_syllabus.py` writes UTF-8 on `sys.stdout.buffer` now,
+  matching what `--out` always did; **any Python tool added here has to do the
+  same**, and this would not have shown up on the Mac.
 - **VS Code does not use this repository's TypeScript, and did not before #104
   either.** 1.131.0 bundles its own — 6.0.3 here — and
   `typescript.enablePromptUseWorkspaceTsdk` is off by default, so IntelliSense
@@ -180,18 +182,18 @@ than the wrong account.
   deviceId with the words "Connected to browser Browser 2". Trust `osPlatform` and
   `isLocal`, never the name. Confirm with `navigator.userAgentData.platform` in the
   page before believing you are in the right place.
-- **A save that hangs with no error is the browser, not the code.** No notice, no
-  console error, the button still enabled: check the connected browser first. A
-  hidden tab was blamed for this once and then a save went through from a hidden tab
-  perfectly well, so `visibilityState` is not the reliable explanation — the wrong
-  machine is. Bringing the tab to the front is still worth trying second, since a
-  handle being re-permissioned may need it.
-  **One thing genuinely does hang in a hidden tab, and it is not a save.**
-  `requestAnimationFrame` never fires in a background tab, so anything waiting on
-  one waits for ever with no error and no CSP violation. pdf.js renders that way
-  unless the intent is `print`, which is why `src/pdfimage.ts` sets it. If
-  something hangs, check whether it is waiting on a frame before blaming the
-  machine.
+- **A save that hangs with no error is the browser, not the code.** No notice,
+  no console error, the button still enabled: check the connected browser first.
+  A hidden tab was blamed for this once and then a save went through from a
+  hidden tab perfectly well, so `visibilityState` is not the reliable
+  explanation — the wrong machine is. Bringing the tab to the front is still
+  worth trying second, since a handle being re-permissioned may need it. **One
+  thing genuinely does hang in a hidden tab, and it is not a save.**
+  `requestAnimationFrame` never fires in a background tab, so anything waiting
+  on one waits for ever with no error and no CSP violation. pdf.js renders that
+  way unless the intent is `print`, which is why `src/documents/pdfimage.ts`
+  sets it. If something hangs, check whether it is waiting on a frame before
+  blaming the machine.
 - **The Chrome browser tools work on this machine. Use them.** They drive the real
   browser here, so `npm run dev` and check the change rather than reasoning about it
   from the source. Driving the question editor this way found four faults that
