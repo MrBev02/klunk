@@ -604,7 +604,7 @@ function guideNotes(type: QuestionType, marks: number | undefined): string[] {
  * The markup a reply may carry, shared by all three prompts.
  *
  * One copy, because two would drift and the whole point is that the vocabulary
- * a model is told matches the one `richtext.tsx` reads. Nothing had ever told a
+ * a model is told matches the one `richtext.ts` reads. Nothing had ever told a
  * model any of it: a paper printing a table of readings came back as a
  * paragraph of loose values, which is exactly the fault #88 built the pipe
  * table to fix, arriving through the one route that route never covered (#101).

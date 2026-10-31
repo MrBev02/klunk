@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'preact/hooks'
-import { CodeBlock } from '../shared/code'
+import { CodeBlock } from '../shared/codeblock'
 import { unresolvedAgainst, type ModelIds } from '../shared/modelcheck'
 import {
   optionLetter,
@@ -21,7 +21,7 @@ import {
   shuffledResponses,
 } from '../papers/paper'
 import { markRange } from '../papers/render'
-import { Inline, RichText } from '../shared/richtext'
+import { Inline, RichText } from '../shared/richtextview'
 import { joinPath } from '../folder/storage'
 import type { Stimulus } from '../shared/types'
 import {

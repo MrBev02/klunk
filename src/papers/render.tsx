@@ -13,7 +13,7 @@
 
 import { Fragment } from 'preact'
 import { answerSheetModel, type AnswerSheetModel } from './answersheet'
-import { CodeBlock } from '../shared/code'
+import { CodeBlock } from '../shared/codeblock'
 import { coverModel, minutes, type CoverField, type CoverModel } from './cover'
 import {
   answerLinesFor,
@@ -27,7 +27,7 @@ import {
   type ResolvedPaper,
   type ResolvedQuestion,
 } from './paper'
-import { Inline, RichText } from '../shared/richtext'
+import { Inline, RichText } from '../shared/richtextview'
 import { joinPath } from '../folder/storage'
 import { alignOf, hasSample, printsInline } from '../shared/types'
 import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from '../shared/types'

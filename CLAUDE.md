@@ -60,7 +60,7 @@ outline of what has been established.
 |---|---|
 | Reading a past paper or marking guide — `extract.ts`, `objective.ts`, `guide.ts`, `answerkey.ts`, the two format pickers, `pdftext.ts`, `pdfimage.ts`, `adopt.ts` | [docs/reading-papers.md](docs/reading-papers.md) |
 | Reading a syllabus — `syllabus.ts`, `headings.ts`, `ibdt.ts`, `ibguide.ts`, `formats.ts`, `ooxml.ts`, `xlsx.ts`, `syllabusedit.ts`, the Python generator | [docs/reading-syllabuses.md](docs/reading-syllabuses.md) |
-| What a question, a paper or a profile may say — the schemas, `richtext.tsx`, `code.tsx`, `render.tsx`, `question.tsx`, `editor.tsx`, `validate.ts`, `cover.ts`, the three prompts, printing to PDF | [docs/question-and-paper-model.md](docs/question-and-paper-model.md) |
+| What a question, a paper or a profile may say — the schemas, `richtext.ts` and `richtextview.tsx`, `code.ts` and `codeblock.tsx`, `render.tsx`, `question.tsx`, `editor.tsx`, `validate.ts`, `cover.ts`, the three prompts, printing to PDF | [docs/question-and-paper-model.md](docs/question-and-paper-model.md) |
 | Any parser change at all | [docs/corpus-counts.md](docs/corpus-counts.md), then `npm run test:corpus` |
 | A failure the code cannot explain — a push refused, a save that hangs, a browser driving the wrong machine, a diff of two identical-looking strings | [docs/environment.md](docs/environment.md) |
 | Whether something already exists, and why a screen is the shape it is | [docs/delivered.md](docs/delivered.md) |
@@ -97,7 +97,16 @@ kept their names, so a file named anywhere in `docs/` is still that file.
 Tests sit beside what they test. `src/testing/boundaries.test.ts` holds the
 dependencies between folders: nothing imports `app/`, `documents/` imports
 only itself, `shared/` only itself, and `folder/` only itself and `shared/`.
-Its few known breaches are listed there, each with the issue that removes it.
+
+**Logic is `.ts` and screens are `.tsx`, and a `.ts` never imports a `.tsx`**
+(#176), which the same test holds in every folder. A file that both parses and
+draws is split in two, named apart so `import './x'` means one file:
+`richtext.ts` and `richtextview.tsx`, `code.ts` and `codeblock.tsx`, `cover.ts`
+and `coversheet.tsx`. There is no `ui/` subfolder: the largest folder holds
+nine source files, and the rule does what the folder would.
+
+A breach that has to stay for a while is listed in the test with the issue
+that removes it. The list is empty.
 
 ```
 klunk/                     this repo - app and tools only, public
@@ -110,11 +119,13 @@ klunk/                     this repo - app and tools only, public
     shared/                what every other folder builds on
       types.ts             the six formats as TypeScript
       validate.ts          the checks a question, bank or profile must pass
-      richtext.tsx         the paragraphs, pipe tables and four inline marks a
+      richtext.ts          the paragraphs, pipe tables and four inline marks a
                            question's prose may carry, and taking them back
                            out again
-      code.tsx             a code stimulus: its indentation kept on the way
-                           in, and the numbered block it prints as
+      richtextview.tsx     drawing them, on screen and on the paper
+      code.ts              a code stimulus: its indentation kept on the way
+                           in
+      codeblock.tsx        and the numbered block it prints as
       fields.tsx           the form controls and the bar the editors share
       modelcheck.ts        tags that name nothing, and two models of one
                            document
