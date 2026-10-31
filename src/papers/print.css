@@ -1050,3 +1050,17 @@
 .richtable th {
   font-weight: 600;
 }
+
+/* A formula on the page (#151). Black, because KaTeX inherits whatever colour
+   it sits in and a paper is ink. A display formula is never split across a
+   page, for the reason a table is not. The red KaTeX gives a formula it could
+   not read is left alone: that is a fault the teacher has to see on the proof. */
+.sheet .formula .katex {
+  font-size: 1.05em;
+  color: #000;
+}
+
+.sheet .formula .katex-display {
+  margin: 2mm 0;
+  break-inside: avoid;
+}

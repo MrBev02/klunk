@@ -245,7 +245,38 @@ export function extractJson(pasted: string): { json: string; note?: string } | {
     return { json: carved, note: 'Ignored the writing around the JSON.' }
   }
 
+  // Last, so a reply that parses as it came is never rewritten.
+  for (const candidate of [fenced, carved, text]) {
+    if (candidate === undefined || candidate === null) continue
+    const repaired = formulasEscaped(candidate)
+    if (repaired !== candidate && parses(repaired)) {
+      return {
+        json: repaired,
+        note:
+          "Doubled the backslashes in the reply's formulas, which it had written singly. " +
+          'Check each formula on the proof.',
+      }
+    }
+  }
+
   return { json: fenced ?? carved ?? text }
+}
+
+/**
+ * Every formula's backslashes doubled, for a reply that wrote them singly (#151).
+ *
+ * The prompt asks for `"\\(x\\)"`, and a model that forgets writes `"\(x\)"`.
+ * `\(` is not a JSON escape, so the whole reply fails to parse, which is the
+ * case this repairs. Only inside a `\(…\)` or `\[…\]` span, because there every
+ * backslash is TeX's: a `\n` between them is the start of `\neq`, not a line
+ * break, since a formula sits on one line. A span never crosses a quotation
+ * mark or a line, so it cannot reach out of the string it is in. A backslash
+ * already doubled is not an opener, so a span written correctly is not touched.
+ */
+function formulasEscaped(json: string): string {
+  return json.replace(/(?<!\\)\\(\(|\[)[^"\n]*?(?<!\\)\\(\)|\])/g, (span, open, close) =>
+    (open === '(') === (close === ')') ? span.replace(/\\/g, '\\\\') : span,
+  )
 }
 
 /** From the first bracket to the last matching one, prose either side discarded. */
