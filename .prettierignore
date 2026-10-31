@@ -7,6 +7,11 @@ spike-dist-single/
 # install.
 package-lock.json
 
+# Written by the impeccable design tool in its own layout. Formatting it here
+# would pass once and fail again the next time the tool rewrote it, and it
+# failed CI's format job on every commit until it was listed (#167).
+.impeccable/
+
 # The spike is gitignored and deliberately rough (#3).
 spike/
 vite.spike.config.ts
