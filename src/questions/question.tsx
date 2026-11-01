@@ -16,6 +16,7 @@ import { unresolvedAgainst, type ModelIds } from '../shared/modelcheck'
 import {
   optionLetter,
   rowAnswers,
+  CURRENT_SHUFFLE,
   shuffledChoices,
   shuffledMatching,
   shuffledResponses,
@@ -241,7 +242,7 @@ function Body({
 }) {
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, correctIndex, known } = shuffledChoices(q)
+      const { choices, correctIndex, known } = shuffledChoices(q, CURRENT_SHUFFLE)
       return (
         <div class="det">
           <p class="det__label">
@@ -299,7 +300,7 @@ function Body({
       )
 
     case 'multiple_response': {
-      const { choices, correctIndexes, known } = shuffledResponses(q)
+      const { choices, correctIndexes, known } = shuffledResponses(q, CURRENT_SHUFFLE)
       const isAnswer = new Set(correctIndexes)
       return (
         <div class="det">
@@ -345,7 +346,7 @@ function Body({
      * shape on purpose.
      */
     case 'matching': {
-      const { items, options, known } = shuffledMatching(q)
+      const { items, options, known } = shuffledMatching(q, CURRENT_SHUFFLE)
       return (
         <div class="det">
           <p class="det__label">
