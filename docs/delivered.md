@@ -402,6 +402,18 @@ Verified in the browser on the 2025 HSC Mathematics Advanced paper and guide,
 and the 2025 D&T paper still reads; the measurement behind it is in
 [reading-papers.md](reading-papers.md).
 
+**A school's paper and its solutions in Word go to an AI** (#201). **From a
+past paper** takes a `.docx` in either box, by picker, drop or the folder
+list. No reader is tried on one: **Read the paper** opens the transcription
+prompt at once, and a Word marking guide goes straight to the marking prompt.
+Both panels tell the teacher to save the file as a PDF in Word and attach
+that, and both prompts say what a Word paper holds, formulas as pictures and
+answers handwritten over the questions. Why there is no Word reader is in
+[reading-papers.md](reading-papers.md). Verified in the browser on the 2025
+Year 8 paper and solutions: the paper opened the transcription panel with no
+alert, and a pasted reply opened the marking panel for the solutions with the
+handwriting line in its prompt. Nothing was saved.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

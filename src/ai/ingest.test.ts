@@ -854,7 +854,8 @@ describe('reading back a paper somebody transcribed', () => {
 
     const warnings = draft.faults.filter((f) => f.severity === 'warning').map((f) => f.message)
     expect(warnings.join(' ')).toContain('A diagram of a small office network.')
-    expect(warnings.join(' ')).toContain('add one yourself')
+    expect(warnings.join(' ')).toContain('Add it yourself')
+    expect(warnings.join(' ')).not.toContain('scan')
   })
 
   it('says once that sections were dropped, rather than on every question', () => {

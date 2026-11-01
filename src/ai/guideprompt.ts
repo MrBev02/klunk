@@ -61,6 +61,15 @@ export interface GuidePromptSpec {
    * refusal read as a fault in Klunk.
    */
   scanned: boolean
+  /**
+   * Whether the guide is a school's own, written in Word (#201).
+   *
+   * The one school's solutions looked at were the question paper with every
+   * answer handwritten over it in pen, 331 strokes and no typed answer at all,
+   * so the model is told the handwriting is the answer and the printed text is
+   * the question.
+   */
+  word?: boolean | undefined
   /** The teacher's own instruction, passed through verbatim. */
   extra?: string | undefined
 }
@@ -101,6 +110,14 @@ function opening(spec: GuidePromptSpec): string {
           'Do not describe the document and do not summarise it. Transcribe what it',
           'states about each question.',
         ]),
+    ...(spec.word
+      ? [
+          '',
+          'The guide was written in Word, and may be the question paper with the answers',
+          'handwritten on it. Where it is, the handwriting is the answer: transcribe it,',
+          'and do not repeat the printed question as an answer.',
+        ]
+      : []),
     '',
     'Answer with JSON and nothing else: one ```json code block holding an array of',
     'objects, with no text before or after it.',

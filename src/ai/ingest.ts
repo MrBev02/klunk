@@ -881,8 +881,10 @@ function transcriptionNotes(src: Record<string, unknown>): Check[] {
     notes.push({
       severity: 'warning',
       message:
-        `The paper prints a picture here: ${stimulus} Klunk cannot cut a picture out of a ` +
-        'scan, so add one yourself or reword the question.',
+        // Not "a scan": a Word paper and a mathematics PDF arrive here too, and
+        // neither is one (#201). No transcribed paper has positions to cut from.
+        `The paper prints a picture here: ${stimulus} Add it yourself or reword the ` +
+        'question. Klunk cannot cut pictures out of a paper an AI transcribed.',
     })
   }
 

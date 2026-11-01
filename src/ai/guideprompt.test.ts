@@ -155,6 +155,17 @@ describe('what the document is', () => {
     expect(prompt).not.toContain('scan with no text in it')
     expect(prompt).toContain('Transcribe the attached marking guide into JSON.')
   })
+
+  it('reads handwriting on a Word guide as the answer (#201)', () => {
+    const prompt = buildGuidePrompt({ ...BASE, scanned: false, word: true })
+    expect(prompt).toMatch(/handwriting is the answer/)
+    expect(prompt).not.toContain('scan with no text in it')
+    expect(prompt).not.toMatch(/[—–]/)
+  })
+
+  it('says nothing about Word for any other guide', () => {
+    expect(buildGuidePrompt({ ...BASE, scanned: false })).not.toMatch(/Word/)
+  })
 })
 
 describe('the outcomes', () => {

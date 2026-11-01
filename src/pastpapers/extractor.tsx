@@ -153,6 +153,19 @@ const SOURCE_DIRECTORY = 'source'
 /** Which of the two slots a chosen file fills. */
 type Slot = 'paper' | 'guide'
 
+/**
+ * A school's own paper or solutions, as written in Word (#201).
+ *
+ * No reader is tried on one: it goes straight to an AI. The one pair looked at
+ * set a third of its questions' formulas as pictures, some of them screenshots
+ * with no text, and its solutions were every answer handwritten in pen over the
+ * question paper. A reader would number and mark those questions with what is
+ * asked missing, and could get nothing at all from the solutions.
+ */
+function isWord(path: string): boolean {
+  return /\.docx$/i.test(path)
+}
+
 export function Extractor({
   index,
   folder,
@@ -239,7 +252,7 @@ export function Extractor({
    * which it is, so telling them the wrong one is what makes a refusal read as a
    * fault in Klunk.
    */
-  const [transcribe, setTranscribe] = useState<{ scanned: boolean } | null>(null)
+  const [transcribe, setTranscribe] = useState<{ scanned: boolean; word?: boolean } | null>(null)
   /** The reply to the transcription prompt, as pasted. */
   const [pasted, setPasted] = useState('')
   /**
@@ -248,7 +261,11 @@ export function Extractor({
    * The prompt for it is built from the questions on screen, so this panel can
    * only appear once there are some, whether Klunk read them or an AI did.
    */
-  const [markingAsk, setMarkingAsk] = useState<{ scanned: boolean; path: string } | null>(null)
+  const [markingAsk, setMarkingAsk] = useState<{
+    scanned: boolean
+    word?: boolean
+    path: string
+  } | null>(null)
   const [pastedGuide, setPastedGuide] = useState('')
   const [guideFailed, setGuideFailed] = useState('')
   /** What the last marking reply did, so a second one can be judged against it. */
@@ -281,8 +298,8 @@ export function Extractor({
   const pathFault = bank === null ? bankPathFault(newBankPath) : null
 
   const pdfs = useMemo(
-    () => [...new Set([...index.pdfs, ...added])].sort((a, b) => a.localeCompare(b)),
-    [index.pdfs, added],
+    () => [...new Set([...index.pdfs, ...index.docx, ...added])].sort((a, b) => a.localeCompare(b)),
+    [index.pdfs, index.docx, added],
   )
 
   /** A PDF from this computer: the pickers and a drop both land here. */
@@ -314,7 +331,15 @@ export function Extractor({
       const handles = await window.showOpenFilePicker({
         id: 'klunk-paper',
         multiple: false,
-        types: [{ description: 'Past papers', accept: { 'application/pdf': ['.pdf'] } }],
+        types: [
+          {
+            description: 'Past papers',
+            accept: {
+              'application/pdf': ['.pdf'],
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+            },
+          },
+        ],
       })
       const handle = handles[0]
       if (!handle) return
@@ -338,12 +363,12 @@ export function Extractor({
     e.preventDefault()
     setDragging(null)
     const dropped = [...(e.dataTransfer?.files ?? [])]
-    const file = dropped.find((f) => /\.pdf$/i.test(f.name))
+    const file = dropped.find((f) => /\.(pdf|docx)$/i.test(f.name))
     if (!file) {
       const first = dropped[0]
       setFailed(
         first
-          ? `Klunk reads a past paper as a .pdf, and ${first.name} is not one.`
+          ? `${first.name} is not a .pdf or a Word .docx. Drop the paper as one of those.`
           : 'That was not a file Klunk could take. Drop the paper itself, not a link to it.',
       )
       return
@@ -361,6 +386,15 @@ export function Extractor({
     setTranscribe(null)
     setMarkingAsk(null)
     setGuideFailed('')
+    // Not a refusal, so nothing is remembered and nothing is in the alert box:
+    // the transcription panel is the whole of what happens to a Word paper.
+    // Its marking guide is picked up once the reply is read, as for any
+    // transcribed paper.
+    if (isWord(paperPath)) {
+      setTranscribe({ scanned: false, word: true })
+      setReading(false)
+      return
+    }
     // Held outside the try so the refusal below can say what kind of document
     // this is, rather than only that no reader wanted it.
     let pages: PageText[] = []
@@ -374,7 +408,9 @@ export function Extractor({
       let paper = readAs
       let guideFormat: GuideFormat | undefined
       let refusedGuide = ''
-      if (guidePath) {
+      if (guidePath && isWord(guidePath)) {
+        setMarkingAsk({ scanned: false, word: true, path: guidePath })
+      } else if (guidePath) {
         // A marking guide Klunk cannot read must not take the paper down with
         // it. The questions are still worth having, so this is reported against
         // the paper as a whole rather than thrown: losing thirty read questions
@@ -506,6 +542,7 @@ export function Extractor({
       syllabus: chosen?.syllabus,
       course: chosen?.course,
       scanned: transcribe.scanned,
+      word: transcribe.word,
     })
   }, [transcribe, paperName, typedYear, transcribeProfile, chosen])
 
@@ -531,6 +568,7 @@ export function Extractor({
       syllabus: chosen?.syllabus,
       course: chosen?.course,
       scanned: markingAsk.scanned,
+      word: markingAsk.word,
     })
   }, [markingAsk, read, discarded, paperName, typedYear, chosen])
 
@@ -575,7 +613,9 @@ export function Extractor({
     // the paper transcribed and the second file ignored without a word. It is
     // tried here, and a guide Klunk can read needs no AI at all.
     let guideFormat: GuideFormat | undefined
-    if (guidePath) {
+    if (guidePath && isWord(guidePath)) {
+      setMarkingAsk({ scanned: false, word: true, path: guidePath })
+    } else if (guidePath) {
       try {
         const guidePages = await readPdf(await readBytes(folder, guidePath))
         try {
@@ -958,6 +998,7 @@ export function Extractor({
       {transcribe && (
         <TranscribePanel
           paperPath={paperPath}
+          word={transcribe.word === true}
           prompt={transcribePrompt}
           profileName={transcribeProfile?.name}
           courseName={chosen ? `${chosen.syllabus.name}, ${chosen.course.name}` : undefined}
@@ -974,6 +1015,7 @@ export function Extractor({
       {markingAsk && read && (
         <MarkingPanel
           guidePath={markingAsk.path}
+          word={markingAsk.word === true}
           prompt={markingPrompt}
           step={transcribe ? 3 : 2}
           pasted={pastedGuide}
@@ -1265,7 +1307,7 @@ function PdfSlot({
                 value={path}
                 onChange={(e) => onChoose((e.target as HTMLSelectElement).value)}
               >
-                <option value="">{optional ? 'None' : 'Choose a PDF…'}</option>
+                <option value="">{optional ? 'None' : 'Choose a paper…'}</option>
                 <DocumentOptions {...groupFor(inFolder, manifest, want)} want={want} />
               </select>
             </p>
@@ -1282,8 +1324,9 @@ function PdfSlot({
 /**
  * The second route in, for a paper that is a picture of a paper.
  *
- * It appears only once every reader has refused a document holding no text, so
- * it is never an alternative to reading one Klunk can read. The privacy line is
+ * It appears once every reader has refused a PDF, so it is never an
+ * alternative to reading one Klunk can read, and at once for a Word paper, which
+ * no reader is tried on (#201). The privacy line is
  * not decoration: every other prompt Klunk writes carries its own content, and
  * the teacher reads the whole of it before copying. This one cannot, because the
  * content is in a file Klunk cannot see, so the teacher attaches the paper
@@ -1291,6 +1334,7 @@ function PdfSlot({
  */
 function TranscribePanel({
   paperPath,
+  word,
   prompt,
   profileName,
   courseName,
@@ -1303,6 +1347,8 @@ function TranscribePanel({
   onRead,
 }: {
   paperPath: string
+  /** A Word paper, which goes to the AI as a PDF saved from Word. */
+  word: boolean
   prompt: string
   /** The profile the structure came from, named because a borrowed one is invisible. */
   profileName?: string | undefined
@@ -1321,10 +1367,21 @@ function TranscribePanel({
         <span class="step">2</span> Transcribe it with an AI
       </p>
 
-      <p class="hint">
-        Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste the reply
-        into the box below.
-      </p>
+      {/* A PDF because Word draws the pictures into it. Whether an AI given the
+          .docx itself sees a formula pasted as a picture was not established
+          (#201), and a third of the one school paper's formulas were. */}
+      {word ? (
+        <p class="hint">
+          Copy the prompt. In Word, save {paperPath} as a PDF, attach the PDF in whatever AI your
+          school pays for, and paste the reply into the box below. Attach the PDF rather than the
+          Word file, so the AI sees the formulas set as pictures.
+        </p>
+      ) : (
+        <p class="hint">
+          Copy the prompt, attach {paperPath} in whatever AI your school pays for, and paste the
+          reply into the box below.
+        </p>
+      )}
       <p class="hint">
         You attach the paper yourself, so all of it leaves your computer. Klunk cannot read it to
         show you first.
@@ -1438,6 +1495,7 @@ function nothingRead(marking: { failure?: string; rejected: { why: string }[] })
  */
 function MarkingPanel({
   guidePath,
+  word,
   prompt,
   step,
   pasted,
@@ -1448,6 +1506,8 @@ function MarkingPanel({
   onSkip,
 }: {
   guidePath: string
+  /** A Word guide, which goes to the AI as a PDF saved from Word. */
+  word: boolean
   prompt: string
   step: number
   pasted: string
@@ -1474,10 +1534,21 @@ function MarkingPanel({
         </p>
       ) : (
         <>
-          <p class="hint">
-            Copy the prompt, attach {guidePath} in whatever AI your school pays for, and paste the
-            reply into the box below.
-          </p>
+          {/* Handwritten answers are ink strokes in the .docx, which Word draws
+              into a PDF. The one school's solutions held no typed answer at
+              all (#201). */}
+          {word ? (
+            <p class="hint">
+              Copy the prompt. In Word, save {guidePath} as a PDF, attach the PDF in whatever AI
+              your school pays for, and paste the reply into the box below. Attach the PDF rather
+              than the Word file, so the AI sees handwritten answers and formulas set as pictures.
+            </p>
+          ) : (
+            <p class="hint">
+              Copy the prompt, attach {guidePath} in whatever AI your school pays for, and paste the
+              reply into the box below.
+            </p>
+          )}
           <p class="hint">
             You attach the marking guide yourself, so all of it leaves your computer. The questions
             stay here: the prompt lists their numbers and marks only.

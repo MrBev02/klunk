@@ -152,6 +152,26 @@ describe('the copy', () => {
     expect(prompt).toMatch(/upside down/)
     expect(prompt).toMatch(/two pages side by side/)
   })
+
+  it('tells the model a Word paper sets formulas as pictures, and does not call it a scan (#201)', () => {
+    const prompt = buildPaperPrompt({ ...BASE, scanned: false, word: true })
+    expect(prompt).toMatch(/written in Word/)
+    expect(prompt).toMatch(/transcribe the formula it shows/)
+    expect(prompt).not.toMatch(/scan with no text/)
+    expect(prompt).not.toMatch(/[—–]/)
+  })
+
+  it('asks for a formula set as a picture as a formula, not a description (#201)', () => {
+    // A real run over the Year 8 Word paper described its index-law pictures in
+    // stimulusNote, because the rule for screenshots was the only one there was.
+    const prompt = buildPaperPrompt({ ...BASE, scanned: false })
+    expect(prompt).toMatch(/formula printed as a picture is not a diagram/)
+    expect(prompt).toMatch(/give\s+it no "stimulusNote"/)
+  })
+
+  it('says nothing about Word for any other paper', () => {
+    expect(buildPaperPrompt({ ...BASE, scanned: false })).not.toMatch(/Word/)
+  })
 })
 
 /**

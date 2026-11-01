@@ -68,6 +68,15 @@ export interface PaperPromptSpec {
    * is a scan is what makes a refusal read as a fault in Klunk.
    */
   scanned: boolean
+  /**
+   * Whether the paper is a school's own, written in Word (#201).
+   *
+   * No reader is tried on one, so this is not a refusal. The one school paper
+   * looked at carried about 15 of its 42 questions' formulas only as pictures,
+   * some screenshots with no text at all, so the model is told a picture can be
+   * the question rather than an illustration of it.
+   */
+  word?: boolean | undefined
   /** The teacher's own instruction, passed through verbatim. */
   extra?: string | undefined
 }
@@ -106,6 +115,13 @@ function opening(spec: PaperPromptSpec): string {
           'Do not describe the document and do not summarise it. Transcribe the questions',
           'it prints.',
         ]),
+    ...(spec.word
+      ? [
+          '',
+          'The paper was written in Word. Many of its formulas are pictures rather than',
+          'text, so where a picture is part of a question, transcribe the formula it shows.',
+        ]
+      : []),
     '',
     'Answer with JSON and nothing else: one ```json code block holding an array of',
     'objects, with no text before or after it.',
@@ -161,6 +177,9 @@ function howToTranscribe(spec: PaperPromptSpec): string {
     '- Some questions print a screenshot or a diagram. Do not reproduce it.',
     '  Describe it in one sentence in "stimulusNote", and transcribe any words',
     '  printed inside it that the question depends on.',
+    '- A formula printed as a picture is not a diagram. Transcribe the formula',
+    '  into the question text, written as the formula rules below say, and give',
+    '  it no "stimulusNote".',
     '- Program code printed as text is not a picture. Copy it into "stimulus"',
     '  exactly, keeping every space of its indentation, with \\n between lines.',
     '  Leave out any line numbers the paper prints: Klunk prints its own. If the',
