@@ -109,6 +109,25 @@ const DRAWING_SUBTYPES = ['sketch', 'diagram', 'flowchart', 'orthographic', 'fre
 /** Roughly the printable area of an A4 page once margins are taken out. */
 const A4_PRINTABLE_MM = { width: 180, height: 240 }
 
+/**
+ * The checks on a question edited on a review, with what its reader noticed kept.
+ *
+ * A card's faults are this file's checks and the reader's own notes together,
+ * such as a transcription naming a picture it could not cut out. Checking the
+ * edit again replaces the first and has to keep the second (#212), which are
+ * told apart by asking what this file says of the question as it was.
+ */
+export function recheckQuestion(
+  before: Question,
+  faults: Check[],
+  after: Question,
+  ids: IdContext,
+): Check[] {
+  const key = (c: Check) => `${c.severity}|${c.where ?? ''}|${c.message}`
+  const own = new Set(validateQuestion(before, ids).map(key))
+  return [...validateQuestion(after, ids), ...faults.filter((f) => !own.has(key(f)))]
+}
+
 export function validateQuestion(question: Question, ids: IdContext): Check[] {
   const out: Check[] = []
   // Four reporters over two axes: how bad it is, and whether the question can

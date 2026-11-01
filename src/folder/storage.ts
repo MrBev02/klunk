@@ -18,7 +18,7 @@ import {
   readManifest,
   type DocumentNote,
 } from './manifest'
-import { everyStimulus } from '../shared/types'
+import { everyStimulus, placeStimulus, stimulusList } from '../shared/types'
 import type {
   Bank,
   Loaded,
@@ -792,6 +792,47 @@ export async function copyFileInto(
 
   await writeFile(dir, joinDir(directory, chosen), data)
   return chosen
+}
+
+/**
+ * Pictures a teacher chose in the editor for a question that is not saved yet,
+ * keyed by the path its stimulus names, relative to the bank.
+ *
+ * The editor copies a chosen picture into the folder as it saves. Opened from
+ * a review of read or drafted questions it saves nothing (#212), so the file
+ * travels with the question until the review's own save writes both.
+ */
+export type ChosenPictures = Record<string, File>
+
+/**
+ * Copy each chosen picture beside the bank, and point its stimulus at the copy.
+ *
+ * Called before the question is written, for the reason the editor copies
+ * first: a question naming a file that was never written prints a placeholder.
+ * A picture whose name is taken gets a numbered sibling, so the path written is
+ * the one `copyFileInto` reports rather than the one the editor showed.
+ */
+export async function writeChosenPictures(
+  dir: FileSystemDirectoryHandle,
+  bankPath: string,
+  question: Question,
+  chosen: ChosenPictures | undefined,
+): Promise<Question> {
+  if (!chosen || Object.keys(chosen).length === 0) return question
+  const bankDir = bankPath.split('/').slice(0, -1)
+  const placed = []
+  for (const s of stimulusList(question)) {
+    const path = s.item.kind === 'image' ? s.item.file : undefined
+    const file = path === undefined ? undefined : chosen[path]
+    if (path === undefined || !file) {
+      placed.push(s)
+      continue
+    }
+    const sub = path.split('/').slice(0, -1)
+    const name = await copyFileInto(dir, [...bankDir, ...sub].join('/'), file.name, file)
+    placed.push({ ...s, item: { ...s.item, file: [...sub, name].join('/') } })
+  }
+  return placeStimulus(question, placed)
 }
 
 /**

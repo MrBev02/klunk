@@ -30,6 +30,7 @@ import {
   emptyIdContext,
   hasGuide,
   isUnfinished,
+  recheckQuestion,
   unfinishedReasons,
   suggestQuestionId,
   validateProfile,
@@ -1873,5 +1874,22 @@ describe('a model answer on the guide (#141, #142)', () => {
     expect(cleaned.config?.parts?.[0]?.sampleStimulus).toEqual([
       { kind: 'code', text: '  x = 1', lineNumbers: false },
     ])
+  })
+})
+
+describe('recheckQuestion (#212)', () => {
+  const note = {
+    severity: 'warning' as const,
+    message: 'The paper prints a picture here: a network diagram.',
+  }
+
+  it('checks the edit afresh and keeps what the reader noticed', () => {
+    const before = question({ marks: 0 })
+    const faults = [...validateQuestion(before, emptyIdContext()), note]
+    expect(faults.some((f) => f.severity === 'error')).toBe(true)
+
+    const after = recheckQuestion(before, faults, question(), emptyIdContext())
+
+    expect(after).toEqual([...validateQuestion(question(), emptyIdContext()), note])
   })
 })

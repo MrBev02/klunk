@@ -414,6 +414,20 @@ Year 8 paper and solutions: the paper opened the transcription panel with no
 alert, and a pasted reply opened the marking panel for the solutions with the
 handwriting line in its prompt. Nothing was saved.
 
+**A question edited from a review goes back to its card** (#212). Opened from
+**From a past paper** or **Draft with AI**, the editor's main button is
+**Update the review** or **Update the draft**, and nothing is written. The card
+takes the edited question, checked again with the reader's own notes kept,
+and keeps its cut-out pictures; one assigned to a part the edit removed goes
+back to the question. A picture chosen in the editor travels on the card, is
+shown there, and is copied in by the batch save. It used to be saved straight
+into the bank, ahead of the batch and without the card's pictures, while the
+card kept showing the old version. Verified in the browser on the 2025 D&T
+paper: Q9 edited with a picture attached came back to its card with both
+pictures, kept the attached one through a change of bank, and the batch wrote
+the edit, the cut-out and the attached picture. Draft with AI did the same
+without a save.
+
 **A paper that numbers each section from 1 is marked question by question**
 (#208). A transcribed question keeps its section in its provenance, shown on
 the card and in the editor's **Where it came from** as **Section**. The marking

@@ -79,7 +79,7 @@ import { buildPaperPrompt } from '../ai/paperprompt'
 import { cutOut, picturesFor, type Cutout } from '../documents/pdfimage'
 import { hasMarkup } from '../shared/richtext'
 import { openPdf, pagesFromDocument, readPdf } from '../documents/pdftext'
-import { QuestionDetail } from '../questions/question'
+import { QuestionDetail, useChosenImages } from '../questions/question'
 import { hasNoText } from '../documents/textlayer'
 import {
   copyFileInto,
@@ -89,6 +89,8 @@ import {
   readBytes,
   rememberDocument,
   saveQuestion,
+  writeChosenPictures,
+  type ChosenPictures,
   type ContentIndex,
 } from '../folder/storage'
 import {
@@ -103,6 +105,7 @@ import {
 import {
   blocksSaving,
   cleanQuestion,
+  recheckQuestion,
   suggestQuestionId,
   validateQuestion,
 } from '../shared/validate'
@@ -718,8 +721,9 @@ export function Extractor({
     )
   }
 
-  // Worked out from the folder rather than remembered, so a question sent to the
-  // editor and saved there comes back marked saved too.
+  // Worked out from the folder rather than remembered. A question sent to the
+  // editor used to be saved there; it comes back to its card now (#212), and
+  // only `saveReady` writes.
   const alreadySaved = useMemo(() => questionIds(index), [index])
   const savedAs = (a: Adopted) => renamed[a.question.id] ?? a.question.id
   const live = (read?.adopted ?? []).filter((a) => !discarded.includes(a.question.id))
@@ -841,6 +845,43 @@ export function Extractor({
     )
   }
 
+  /**
+   * Put a question edited in the editor back on its card (#212).
+   *
+   * The card keeps its cut-out pictures, notes and pages. A picture assigned to
+   * a part the edit removed goes back to the question, where the card shows it,
+   * rather than printing under whatever part now has that letter.
+   */
+  const takeEdit = (id: string, question: Question, chosen: ChosenPictures) => {
+    const ids = {
+      inBank: new Set(
+        (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+      ),
+      inFolder: questionIds(index),
+    }
+    const parts = question.config?.parts?.length ?? 0
+    setRead((r) =>
+      r === null
+        ? r
+        : {
+            ...r,
+            adopted: r.adopted.map((a) =>
+              a.question.id !== id
+                ? a
+                : {
+                    ...a,
+                    question,
+                    chosen,
+                    faults: recheckQuestion(a.question, a.faults, question, ids),
+                    pictures: a.pictures.map((p) =>
+                      p.at !== null && p.at >= parts ? { ...p, at: null } : p,
+                    ),
+                  },
+            ),
+          },
+    )
+  }
+
   const saveReady = async () => {
     setSaving(true)
     setFailed('')
@@ -878,7 +919,12 @@ export function Extractor({
           })
         }
 
-        const question = placeStimulus(item.question, stimulus)
+        const question = await writeChosenPictures(
+          folder,
+          bankPath,
+          placeStimulus(item.question, stimulus),
+          item.chosen,
+        )
         const written = await saveQuestion(folder, bankPath, cleanQuestion(question), {
           syllabusId: chosen?.syllabus.id,
           // Only used when the bank does not exist yet; `saveQuestion` creates it
@@ -1156,7 +1202,19 @@ export function Extractor({
                 }
                 saved={alreadySaved.has(savedAs(item))}
                 savedAs={renamed[item.question.id]}
-                onEdit={() => onEdit({ question: item.question, file: bankPath, fresh: true })}
+                onEdit={() =>
+                  onEdit({
+                    question: item.question,
+                    file: bankPath,
+                    fresh: true,
+                    chosen: item.chosen,
+                    update: {
+                      label: 'Update the review',
+                      note: keptNote(item),
+                      take: (question, chosen) => takeEdit(item.question.id, question, chosen),
+                    },
+                  })
+                }
                 onDiscard={() => setDiscarded((d) => [...d, item.question.id])}
               />
             ))}
@@ -1597,6 +1655,15 @@ function MarkingPanel({
   )
 }
 
+/** The pictures a card keeps, which the editor does not show. */
+function keptNote(item: Adopted): string | undefined {
+  const kept = item.pictures.filter((p) => p.keep).length
+  if (kept === 0) return undefined
+  return kept === 1
+    ? 'The picture kept on its card stays there and is not shown here.'
+    : `The ${kept} pictures kept on its card stay there and are not shown here.`
+}
+
 function imageDirectory(bankPath: string): string {
   const slash = bankPath.lastIndexOf('/')
   return slash < 0 ? 'stimulus' : `${bankPath.slice(0, slash)}/stimulus`
@@ -1632,6 +1699,7 @@ function ExtractedCard({
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
+  const chosenImages = useChosenImages(bankPath, item.chosen)
   const parts = q.config?.parts ?? []
   const errors = item.faults.filter((f) => f.severity === 'error' && !f.unfinished)
   const owed = item.faults.filter((f) => f.unfinished).length
@@ -1773,7 +1841,12 @@ function ExtractedCard({
         <div class="qrow__detail">
           {/* The heading above shows the stem, so it is not repeated here —
               unless it holds a table, which a clamped heading cannot show (#88). */}
-          <QuestionDetail question={q} showStem={hasMarkup(q.questionText)} />
+          <QuestionDetail
+            question={q}
+            showStem={hasMarkup(q.questionText)}
+            bankFile={bankPath}
+            images={chosenImages}
+          />
           <p class="det__label" style={{ marginTop: '0.6rem' }}>
             Will be saved into <span class="mono">{bankPath}</span>
           </p>

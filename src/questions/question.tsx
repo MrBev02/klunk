@@ -10,7 +10,7 @@
  * So this shows the whole thing, marking guide included, inline.
  */
 
-import { useState } from 'preact/hooks'
+import { useEffect, useMemo, useState } from 'preact/hooks'
 import { CodeBlock } from '../shared/codeblock'
 import { unresolvedAgainst, type ModelIds } from '../shared/modelcheck'
 import {
@@ -23,7 +23,7 @@ import {
 import { markRange } from '../papers/render'
 import { hasMarkup } from '../shared/richtext'
 import { Inline, RichText } from '../shared/richtextview'
-import { joinPath } from '../folder/storage'
+import { joinPath, type ChosenPictures } from '../folder/storage'
 import type { Stimulus } from '../shared/types'
 import {
   QUESTION_TYPE_LABELS,
@@ -731,4 +731,34 @@ export function sourceLabel(q: Question): string {
   if (!s) return ''
   const bits = [s.origin, s.paper, s.year?.toString(), s.section, s.questionNumber].filter(Boolean)
   return bits.join(' · ')
+}
+
+/**
+ * Pictures chosen in the editor for a question not saved yet, to show on its
+ * card (#212). They are not in the folder until the batch is saved, so the
+ * card would otherwise print each one as a missing file.
+ */
+export function useChosenImages(
+  bankFile: string,
+  chosen: ChosenPictures | undefined,
+): Map<string, string> | undefined {
+  const images = useMemo(
+    () =>
+      chosen && Object.keys(chosen).length > 0
+        ? new Map(
+            Object.entries(chosen).map(([path, file]) => [
+              joinPath(bankFile, path),
+              URL.createObjectURL(file),
+            ]),
+          )
+        : undefined,
+    [bankFile, chosen],
+  )
+  useEffect(
+    () => () => {
+      for (const url of images?.values() ?? []) URL.revokeObjectURL(url)
+    },
+    [images],
+  )
+  return images
 }
