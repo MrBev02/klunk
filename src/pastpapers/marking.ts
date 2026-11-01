@@ -34,6 +34,8 @@ import type { MarkCriterion, Question, QuestionType, Stimulus } from '../shared/
  */
 export interface MarkingSkeleton {
   number: number
+  /** Where the paper numbers each section from 1, which one this is (#208). */
+  section?: string | undefined
   questionType: QuestionType
   marks: number
   /** How many options there are to choose between, where a question offers any. */
@@ -60,6 +62,8 @@ export function skeletonFor(question: Question): MarkingSkeleton | undefined {
     questionType: question.questionType,
     marks: question.marks,
   }
+  const section = question.source?.section
+  if (section) skeleton.section = section
 
   const options = config?.choices ?? config?.options
   if (options?.length) skeleton.optionCount = options.length
@@ -81,6 +85,14 @@ export function skeletonFor(question: Question): MarkingSkeleton | undefined {
  */
 export interface MarkingEntry {
   number: number
+  /**
+   * The section the guide says this is in, as the reply wrote it.
+   *
+   * Only worth anything on a paper that numbers each section from 1, and
+   * matched loosely there: the reply writes what the guide prints, which need
+   * not be what the paper's transcription called it (#208).
+   */
+  section?: string
   /** `a`, `b`, `c` where the guide marks a part on its own. */
   part?: string
   /**

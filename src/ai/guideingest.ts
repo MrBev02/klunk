@@ -46,6 +46,7 @@ export interface MarkingContext {
 /** Fields Klunk stores, plus the ones it will accept under another name. */
 const KNOWN_FIELDS = new Set([
   'number',
+  'section',
   'part',
   'answer',
   'answers',
@@ -185,6 +186,9 @@ function readEntry(
   }
 
   const entry: MarkingEntry = { number }
+
+  const section = asString(src.section)?.trim()
+  if (section) entry.section = section
 
   const part = readPart(src.part ?? src.label)
   if (part !== undefined) entry.part = part

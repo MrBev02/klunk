@@ -144,8 +144,43 @@ function whatItMarks(spec: GuidePromptSpec): string {
   lines.push('Key every entry to one of these numbers. Do not add a number that is not here,')
   lines.push('and do not renumber.')
   lines.push('')
-  for (const q of wanted) lines.push(`  ${describe(q)}`)
+  if (!restartsNumbering(spec.questions)) {
+    for (const q of wanted) lines.push(`  ${describe(q)}`)
+    return lines.join('\n')
+  }
+
+  // A number alone names five questions on a paper that numbers each section
+  // from 1, and the first reply over one gave every band Support's answers
+  // (#208). So the sections are shown, and each entry has to name its own.
+  lines.push('The paper numbers each section from 1, so a number alone does not say which')
+  lines.push('question an entry is for. Give every entry the "section" it is listed under')
+  lines.push('here, written exactly as it is here.')
+  let current: string | undefined
+  wanted.forEach((q, i) => {
+    if (i === 0 || q.section !== current) {
+      current = q.section
+      lines.push('')
+      lines.push(`  ${plain(q.section ?? 'No section')}`)
+    }
+    lines.push(`    ${describe(q)}`)
+  })
   return lines.join('\n')
+}
+
+/**
+ * Does a number come round again, among questions that say which section they are in?
+ *
+ * Asked of the whole paper rather than the range, so a run of questions asked
+ * for on its own is keyed the same way as the rest of the paper.
+ */
+export function restartsNumbering(questions: MarkingSkeleton[]): boolean {
+  if (!questions.some((q) => q.section)) return false
+  const seen = new Set<number>()
+  for (const q of questions) {
+    if (seen.has(q.number)) return true
+    seen.add(q.number)
+  }
+  return false
 }
 
 function describe(q: MarkingSkeleton): string {
@@ -254,6 +289,9 @@ function shape(spec: GuidePromptSpec): string {
     'An array of objects. Each object uses these fields and no others.',
     '',
     '  number          the question number, from the list above',
+    ...(restartsNumbering(spec.questions)
+      ? ['  section         the section the question is listed under above']
+      : []),
     '  part            "a", "b", "c" where the guide marks a part on its own',
     '',
     '  answer          the option letter the guide gives, as printed',

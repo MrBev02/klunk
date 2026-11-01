@@ -1931,6 +1931,17 @@ function SourceFields({
                 onInput={(e) => setSource({ questionNumber: (e.target as HTMLInputElement).value })}
               />
             </Field>
+            {/* Where the paper numbers each section from 1, the number alone
+                names several questions (#208). */}
+            <Field label="Section" for="sr-section">
+              <input
+                id="sr-section"
+                class="input"
+                value={source.section ?? ''}
+                placeholder="Extension Band"
+                onInput={(e) => setSource({ section: (e.target as HTMLInputElement).value })}
+              />
+            </Field>
           </>
         )}
       </div>

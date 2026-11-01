@@ -1346,6 +1346,7 @@ export function cleanQuestion(draft: Question): Question {
     paper: text(draft.source?.paper),
     year: draft.source?.year,
     questionNumber: text(draft.source?.questionNumber),
+    section: text(draft.source?.section),
     copyright: text(draft.source?.copyright),
   })
   if (source) out.source = source

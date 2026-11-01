@@ -455,6 +455,12 @@ export interface Question {
     paper?: string
     year?: number
     questionNumber?: string
+    /**
+     * The section the question sits in, where the paper numbers each from 1
+     * (#208). Absent where the number alone finds the question, as on a NESA
+     * paper.
+     */
+    section?: string
     copyright?: string
   }
   config?: QuestionConfig

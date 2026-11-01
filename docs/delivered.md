@@ -414,6 +414,17 @@ Year 8 paper and solutions: the paper opened the transcription panel with no
 alert, and a pasted reply opened the marking panel for the solutions with the
 handwriting line in its prompt. Nothing was saved.
 
+**A paper that numbers each section from 1 is marked question by question**
+(#208). A transcribed question keeps its section in its provenance, shown on
+the card and in the editor's **Where it came from** as **Section**. The marking
+prompt lists such a paper under its sections and asks for each entry's.
+Answers are matched on section and number, or in paper order where the reply
+names none. Verified in the browser with the Copilot marking reply for the
+2025 Year 8 task, pasted as it came, over a stand-in transcription of its 43
+questions in five bands: 43 of 43 marked, no question marked twice, each
+band's answer on its own band's question, and Advanced Q7's parts (a) and (b)
+on their own parts. Nothing was saved.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

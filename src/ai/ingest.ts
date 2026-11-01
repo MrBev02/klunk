@@ -179,11 +179,10 @@ export function ingestQuestions(pasted: string, ctx: IngestContext): Ingest {
     else drafts.push(read)
   })
 
-  // Said once, not thirty times. A bank holds questions and a paper holds
-  // sections, so there is nowhere on a question to keep this and every question
-  // of a transcribed paper carries one: as a per-question repair it buried the
-  // four that mattered under thirty that did not.
-  if (questions.some((raw) => hasSection(raw))) {
+  // Said once, not thirty times: as a per-question repair it buried the four
+  // that mattered under thirty that did not. Only where nothing keeps it. A
+  // question off a named paper records its section in its provenance (#208).
+  if (!ctx.paper && questions.some((raw) => hasSection(raw))) {
     notes.push(
       'Each question said which section of the paper it came from. A bank does not ' +
         'record sections, so that was not kept.',
@@ -849,6 +848,10 @@ function readPaperSource(
   } else {
     source.questionNumber = number
   }
+  // Kept, because a paper that numbers each section from 1 has five questions
+  // called 1, and the number alone then finds none of them again (#208).
+  const section = asString(src.section)?.trim()
+  if (section) source.section = section
   return source
 }
 
