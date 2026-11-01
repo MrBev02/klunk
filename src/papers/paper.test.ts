@@ -30,6 +30,7 @@ import {
   shuffledResponses,
 } from './paper'
 import { emptyManifest } from '../folder/manifest'
+import { emptyLedger } from '../folder/ledger'
 import type { ContentIndex } from '../folder/storage'
 import type { Bank, Paper, Profile, Question, Syllabus } from '../shared/types'
 
@@ -105,6 +106,7 @@ function indexWith(questions: Question[]): ContentIndex {
     workbooks: [],
     schools: [],
     manifest: emptyManifest(),
+    ledger: emptyLedger(),
     images: new Map(),
   }
 }
@@ -846,6 +848,7 @@ function twoSubjects(): ContentIndex {
     workbooks: [],
     schools: [],
     manifest: emptyManifest(),
+    ledger: emptyLedger(),
     images: new Map(),
   }
 }
@@ -908,6 +911,7 @@ function twoYears(): ContentIndex {
     workbooks: [],
     schools: [],
     manifest: emptyManifest(),
+    ledger: emptyLedger(),
     images: new Map(),
   }
 }

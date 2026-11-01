@@ -3,6 +3,7 @@ import { Builder } from '../papers/builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { CoverEditor } from '../papers/coversheet'
 import { QuestionEditor, type Editing } from '../questions/editor'
+import { ReleaseScreen } from '../release/screen'
 import { Extractor } from '../pastpapers/extractor'
 import { Factory } from '../ai/factory'
 import { Help } from './help'
@@ -844,6 +845,13 @@ export function App() {
                   <span class="tab__n">{index.syllabuses.length}</span>
                 )}
               </button>
+              <button
+                class={`tab ${view === 'release' ? 'tab--on' : ''}`}
+                onClick={() => setView('release')}
+                title="Hand questions from an exam that has been sat to students, for Mimir"
+              >
+                Release to students
+              </button>
             </nav>
 
             {view === 'library' && folder && (
@@ -896,6 +904,19 @@ export function App() {
                 today={today}
                 onEdit={(editing) => openEditor(editing)}
                 onSaved={() => void load(folder)}
+              />
+            )}
+
+            {view === 'release' && folder && (
+              <ReleaseScreen
+                index={index}
+                folder={folder}
+                today={today}
+                onEdit={(editing) => openEditor(editing)}
+                onReleased={(message) => {
+                  setNotice(message)
+                  void load(folder)
+                }}
               />
             )}
 

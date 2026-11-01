@@ -18,8 +18,12 @@ import {
   readManifest,
   type DocumentNote,
 } from './manifest'
+import { emptyLedger, LEDGER_PATH, readLedger, recordRelease } from './ledger'
 import { everyStimulus, placeStimulus, stimulusList } from '../shared/types'
 import type {
+  LedgerExam,
+  LedgerQuestion,
+  ReleaseLedger,
   Bank,
   Loaded,
   Manifest,
@@ -111,6 +115,14 @@ export interface ContentIndex {
    */
   manifest: Manifest
   /**
+   * What has been released to students, and when each exam was sat (#150).
+   * Empty when the folder has released nothing. `ledgerUnreadable` is set when
+   * the file is there and will not parse, which blocks a release rather than
+   * overwriting a record nothing else holds.
+   */
+  ledger: ReleaseLedger
+  ledgerUnreadable?: boolean
+  /**
    * Stimulus images, keyed by folder-relative path, as object URLs.
    *
    * Loaded eagerly for the images questions actually reference, rather than
@@ -133,6 +145,7 @@ export function emptyIndex(): ContentIndex {
     docx: [],
     workbooks: [],
     manifest: emptyManifest(),
+    ledger: emptyLedger(),
     images: new Map(),
   }
 }
@@ -569,6 +582,7 @@ export async function scanFolder(
     try {
       data = JSON.parse(await (await handle.getFile()).text())
     } catch (err) {
+      if (path === LEDGER_PATH) index.ledgerUnreadable = true
       // Only complain about files that were probably meant to be ours. A
       // tsconfig.json in the folder is not the teacher's problem.
       if (looksLikeContentPath(path)) {
@@ -591,6 +605,10 @@ export async function scanFolder(
     // replaces it whole.
     if (path === MANIFEST_PATH) {
       index.manifest = readManifest(data)
+      continue
+    }
+    if (path === LEDGER_PATH) {
+      index.ledger = readLedger(data)
       continue
     }
 
@@ -646,7 +664,8 @@ function looksLikeContentPath(path: string): boolean {
   // papers/. A malformed one would otherwise be skipped in silence and the cover
   // would print with no branding and no explanation.
   return (
-    /(^|\/)(bank|banks|papers|profiles|syllabus)\//i.test(path) || /(^|\/)school\.json$/i.test(path)
+    /(^|\/)(bank|banks|papers|profiles|syllabus|release)\//i.test(path) ||
+    /(^|\/)school\.json$/i.test(path)
   )
 }
 
@@ -1353,4 +1372,148 @@ export function syllabusIdsOf(question: Question): string[] {
   const s = question.syllabus
   if (!s) return []
   return [...(s.topicIds ?? []), ...(s.pointIds ?? [])]
+}
+
+/* ------------------------------------------------------- the student folder */
+
+/**
+ * Each content folder's student folder, remembered per browser (#150).
+ *
+ * Paired with the content folder rather than kept as one, because a teacher
+ * with two subjects has two faculty folders and releases each to its own
+ * students.
+ */
+const STUDENT_FOLDERS_KEY = 'studentFolders'
+
+interface StudentPair {
+  content: FileSystemDirectoryHandle
+  student: FileSystemDirectoryHandle
+}
+
+async function studentPairs(): Promise<StudentPair[]> {
+  const stored = await idbGet<unknown[]>(STUDENT_FOLDERS_KEY).catch(() => undefined)
+  if (!Array.isArray(stored)) return []
+  return stored.filter(
+    (p): p is StudentPair =>
+      typeof p === 'object' &&
+      p !== null &&
+      isDirectoryHandle((p as StudentPair).content) &&
+      isDirectoryHandle((p as StudentPair).student),
+  )
+}
+
+/** The student folder remembered for this content folder, with whether it opens silently. */
+export async function studentFolderFor(
+  content: FileSystemDirectoryHandle,
+): Promise<RememberedFolder | null> {
+  for (const pair of await studentPairs()) {
+    if (!(await isSame(pair.content, content))) continue
+    const permission = await pair.student
+      .queryPermission({ mode: 'readwrite' })
+      .catch((): PermissionState => 'prompt')
+    return { handle: pair.student, permission }
+  }
+  return null
+}
+
+/**
+ * Why a folder cannot be the student folder for this content folder, or null.
+ *
+ * Releasing into the faculty folder hands students nothing, since they cannot
+ * open it; a student folder inside the faculty folder, or holding it, would put
+ * the banks where students can read them.
+ */
+export async function studentFolderProblem(
+  content: FileSystemDirectoryHandle,
+  student: FileSystemDirectoryHandle,
+): Promise<string | null> {
+  if (await isSame(content, student)) {
+    return `${student.name} is the folder your questions are in. Choose the folder students can open.`
+  }
+  if ((await content.resolve(student).catch(() => null)) !== null) {
+    return `${student.name} is inside ${content.name}. Choose a folder outside it, shared with students to view only.`
+  }
+  if ((await student.resolve(content).catch(() => null)) !== null) {
+    return `${student.name} holds ${content.name}, so students could open your questions. Choose a folder outside it.`
+  }
+  return null
+}
+
+/**
+ * Choose the student folder. Opens the file picker, so it must be called from a click.
+ *
+ * @returns The folder, null if the dialog was closed, or the reason it was refused.
+ */
+export async function pickStudentFolder(
+  content: FileSystemDirectoryHandle,
+): Promise<FileSystemDirectoryHandle | string | null> {
+  let handle: FileSystemDirectoryHandle
+  try {
+    handle = await window.showDirectoryPicker({ id: 'klunk-students', mode: 'readwrite' })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return null
+    throw err
+  }
+  const problem = await studentFolderProblem(content, handle)
+  if (problem) return problem
+
+  const kept: StudentPair[] = []
+  for (const pair of await studentPairs()) {
+    if (!(await isSame(pair.content, content))) kept.push(pair)
+  }
+  await idbPut(STUDENT_FOLDERS_KEY, [{ content, student: handle }, ...kept])
+  return handle
+}
+
+/* ------------------------------------------------------------- releasing */
+
+export interface ReleaseWrite {
+  path: string
+  release: unknown
+  images: { from: string; to: string }[]
+  ledger: LedgerExam
+  questions: LedgerQuestion[]
+}
+
+/**
+ * Write one release into the student folder and record it in the ledger.
+ *
+ * Every picture is read before anything is written, so a missing one stops the
+ * release with nothing half done. The ledger is re-read from disk and merged,
+ * as a bank is, because two teachers on one shared folder is the ordinary case;
+ * and one that is there and will not parse stops the release instead of being
+ * overwritten, because the dates and approvals in it are held nowhere else.
+ * The ledger is written last, so it never records a release that did not land.
+ */
+export async function writeRelease(
+  content: FileSystemDirectoryHandle,
+  student: FileSystemDirectoryHandle,
+  plan: ReleaseWrite,
+): Promise<void> {
+  const problem = await studentFolderProblem(content, student)
+  if (problem) throw new Error(problem)
+
+  let ledger = emptyLedger()
+  const there = await fileAt(content, LEDGER_PATH)
+  if (there) {
+    try {
+      ledger = readLedger(JSON.parse(await there.text()))
+    } catch {
+      throw new Error(
+        `${LEDGER_PATH} in your folder cannot be read, so nothing was released. ` +
+          `Open it and fix it, or move it aside to start a new record.`,
+      )
+    }
+  }
+
+  const pictures: { to: string; file: File }[] = []
+  for (const { from, to } of plan.images) {
+    const file = await fileAt(content, from)
+    if (!file) throw new Error(`${from} is not in your folder, so nothing was released.`)
+    pictures.push({ to, file })
+  }
+
+  for (const { to, file } of pictures) await writeFile(student, to, file)
+  await writeJson(student, plan.path, plan.release)
+  await writeJson(content, LEDGER_PATH, recordRelease(ledger, plan.ledger, plan.questions))
 }

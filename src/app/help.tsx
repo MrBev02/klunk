@@ -45,6 +45,7 @@ const CONTENTS: { id: string; title: string }[] = [
   { id: 'help-questions', title: 'Three ways to get questions in' },
   { id: 'help-papers', title: 'Building and printing a paper' },
   { id: 'help-sharing', title: 'Sharing a folder with colleagues' },
+  { id: 'help-release', title: 'Releasing questions to students' },
   { id: 'help-trouble', title: 'When something looks wrong' },
   { id: 'help-privacy', title: 'What leaves your computer' },
   { id: 'help-limits', title: 'What Klunk does not do' },
@@ -210,6 +211,14 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
             <code>syllabus/</code>
           </dt>
           <dd>The syllabus models you have built.</dd>
+
+          <dt>
+            <code>release/ledger.json</code>
+          </dt>
+          <dd>
+            What you have released to students: each exam's date sat, and who approved each
+            question. Keep it. Nothing else records it.
+          </dd>
 
           <dt>
             <code>source/</code>
@@ -450,6 +459,26 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         </p>
       </section>
 
+      <section id="help-release" class="help__sec">
+        <h3 class="setup__head">Releasing questions to students</h3>
+        <p>
+          Students revise from released questions in Mimir. Make a second folder for each subject,
+          shared with students to view only, and choose it on the{' '}
+          <strong>Release to students</strong> tab. Never share your Klunk folder with students:
+          anything in a folder they can open, they can read.
+        </p>
+        <p>
+          Choose an exam you read in on From a past paper and enter the date the last class sat it.
+          Tick each question to release, then click <strong>Release</strong>. Students see the
+          question and its sample answer. Marker notes stay here.
+        </p>
+        <p>
+          A question also on a paper not yet sat, or on a paper with no date, is held back until
+          that paper is sat. Edit a released question and it is marked as changed: release the exam
+          again to update students.
+        </p>
+      </section>
+
       <section id="help-trouble" class="help__sec">
         <h3 class="setup__head">When something looks wrong</h3>
         <dl class="help__trouble">
@@ -578,6 +607,10 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
           <li>
             <strong>Two editions of one syllabus in the same folder</strong> is not handled well
             yet. This comes up when a new syllabus starts while the old one finishes.
+          </li>
+          <li>
+            <strong>Only exams read in on From a past paper can be released.</strong> Releasing a
+            paper you built in Klunk is not built yet.
           </li>
           <li>
             <strong>No past papers for a brand new course.</strong> If a syllabus has just changed
