@@ -29,7 +29,7 @@ import {
 } from '../shared/fields'
 import { ingestQuestions, AI_TAG, type Draft, type Ingest, type IngestContext } from './ingest'
 import { buildPrompt, outcomesFor, pickExample } from './prompt'
-import { QuestionDetail } from '../questions/question'
+import { QuestionDetail, useChosenImages } from '../questions/question'
 import { hasMarkup } from '../shared/richtext'
 import { ProfileInstaller } from '../profiles/setup'
 import {
@@ -38,6 +38,8 @@ import {
   inSyllabus,
   questionIds,
   saveQuestion,
+  writeChosenPictures,
+  type ChosenPictures,
   type ContentIndex,
 } from '../folder/storage'
 import {
@@ -50,7 +52,7 @@ import {
   type Syllabus,
   type SyllabusCourse,
 } from '../shared/types'
-import { blocksSaving, cleanQuestion } from '../shared/validate'
+import { blocksSaving, cleanQuestion, recheckQuestion } from '../shared/validate'
 
 /** How many questions one prompt asks for, before quality starts to slide. */
 const MAX_COUNT = 10
@@ -188,8 +190,9 @@ export function Factory({
     setRead(ingestQuestions(pasted, context))
   }
 
-  // What has been written is worked out from the folder rather than remembered,
-  // so a draft sent to the editor and saved there comes back marked saved too.
+  // What has been written is worked out from the folder rather than remembered.
+  // A draft sent to the editor used to be saved there; it comes back here now
+  // (#212), and only `saveReady` writes.
   const alreadySaved = useMemo(() => questionIds(index), [index])
   // A draft whose id was taken by another teacher went in under a different one,
   // so it has to be looked for under that or it never shows as saved.
@@ -201,6 +204,33 @@ export function Factory({
   const stuck = unsaved.length - ready.length
   const owed = ready.filter((d) => d.faults.some((f) => f.unfinished)).length
 
+  /** Put a draft edited in the editor back in the list, to be saved with the rest (#212). */
+  const takeEdit = (id: string, question: Question, chosen: ChosenPictures) => {
+    const ids = {
+      inBank: new Set(
+        (index.banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+      ),
+      inFolder: questionIds(index),
+    }
+    setRead((r) =>
+      r === null
+        ? r
+        : {
+            ...r,
+            drafts: r.drafts.map((d) =>
+              d.question.id !== id
+                ? d
+                : {
+                    ...d,
+                    question,
+                    chosen,
+                    faults: recheckQuestion(d.question, d.faults, question, ids),
+                  },
+            ),
+          },
+    )
+  }
+
   const saveReady = async () => {
     setSaving(true)
     setFailed('')
@@ -209,7 +239,8 @@ export function Factory({
       // taken belongs to somebody else and the draft gets a free one instead.
       const moved: Record<string, string> = {}
       for (const draft of ready) {
-        const written = await saveQuestion(folder, bankPath, cleanQuestion(draft.question), {
+        const question = await writeChosenPictures(folder, bankPath, draft.question, draft.chosen)
+        const written = await saveQuestion(folder, bankPath, cleanQuestion(question), {
           syllabusId: chosen?.syllabus.id,
         })
         if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
@@ -555,7 +586,18 @@ export function Factory({
                   saved={alreadySaved.has(savedAs(draft))}
                   savedAs={renamed[draft.question.id]}
                   bankPath={bankPath}
-                  onEdit={() => onEdit({ question: draft.question, file: bankPath, fresh: true })}
+                  onEdit={() =>
+                    onEdit({
+                      question: draft.question,
+                      file: bankPath,
+                      fresh: true,
+                      chosen: draft.chosen,
+                      update: {
+                        label: 'Update the draft',
+                        take: (question, chosen) => takeEdit(draft.question.id, question, chosen),
+                      },
+                    })
+                  }
                   onDiscard={() => setDiscarded([...discarded, draft.question.id])}
                 />
               ))}
@@ -714,6 +756,7 @@ function DraftCard({
 }) {
   const [open, setOpen] = useState(true)
   const q = draft.question
+  const chosenImages = useChosenImages(bankPath, draft.chosen)
   const errors = draft.faults.filter((f) => f.severity === 'error' && !f.unfinished)
   const owed = draft.faults.filter((f) => f.unfinished).length
   const state = saved ? 'saved' : errors.length > 0 ? 'bad' : owed > 0 ? 'owed' : 'ready'
@@ -799,7 +842,12 @@ function DraftCard({
         <div class="qrow__detail">
           {/* As in the extractor: the heading has said the stem already, unless
               the stem holds a table it cannot show (#88). */}
-          <QuestionDetail question={q} showStem={hasMarkup(q.questionText)} />
+          <QuestionDetail
+            question={q}
+            showStem={hasMarkup(q.questionText)}
+            bankFile={bankPath}
+            images={chosenImages}
+          />
         </div>
       )}
     </li>

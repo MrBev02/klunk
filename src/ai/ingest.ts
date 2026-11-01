@@ -20,6 +20,7 @@
 
 import { cleanCode } from '../shared/code'
 import type { Check } from '../shared/validate'
+import type { ChosenPictures } from '../folder/storage'
 import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
@@ -114,6 +115,8 @@ export interface Draft {
   /** What Klunk changed or dropped, in the teacher's words. */
   repairs: string[]
   faults: Check[]
+  /** Pictures the teacher chose for it in the editor, written when the drafts are (#212). */
+  chosen?: ChosenPictures
 }
 
 export interface Ingest {

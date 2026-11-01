@@ -34,6 +34,7 @@ import {
   questionIds,
   safeFilename,
   saveQuestion,
+  type ChosenPictures,
   type SaveQuestionResult,
   type ContentIndex,
 } from '../folder/storage'
@@ -116,6 +117,22 @@ export interface Editing {
    * replacing anything.
    */
   fresh?: boolean
+  /**
+   * Hand the edited question back rather than saving it (#212).
+   *
+   * For a question on a review of read or drafted questions, which are saved
+   * together once the teacher has been through them all. Saving one from here
+   * put it in ahead of the rest, and without the pictures its card held.
+   */
+  update?: {
+    /** The main button, saying what it does. */
+    label: string
+    /** Anything the editor cannot show of the question, said above the form. */
+    note?: string | undefined
+    take: (question: Question, chosen: ChosenPictures) => void
+  }
+  /** Pictures chosen for it on an earlier visit, not in the folder yet. */
+  chosen?: ChosenPictures | undefined
 }
 
 export function QuestionEditor({
@@ -139,7 +156,12 @@ export function QuestionEditor({
     () => editing?.question ?? blankQuestion('short_answer'),
   )
   const [stimuli, setStimuli] = useState<StimulusDraft[]>(() =>
-    editing ? stimulusList(editing.question) : [],
+    editing
+      ? stimulusList(editing.question).map((s) => {
+          const file = s.item.file === undefined ? undefined : editing.chosen?.[s.item.file]
+          return file ? { ...s, pending: file, previewUrl: URL.createObjectURL(file) } : s
+        })
+      : [],
   )
   /** The bank to write to, or null for one that does not exist yet. */
   const [bank, setBank] = useState<string | null>(
@@ -252,6 +274,16 @@ export function QuestionEditor({
 
   /** Save, then either close or clear the form for the next question. */
   const save = async (andAnother: boolean) => {
+    if (editing?.update) {
+      // Nothing is written: the pictures chosen here go back with the question,
+      // keyed by the path it names, and are copied in when the review is saved.
+      const chosen: ChosenPictures = {}
+      for (const s of stimuli)
+        if (s.pending && s.item.file !== undefined) chosen[s.item.file] = s.pending
+      editing.update.take(question, chosen)
+      onCancel()
+      return
+    }
     setSaving(true)
     setFailed('')
     try {
@@ -344,11 +376,13 @@ export function QuestionEditor({
         >
           {saving
             ? 'Saving…'
-            : editing?.fresh
-              ? 'Save into the bank'
-              : editing
-                ? 'Save changes'
-                : 'Save and close'}
+            : editing?.update
+              ? editing.update.label
+              : editing?.fresh
+                ? 'Save into the bank'
+                : editing
+                  ? 'Save changes'
+                  : 'Save and close'}
         </button>
       </ScreenBar>
 
@@ -472,7 +506,7 @@ export function QuestionEditor({
             been written so far, and why a save failed are read beside the
             faults that decide whether Save can be pressed. */}
           <div class="panel">
-            <p class="panel__title">Saves to</p>
+            <p class="panel__title">{editing?.update ? 'Saves with the others to' : 'Saves to'}</p>
             <p class="muted mono editor__where">{bankPath}</p>
             {alsoSaved.length > 0 && (
               <p class="hint">Written so far: {alsoSaved.map((saved) => saved.id).join(', ')}</p>
@@ -1242,6 +1276,17 @@ function WrittenFields({
 
 /* ------------------------------------------------------------------- stimulus */
 
+function unusedPath(list: StimulusDraft[], name: string): string {
+  const taken = new Set(list.flatMap((s) => (s.item.kind === 'image' ? [s.item.file] : [])))
+  const safe = safeFilename(name)
+  const dot = safe.lastIndexOf('.')
+  const stem = dot > 0 ? safe.slice(0, dot) : safe
+  const ext = dot > 0 ? safe.slice(dot) : ''
+  let path = `${IMAGE_SUBDIR}/${safe}`
+  for (let n = 1; taken.has(path); n += 1) path = `${IMAGE_SUBDIR}/${stem}-${n}${ext}`
+  return path
+}
+
 type SetStimuli = (fn: (s: StimulusDraft[]) => StimulusDraft[]) => void
 
 /**
@@ -1271,10 +1316,12 @@ function useAttach(setStimuli: SetStimuli) {
       const file = await handle.getFile()
       setStimuli((list) => [
         ...list,
-        // The name shown is the one that will be used, bar a collision, which
-        // is only discovered when the copy happens.
+        // The name shown is the one that will be used, bar a collision with the
+        // folder, which is only discovered when the copy happens. One with a
+        // picture chosen here is settled now, since a review keys the files it
+        // holds for later by this path (#212).
         {
-          item: { kind: 'image', file: `${IMAGE_SUBDIR}/${safeFilename(file.name)}` },
+          item: { kind: 'image', file: unusedPath(list, file.name) },
           at: null,
           ...(guide ? { guide: true } : {}),
           pending: file,
@@ -1995,7 +2042,14 @@ function DestinationFields({
 
       {/* Only where the question lands: the id field below already says why it
           is fixed, and saying it twice is what made this panel a paragraph. */}
-      {editing?.fresh ? (
+      {editing?.update ? (
+        <>
+          <p class="hint">
+            Saved into <span class="mono">{editing.file}</span> with the others, when you save them.
+          </p>
+          {editing.update.note && <p class="hint">{editing.update.note}</p>}
+        </>
+      ) : editing?.fresh ? (
         <p class="hint">
           Saving writes this question into <span class="mono">{editing.file}</span>.
         </p>

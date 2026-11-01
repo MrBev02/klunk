@@ -21,6 +21,7 @@ import type { ExtractedPaper, ExtractedQuestion } from './extract'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
 import type { Cutout } from '../documents/pdfimage'
 import type { Check } from '../shared/validate'
+import type { ChosenPictures } from '../folder/storage'
 import {
   QUESTION_TYPE_LABELS,
   type Question,
@@ -62,6 +63,12 @@ export interface Adopted {
   /** What the readers noticed, in the teacher's words. */
   notes: string[]
   faults: Check[]
+  /**
+   * Pictures the teacher chose for it in the editor, written when the batch is
+   * (#212). Held on the question rather than beside it by id, because changing
+   * the bank gives every unsaved question a new id.
+   */
+  chosen?: ChosenPictures
 }
 
 /**

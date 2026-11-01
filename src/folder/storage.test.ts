@@ -13,6 +13,7 @@ import {
   allQuestions,
   copyFileInto,
   copyFileIntoUnlessThere,
+  writeChosenPictures,
   deletePaper,
   emptyIndex,
   folderIsMissing,
@@ -720,6 +721,54 @@ describe('copyFileInto', () => {
       'handle-2.png',
     )
     expect(read(dir, 'bank/stimulus/handle.png')).toBe('the first one')
+  })
+})
+
+describe('writeChosenPictures (#212)', () => {
+  const base = newQuestion('a')
+
+  it('copies a chosen picture beside the bank and points the question at the copy', async () => {
+    const files = tree({ 'bank/stimulus/handle.png': 'somebody else' })
+    const question: Question = {
+      ...base,
+      stimulus: [{ kind: 'image', file: 'stimulus/handle.png', alt: 'A handle' }],
+      config: {
+        parts: [
+          {
+            label: 'a',
+            text: 'Name it.',
+            marks: 1,
+            stimulus: [{ kind: 'image', file: 'stimulus/grip.png' }],
+          },
+        ],
+      },
+    }
+
+    const written = await writeChosenPictures(dirHandle(files), 'bank/trial.json', question, {
+      'stimulus/handle.png': new File(['mine'], 'handle.png'),
+      'stimulus/grip.png': new File(['grip'], 'grip.png'),
+    })
+
+    expect(written.stimulus).toEqual([
+      { kind: 'image', file: 'stimulus/handle-1.png', alt: 'A handle' },
+    ])
+    expect(written.config?.parts?.[0]?.stimulus).toEqual([
+      { kind: 'image', file: 'stimulus/grip.png' },
+    ])
+    expect(read(files, 'bank/stimulus/handle.png')).toBe('somebody else')
+    expect(read(files, 'bank/stimulus/handle-1.png')).toBeInstanceOf(Blob)
+  })
+
+  it('leaves a picture already in the folder alone', async () => {
+    const files = tree({})
+    const question: Question = {
+      ...base,
+      stimulus: [{ kind: 'image', file: 'stimulus/old.png' }],
+    }
+    expect(await writeChosenPictures(dirHandle(files), 'bank/trial.json', question, {})).toBe(
+      question,
+    )
+    expect(read(files, 'bank/stimulus')).toBeUndefined()
   })
 })
 
