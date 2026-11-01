@@ -127,6 +127,10 @@
             "paper": { "type": "string", "description": "e.g. 'NSW HSC Design and Technology'" },
             "year": { "type": "integer" },
             "questionNumber": { "type": "string" },
+            "section": {
+              "type": "string",
+              "description": "The section of the paper the question sits in, e.g. 'Extension Band'. Needed on a paper that numbers each section from 1, where the number alone names several questions."
+            },
             "copyright": {
               "type": "string",
               "description": "Who owns it. An extracted NESA question is NESA's, which constrains where the paper containing it may go."

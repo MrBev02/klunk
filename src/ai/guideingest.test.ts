@@ -200,6 +200,18 @@ describe('the parts', () => {
   })
 })
 
+describe('the section', () => {
+  it('keeps the section an entry names, as a stored field rather than a dropped one (#208)', () => {
+    const out = readMarking(
+      '[{"number": 1, "section": " Extension Band ", "sampleAnswer": "x"},' +
+        ' {"number": 1, "sampleAnswer": "y"}]',
+      NONE,
+    )
+    expect(out.entries.map((e) => e.section)).toEqual(['Extension Band', undefined])
+    expect(out.notes.join(' ')).not.toContain('section')
+  })
+})
+
 describe('the outcomes', () => {
   it('keeps only the codes the prompt offered', () => {
     const out = readMarking('[{"number": 1, "outcomes": ["H1.1", "H9.9"]}]', {

@@ -817,7 +817,7 @@ describe('reading back a paper somebody transcribed', () => {
     expect(draft.faults.some((f) => f.severity === 'error')).toBe(true)
   })
 
-  it('keeps the question number as provenance, which a model can know', () => {
+  it('keeps the question number and section as provenance, which a model can know', () => {
     const { draft } = first(flattened(), ctx({ expected: undefined, paper }))
 
     expect(draft.question.source).toEqual({
@@ -825,6 +825,7 @@ describe('reading back a paper somebody transcribed', () => {
       paper: 'Enterprise Computing Year 11',
       year: 2025,
       questionNumber: '7',
+      section: 'I',
     })
   })
 
@@ -858,18 +859,35 @@ describe('reading back a paper somebody transcribed', () => {
     expect(warnings.join(' ')).not.toContain('scan')
   })
 
-  it('says once that sections were dropped, rather than on every question', () => {
+  it('keeps the section in the provenance of a question off a paper (#208)', () => {
+    const two = JSON.parse(flattened()) as Record<string, unknown>[]
+    const out = ingestQuestions(
+      JSON.stringify([
+        { ...two[0], number: 1, section: ' Support Band ' },
+        { ...two[0], number: 1, section: 'Extension Band' },
+      ]),
+      ctx({ expected: undefined, paper }),
+    )
+
+    expect(out.drafts.map((d) => d.question.source?.section)).toEqual([
+      'Support Band',
+      'Extension Band',
+    ])
+    expect(out.notes.join(' ')).not.toContain('section')
+  })
+
+  it('says once that sections were dropped where nothing keeps them, rather than on every question', () => {
     const two = JSON.parse(flattened()) as Record<string, unknown>[]
     const out = ingestQuestions(
       JSON.stringify([two[0], { ...two[0], number: 8 }]),
-      ctx({
-        expected: undefined,
-        paper,
-      }),
+      ctx({ expected: undefined }),
     )
 
     expect(out.notes.filter((n) => n.includes('section'))).toHaveLength(1)
-    for (const draft of out.drafts) expect(draft.repairs.join(' ')).not.toContain('section')
+    for (const draft of out.drafts) {
+      expect(draft.repairs.join(' ')).not.toContain('section')
+      expect(draft.question.source?.section).toBeUndefined()
+    }
   })
 })
 

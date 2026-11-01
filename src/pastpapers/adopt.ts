@@ -254,16 +254,13 @@ export function applyMarking(
   ctx: { inBank: Set<string>; inFolder: Set<string> },
 ): { adopted: Adopted[]; notes: string[]; marked: number } {
   const notes: string[] = [...marking.notes]
-  const covered = new Set<number>()
+  const placed = placeEntries(adopted, marking.entries)
   let answered = 0
   let marked = 0
 
-  const out = adopted.map((item) => {
-    const number = numberOf(item.question)
-    if (number === undefined) return item
-    const entries = marking.entries.filter((e) => e.number === number)
+  const out = adopted.map((item, at) => {
+    const entries = placed.get(at) ?? []
     if (entries.length === 0) return item
-    covered.add(number)
 
     const own: string[] = [...item.notes]
     const wholes = entries.filter((e) => e.part === undefined)
@@ -322,12 +319,13 @@ export function applyMarking(
     }
   })
 
-  for (const number of new Set(marking.entries.map((e) => e.number))) {
-    if (!covered.has(number)) {
-      notes.push(
-        `The reply marks Question ${number}, and no question of that number was read from the paper.`,
-      )
-    }
+  const landed = new Set([...placed.values()].flat())
+  for (const number of new Set(
+    marking.entries.filter((e) => !landed.has(e)).map((e) => e.number),
+  )) {
+    notes.push(
+      `The reply marks Question ${number}, and no question of that number was read from the paper.`,
+    )
   }
   notes.push(
     `${marked} of the ${adopted.length} questions were marked, ${answered} of them with an answer.`,
@@ -351,6 +349,73 @@ function withTag(tags: string[] | undefined, tag: string): string[] {
   const out = [...(tags ?? [])]
   if (!out.includes(tag)) out.push(tag)
   return out.slice(0, 20)
+}
+
+/**
+ * Which question each entry is for, by where that question sits in `adopted`.
+ *
+ * Where every number on the paper is different, the number is the whole key,
+ * exactly as it always was. Where the paper numbers each section from 1, it is
+ * not (#208): the first reply over such a paper gave all five of its Q1s the
+ * same answer. There an entry naming its section goes to that section's
+ * question, and one that does not, which is every reply written before the
+ * prompt asked, goes to the next question of its number from where the last
+ * entry landed. A reply comes back in the order of the paper, so that walks
+ * band by band; parts of one question land together, and a question read twice
+ * lands twice on the same question and is reported as such.
+ */
+function placeEntries(adopted: Adopted[], entries: MarkingEntry[]): Map<number, MarkingEntry[]> {
+  const keys = adopted.map((item) => ({
+    number: numberOf(item.question),
+    section: item.question.source?.section,
+  }))
+  const placed = new Map<number, MarkingEntry[]>()
+  const put = (at: number, entry: MarkingEntry) =>
+    placed.set(at, [...(placed.get(at) ?? []), entry])
+
+  const numbers = keys.map((k) => k.number).filter((n) => n !== undefined)
+  if (new Set(numbers).size === numbers.length) {
+    for (const entry of entries) {
+      const at = keys.findIndex((k) => k.number === entry.number)
+      if (at >= 0) put(at, entry)
+    }
+    return placed
+  }
+
+  let cursor = 0
+  for (const entry of entries) {
+    const candidates = keys.flatMap((k, at) => (k.number === entry.number ? [at] : []))
+    if (candidates.length === 0) continue
+    const named = entry.section
+      ? candidates.filter((at) => sameSection(keys[at]!.section, entry.section!))
+      : []
+    const from = named.length > 0 ? named : candidates
+    // The parts of one question stay on it. A second whole answer for the
+    // question just marked is the next section's question of that number,
+    // unless the reply named this section, which `named` has already settled.
+    const full =
+      named.length === 0 &&
+      entry.part === undefined &&
+      (placed.get(cursor) ?? []).some((e) => e.part === undefined)
+    const at = from.find((c) => (full ? c > cursor : c >= cursor)) ?? from[0]!
+    put(at, entry)
+    cursor = at
+  }
+  return placed
+}
+
+/**
+ * Whether two names are one section, as a paper and its guide print them.
+ *
+ * Loose on purpose: the paper's transcription and the guide's are two replies,
+ * and "Support Band" in one is "SUPPORT" or "Support band" in the other.
+ */
+function sameSection(a: string | undefined, b: string): boolean {
+  if (a === undefined) return false
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const x = norm(a)
+  const y = norm(b)
+  return x !== '' && y !== '' && (x === y || x.startsWith(y) || y.startsWith(x))
 }
 
 /** The number printed on the paper, which is what a guide keys against. */

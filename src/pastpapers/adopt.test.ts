@@ -462,3 +462,104 @@ describe('a model program from a guide (#141)', () => {
     expect(out.adopted[1]!.question.config?.parts?.[0]?.sampleStimulus).toEqual([program])
   })
 })
+
+/**
+ * A paper whose sections each number from 1 (#208).
+ *
+ * The real reply this was found on came back in paper order with no section on
+ * any entry, and every band but the first got the first band's answers. Both
+ * the reply that names its sections and the one that does not are tested,
+ * because the second is what was actually pasted.
+ */
+describe('a paper that numbers each section from 1', () => {
+  function banded(section: string, number: string, parts = false): Question {
+    const question: Question = {
+      id: `bank-sa-${section}-${number}`,
+      questionType: 'short_answer',
+      questionText: 'Simplify fully.',
+      marks: 2,
+      source: { questionNumber: number, section },
+    }
+    if (parts) {
+      question.config = {
+        parts: [
+          { label: 'a', text: 'Write an expression.', marks: 1 },
+          { label: 'b', text: 'Hence find the cost.', marks: 1 },
+        ],
+      }
+    }
+    return question
+  }
+  const paper = () =>
+    ['Support Band', 'Standard Band', 'Advanced Band'].flatMap((s) => [
+      adopted(banded(s, '1')),
+      adopted(banded(s, '2', s === 'Advanced Band')),
+    ])
+  const sample = (out: ReturnType<typeof applyMarking>) =>
+    out.adopted.map((a) => a.question.markingGuide?.sampleAnswer)
+
+  it('walks a reply with no sections band by band, in paper order', () => {
+    const out = applyMarking(
+      paper(),
+      marking([
+        { number: 1, sampleAnswer: 'S1' },
+        { number: 2, sampleAnswer: 'S2' },
+        { number: 1, sampleAnswer: 'T1' },
+        { number: 2, sampleAnswer: 'T2' },
+        { number: 1, sampleAnswer: 'A1' },
+        { number: 2, part: 'a', sampleAnswer: 'A2a' },
+        { number: 2, part: 'b', sampleAnswer: 'A2b' },
+      ]),
+      CTX,
+    )
+    expect(sample(out)).toEqual(['S1', 'S2', 'T1', 'T2', 'A1', undefined])
+    const parts = out.adopted[5]!.question.config!.parts!
+    expect(parts.map((p) => p.sampleAnswer)).toEqual(['A2a', 'A2b'])
+    for (const a of out.adopted) expect(a.notes.join(' ')).not.toContain('times')
+  })
+
+  it('goes by the section a reply names, written however the guide wrote it', () => {
+    const out = applyMarking(
+      paper(),
+      marking([
+        { number: 1, section: 'ADVANCED', sampleAnswer: 'A1' },
+        { number: 1, section: 'support band', sampleAnswer: 'S1' },
+        { number: 2, section: 'Standard Band', sampleAnswer: 'T2' },
+      ]),
+      CTX,
+    )
+    expect(sample(out)).toEqual(['S1', undefined, undefined, 'T2', 'A1', undefined])
+  })
+
+  it('still says when one question is marked twice', () => {
+    const out = applyMarking(
+      paper(),
+      marking([
+        { number: 1, sampleAnswer: 'S1' },
+        { number: 1, sampleAnswer: 'S1 again' },
+      ]),
+      CTX,
+    )
+    // In paper order the second 1 is the next band's, so this only holds
+    // where the reply names the section.
+    const named = applyMarking(
+      paper(),
+      marking([
+        { number: 1, section: 'Support Band', sampleAnswer: 'S1' },
+        { number: 1, section: 'Support Band', sampleAnswer: 'S1 again' },
+      ]),
+      CTX,
+    )
+    expect(sample(out).slice(0, 3)).toEqual(['S1', undefined, 'S1 again'])
+    expect(named.adopted[0]!.notes.join(' ')).toContain('marks this question 2 times')
+  })
+
+  it('keys by number alone where no number repeats, as it always did', () => {
+    const out = applyMarking(
+      [adopted(banded('I', '1')), adopted(banded('II', '2'))],
+      marking([{ number: 2, sampleAnswer: 'two' }]),
+      CTX,
+    )
+    expect(sample(out)).toEqual([undefined, 'two'])
+  })
+})

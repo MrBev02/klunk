@@ -729,6 +729,6 @@ export function shortType(q: Question): string {
 export function sourceLabel(q: Question): string {
   const s = q.source
   if (!s) return ''
-  const bits = [s.origin, s.paper, s.year?.toString(), s.questionNumber].filter(Boolean)
+  const bits = [s.origin, s.paper, s.year?.toString(), s.section, s.questionNumber].filter(Boolean)
   return bits.join(' · ')
 }

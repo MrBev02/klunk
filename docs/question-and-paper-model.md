@@ -713,3 +713,29 @@ that follows the prompt exactly.
   all eight types through `ingestQuestions`, and `examprompt.test.ts` runs a
   paper of all eight through `readExam`, both asserting nothing arrives with an
   error. `paperprompt.test.ts` already did the same for its own example.
+
+## A section that numbers from 1
+
+**A question's provenance records its section, because on some papers the
+number alone names five questions** (#208). Found on the 2025 Year 8
+mathematics task (#201), whose five bands each number 1 to 9: the AI marking
+reply came back right and in paper order, and every Q1 took Support's answer,
+because answers were keyed by number alone.
+
+- **`source.section` is optional and additive.** Every existing bank stays
+  valid. It is kept on every question transcribed off a named paper, not only
+  where numbers repeat, because a paper transcribed a range at a time may never
+  show the repeat inside one reply. The drafting route still drops it, with the
+  one note it always gave.
+- **The marking prompt asks for a section only where a number repeats.** A
+  NESA paper's numbers run on, so its prompt is unchanged.
+- **A reply that names a section is matched loosely on it**, case and spacing
+  ignored, and either name may be the start of the other ("Advanced" matches
+  "Advanced Band"). The paper's and the guide's transcriptions are two replies
+  and need not agree on wording.
+- **A reply that names none is walked in paper order**: each entry goes to the
+  next question of its number from where the last one landed. Parts of one
+  question stay together, and a second whole answer moves on to the next
+  section's question. That is what the real reply needed, and it was written
+  before the prompt asked for sections. Where no number repeats, the number is
+  the whole key, exactly as before.

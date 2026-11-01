@@ -228,3 +228,32 @@ describe('the worked example, read back', () => {
     expect(program?.text).toContain('\n    print(count)')
   })
 })
+
+describe('a paper that numbers each section from 1 (#208)', () => {
+  const banded: GuidePromptSpec = {
+    ...BASE,
+    scanned: false,
+    questions: ['Support Band', 'Extension Band'].flatMap((section) => [
+      { number: 1, section, questionType: 'short_answer' as const, marks: 2 },
+      { number: 2, section, questionType: 'short_answer' as const, marks: 1 },
+    ]),
+  }
+
+  it('lists the questions under their sections and asks for the section back', () => {
+    const prompt = buildGuidePrompt(banded)
+    expect(prompt).toMatch(/numbers each section from 1/)
+    expect(prompt).toMatch(/\n {2}Support Band\n {4}1 /)
+    expect(prompt).toMatch(/\n {2}Extension Band\n {4}1 /)
+    expect(prompt).toMatch(/ {2}section {9}the section/)
+    expect(prompt).not.toMatch(/[—–]/)
+  })
+
+  it('says nothing about sections where the numbers run on', () => {
+    const prompt = buildGuidePrompt({
+      ...BASE,
+      questions: QUESTIONS.map((q) => ({ ...q, section: 'I' })),
+    })
+    expect(prompt).not.toMatch(/numbers each section from 1/)
+    expect(prompt).not.toMatch(/ {2}section {9}/)
+  })
+})

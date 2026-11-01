@@ -1661,7 +1661,8 @@ function ExtractedCard({
             has none: nobody read the pages, so there is no page to name. */}
         {item.pages.length > 0 &&
           ` · page${item.pages.length === 1 ? '' : 's'} ${item.pages.join(', ')}`}
-        {q.source?.year !== undefined && ` · ${q.source.year} Q${q.source.questionNumber}`}
+        {q.source?.year !== undefined &&
+          ` · ${q.source.year}${q.source.section ? ` ${q.source.section}` : ''} Q${q.source.questionNumber}`}
       </p>
 
       {savedAs && (
