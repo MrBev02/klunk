@@ -583,6 +583,55 @@ export interface Manifest {
   documents: DocumentEntry[]
 }
 
+/* ------------------------------------------------------------------- release */
+
+/**
+ * One imported exam as it was last released to students (#150).
+ *
+ * Kept so the release screen opens where the last visit left it, and so the
+ * date sat is on record: it is what decided the questions could go.
+ */
+export interface LedgerExam {
+  /** `source.paper` and `source.year`, which is how an imported exam is found again. */
+  key: string
+  /** ISO date, entered by the teacher: the day the last class sat it. */
+  dateSat?: string
+  title?: string
+  subject?: string
+  yearLevel?: number
+  /** The release file, relative to the student folder. */
+  file?: string
+  releasedOn?: string
+}
+
+/** One question a teacher approved for students, and what they approved. */
+export interface LedgerQuestion {
+  id: string
+  /** The `LedgerExam.key` it was released under. */
+  exam: string
+  /** A name the teacher typed. Klunk has no accounts: a record, not a control. */
+  approvedBy: string
+  approvedOn: string
+  /**
+   * Of what students were given, not of the bank question, so editing a
+   * marker's note does not flag a question students never saw the note of.
+   */
+  hash: string
+}
+
+/**
+ * What has been released to students, in the faculty folder.
+ *
+ * Found by its fixed path, as the manifest is, and never in the student
+ * folder: who approved what is for teachers.
+ */
+export interface ReleaseLedger {
+  formatVersion: string
+  type: 'klunk_release_ledger'
+  exams: LedgerExam[]
+  questions: LedgerQuestion[]
+}
+
 /* ------------------------------------------------------------------ in-memory */
 
 /** A loaded file, kept with its path so it can be written back to the same place. */

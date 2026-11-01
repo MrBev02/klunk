@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { buildExamPrompt, typesUsed, type ExamPromptSpec } from './examprompt'
 import { readExam } from './exam'
 import { emptyManifest } from '../folder/manifest'
+import { emptyLedger } from '../folder/ledger'
 import { addRef, newPaper, resolvePaper } from '../papers/paper'
 import type { ContentIndex } from '../folder/storage'
 import type { Bank, Profile, Question, QuestionType, Syllabus } from '../shared/types'
@@ -152,6 +153,7 @@ describe('buildExamPrompt', () => {
       workbooks: [],
       schools: [],
       manifest: emptyManifest(),
+      ledger: emptyLedger(),
       images: new Map(),
     }
     const paper = addRef(newPaper(profile, 'p', 'Last year'), 0, 'bank/test.json#a')
@@ -179,6 +181,7 @@ describe('buildExamPrompt', () => {
       workbooks: [],
       schools: [],
       manifest: emptyManifest(),
+      ledger: emptyLedger(),
       images: new Map(),
     }
     const sample = resolvePaper(index, newPaper(profile, 'p', 'Last year'), profile)

@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { asExamJson, examPaper, readExam, type ExamContext } from './exam'
 import { emptyManifest } from '../folder/manifest'
+import { emptyLedger } from '../folder/ledger'
 import { addRef, newPaper, resolvePaper } from '../papers/paper'
 import type { ContentIndex } from '../folder/storage'
 import type { Bank, Paper, Profile, Question } from '../shared/types'
@@ -144,6 +145,7 @@ function indexWith(questions: Question[]): ContentIndex {
     workbooks: [],
     schools: [],
     manifest: emptyManifest(),
+    ledger: emptyLedger(),
     images: new Map(),
   }
 }

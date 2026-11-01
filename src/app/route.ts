@@ -18,7 +18,7 @@
  * the screen the editor was opened from instead.
  */
 
-export type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus'
+export type View = 'library' | 'build' | 'draft' | 'paper' | 'syllabus' | 'release'
 
 /** Each view by the words on its tab, which is how a screen's bar names where it came from. */
 export const VIEW_NAMES: Record<View, string> = {
@@ -27,6 +27,7 @@ export const VIEW_NAMES: Record<View, string> = {
   draft: 'Draft with AI',
   paper: 'From a past paper',
   syllabus: 'Syllabus',
+  release: 'Release to students',
 }
 
 /** Each view as it appears in the address, in the tab's words rather than the code's. */
@@ -36,6 +37,7 @@ const VIEW_SEGMENTS: Record<View, string> = {
   draft: 'draft',
   paper: 'past-paper',
   syllabus: 'syllabus',
+  release: 'release',
 }
 
 /** The full-screen editors, which hide the tabs. */
