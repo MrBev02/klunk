@@ -253,3 +253,41 @@ the 2025 and 2026 HSC Mathematics Advanced papers and the 2025 marking guide.
 Driven on `../klunk-content` afterwards: the 2025 paper with its guide refused
 with the message and the transcription prompt opened beneath it, the formula
 rule in it; the 2025 D&T paper with its guide still read to fifteen questions.
+
+## A school's own paper, in Word
+
+**No reader for a Word paper: it goes to an AI, and the reasons are what the
+one school pair held** (#201). Established from a 2025 Year 8 mathematics
+task and its solutions, both `.docx`, read as XML paragraph by paragraph.
+
+- **The structure would read easily.** Five tables, one per band, each
+  numbering from 1. A question is one row: the number, the stem, then a
+  textbook reference and `N marks`.
+- **The content would not.** The 39 OMML equations use only `m:sSup`, `m:f`
+  and `m:d`, and would convert to TeX in a few lines. But about 15 of the 42
+  questions carry their mathematics only as a picture: Efofex FX Equation
+  objects (a PNG, spoken-English alt text and an encoded `FXData` payload) and
+  pasted screenshots with no text at all. A reader would number and mark those
+  questions correctly with what is asked missing, the case #198 refuses.
+- **The solutions hold no typed answer.** Their text is identical to the
+  paper's. Every answer is handwritten: 331 `w14:contentPart` InkML strokes.
+  Only something that reads handwriting gets anything from them.
+- **The PDF route already refuses this paper correctly.** Saved as PDF from
+  Word, both documents set their equations in `CambriaMath`, 105 pieces each,
+  and pdf.js reports the name with no subset prefix, so `MATHEMATICS_FONT`
+  matches and both are refused as mathematics. Teachers will set equations in
+  Cambria Math; it is the font Word's equation editor uses.
+- **Not established:** whether a chat AI given the `.docx` itself sees the
+  pictures and the ink. A PDF saved from Word draws both, so that is what the
+  panels tell a teacher to attach.
+
+- **The first real transcription described its formula pictures** ("An
+  index-law expression is shown") in `stimulusNote`, because the prompt's
+  only rule for a picture was to describe it. The prompt now says a formula
+  set as a picture is transcribed as a formula. Every transcribed paper gets
+  no cut-out pictures, whatever its format; taking a Word paper's diagrams
+  from the `.docx` itself is #207.
+
+Two files from one school are a sample of one author's habits, not a format.
+A school paper in Word with typed answers and typed formulas would be the
+evidence to revisit a reader.
