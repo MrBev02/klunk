@@ -1496,6 +1496,12 @@ describe('cleanPaper', () => {
     expect('instructions' in out).toBe(false)
   })
 
+  it('keeps the shuffle a paper prints with, and writes none where it had none (#143)', () => {
+    expect(cleanPaper(paper({ shuffleVersion: 2 }), timed).shuffleVersion).toBe(2)
+    expect(cleanPaper(paper({ shuffleVersion: 1 }), timed).shuffleVersion).toBe(1)
+    expect('shuffleVersion' in cleanPaper(paper(), timed)).toBe(false)
+  })
+
   it('keeps an override that differs', () => {
     const out = cleanPaper(paper({ workingMinutes: 60, instructions: ['Answer all'] }), timed)
     expect(out.workingMinutes).toBe(60)

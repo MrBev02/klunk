@@ -31,6 +31,7 @@ function section(title: string, marks: number, numbers: number[]): ResolvedSecti
       file: 'bank/b.json',
       number: n,
       marks: 1,
+      shuffle: 2 as const,
     })),
   }
 }

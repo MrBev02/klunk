@@ -539,6 +539,11 @@ export interface Paper {
   workingMinutes?: number
   instructions?: string[]
   status?: 'draft' | 'final' | 'used'
+  /**
+   * Which shuffle orders its options (#143). Absent is the first, which every
+   * paper made before it was printed with; see `ShuffleVersion` in papers/paper.ts.
+   */
+  shuffleVersion?: 1 | 2
   sections: PaperSection[]
   notes?: string
 }

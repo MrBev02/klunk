@@ -41,6 +41,8 @@ export interface ResolvedQuestion {
   usedIn?: string[] | undefined
   /** The syllabus it belongs to, which may not be the one the paper assesses. */
   syllabusId?: string | undefined
+  /** The paper's shuffle, carried here because every option list is drawn from one. */
+  shuffle: ShuffleVersion
 }
 
 export interface ResolvedSection {
@@ -248,6 +250,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
         note: typeof ref === 'object' ? ref.note : undefined,
         usedIn: sat.get(found.question.id),
         syllabusId: found.syllabusId,
+        shuffle: paperShuffle(paper),
       })
     }
 
@@ -527,6 +530,8 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
     }
   }
 
+  checks.push(...letterBalance(resolved))
+
   if (!profile) {
     checks.push({
       severity: 'warning',
@@ -790,6 +795,59 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   return sortChecks(checks)
 }
 
+/**
+ * Answer letters a student could guess from, on the multiple choice of one paper (#143).
+ *
+ * The rule a Computing Technology folder's own checker had applied by hand, so
+ * it is the one teachers asked for: no letter is the answer more than 40% of
+ * the time, and every letter is the answer at least once. Even a fair shuffle
+ * breaks it on a short paper, which is why it is a warning and not a fault in
+ * the shuffle: per-question seeding cannot balance a paper.
+ *
+ * Measured over the letters every question offers, so a paper of four-option
+ * questions is not told it never uses E. Only once there are two answers for
+ * each letter, because three questions cannot use four letters.
+ */
+function letterBalance(resolved: ResolvedPaper): Check[] {
+  const answers: { number: number; at: number; options: number }[] = []
+  for (const section of resolved.sections) {
+    for (const item of section.questions) {
+      if (item.question.questionType !== 'multiple_choice') continue
+      const { choices, correctIndex, known } = shuffledChoices(item.question, item.shuffle)
+      if (known && correctIndex >= 0) {
+        answers.push({ number: item.number, at: correctIndex, options: choices.length })
+      }
+    }
+  }
+  if (answers.length === 0) return []
+  const letters = Math.min(...answers.map((a) => a.options))
+  if (letters < 2 || answers.length < letters * 2) return []
+
+  // The editor cannot reorder options, so the remedy is to retype them.
+  const remedy =
+    'Untick "Shuffle the options" on some of them and type their options in the order you want.'
+  const checks: Check[] = []
+  for (let at = 0; at < letters; at += 1) {
+    const on = answers.filter((a) => a.at === at)
+    if (on.length > answers.length * 0.4) {
+      checks.push({
+        severity: 'warning',
+        where: 'Multiple choice',
+        message: `${optionLetter(at)} is the answer to ${on.length} of ${answers.length} questions (${on
+          .map((a) => a.number)
+          .join(', ')}). ${remedy}`,
+      })
+    } else if (on.length === 0) {
+      checks.push({
+        severity: 'warning',
+        where: 'Multiple choice',
+        message: `${optionLetter(at)} is never the answer. ${remedy}`,
+      })
+    }
+  }
+  return checks
+}
+
 function sortChecks(checks: Check[]): Check[] {
   return [...checks].sort((a, b) =>
     a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1,
@@ -849,6 +907,25 @@ export function optionLetter(index: number): string {
 }
 
 /**
+ * Which shuffle a paper prints with (#143).
+ *
+ * 1 took `state % (i + 1)` from the generator's low bits, which have short
+ * periods: four options reached 12 of their 24 orders and the first option
+ * printed as A a third of the time. 2 takes the high bits and reaches every
+ * order evenly. A paper that records no version is printed with 1, because
+ * its student paper may already be in a drawer and its guide must still agree.
+ */
+export type ShuffleVersion = 1 | 2
+
+/** What a new paper prints with, and what a question shows outside any paper. */
+export const CURRENT_SHUFFLE: ShuffleVersion = 2
+
+/** The shuffle a saved paper prints with. */
+export function paperShuffle(paper: Paper): ShuffleVersion {
+  return paper.shuffleVersion ?? 1
+}
+
+/**
  * The order to print n options in, the same way every time.
  *
  * Fisher-Yates driven by a seeded hash, so the permutation is a pure function
@@ -856,14 +933,14 @@ export function optionLetter(index: number): string {
  * letters of any other, and the student paper and the marking guide printed a
  * minute later agree.
  */
-function printOrder(question: Question, n: number, seed: string): number[] {
+export function printOrder(question: Question, n: number, version: ShuffleVersion): number[] {
   const order = Array.from({ length: n }, (_, i) => i)
   if (question.config?.shuffle === false) return order
 
-  let state = hash(`${question.id}${seed}`)
+  let state = hash(question.id)
   for (let i = order.length - 1; i > 0; i -= 1) {
     state = (Math.imul(state, 1103515245) + 12345) >>> 0
-    const j = state % (i + 1)
+    const j = version === 1 ? state % (i + 1) : (state >>> 16) % (i + 1)
     const a = order[i]
     const b = order[j]
     if (a !== undefined && b !== undefined) {
@@ -880,12 +957,12 @@ function printOrder(question: Question, n: number, seed: string): number[] {
  * Seeded by the question's own id, so adding a question to a paper does not
  * renumber the letters of any other question.
  */
-export function shuffledChoices(question: Question, seed = ''): ShuffledChoices {
+export function shuffledChoices(question: Question, version: ShuffleVersion): ShuffledChoices {
   const choices = question.config?.choices ?? []
   const stated = question.config?.correctAnswer
   const known = typeof stated === 'number'
 
-  const order = printOrder(question, choices.length, seed)
+  const order = printOrder(question, choices.length, version)
 
   return {
     choices: order
@@ -909,11 +986,11 @@ export interface ShuffledResponses {
   known: boolean
 }
 
-/** The multiple-response sibling of `shuffledChoices`, on the same seed. */
-export function shuffledResponses(question: Question, seed = ''): ShuffledResponses {
+/** The multiple-response sibling of `shuffledChoices`, shuffled the same way. */
+export function shuffledResponses(question: Question, version: ShuffleVersion): ShuffledResponses {
   const choices = question.config?.choices ?? []
   const stated = question.config?.correctAnswers
-  const order = printOrder(question, choices.length, seed)
+  const order = printOrder(question, choices.length, version)
 
   const correctIndexes = (stated ?? [])
     .map((i) => order.indexOf(i))
@@ -946,10 +1023,10 @@ export interface ShuffledMatching {
  * group their items by idea — while the letters, left alone, would run 1-A,
  * 2-B, 3-C and hand the student the answer.
  */
-export function shuffledMatching(question: Question, seed = ''): ShuffledMatching {
+export function shuffledMatching(question: Question, version: ShuffleVersion): ShuffledMatching {
   const items = question.config?.items ?? []
   const options = question.config?.options ?? []
-  const order = printOrder(question, options.length, seed)
+  const order = printOrder(question, options.length, version)
   /** Where each original option ended up, so an item's matches can follow it. */
   const movedTo = new Map(order.map((from, to) => [from, to]))
 
@@ -989,6 +1066,7 @@ export function newPaper(
     title,
     profileId: profile.id,
     status: 'draft',
+    shuffleVersion: CURRENT_SHUFFLE,
     // Sections and nothing else. A profile is the template and a paper is an
     // instance of it, so a paper states a field only where it means to differ.
     //

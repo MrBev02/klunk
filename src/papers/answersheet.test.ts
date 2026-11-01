@@ -9,7 +9,12 @@
 import { describe, expect, it } from 'vitest'
 import { answerSheetModel } from './answersheet'
 import { coverModel } from './cover'
-import { shuffledChoices, type ResolvedPaper, type ResolvedQuestion } from './paper'
+import {
+  CURRENT_SHUFFLE,
+  shuffledChoices,
+  type ResolvedPaper,
+  type ResolvedQuestion,
+} from './paper'
 import type { IdentificationField, Profile, Question } from '../shared/types'
 
 function mc(id: string, options: number, correctAnswer?: number): Question {
@@ -26,7 +31,7 @@ function mc(id: string, options: number, correctAnswer?: number): Question {
 }
 
 function item(question: Question, number: number): ResolvedQuestion {
-  return { question, file: 'bank/b.json', number, marks: question.marks }
+  return { question, file: 'bank/b.json', number, marks: question.marks, shuffle: CURRENT_SHUFFLE }
 }
 
 function profile(answerSheet: boolean | null, identification?: IdentificationField[]): Profile {
@@ -108,7 +113,7 @@ describe('the rows', () => {
   it('marks the letter the paper prints, not the one the bank stores', () => {
     // Index 0 in the bank. Whatever the shuffle puts it at is what the key has to say.
     const q = mc('shuffled-question', 4, 0)
-    const printed = shuffledChoices(q).correctIndex
+    const printed = shuffledChoices(q, CURRENT_SHUFFLE).correctIndex
     // Otherwise this passes for a sheet that ignores the shuffle.
     expect(printed).not.toBe(0)
     expect(sheetFor([item(q, 1)], profile(true))?.rows[0]?.correct).toEqual([printed])
