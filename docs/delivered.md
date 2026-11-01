@@ -947,6 +947,23 @@ worst folder in existence for judging this, which is how the first reading went
 wrong. It makes #68's detection a convenience rather than the thing #73 depends
 on.
 
+**Unopened documents are listed first** (#215). Once #201 let a Word file be a
+paper, the paper and guide boxes offered every `.docx` in the folder, and in
+`../klunk-content` that was twelve syllabuses. They sat under "Not opened yet"
+because most were read before the manifest existed, so it held nothing about
+them: a gap in that folder's data rather than in the code, and tagged there by
+hand. The order changed as well: "Not opened yet" now comes before what the box
+wants, because a document is only known to be a past paper by having been read
+already, so it is rarely the one being chosen. The Syllabus tab shares the list
+and the order. A first attempt that hid any Word file titled as a syllabus was
+dropped: a guess at NESA's naming, a read of every Word file, and a list that
+hides documents, which #58 showed is the worse fault.
+
+Verified on `../klunk-content`: both boxes on From a past paper list the two
+Year 8 files and the IB structure notes under "Not opened yet", then what was
+already read, then all twelve Word syllabuses under "Not a past paper" and "Not
+a marking guide". The Syllabus tab shows its three groups in the same order.
+
 ## A topic name and the area it sits in
 
 **A topic name is unique inside a focus area, not inside a course** (#75), which

@@ -226,8 +226,12 @@ const GROUP_LABELS: Record<DocumentPurpose, { matching: string; other: string }>
  *
  * A teacher's folder holds eleven years of past papers and their marking
  * guides, so the syllabus tab was offering 37 documents of which 24 were
- * neither. What the manifest knows sorts them: what this slot wants first, then
- * what nobody has opened, then what is known to be something else.
+ * neither. What the manifest knows sorts them: what nobody has opened first,
+ * then what this slot wants, then what is known to be something else.
+ *
+ * Unopened first since #215. A document is only known to be a past paper
+ * because it has been read already, so it is rarely the one a teacher came to
+ * choose; the new paper they have just saved into the folder is.
  *
  * **Nothing is dropped.** Before the subject guide was offered on the syllabus
  * tab at all it could not be read at all (#58), and a list that hides a real
@@ -269,11 +273,11 @@ export function DocumentOptions({
 
   return (
     <>
-      {grouped.matching.length > 0 && (
-        <optgroup label={labels.matching}>{options(grouped.matching)}</optgroup>
-      )}
       {grouped.unknown.length > 0 && (
         <optgroup label="Not opened yet">{options(grouped.unknown)}</optgroup>
+      )}
+      {grouped.matching.length > 0 && (
+        <optgroup label={labels.matching}>{options(grouped.matching)}</optgroup>
       )}
       {grouped.other.length > 0 && (
         <optgroup label={labels.other}>{options(grouped.other)}</optgroup>
