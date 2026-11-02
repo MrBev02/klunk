@@ -597,7 +597,10 @@ export interface Manifest {
  * date sat is on record: it is what decided the questions could go.
  */
 export interface LedgerExam {
-  /** `source.paper` and `source.year`, which is how an imported exam is found again. */
+  /**
+   * `source.paper|source.year`, which is how an imported exam is found again,
+   * or `paper:` and the id of a paper built in Klunk.
+   */
   key: string
   /** ISO date, entered by the teacher: the day the last class sat it. */
   dateSat?: string
@@ -607,6 +610,8 @@ export interface LedgerExam {
   /** The release file, relative to the student folder. */
   file?: string
   releasedOn?: string
+  /** Whether a built paper's sections went to students as bands, so the next release offers the same. */
+  sectionsAreBands?: boolean
 }
 
 /** One question a teacher approved for students, and what they approved. */
