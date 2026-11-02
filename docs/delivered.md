@@ -1102,3 +1102,41 @@ same code: questions, pictures, year, band and topics all as written. The user
 then released the Year 8 task to a real folder and opened it in Mimir, which
 found two Mimir faults fixed alongside: display maths centred inside a working
 step, and the folder's name shown where the subject belongs.
+
+## The shuffle, and the letters a paper answers with
+
+#143. `printOrder` took `state % (i + 1)` from a linear congruential
+generator, whose low bits have short periods: four options reached 12 of
+their 24 orders, and the bank's first option printed as A a third of the time.
+
+- **Versioned, not replaced.** A paper records `shuffleVersion`. Absent is
+  version 1, the old order, because a paper printed before the fix may still
+  be marked against a guide printed after it, and #64's rule is that a guide's
+  letter is never wrong without warning. `newPaper` and a paper made from an
+  imported exam write 2, which takes the generator's high bits
+  (`state >>> 16`): 24 of 24 and 120 of 120 orders, each letter 25% and 20%
+  to within a tenth of a percent, the figures the issue measured.
+  `cleanPaper` carries the field and never adds one.
+- **The version travels on each `ResolvedQuestion`**, and the shuffle functions
+  take it as a required argument, so no printing path can fall back to a
+  default silently. A question outside any paper (Questions, the editor)
+  shows version 2, so its letters can differ from an old paper's.
+- **The checker warns on lopsided letters**, the rule a Computing Technology
+  folder's own checker applied by hand: a letter that is the answer more than
+  40% of the time, or never. Only over the letters every question offers, and
+  only with two answers per letter, so three questions are never told they
+  missed D. Even a fair shuffle trips it on a short paper, which is why it
+  is a warning: per-question seeding cannot balance a paper. The editor cannot
+  reorder options, so the remedy is to untick "Shuffle the options" and retype
+  them.
+- **Found alongside, in #150's release preview.** The student copy drops
+  `shuffle`, and on screen an absent `shuffle` means shuffle, so the preview
+  lettered every multiple choice question differently from Mimir, which never
+  shuffles. The preview now draws the copy unshuffled.
+
+Verified on `../klunk-content`: the trial paper, which records no version,
+printed the guide letters B A D A B A D A B D, the same as worked out from
+`main`'s code, and was warned that C is never the answer. A new paper holding
+the same ten questions saved `"shuffleVersion": 2`, printed C A C C D D B B C
+C, and was warned that C answers 5 of 10. The release preview for the 2025
+D&T exam listed every option in bank order.

@@ -441,7 +441,13 @@ function ReleaseCard({
       : state === 'released'
         ? 'saved'
         : 'ready'
-  const copy = useMemo(() => studentCopy(question) as Question, [question])
+  // Shown in the order it is written, because that is the order Mimir shows it
+  // in. Left to shuffle, the preview lettered every choice differently from what
+  // a student marking their own paper sees.
+  const copy = useMemo((): Question => {
+    const student = studentCopy(question) as Question
+    return student.config ? { ...student, config: { ...student.config, shuffle: false } } : student
+  }, [question])
   const { source } = question
 
   return (

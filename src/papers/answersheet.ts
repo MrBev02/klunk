@@ -64,7 +64,7 @@ export function answerSheetModel(
     for (const item of section.questions) {
       const q = item.question
       if (q.questionType === 'multiple_choice') {
-        const { choices, correctIndex, known } = shuffledChoices(q)
+        const { choices, correctIndex, known } = shuffledChoices(q, item.shuffle)
         rows.push({
           number: item.number,
           options: choices.length,
@@ -72,7 +72,7 @@ export function answerSheetModel(
           correct: known && correctIndex >= 0 ? [correctIndex] : undefined,
         })
       } else if (q.questionType === 'multiple_response') {
-        const { choices, correctIndexes, known } = shuffledResponses(q)
+        const { choices, correctIndexes, known } = shuffledResponses(q, item.shuffle)
         rows.push({
           number: item.number,
           options: choices.length,

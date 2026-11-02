@@ -24,6 +24,7 @@ import {
   shuffledChoices,
   shuffledMatching,
   shuffledResponses,
+  type ShuffleVersion,
   type ResolvedPaper,
   type ResolvedQuestion,
 } from './paper'
@@ -632,7 +633,7 @@ function QuestionBody({
 
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, letters } = shuffledChoices(q)
+      const { choices, letters } = shuffledChoices(q, item.shuffle)
       return (
         <ol class="choices">
           {choices.map((c, i) => (
@@ -648,7 +649,7 @@ function QuestionBody({
     }
 
     case 'multiple_response': {
-      const { choices } = shuffledResponses(q)
+      const { choices } = shuffledResponses(q, item.shuffle)
       return (
         <>
           {/*
@@ -674,7 +675,7 @@ function QuestionBody({
     }
 
     case 'matching':
-      return <MatchingBody question={q} mode={mode} />
+      return <MatchingBody question={q} mode={mode} shuffle={item.shuffle} />
 
     case 'true_false':
       return (
@@ -748,7 +749,7 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
 
   switch (q.questionType) {
     case 'multiple_choice': {
-      const { choices, correctIndex, known, letters } = shuffledChoices(q)
+      const { choices, correctIndex, known, letters } = shuffledChoices(q, item.shuffle)
       // The same distinction multiple response has kept since #32, and the
       // sentence is the same one, in the same words: nobody read an answer is
       // not the same claim as the answer being A (#64, #105).
@@ -782,7 +783,7 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
     }
 
     case 'multiple_response': {
-      const { choices, correctIndexes, known } = shuffledResponses(q)
+      const { choices, correctIndexes, known } = shuffledResponses(q, item.shuffle)
       // Not knowing and knowing there are none are different, and only one of
       // them can be printed as an answer (#64).
       if (!known) {
@@ -820,7 +821,7 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
     }
 
     case 'matching':
-      return <MatchingBody question={q} mode="guide" />
+      return <MatchingBody question={q} mode="guide" shuffle={item.shuffle} />
 
     case 'true_false': {
       const yes = q.config?.correctAnswer === true
@@ -915,8 +916,16 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
  * well as the letters, which is why the columns are still here rather than a
  * bare `1 → C`.
  */
-function MatchingBody({ question, mode }: { question: Question; mode: PrintMode }) {
-  const { items, options, known } = shuffledMatching(question)
+function MatchingBody({
+  question,
+  mode,
+  shuffle,
+}: {
+  question: Question
+  mode: PrintMode
+  shuffle: ShuffleVersion
+}) {
+  const { items, options, known } = shuffledMatching(question, shuffle)
 
   return (
     <>

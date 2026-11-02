@@ -28,11 +28,14 @@ import {
   shuffledChoices,
   shuffledMatching,
   shuffledResponses,
+  CURRENT_SHUFFLE,
+  printOrder,
 } from './paper'
 import { emptyManifest } from '../folder/manifest'
 import { emptyLedger } from '../folder/ledger'
 import type { ContentIndex } from '../folder/storage'
 import type { Bank, Paper, Profile, Question, Syllabus } from '../shared/types'
+import type { Check } from '../shared/validate'
 
 const profile: Profile = {
   formatVersion: '1',
@@ -1161,9 +1164,9 @@ describe('rowAnswers', () => {
 describe('shuffledChoices', () => {
   it('is stable across calls, so the guide matches the paper', () => {
     const q = mc('stable')
-    const first = shuffledChoices(q)
+    const first = shuffledChoices(q, CURRENT_SHUFFLE)
     for (let i = 0; i < 50; i += 1) {
-      const again = shuffledChoices(q)
+      const again = shuffledChoices(q, CURRENT_SHUFFLE)
       expect(again.choices.map((c) => c.text)).toEqual(first.choices.map((c) => c.text))
       expect(again.correctIndex).toBe(first.correctIndex)
     }
@@ -1172,14 +1175,14 @@ describe('shuffledChoices', () => {
   it('keeps pointing at the originally correct option', () => {
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
       const q = mc(id)
-      const { choices, correctIndex } = shuffledChoices(q)
+      const { choices, correctIndex } = shuffledChoices(q, CURRENT_SHUFFLE)
       expect(choices[correctIndex]?.text).toBe('gamma')
     }
   })
 
   it('actually reorders at least some questions', () => {
     const reordered = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].filter((id) => {
-      const { choices } = shuffledChoices(mc(id))
+      const { choices } = shuffledChoices(mc(id), CURRENT_SHUFFLE)
       return choices[0]?.text !== 'alpha'
     })
     expect(reordered.length).toBeGreaterThan(0)
@@ -1188,7 +1191,7 @@ describe('shuffledChoices', () => {
   it('leaves order alone when shuffle is off', () => {
     const q = mc('fixed')
     q.config = { ...q.config, shuffle: false }
-    const { choices, correctIndex } = shuffledChoices(q)
+    const { choices, correctIndex } = shuffledChoices(q, CURRENT_SHUFFLE)
     expect(choices.map((c) => c.text)).toEqual(['alpha', 'beta', 'gamma', 'delta'])
     expect(correctIndex).toBe(2)
   })
@@ -1201,25 +1204,25 @@ describe('shuffledChoices', () => {
     const q = mc('unmarked')
     const { correctAnswer: _answer, ...rest } = q.config ?? {}
     q.config = rest
-    const { known, correctIndex, choices } = shuffledChoices(q)
+    const { known, correctIndex, choices } = shuffledChoices(q, CURRENT_SHUFFLE)
     expect(known).toBe(false)
     expect(correctIndex).toBe(-1)
     expect(choices[correctIndex]).toBeUndefined()
   })
 
   it('says an answer was recorded when one was', () => {
-    const { known, correctIndex } = shuffledChoices(mc('marked'))
+    const { known, correctIndex } = shuffledChoices(mc('marked'), CURRENT_SHUFFLE)
     expect(known).toBe(true)
     expect(correctIndex).toBeGreaterThanOrEqual(0)
   })
 
   it('does not renumber one question when another is added', () => {
-    const before = shuffledChoices(mc('keep'))
+    const before = shuffledChoices(mc('keep'), CURRENT_SHUFFLE)
     // Adding unrelated questions must not disturb this one, because the seed is
     // the question's own id and nothing positional.
-    shuffledChoices(mc('new-one'))
-    shuffledChoices(mc('new-two'))
-    const after = shuffledChoices(mc('keep'))
+    shuffledChoices(mc('new-one'), CURRENT_SHUFFLE)
+    shuffledChoices(mc('new-two'), CURRENT_SHUFFLE)
+    const after = shuffledChoices(mc('keep'), CURRENT_SHUFFLE)
     expect(after.choices.map((c) => c.text)).toEqual(before.choices.map((c) => c.text))
   })
 })
@@ -1251,35 +1254,35 @@ describe('shuffledResponses', () => {
 
   it('keeps pointing at the options that were the answers', () => {
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      const { choices, correctIndexes } = shuffledResponses(mr(id, [1, 4]))
+      const { choices, correctIndexes } = shuffledResponses(mr(id, [1, 4]), CURRENT_SHUFFLE)
       expect(correctIndexes.map((i) => choices[i]?.text).sort()).toEqual(['MOV', 'MP4'])
     }
   })
 
   it('is stable across calls', () => {
     const q = mr('stable', [1, 4])
-    const first = shuffledResponses(q)
+    const first = shuffledResponses(q, CURRENT_SHUFFLE)
     for (let i = 0; i < 20; i += 1) {
-      const again = shuffledResponses(q)
+      const again = shuffledResponses(q, CURRENT_SHUFFLE)
       expect(again.choices.map((c) => c.text)).toEqual(first.choices.map((c) => c.text))
       expect(again.correctIndexes).toEqual(first.correctIndexes)
     }
   })
 
   it('reports answers as unknown when none are recorded, not as an empty set', () => {
-    const unknown = shuffledResponses(mr('none'))
+    const unknown = shuffledResponses(mr('none'), CURRENT_SHUFFLE)
     expect(unknown.known).toBe(false)
     expect(unknown.correctIndexes).toEqual([])
 
     // Same empty array, opposite meaning, and the guide prints them
     // differently. Nothing may collapse the two.
-    const stated = shuffledResponses(mr('some', [0]))
+    const stated = shuffledResponses(mr('some', [0]), CURRENT_SHUFFLE)
     expect(stated.known).toBe(true)
   })
 
   it('reorders at least some questions', () => {
     const moved = ['a', 'b', 'c', 'd'].filter(
-      (id) => shuffledResponses(mr(id, [0])).choices[0]?.text !== 'WAV',
+      (id) => shuffledResponses(mr(id, [0]), CURRENT_SHUFFLE).choices[0]?.text !== 'WAV',
     )
     expect(moved.length).toBeGreaterThan(0)
   })
@@ -1312,7 +1315,7 @@ describe('shuffledMatching', () => {
   it('gives each item the letter its own option ended up with', () => {
     const wanted = { Text: 'TXT', Image: 'PNG', Video: 'MP4', Audio: 'MP3' }
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      const { items, options } = shuffledMatching(matching(id))
+      const { items, options } = shuffledMatching(matching(id), CURRENT_SHUFFLE)
       items.forEach((item) => {
         const letter = item.letters[0]
         expect(letter).toBeDefined()
@@ -1325,7 +1328,7 @@ describe('shuffledMatching', () => {
   it("leaves the numbered column in the teacher's own order", () => {
     // Only the letters move. The numbers carry the question's sense.
     for (const id of ['a', 'b', 'c', 'd']) {
-      expect(shuffledMatching(matching(id)).items.map((i) => i.text)).toEqual([
+      expect(shuffledMatching(matching(id), CURRENT_SHUFFLE).items.map((i) => i.text)).toEqual([
         'Text',
         'Image',
         'Video',
@@ -1343,22 +1346,24 @@ describe('shuffledMatching', () => {
         { text: 'Audio', matches: [0] },
       ],
     }
-    const { items, options } = shuffledMatching(q)
+    const { items, options } = shuffledMatching(q, CURRENT_SHUFFLE)
     const letters = items[0]?.letters ?? []
     expect(letters).toHaveLength(2)
     expect(letters.map((l) => options[l.charCodeAt(0) - 65]?.text).sort()).toEqual(['SWF', 'ZIP'])
   })
 
   it('reports links as unknown when none are recorded', () => {
-    expect(shuffledMatching(matching('bare', false)).known).toBe(false)
-    expect(shuffledMatching(matching('keyed')).known).toBe(true)
+    expect(shuffledMatching(matching('bare', false), CURRENT_SHUFFLE).known).toBe(false)
+    expect(shuffledMatching(matching('keyed'), CURRENT_SHUFFLE).known).toBe(true)
   })
 
   it('is stable across calls, and reorders at least some questions', () => {
     const q = matching('stable')
-    expect(shuffledMatching(q).options).toEqual(shuffledMatching(q).options)
+    expect(shuffledMatching(q, CURRENT_SHUFFLE).options).toEqual(
+      shuffledMatching(q, CURRENT_SHUFFLE).options,
+    )
     const moved = ['a', 'b', 'c', 'd'].filter(
-      (id) => shuffledMatching(matching(id)).options[0]?.text !== 'MP3',
+      (id) => shuffledMatching(matching(id), CURRENT_SHUFFLE).options[0]?.text !== 'MP3',
     )
     expect(moved.length).toBeGreaterThan(0)
   })
@@ -1507,5 +1512,81 @@ describe('paperIsDirty', () => {
       sections: paper.sections.map((s, i) => (i === 1 ? { ...s, title: 'Part B' } : s)),
     }
     expect(paperIsDirty(after, retitled)).toBe(true)
+  })
+})
+
+describe('the shuffle a paper prints with (#143)', () => {
+  const four = (id: string) => mc(id)
+  const five = (id: string): Question => ({
+    ...mc(id),
+    config: { choices: ['a', 'b', 'c', 'd', 'e'].map((text) => ({ text })), correctAnswer: 0 },
+  })
+
+  it('keeps the orders papers printed before it', () => {
+    // Worked out with the code on main before #143, not with printOrder, so a
+    // change to the first version cannot pass by agreeing with itself.
+    expect(printOrder(four('hsc-2019-mc-01'), 4, 1)).toEqual([3, 0, 1, 2])
+    expect(printOrder(four('y9-mc-03'), 4, 1)).toEqual([0, 3, 2, 1])
+    expect(printOrder(five('hsc-2019-mc-01'), 5, 1)).toEqual([0, 4, 2, 3, 1])
+    expect(printOrder(five('stable'), 5, 1)).toEqual([4, 3, 2, 0, 1])
+  })
+
+  it.each([
+    [4, 24],
+    [5, 120],
+  ])('reaches every order of %i options, each about as often', (n, orders) => {
+    const q = n === 4 ? four : five
+    const runs = orders * 400
+    const seen = new Map<string, number>()
+    const firstAt = Array.from({ length: n }, () => 0)
+    for (let k = 0; k < runs; k += 1) {
+      const order = printOrder(q(`q-${k}`), n, 2)
+      seen.set(order.join(), (seen.get(order.join()) ?? 0) + 1)
+      firstAt[order.indexOf(0)] = (firstAt[order.indexOf(0)] ?? 0) + 1
+    }
+    expect(seen.size).toBe(orders)
+    for (const count of seen.values()) expect(count / 400).toBeGreaterThan(0.75)
+    for (const count of firstAt) expect(Math.abs(count / runs - 1 / n)).toBeLessThan(0.01)
+  })
+
+  it('prints a paper that records no version with the first, and a new one with the second', () => {
+    const { index, paper } = goodPaper()
+    expect(paper.shuffleVersion).toBe(CURRENT_SHUFFLE)
+    const { shuffleVersion: _version, ...before } = paper
+    expect(resolvePaper(index, before, profile).sections[0]?.questions[0]?.shuffle).toBe(1)
+    expect(resolvePaper(index, paper, profile).sections[0]?.questions[0]?.shuffle).toBe(2)
+  })
+})
+
+describe('the letters a paper answers with (#143)', () => {
+  /** Ten unshuffled multiple choice questions, answered as given. */
+  function lettered(answers: number[]): Check[] {
+    const questions = answers.map((correctAnswer, i) => ({
+      ...mc(`l${i}`),
+      config: { ...mc('x').config, correctAnswer, shuffle: false },
+    }))
+    let paper = newPaper(profile, 'p', 'T')
+    for (const q of questions) paper = addRef(paper, 0, `bank/test.json#${q.id}`)
+    return checkPaper(resolvePaper(indexWith(questions), paper)).filter(
+      (c) => c.where === 'Multiple choice',
+    )
+  }
+
+  it('warns when one letter is the answer to more than four in ten', () => {
+    const checks = lettered([1, 1, 0, 1, 2, 1, 3, 1, 1, 0])
+    expect(checks.map((c) => c.message)).toEqual([
+      expect.stringMatching(/^B is the answer to 6 of 10 questions \(1, 2, 4, 6, 8, 9\)\./),
+    ])
+  })
+
+  it('warns when a letter is never the answer', () => {
+    expect(lettered([1, 2, 3, 1, 2, 3, 1, 2]).map((c) => c.message)).toEqual([
+      expect.stringMatching(/^A is never the answer\./),
+    ])
+  })
+
+  it('says nothing of a balanced paper, or of one too short to balance', () => {
+    expect(lettered([0, 1, 2, 3, 0, 1, 2, 3, 0, 1])).toEqual([])
+    expect(lettered([1, 1, 1])).toEqual([])
   })
 })

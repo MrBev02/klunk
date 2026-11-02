@@ -1195,6 +1195,12 @@ export function cleanPaper(draft: Paper, profile?: Profile): Paper {
   // paper that has been final and come back to draft should say so.
   if (draft.status !== undefined) out.status = draft.status
 
+  // Kept as given, absent included: absent is version 1, and writing it in
+  // would be harmless, but writing 2 would reletter a paper already printed.
+  if (draft.shuffleVersion === 1 || draft.shuffleVersion === 2) {
+    out.shuffleVersion = draft.shuffleVersion
+  }
+
   const school = compact({
     name: text(draft.school?.name),
     course: text(draft.school?.course),

@@ -50,6 +50,13 @@
       "description": "'used' means it has been sat. Klunk warns before reusing questions from a used paper, which is the mistake that actually happens in a faculty."
     },
 
+    "shuffleVersion": {
+      "type": "integer",
+      "enum": [1, 2],
+      "default": 1,
+      "description": "Which shuffle orders the options of this paper's questions. 1 reaches only half the possible orders and favours some letters; 2 reaches all of them evenly. Absent means 1, so a paper printed before 2 existed keeps the letters it printed with."
+    },
+
     "sections": {
       "type": "array",
       "minItems": 1,

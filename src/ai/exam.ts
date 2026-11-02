@@ -25,7 +25,7 @@
  */
 
 import { extractJson, readQuestion, type Draft, type IngestContext } from './ingest'
-import type { ResolvedPaper } from '../papers/paper'
+import { CURRENT_SHUFFLE, type ResolvedPaper } from '../papers/paper'
 import { pretty, promptFields } from './prompt'
 import type { Paper, PaperSection, Profile, ProfileSection, Question } from '../shared/types'
 import { asArray, asString } from './ingest'
@@ -332,6 +332,7 @@ export function examPaper(
     id: opts.id,
     title: opts.title,
     status: 'draft',
+    shuffleVersion: CURRENT_SHUFFLE,
     sections: sections.length > 0 ? sections : [{ refs: [] }],
   }
   if (opts.profileId) paper.profileId = opts.profileId
