@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { emptyIndex, type ContentIndex } from '../folder/storage'
 import { emptyLedger, readLedger, recordRelease } from '../folder/ledger'
+import { optionLetter, shuffledChoices, shuffledMatching } from '../papers/paper'
 import type { Paper, Question } from '../shared/types'
 import {
+  builtPapers,
   embargo,
   importedExams,
   lastSubject,
   planRelease,
+  printedFor,
   releaseHash,
   releaseState,
+  sectionsLookLikeBands,
   studentCopy,
   yearFromName,
 } from './release'
@@ -230,6 +234,179 @@ describe('planRelease', () => {
     ])
     expect(plan.release.bands).toEqual(['Support', 'Standard'])
     expect(plan.release.questions.map((q) => q.band)).toEqual(['Support', 'Standard'])
+  })
+})
+
+describe('a paper built in Klunk', () => {
+  const choices = ['w', 'x', 'y', 'z'].map((text) => ({ text }))
+  const mc = question('mc', {
+    questionType: 'multiple_choice',
+    marks: 1,
+    source: { origin: 'authored' },
+    config: { choices, correctAnswer: 2 },
+  })
+  const match = question('match', {
+    questionType: 'matching',
+    marks: 3,
+    source: { origin: 'authored' },
+    config: {
+      items: [
+        { text: 'one', matches: [0] },
+        { text: 'two', matches: [3] },
+      ],
+      options: ['p', 'q', 'r', 's'].map((text) => ({ text })),
+    },
+  })
+  const written = question('w1', { source: { paper: 'HSC', year: 2023, questionNumber: '21' } })
+
+  function built(date?: string, extra: Partial<Paper> = {}): Paper {
+    return {
+      formatVersion: '1',
+      type: 'klunk_paper',
+      id: 'y9-yearly',
+      title: 'Year 9 Yearly',
+      shuffleVersion: 2,
+      school: { yearGroup: 'Year 9', ...(date ? { date } : {}) },
+      sections: [
+        {
+          title: 'Support',
+          refs: [
+            { file: 'bank/y8.json', questionId: 'mc' },
+            { file: 'bank/y8.json', questionId: 'match' },
+          ],
+        },
+        {
+          title: 'Standard',
+          refs: [
+            { file: 'bank/y8.json', questionId: 'w1', marksOverride: 5 },
+            { file: 'bank/y8.json', questionId: 'gone' },
+          ],
+        },
+      ],
+      ...extra,
+    }
+  }
+  const index = folder([mc, match, written], [built('2026-06-10')])
+  const [exam] = builtPapers(index)
+
+  it('offers its questions as it printed them, and counts what it cannot find', () => {
+    expect(exam!.key).toBe('paper:y9-yearly')
+    expect(exam!.questions.map((r) => r.question.id)).toEqual(['mc', 'match', 'w1'])
+    expect(exam!.sections).toEqual(['Support', 'Standard'])
+    expect(exam!.missing).toBe(1)
+    expect(sectionsLookLikeBands(exam!)).toBe(true)
+  })
+
+  it('writes the options in the order the paper printed them, and the answer with them', () => {
+    const p = printedFor(exam!, 'mc', false)!
+    const printedPaper = shuffledChoices(mc, 2)
+    const copy = studentCopy(mc, undefined, p)
+    expect(copy.config?.choices).toEqual(printedPaper.choices)
+    expect(copy.config?.correctAnswer).toBe(printedPaper.correctIndex)
+    expect(copy.config).not.toHaveProperty('shuffle')
+    // The test is worth nothing if this question happens to print unshuffled.
+    expect(printedPaper.choices.map((c) => c.text)).not.toEqual(['w', 'x', 'y', 'z'])
+  })
+
+  it('moves a matching question’s lettered column and the matches with it', () => {
+    const copy = studentCopy(match, undefined, printedFor(exam!, 'match', false))
+    const printedPaper = shuffledMatching(match, 2)
+    expect(copy.config?.options).toEqual(printedPaper.options)
+    expect(copy.config?.items?.map((i) => i.matches?.map(optionLetter))).toEqual(
+      printedPaper.items.map((i) => i.letters),
+    )
+  })
+
+  it('carries the printed number and marks, and no band unless asked', () => {
+    const copy = studentCopy(written, undefined, printedFor(exam!, 'w1', false))
+    expect(copy.marks).toBe(5)
+    expect(copy.source).toEqual({ questionNumber: '3' })
+    expect(copy).not.toHaveProperty('band')
+    expect(studentCopy(written, undefined, printedFor(exam!, 'w1', true)).band).toBe('Standard')
+  })
+
+  it('holds everything back without a date, or with a date sat before the paper', () => {
+    const undated = builtPapers(folder([mc], [built()]))[0]!
+    expect(embargo(undated, '2026-06-10', index, TODAY).exam).toMatch(/no date/)
+    expect(embargo(exam!, '2026-06-01', index, TODAY).exam).toMatch(/on or after 10 June 2026/)
+    expect(embargo(exam!, '2026-06-12', index, TODAY).exam).toBeUndefined()
+  })
+
+  it('holds back a question also on another paper still to come, but not for itself', () => {
+    const both = folder(
+      [mc, match, written],
+      [built('2026-06-10'), { ...paper('trial', ['w1'], '2026-12-03') }],
+    )
+    const e = builtPapers(both).find((x) => x.paper.id === 'y9-yearly')!
+    const held = embargo(e, '2026-06-12', both, TODAY).questions
+    expect(held.get('w1')).toMatch(/Paper trial, which is sat on 3 December 2026/)
+    expect(held.has('mc')).toBe(false)
+  })
+
+  it('is filed under its own id, and writes bands only when asked', () => {
+    const details = {
+      title: 'Year 9 Yearly',
+      subject: 'Mathematics',
+      yearLevel: 9,
+      releasedOn: TODAY,
+    }
+    const plan = planRelease(exam!, exam!.questions, details, '2026-06-12', index)
+    expect(plan.path).toBe('2026/y9-yearly.json')
+    expect(plan.release.id).toBe('y9-yearly')
+    expect(plan.release.examYear).toBe(2026)
+    expect(plan.release).not.toHaveProperty('bands')
+    expect(plan.ledger).toMatchObject({ key: 'paper:y9-yearly', sectionsAreBands: false })
+
+    const banded = planRelease(
+      exam!,
+      exam!.questions,
+      { ...details, sectionsAreBands: true },
+      '2026-06-12',
+      index,
+    )
+    expect(banded.release.bands).toEqual(['Support', 'Standard'])
+  })
+
+  it('notices a change in what the paper printed, such as its marks', () => {
+    const ledger = recordRelease(emptyLedger(), { key: exam!.key }, [
+      {
+        id: 'w1',
+        exam: exam!.key,
+        approvedBy: 'A',
+        approvedOn: TODAY,
+        hash: releaseHash(written, printedFor(exam!, 'w1', false)),
+      },
+    ])
+    expect(releaseState(ledger, exam!.key, written, printedFor(exam!, 'w1', false))).toBe(
+      'released',
+    )
+    const regraded = builtPapers(
+      folder(
+        [mc, match, written],
+        [built('2026-06-10')].map((p) => {
+          const refs = p.sections[1]!.refs
+          refs[0] = { file: 'bank/y8.json', questionId: 'w1', marksOverride: 4 }
+          return p
+        }),
+      ),
+    )[0]!
+    expect(releaseState(ledger, exam!.key, written, printedFor(regraded, 'w1', false))).toBe(
+      'changed',
+    )
+  })
+
+  it('does not suggest bands for a paper in sections', () => {
+    const nesa = builtPapers(
+      folder(
+        [mc],
+        [
+          built('2026-06-10', {
+            sections: [{ title: 'Section I', refs: [{ file: 'bank/y8.json', questionId: 'mc' }] }],
+          }),
+        ],
+      ),
+    )[0]!
+    expect(sectionsLookLikeBands(nesa)).toBe(false)
   })
 })
 

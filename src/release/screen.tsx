@@ -1,6 +1,7 @@
 /**
- * The Release to students tab (#150): one imported exam at a time, checked
- * question by question, written into the student folder for Mimir.
+ * The Release to students tab (#150, #219): one exam at a time, imported or
+ * built here, checked question by question, written into the student folder
+ * for Mimir.
  *
  * Releasing is in Klunk rather than in Mimir because it is the step that
  * protects the questions, and Mimir cannot: it is a static page reading a
@@ -22,15 +23,19 @@ import { formatDate } from '../papers/cover'
 import { Field } from '../shared/fields'
 import { QUESTION_TYPE_LABELS, questionLabel, type Question } from '../shared/types'
 import {
+  builtPapers,
   embargo,
   importedExams,
   planRelease,
+  printedFor,
   releaseHash,
   releaseState,
+  sectionsLookLikeBands,
   studentCopy,
   lastSubject,
   yearFromName,
-  type ImportedExam,
+  type AsPrinted,
+  type Exam,
   type ReleaseState,
 } from './release'
 
@@ -52,7 +57,9 @@ export function ReleaseScreen({
   onEdit: (editing: Editing) => void
   onReleased: (message: string) => void
 }) {
-  const exams = useMemo(() => importedExams(index), [index])
+  const papers = useMemo(() => builtPapers(index), [index])
+  const imported = useMemo(() => importedExams(index), [index])
+  const exams: Exam[] = useMemo(() => [...papers, ...imported], [papers, imported])
   const [key, setKey] = useState('')
   const exam = exams.find((e) => e.key === key) ?? exams[0]
 
@@ -128,8 +135,8 @@ export function ReleaseScreen({
             <span class="step">2</span> Choose the exam
           </p>
           <p class="hint">
-            Read an exam in on From a past paper first. Its questions are offered here once they are
-            saved.
+            Build a paper on Papers, or read an exam in on From a past paper. Its questions are
+            offered here once saved.
           </p>
         </section>
       )}
@@ -153,8 +160,8 @@ function ExamRelease({
   onEdit,
   onReleased,
 }: {
-  exam: ImportedExam
-  exams: ImportedExam[]
+  exam: Exam
+  exams: Exam[]
   onExam: (key: string) => void
   index: ContentIndex
   folder: FileSystemDirectoryHandle
@@ -164,17 +171,28 @@ function ExamRelease({
   onReleased: (message: string) => void
 }) {
   const recorded = index.ledger.exams.find((e) => e.key === exam.key)
+  const built = exam.kind === 'paper' ? exam : undefined
   // The same paper read twice, into two banks, is a mistake #74 records and
-  // cannot prevent. Both copies are offered, so the teacher has to see it.
-  const banks = [...new Set(exam.questions.map((r) => r.file))]
-  const [title, setTitle] = useState(recorded?.title ?? exam.paper)
-  const [subject, setSubject] = useState(recorded?.subject ?? lastSubject(index.ledger) ?? '')
-  const [year, setYear] = useState(recorded?.yearLevel ?? yearFromName(exam.paper))
-  const [dateSat, setDateSat] = useState(recorded?.dateSat ?? '')
+  // cannot prevent. Both copies are offered, so the teacher has to see it. A
+  // built paper drawing on several banks is ordinary.
+  const banks = built ? [] : [...new Set(exam.questions.map((r) => r.file))]
+  const name = exam.kind === 'paper' ? exam.paper.title : exam.paper
+  const [title, setTitle] = useState(recorded?.title ?? name)
+  const [subject, setSubject] = useState(
+    recorded?.subject ?? lastSubject(index.ledger) ?? built?.paper.school?.course ?? '',
+  )
+  const [year, setYear] = useState(
+    recorded?.yearLevel ?? yearFromName(built?.paper.school?.yearGroup ?? '') ?? yearFromName(name),
+  )
+  const [dateSat, setDateSat] = useState(recorded?.dateSat ?? built?.date ?? '')
+  const [asBands, setAsBands] = useState(
+    recorded?.sectionsAreBands ?? (built ? sectionsLookLikeBands(built) : false),
+  )
   const [approver, setApprover] = useState(() => localStorage.getItem(APPROVER_KEY) ?? '')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState('')
 
+  const printed = (id: string) => printedFor(exam, id, asBands)
   const held = useMemo(
     () => embargo(exam, dateSat || undefined, index, today),
     [exam, dateSat, index, today],
@@ -184,10 +202,15 @@ function ExamRelease({
       new Map(
         exam.questions.map((r) => [
           r.question.id,
-          releaseState(index.ledger, exam.key, r.question),
+          releaseState(
+            index.ledger,
+            exam.key,
+            r.question,
+            printedFor(exam, r.question.id, asBands),
+          ),
         ]),
       ),
-    [exam, index.ledger],
+    [exam, index.ledger, asBands],
   )
 
   // Ticked where already released, edited since or not, so a re-release keeps
@@ -219,7 +242,13 @@ function ExamRelease({
       const plan = planRelease(
         exam,
         releasable,
-        { title: title.trim(), subject: subject.trim(), yearLevel: year, releasedOn: today },
+        {
+          title: title.trim(),
+          subject: subject.trim(),
+          yearLevel: year,
+          releasedOn: today,
+          sectionsAreBands: asBands,
+        },
         dateSat,
         index,
       )
@@ -231,7 +260,7 @@ function ExamRelease({
           exam: exam.key,
           approvedBy: approver.trim(),
           approvedOn: today,
-          hash: releaseHash(r.question),
+          hash: releaseHash(r.question, printed(r.question.id)),
         })),
       })
       onReleased(
@@ -266,18 +295,34 @@ function ExamRelease({
               value={exam.key}
               onChange={(e) => onExam((e.target as HTMLSelectElement).value)}
             >
-              {exams.map((e) => (
-                <option key={e.key} value={e.key}>
-                  {e.paper}, {e.year} ({e.questions.length} question
-                  {e.questions.length === 1 ? '' : 's'})
-                </option>
-              ))}
+              {(
+                [
+                  ['Papers built in Klunk', 'paper'],
+                  ['Exams read from past papers', 'imported'],
+                ] as const
+              ).map(([heading, kind]) => {
+                const these = exams.filter((e) => e.kind === kind)
+                return these.length === 0 ? null : (
+                  <optgroup key={kind} label={heading}>
+                    {these.map((e) => (
+                      <option key={e.key} value={e.key}>
+                        {examName(e)} ({e.questions.length} question
+                        {e.questions.length === 1 ? '' : 's'})
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </Field>
           <Field
             label="Date sat"
             for="rl-date"
-            hint="The day the last class sat it, catch-ups included"
+            hint={
+              built?.date
+                ? `The day the last class sat it, catch-ups included. The paper is dated ${formatDate(built.date)}.`
+                : 'The day the last class sat it, catch-ups included'
+            }
           >
             <input
               id="rl-date"
@@ -333,6 +378,30 @@ function ExamRelease({
             />
           </Field>
         </div>
+        {built && built.sections.length > 0 && (
+          <p>
+            <label for="rl-bands">
+              <input
+                id="rl-bands"
+                type="checkbox"
+                checked={asBands}
+                onChange={() => setAsBands(!asBands)}
+              />{' '}
+              Each section is a band students choose between ({listOf(built.sections)})
+            </label>
+            <span class="hint" style={{ display: 'block' }}>
+              Leave this off for a paper every student sits whole. Mimir shows a student only the
+              band they choose.
+            </span>
+          </p>
+        )}
+        {built && built.missing > 0 && (
+          <p class="hint">
+            {built.missing} question
+            {built.missing === 1 ? ' on this paper is' : 's on this paper are'} in no bank in your
+            folder, so cannot be released.
+          </p>
+        )}
         {banks.length > 1 && (
           <p class="hint">
             This exam was read into {banks.length} banks: {listOf(banks)}. Tick one copy of each
@@ -364,6 +433,7 @@ function ExamRelease({
             <ReleaseCard
               key={ref.question.id}
               at={at}
+              printed={printed(ref.question.id)}
               question={ref.question}
               bankFile={ref.file}
               images={index.images}
@@ -414,6 +484,7 @@ const STATE_LABELS: Record<ReleaseState, string> = {
 
 function ReleaseCard({
   at,
+  printed,
   question,
   bankFile,
   images,
@@ -424,6 +495,7 @@ function ReleaseCard({
   onEdit,
 }: {
   at: number
+  printed: AsPrinted | undefined
   question: Question
   bankFile: string
   images: Map<string, string>
@@ -441,25 +513,27 @@ function ReleaseCard({
       : state === 'released'
         ? 'saved'
         : 'ready'
-  // Shown in the order it is written, because that is the order Mimir shows it
-  // in. Left to shuffle, the preview lettered every choice differently from what
-  // a student marking their own paper sees.
+  // Shown in the order the release writes it, which is the order Mimir shows it
+  // in: as the paper printed it, for a paper built here. Left to shuffle, the
+  // preview lettered every choice differently from what a student marking their
+  // own paper sees.
   const copy = useMemo((): Question => {
-    const student = studentCopy(question) as Question
+    const student = studentCopy(question, undefined, printed) as Question
     return student.config ? { ...student, config: { ...student.config, shuffle: false } } : student
-  }, [question])
+  }, [question, printed])
   const { source } = question
 
   return (
     <li class={`draft draft--${tone}`}>
       <div class="draft__head">
-        <span class="draft__n">{at + 1}</span>
+        <span class="draft__n">{printed?.number ?? at + 1}</span>
         <span class="draft__stem">{questionLabel(question)}</span>
         <span class="draft__state">{hold ? 'Held back' : STATE_LABELS[state]}</span>
       </div>
       <p class="det__label">
         <span class="mono">{question.id}</span> · {QUESTION_TYPE_LABELS[question.questionType]} ·{' '}
-        {question.marks} mark{question.marks === 1 ? '' : 's'}
+        {copy.marks} mark{copy.marks === 1 ? '' : 's'}
+        {printed?.band && ` · ${printed.band}`}
         {source?.questionNumber &&
           ` · ${source.section ? `${source.section} ` : ''}Q${source.questionNumber}`}
       </p>
@@ -494,6 +568,11 @@ function ReleaseCard({
       </div>
     </li>
   )
+}
+
+function examName(exam: Exam): string {
+  if (exam.kind === 'imported') return `${exam.paper}, ${exam.year}`
+  return `${exam.paper.title}, ${exam.date ? formatDate(exam.date) : 'no date'}`
 }
 
 function listOf(items: string[]): string {

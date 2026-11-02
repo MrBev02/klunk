@@ -37,6 +37,7 @@ export function readLedger(data: unknown): ReleaseLedger {
       ...(typeof e.yearLevel === 'number' ? { yearLevel: e.yearLevel } : {}),
       ...(text(e.file) ? { file: e.file } : {}),
       ...(text(e.releasedOn) ? { releasedOn: e.releasedOn } : {}),
+      ...(typeof e.sectionsAreBands === 'boolean' ? { sectionsAreBands: e.sectionsAreBands } : {}),
     })
   }
 

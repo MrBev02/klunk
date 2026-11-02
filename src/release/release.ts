@@ -1,14 +1,17 @@
 /**
- * Handing an imported exam's questions to students, as Mimir reads them (#150).
+ * Handing an exam's questions to students, as Mimir reads them (#150, #219).
  *
  * Pure: what the release screen offers, what holds a question back, and the
  * file it writes. `folder/storage.ts` does the writing.
  *
- * **The unit is one imported exam**, the bank questions that share a source
- * paper and year. An exam read in from From a past paper never becomes a Klunk
- * paper, so a paper's date and year group are not there to lean on; the
- * teacher gives the date it was sat instead, and Klunk refuses one still to
- * come. A paper built in Klunk is #219.
+ * **The unit is one exam**, of two kinds. An **imported exam** is the bank
+ * questions that share a source paper and year: one read in from From a past
+ * paper never becomes a Klunk paper, so a paper's date and year group are not
+ * there to lean on, and the teacher gives the date it was sat. A **paper built
+ * in Klunk** has a date on its cover, but that is the day it is first sat, not
+ * the day the last catch-up sits it, so the teacher still gives that date and
+ * it may not be earlier. A built paper's release carries what it printed: its
+ * marks, its numbers, and its options in their printed order.
  *
  * **Everything here fails closed.** A question that might be in an exam still
  * to be sat is held back, and so is every question of an exam with no date.
@@ -19,9 +22,11 @@
 import { joinPath, type ContentIndex } from '../folder/storage'
 import { allQuestions } from '../folder/storage'
 import { formatDate } from '../papers/cover'
+import { printOrder, resolvePaper, type ShuffleVersion } from '../papers/paper'
 import {
   parseRef,
   type LedgerExam,
+  type Paper,
   type Question,
   type QuestionConfig,
   type QuestionRef,
@@ -75,7 +80,10 @@ export interface MimirRelease {
 
 /* -------------------------------------------------------------- imported exams */
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 export interface ImportedExam {
+  kind: 'imported'
   /** `paper|year`, as the ledger records it. */
   key: string
   paper: string
@@ -103,7 +111,14 @@ export function importedExams(index: ContentIndex): ImportedExam[] {
     const { paper, year } = ref.question.source ?? {}
     if (!paper || typeof year !== 'number') continue
     const key = examKey(paper, year)
-    const exam = byKey.get(key) ?? { key, paper, year, questions: [], bands: [] }
+    const exam = byKey.get(key) ?? {
+      kind: 'imported' as const,
+      key,
+      paper,
+      year,
+      questions: [],
+      bands: [],
+    }
     exam.questions.push(ref)
     const band = ref.question.source?.section
     if (band && !exam.bands.includes(band)) exam.bands.push(band)
@@ -112,9 +127,135 @@ export function importedExams(index: ContentIndex): ImportedExam[] {
   return [...byKey.values()].sort((a, b) => b.year - a.year || a.paper.localeCompare(b.paper))
 }
 
-/* -------------------------------------------------------------------- embargo */
+/* ---------------------------------------------------------- papers built here */
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+/**
+ * How a paper built in Klunk printed a question, which is what a student
+ * marking their own copy has in front of them.
+ */
+export interface AsPrinted {
+  /** Continuous across sections, as the paper numbers it. */
+  number: number
+  /** The paper's `marksOverride` where it has one. */
+  marks: number
+  shuffle: ShuffleVersion
+  /** Only where the teacher has said the paper's sections are bands. */
+  band?: string | undefined
+}
+
+export interface BuiltPaper {
+  kind: 'paper'
+  /** `paper:` and the paper's id, which no `paper|year` key can be. */
+  key: string
+  paper: Paper
+  /** The date on the paper's cover, where it is a whole date. */
+  date: string | undefined
+  /** In printed order. */
+  questions: QuestionRef[]
+  /** By question id, with the title of the section it printed in. */
+  printed: Map<string, AsPrinted & { section: string }>
+  /** Titles of the sections that hold a question, in printed order. */
+  sections: string[]
+  /** References that resolve to no question in the folder, so cannot be released. */
+  missing: number
+}
+
+export type Exam = ImportedExam | BuiltPaper
+
+export function paperKey(id: string): string {
+  return `paper:${id}`
+}
+
+/**
+ * Every paper in the folder, as the release screen offers it: newest first,
+ * and those with no date last, since nothing of theirs can go yet.
+ *
+ * Resolved the way the paper prints, so a number, a mark or an option order
+ * here is the one on the student's copy. A question the paper uses twice is
+ * offered once, at its first printing.
+ */
+export function builtPapers(index: ContentIndex): BuiltPaper[] {
+  const out = index.papers.map(({ data: paper }): BuiltPaper => {
+    const profile = index.profiles.find((p) => p.data.id === paper.profileId)?.data
+    const resolved = resolvePaper(index, paper, profile)
+    const questions: QuestionRef[] = []
+    const printed = new Map<string, AsPrinted & { section: string }>()
+    const sections: string[] = []
+    for (const section of resolved.sections) {
+      for (const q of section.questions) {
+        if (printed.has(q.question.id)) continue
+        questions.push({ question: q.question, file: q.file, syllabusId: q.syllabusId })
+        printed.set(q.question.id, {
+          number: q.number,
+          marks: q.marks,
+          shuffle: q.shuffle,
+          section: section.title,
+        })
+        if (!sections.includes(section.title)) sections.push(section.title)
+      }
+    }
+    const date = paper.school?.date
+    return {
+      kind: 'paper',
+      key: paperKey(paper.id),
+      paper,
+      date: date !== undefined && ISO_DATE.test(date) ? date : undefined,
+      questions,
+      printed,
+      sections,
+      missing: resolved.missing.length,
+    }
+  })
+  return out.sort(
+    (a, b) =>
+      (b.date ?? '').localeCompare(a.date ?? '') || a.paper.title.localeCompare(b.paper.title),
+  )
+}
+
+/** A question as the exam printed it, for a paper built here; nothing for an imported one. */
+export function printedFor(
+  exam: Exam,
+  id: string,
+  sectionsAreBands: boolean,
+): AsPrinted | undefined {
+  if (exam.kind !== 'paper') return undefined
+  const p = exam.printed.get(id)
+  if (!p) return undefined
+  return {
+    number: p.number,
+    marks: p.marks,
+    shuffle: p.shuffle,
+    ...(sectionsAreBands ? { band: p.section } : {}),
+  }
+}
+
+/**
+ * The bands Mimir knows by colour, from its `src/bands.ts`. A faculty may name
+ * its own and Mimir shows those too; this list only decides what to suggest.
+ */
+const MIMIR_BANDS = ['support', 'standard', 'advanced', 'extension', 'beyond']
+
+/**
+ * Whether to suggest that a paper's sections are bands.
+ *
+ * Only a suggestion, because it matters which way it goes wrong. Mimir shows a
+ * student the questions of the one band they chose, and remembers the choice
+ * across papers, so a paper whose `Section I` and `Section II` went as bands
+ * would vanish for a student who chose `Standard` on another. So it is
+ * suggested only when every section is named the way a band is.
+ */
+export function sectionsLookLikeBands(exam: BuiltPaper): boolean {
+  const band = (title: string) =>
+    MIMIR_BANDS.includes(
+      title
+        .trim()
+        .toLowerCase()
+        .replace(/\s+band$/, ''),
+    )
+  return exam.sections.length > 0 && exam.sections.every(band)
+}
+
+/* -------------------------------------------------------------------- embargo */
 
 export interface Embargo {
   /** Holds back every question in the exam. */
@@ -128,8 +269,9 @@ export interface Embargo {
  *
  * Two checks. The exam must have a date sat that is behind us: strictly before
  * today, because an exam sat this afternoon is still being sat this morning.
- * And every paper built in Klunk that uses the question must have been sat as
- * well. That second check is #150's rule for papers, "every paper, not the
+ * A paper built here must also have a date of its own, and the date sat cannot
+ * be before it. And every other paper built in Klunk that uses the question
+ * must have been sat as well. That second check is #150's rule for papers, "every paper, not the
  * first": a question picked again for this year's yearly stays held back until
  * this year's is sat, whenever the paper it was read from was.
  *
@@ -139,21 +281,29 @@ export interface Embargo {
  * right way round.
  */
 export function embargo(
-  exam: ImportedExam,
+  exam: Exam,
   dateSat: string | undefined,
   index: ContentIndex,
   today: string,
 ): Embargo {
   const out: Embargo = { questions: new Map() }
+  const printedOn = exam.kind === 'paper' ? exam.date : undefined
 
-  if (!dateSat || !ISO_DATE.test(dateSat)) {
+  if (exam.kind === 'paper' && !printedOn) {
+    out.exam = 'This paper has no date. Add one on Papers.'
+  } else if (!dateSat || !ISO_DATE.test(dateSat)) {
     out.exam = 'Enter the date the last class sat this exam, catch-ups included.'
+  } else if (printedOn && dateSat < printedOn) {
+    out.exam = `Enter a date sat on or after ${formatDate(printedOn)}, the date on the paper.`
   } else if (dateSat >= today) {
     out.exam = `The date sat, ${formatDate(dateSat)}, is not over yet. Release it after then.`
   }
 
+  const own = exam.kind === 'paper' ? exam.paper.id : undefined
   const ids = new Set(exam.questions.map((r) => r.question.id))
   for (const { data: paper } of index.papers) {
+    // The paper being released is checked above, against the date sat.
+    if (paper.id === own) continue
     const date = paper.school?.date
     const sat = date !== undefined && ISO_DATE.test(date) && date < today
     if (sat) continue
@@ -179,15 +329,19 @@ export function embargo(
  * A bank question as students are given it.
  *
  * A copy of what students may see and nothing else. Left behind: the marker's
- * notes, difficulty, tags, outcome codes, and `shuffle`, because an imported
- * question's choices are already in the order the paper printed them and that
- * is the order a student marking their own paper needs.
+ * notes, difficulty, tags, outcome codes, and `shuffle`, because Mimir never
+ * shuffles and a student marking their own paper needs the printed order. An
+ * imported question's choices are already in it; a paper built here puts them
+ * in it, by `printed`.
  *
  * @param image Where a picture's bank-relative path goes in the release.
+ * @param printed How a paper built here printed it. Its number replaces the
+ *   question's source, because the paper the student sat is this one.
  */
 export function studentCopy(
   question: Question,
   image: (path: string) => string = (p) => p,
+  printed?: AsPrinted,
 ): StudentQuestion {
   const pictures = (list: Stimulus[] | undefined) =>
     list?.map((s) => (s.kind === 'image' && s.file ? { ...s, file: image(s.file) } : { ...s }))
@@ -196,11 +350,14 @@ export function studentCopy(
     id: question.id,
     questionType: question.questionType,
     questionText: question.questionText,
-    marks: question.marks,
+    marks: printed?.marks ?? question.marks,
   }
   const topicIds = question.syllabus?.topicIds ?? []
   if (topicIds.length > 0) out.syllabus = { topicIds: [...topicIds] }
-  if (question.source?.section) out.band = question.source.section
+  // A built paper's band is its section, and only where the teacher says so: the
+  // section of an exam the question was once read from is not this paper's.
+  const band = printed ? printed.band : question.source?.section
+  if (band) out.band = band
   const stimulus = pictures(question.stimulus)
   if (stimulus?.length) out.stimulus = stimulus
 
@@ -216,16 +373,19 @@ export function studentCopy(
   }
 
   const { paper, year, questionNumber, copyright } = question.source ?? {}
-  const source = {
-    ...(paper ? { paper } : {}),
-    ...(typeof year === 'number' ? { year } : {}),
-    ...(questionNumber ? { questionNumber } : {}),
-    ...(copyright ? { copyright } : {}),
-  }
+  const source = printed
+    ? { questionNumber: String(printed.number), ...(copyright ? { copyright } : {}) }
+    : {
+        ...(paper ? { paper } : {}),
+        ...(typeof year === 'number' ? { year } : {}),
+        ...(questionNumber ? { questionNumber } : {}),
+        ...(copyright ? { copyright } : {}),
+      }
   if (Object.keys(source).length > 0) out.source = source
 
   if (question.config) {
     const config: QuestionConfig = structuredClone(question.config)
+    if (printed) inPrintedOrder(question, config, printed.shuffle)
     delete config.shuffle
     if (config.parts) {
       config.parts = config.parts.map((part) => {
@@ -243,6 +403,47 @@ export function studentCopy(
 }
 
 /**
+ * Put a question's options in the order a paper printed them, and move its
+ * answers with them, so the letters in Mimir are the letters on the paper.
+ *
+ * The same lists `shuffledChoices`, `shuffledResponses` and `shuffledMatching`
+ * move, by the same `printOrder`: of a matching question, the lettered column.
+ */
+function inPrintedOrder(question: Question, config: QuestionConfig, shuffle: ShuffleVersion): void {
+  const follow = (order: number[], at: number[]) =>
+    at
+      .map((i) => order.indexOf(i))
+      .filter((i) => i >= 0)
+      .sort((a, b) => a - b)
+
+  if (
+    question.questionType === 'multiple_choice' ||
+    question.questionType === 'multiple_response'
+  ) {
+    const choices = config.choices
+    if (!choices) return
+    const order = printOrder(question, choices.length, shuffle)
+    config.choices = order.map((i) => choices[i]).filter((c) => c !== undefined)
+    if (typeof config.correctAnswer === 'number') {
+      const at = order.indexOf(config.correctAnswer)
+      if (at >= 0) config.correctAnswer = at
+      else delete config.correctAnswer
+    }
+    if (config.correctAnswers) config.correctAnswers = follow(order, config.correctAnswers)
+  } else if (question.questionType === 'matching') {
+    const options = config.options
+    if (!options) return
+    const order = printOrder(question, options.length, shuffle)
+    config.options = order.map((i) => options[i]).filter((o) => o !== undefined)
+    if (config.items) {
+      config.items = config.items.map((item) =>
+        item.matches ? { ...item, matches: follow(order, item.matches) } : item,
+      )
+    }
+  }
+}
+
+/**
  * A fingerprint of what students are given of a question.
  *
  * Only to notice an edit since release, never to prove anything, so a short
@@ -250,8 +451,8 @@ export function studentCopy(
  * copy with its pictures at their bank paths, so where a release put them
  * does not count as a change.
  */
-export function releaseHash(question: Question): string {
-  const text = canonical(studentCopy(question))
+export function releaseHash(question: Question, printed?: AsPrinted): string {
+  const text = canonical(studentCopy(question, undefined, printed))
   // FNV-1a, 32 bits, twice with different offsets for 64 bits of spread.
   let a = 0x811c9dc5
   let b = 0x01000193 ^ 0x5bd1e995
@@ -281,10 +482,11 @@ export function releaseState(
   ledger: ReleaseLedger,
   exam: string,
   question: Question,
+  printed?: AsPrinted,
 ): ReleaseState {
   const entry = ledger.questions.find((q) => q.exam === exam && q.id === question.id)
   if (!entry) return 'new'
-  return entry.hash === releaseHash(question) ? 'released' : 'changed'
+  return entry.hash === releaseHash(question, printed) ? 'released' : 'changed'
 }
 
 /* ---------------------------------------------------------- what is written */
@@ -326,6 +528,8 @@ export interface ReleaseDetails {
   subject: string
   yearLevel: number
   releasedOn: string
+  /** A built paper's sections go to Mimir as bands. Ignored for an imported exam. */
+  sectionsAreBands?: boolean
 }
 
 export interface ReleasePlan {
@@ -342,19 +546,23 @@ export interface ReleasePlan {
  *
  * Named from the exam, not from the title the teacher types, so a re-release
  * under a corrected title replaces the file rather than adding a second copy
- * of the exam to every student's list. Pictures go in an `images` folder beside
+ * of the exam to every student's list. A built paper is named from its id,
+ * which is also the release's id. Pictures go in an `images` folder beside
  * it with the paths rewritten: the student folder must never point into the
  * faculty folder, which students cannot open.
  */
 export function planRelease(
-  exam: ImportedExam,
+  exam: Exam,
   chosen: QuestionRef[],
   details: ReleaseDetails,
   dateSat: string,
   index: ContentIndex,
 ): ReleasePlan {
-  const dir = String(exam.year)
-  const name = slug(exam.paper)
+  const built = exam.kind === 'paper'
+  const examYear = built ? Number(dateSat.slice(0, 4)) : exam.year
+  const dir = String(examYear)
+  const name = slug(built ? exam.paper.id : exam.paper)
+  const asBands = built && details.sectionsAreBands === true
   const images: { from: string; to: string }[] = []
   const taken = new Map<string, string>()
 
@@ -375,18 +583,22 @@ export function planRelease(
     return pick
   }
 
-  const questions = chosen.map((ref) => studentCopy(ref.question, place(ref.file)))
+  const questions = chosen.map((ref) =>
+    studentCopy(ref.question, place(ref.file), printedFor(exam, ref.question.id, asBands)),
+  )
   const topics = topicsFor(chosen, index)
-  const bands = exam.bands.filter((b) => questions.some((q) => q.band === b))
+  const bands = (built ? exam.sections : exam.bands).filter((b) =>
+    questions.some((q) => q.band === b),
+  )
 
   const release: MimirRelease = {
     formatVersion: '1',
     type: 'mimir_release',
-    id: `${name}-${exam.year}`,
+    id: built ? exam.paper.id : `${name}-${exam.year}`,
     subject: details.subject,
     title: details.title,
     yearLevel: details.yearLevel,
-    examYear: exam.year,
+    examYear,
     releasedOn: details.releasedOn,
     topics,
     ...(bands.length > 0 ? { bands } : {}),
@@ -405,6 +617,7 @@ export function planRelease(
       yearLevel: details.yearLevel,
       file: path,
       releasedOn: details.releasedOn,
+      ...(built ? { sectionsAreBands: asBands } : {}),
     },
   }
 }

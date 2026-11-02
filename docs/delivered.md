@@ -1070,8 +1070,8 @@ student folder, and records each exam's date sat and each approval in
 - **The unit is an imported exam, not a Klunk paper.** An exam read in on From a
   past paper never becomes a paper, so it has no date or year group to lean on.
   Questions are grouped by `source.paper` and `source.year`, and the teacher
-  enters the date the last class sat it. A paper built in Klunk is #219, waiting
-  on #143's shuffle.
+  enters the date the last class sat it. A paper built in Klunk came later, in
+  #219, below.
 - **The embargo fails closed.** No date sat, or one not yet past, holds back the
   whole exam. A question also on a Klunk paper with no date, or one still to be
   sat, is held back and the card names the paper. Papers are matched on question
@@ -1102,6 +1102,44 @@ same code: questions, pictures, year, band and topics all as written. The user
 then released the Year 8 task to a real folder and opened it in Mimir, which
 found two Mimir faults fixed alongside: display maths centred inside a working
 step, and the folder's name shown where the subject belongs.
+
+**A paper built in Klunk can be released too, as it printed** (#219). It is
+offered on the same screen, above the imported exams, newest first and undated
+last, with the same ledger and student folder.
+
+- **The date sat is still the teacher's**, prefilled from the paper's own date
+  and refused if earlier than it, because the cover's date is the first sitting
+  and not the last catch-up. A paper with no date holds everything back and says
+  to add one on Papers. The paper being released is left out of its own "also
+  on" check.
+- **What it printed is what goes**: the paper's number for the question,
+  `marksOverride` where it has one, and the options of a multiple choice,
+  multiple response or matching question in the order `printOrder` gives under
+  the paper's `shuffleVersion`, with `correctAnswer`, `correctAnswers` and a
+  matching item's `matches` moved to follow. The question's own `source.paper`
+  and `year` stay behind, since the paper the student sat is this one;
+  `copyright` goes. `group` does not, because Mimir has nowhere to show it.
+- **Sections are bands only when the teacher ticks it.** Mimir shows a student
+  only the band they chose and remembers that choice across papers, so a paper
+  whose `Section I` went as a band would vanish for a student who chose
+  `Standard` elsewhere. The box is ticked for them when every section is named
+  as one of Mimir's five bands, and the choice is kept in the ledger as
+  `sectionsAreBands`.
+- **The file is named from the paper's id**, which is also the release's `id`,
+  under the year it was sat, and the ledger key is `paper:` and that id.
+- **The hash covers what the paper printed**, so changing a mark override or the
+  bands marks a released question "Changed since release".
+
+Verified by driving it on `../klunk-content`, releasing to the user's real
+student folder: a paper dated 3 December 2026 held back with its reason; on a
+test paper dated 20 October 2026, every question shared with the undated
+Shuffle check 143 was held back naming it, and the one shared with the future
+paper named that; a date sat of 15 October was refused against the paper's 20
+October; four questions released as numbers 1 to 4, the written one at its
+6-mark override, bands Support and Standard, the ledger keyed
+`paper:release-219-check`. The shuffled question's options in the file matched
+the marking guide's preview, answer C, and Mimir showed the same four letters
+and marked C correct.
 
 ## The shuffle, and the letters a paper answers with
 
