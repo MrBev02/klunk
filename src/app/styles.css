@@ -2349,6 +2349,52 @@ button.chip {
   font-weight: 400;
 }
 
+/* The formula under the box being typed in (#210). Laid over the fields below
+   rather than pushing them down, so the box being typed in never moves. Flat,
+   with the hairline every sheet has and a margin mark for its status. */
+.form {
+  position: relative;
+}
+
+.formulapreview {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  min-width: 16rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--r);
+}
+
+.formulapreview--fault {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+
+/* A long formula scrolls sideways. Hiding the vertical overflow is what keeps
+   KaTeX's struts, a few pixels taller than the line, from adding a scrollbar. */
+.formulapreview__set {
+  font-size: 1.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+}
+
+.formulapreview__fault {
+  margin: 0;
+  color: var(--ink);
+}
+
+.formulapreview .hint {
+  margin: 0.3rem 0 0;
+}
+
+.formulapreview .hint:first-child {
+  margin-top: 0;
+}
+
 /* ------------------------------------------------------------------- footer */
 
 .colophon {

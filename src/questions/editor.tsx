@@ -28,6 +28,7 @@ import {
   TopicOptions,
 } from '../shared/fields'
 import { FormulaPalette } from './palette'
+import { FormulaPreview } from './preview'
 import { QuestionDetail } from './question'
 import { WorkingFields } from './working'
 import {
@@ -503,6 +504,7 @@ export function QuestionEditor({
               set({ id })
             }}
           />
+          <FormulaPreview form={form} />
         </main>
 
         <aside class="rail">

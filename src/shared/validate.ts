@@ -64,6 +64,7 @@ export interface Check {
   unfinished?: boolean | undefined
 }
 import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
+import { badFormulas } from './formulacheck'
 import type {
   IdentificationField,
   MarkCriterion,
@@ -242,6 +243,16 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
     )
   }
 
+  /* --------------------------------------------------------------- formulas */
+
+  // Unfinished, because a formula KaTeX cannot read prints as red source on the
+  // paper (#210) and the paper checker lists what is unfinished.
+  for (const [text, where] of proseOf(question)) {
+    for (const bad of badFormulas(text)) {
+      warnToFinish(`The formula ${bad.tex} cannot be drawn. ${bad.fault}`, where)
+    }
+  }
+
   /* ------------------------------------------------------ type-specific rules */
 
   const cfg = question.config ?? {}
@@ -275,6 +286,51 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 }
 
 type Report = (message: string, where?: string) => void
+
+/** Fields that hold no prose, so a `\(` in one is not a formula. */
+const NOT_PROSE = new Set(['id', 'syllabus', 'outcomes', 'tags', 'source', 'textbookRefs'])
+
+/** Where a field's checks are reported, by its key, when it says more than its parent. */
+const PLACE: Record<string, string> = {
+  questionText: 'Question',
+  stimulus: 'Stimulus',
+  markingGuide: 'Marking guide',
+  choices: 'Options',
+  options: 'Options',
+  items: 'Matching',
+  columns: 'Table',
+  rows: 'Table',
+}
+
+/**
+ * Every string on a question that may carry a formula, with where it sits.
+ *
+ * A walk over the whole question rather than a list of its prose fields, so a
+ * field added later is checked without anyone remembering to add it here. Ids,
+ * tags, tagging and provenance are skipped, and a code stimulus, which prints
+ * its text exactly as typed.
+ */
+function* proseOf(value: unknown, where = 'Question'): Generator<[string, string]> {
+  if (typeof value === 'string') {
+    yield [value, where]
+  } else if (Array.isArray(value)) {
+    for (const item of value) yield* proseOf(item, where)
+  } else if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (record.kind === 'code') return
+    for (const [key, field] of Object.entries(record)) {
+      if (NOT_PROSE.has(key)) continue
+      if (key === 'parts' && Array.isArray(field)) {
+        // Named as the part rules name them, so both land under one heading.
+        for (const [i, p] of (field as QuestionPart[]).entries()) {
+          yield* proseOf(p, `Part ${p.label.trim() || i + 1}`)
+        }
+        continue
+      }
+      yield* proseOf(field, PLACE[key] ?? where)
+    }
+  }
+}
 
 /**
  * The stimulus rules, wherever a list of them hangs.

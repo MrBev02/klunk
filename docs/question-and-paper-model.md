@@ -739,3 +739,39 @@ because answers were keyed by number alone.
   section's question. That is what the real reply needed, and it was written
   before the prompt asked for sections. Where no number repeats, the number is
   the whole key, exactly as before.
+
+## A formula that will not set
+
+**A formula KaTeX cannot read is a warning that leaves the question
+unfinished, and the reason is KaTeX's, translated** (#210). The renderer
+keeps `throwOnError: false`, so the paper still prints the red source rather
+than a hole. What changed is that the reason is no longer thrown away.
+
+- **`formulacheck.ts` asks again with `throwOnError: true`** and matches
+  `ParseError.rawMessage` against fifteen reasons collected by feeding KaTeX
+  0.19.1 the typos a teacher makes. A reason not in the list falls through
+  to `KaTeX says: …`, and each translation has a test, so an upgrade that
+  rewords one fails there rather than going quietly untranslated.
+- **`\frac{1}` and `\frac{3}{8` give the same reason** (`Unexpected end of
+  input in a macro argument, expected '}'`). Counting unescaped braces tells
+  them apart: more `{` than `}` is an unclosed brace, otherwise a missing
+  part.
+- **Unfinished, not an error, and not a plain warning.** The paper checker
+  lists `unfinishedReasons`, which is the route by which a red formula
+  cannot reach a printed paper unnoticed. An error would refuse a save of a
+  question a teacher is halfway through.
+- **The checker walks the whole question rather than a list of prose
+  fields**, so a field added later is checked without anyone remembering
+  this. It skips ids, tags, tagging, provenance and a code stimulus. Each
+  check is reported under `Part (b)` as the part rules name it, or under the
+  field's own place (`Options`, `Marking guide`, `Table`).
+- **Remembered by source.** `isUnfinished` runs every check on every
+  question each time the library is filtered, so each formula is set at
+  most once.
+- **An opener with no closer is not checked.** It prints as typed, and the
+  preview says so, but the checker sees no formula in it. Filed rather than
+  added here.
+- **The preview is one panel over the form, not a slot after each box.**
+  Preact places a child relative to its next sibling, so a node slipped in
+  after a box it rendered can be moved under the wrong one. Laid over the
+  fields, the box being typed in never moves.
