@@ -395,6 +395,49 @@ in the browser, as recorded under #151 in
 takes `dist-single` from 2.10 MB to **3.82 MB**, about 1.1 MB of it the `.woff`
 and `.ttf` copies of its fonts that its stylesheet lists after `.woff2`.
 
+**A teacher who has never written LaTeX can write a formula from buttons**
+(#209). The question editor's rail carries a **Formulas** panel, closed until
+**Show the formula buttons** is clicked: a list of seven groups and that
+group's buttons, each drawn by KaTeX. A click types into whichever box was
+last typed in (the question, a part, an option, a matching item, any sample
+answer), and the panel names that box. It wraps the insertion in `\(…\)`
+unless the cursor is already in a formula, lands the cursor in the first
+empty slot, and puts selected text in the first slot. It goes through
+`execCommand('insertText')`, so one Undo takes a click back out. Help has a
+**Writing formulas** section: what you want, what to type, and what it
+looks like, the third column drawn from the second.
+
+- **The 37 buttons were counted, not imagined.** The 907 equations in
+  Mathematics Advanced 11–12 (2024) are mostly delimiters (271), powers
+  (136), functions (136), fractions (126) and subscripts (84); their
+  commonest symbols are θ, ≤, ∫, °, ≠, ≥, μ and Δ. The Year 8 task (#201)
+  used powers, fractions and brackets only. The counts are in
+  `src/questions/formulas.ts`.
+- **One group at a time, because all seven pushed the preview off screen.**
+  Laid out whole, the panel stood 310px tall, and on the Mac's 697px window
+  the preview started at 680px, so a teacher could not see what a click
+  did. Found by driving it.
+- **A test sets every button, every button's insertion with its slots
+  filled, and every help row in KaTeX with `throwOnError`**, so neither the
+  palette nor the help table can show a red formula. No help row shows a
+  mistake set wrongly for the same reason; the three common mistakes are
+  prose under the table.
+- **Whether the cursor is inside a formula is `insideFormula` in
+  `richtext.ts`**, beside `mathAt`, so it reads code spans and escapes as the
+  renderer does. It counts an empty `\(\)` and an opener not yet closed on
+  its line, which is where a teacher's cursor is mid-formula.
+
+Driven on `../klunk-content`: from an empty question, **Simplify**, the
+fraction button, `x + 1`, two right arrows, `2`, then **and**, the power
+button, `a`, `3`, the multiply button from **Signs**, `a`, and the power
+button again from **Fractions, indices and roots**. The box held
+`Simplify \(\frac{x + 1}{2}\) and \(a^{3}\times a^{4}\)` exactly, the
+preview set both formulas with none in error, and the preview stayed on
+screen beside the open panel. Undo removed a whole insertion in one step.
+The square root clicked into part (a)'s one-line box gave
+`Evaluate \(\sqrt{49}\)`, the panel naming **What this part asks**. The help
+table set 26 formulas in 22 rows, none in error.
+
 **A mathematics past paper is sent to an AI rather than read wrongly** (#198).
 A paper or marking guide set in mathematics fonts is refused before any reader
 sees it, with a message saying why, and the transcription prompt opens below.

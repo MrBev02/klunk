@@ -24,7 +24,9 @@
  * is actually looking at rather than for what they would call it.
  */
 
+import { FORMULA_EXAMPLES } from '../questions/formulas'
 import { ScreenBar } from '../shared/fields'
+import { Inline } from '../shared/richtextview'
 
 /**
  * The one address in the app that points off this computer.
@@ -43,6 +45,7 @@ const CONTENTS: { id: string; title: string }[] = [
   { id: 'help-setup', title: 'Setting up a subject folder' },
   { id: 'help-files', title: 'What Klunk puts in your folder' },
   { id: 'help-questions', title: 'Three ways to get questions in' },
+  { id: 'help-formulas', title: 'Writing formulas' },
   { id: 'help-papers', title: 'Building and printing a paper' },
   { id: 'help-sharing', title: 'Sharing a folder with colleagues' },
   { id: 'help-release', title: 'Releasing questions to students' },
@@ -256,10 +259,10 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         <p>
           <strong>Bold, italics, code and tables.</strong> Type <code>**bold**</code>,{' '}
           <code>*italic*</code> and <code>&lt;u&gt;underline&lt;/u&gt;</code> straight into the
-          question text. Put a variable name or a formula in backticks, <code>`gap`</code>, to print
-          it in a fixed-width font, with any asterisks kept. A blank line starts a new paragraph. A
-          table of data goes in as pipe rows, and the dashed row under the headings is what makes it
-          a table:
+          question text. Put a variable name or a spreadsheet formula in backticks,{' '}
+          <code>`gap`</code>, to print it in a fixed-width font, with any asterisks kept. A blank
+          line starts a new paragraph. A table of data goes in as pipe rows, and the dashed row
+          under the headings is what makes it a table:
         </p>
 
         <pre class="help__sample">{`| Time | Temperature (°C) |
@@ -349,6 +352,73 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
           <strong>Only unfinished</strong> on the Questions tab to list them, and the Checks panel
           names any that reach a paper. Klunk sets and clears this tag itself every time a question
           is saved, so typing it or deleting it by hand does not stick.
+        </p>
+      </section>
+
+      <section id="help-formulas" class="help__sec">
+        <h3 class="setup__head">Writing formulas</h3>
+
+        <p>
+          Put a formula between <code>\(</code> and <code>\)</code> inside a sentence, or between{' '}
+          <code>\[</code> and <code>\]</code> to give it a line of its own. What goes between them
+          is written in LaTeX. A dollar sign outside them is a dollar sign, so prices print as
+          typed.
+        </p>
+
+        <p>
+          <strong>Use the formula buttons.</strong> Click <strong>Show the formula buttons</strong>{' '}
+          in the <strong>Formulas</strong> panel beside the preview. A button puts its formula at
+          your cursor, in the box you were last writing in. Type the first part straight away, such
+          as the top of a fraction, then use the right arrow key to move into the next part. Select
+          some text first to put it inside, such as <code>x + 1</code> before clicking the fraction.
+          Undo (Ctrl+Z, or Cmd+Z on a Mac) takes a click back out.
+        </p>
+
+        <table class="richtable help__formulas">
+          <thead>
+            <tr>
+              <th>What you want</th>
+              <th>What to type</th>
+              <th>What it looks like</th>
+            </tr>
+          </thead>
+          <tbody>
+            {FORMULA_EXAMPLES.map((row) => (
+              <tr key={row.want}>
+                <td>{row.want}</td>
+                <td>
+                  <code>{row.type}</code>
+                </td>
+                <td>
+                  <Inline text={row.type} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <h4 class="help__sub">Three things that catch people out</h4>
+        <ul>
+          <li>
+            Put a power or a subscript of more than one character in braces:{' '}
+            <code>
+              2^{'{'}10{'}'}
+            </code>
+            . Without them only the first character is raised.
+          </li>
+          <li>
+            Leave a space after a command written as a word: <code>\pi r</code>, not{' '}
+            <code>\pir</code>.
+          </li>
+          <li>
+            Write <code>\%</code> for a per cent sign inside a formula. A bare <code>%</code> hides
+            the rest of the formula.
+          </li>
+        </ul>
+
+        <p>
+          A formula shown in red on the preview has a typing mistake in it. Compare it with the
+          table.
         </p>
       </section>
 
@@ -461,21 +531,46 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
 
       <section id="help-release" class="help__sec">
         <h3 class="setup__head">Releasing questions to students</h3>
+        <p>Students can revise using past exam questions released through Mimir.</p>
+
+        <h4 class="help__sub">Set up a shared folder</h4>
         <p>
-          Students revise from released questions in Mimir. Make a second folder for each subject,
-          shared with students to view only, and choose it on the{' '}
-          <strong>Release to students</strong> tab. Never share your Klunk folder with students:
-          anything in a folder they can open, they can read.
+          Create a separate folder for each subject and give students{' '}
+          <strong>view-only access</strong>. Select this folder in the{' '}
+          <strong>Release to students</strong> tab.
         </p>
         <p>
-          Choose an exam you read in on From a past paper and enter the date the last class sat it.
-          Tick each question to release, then click <strong>Release</strong>. Students see the
-          question and its sample answer. Marker notes stay here.
+          <strong>Do not share your Klunk folder.</strong> Students can read anything stored in a
+          folder they can access.
         </p>
+
+        <h4 class="help__sub">Release questions</h4>
+        <ol class="help__steps">
+          <li>
+            Select an exam: a paper built in Klunk, or one imported using{' '}
+            <strong>From a past paper</strong>.
+          </li>
+          <li>Enter the date the last class completed the exam.</li>
+          <li>Tick the questions you want students to see.</li>
+          <li>
+            Click <strong>Release</strong>.
+          </li>
+        </ol>
         <p>
-          A question also on a paper not yet sat, or on a paper with no date, is held back until
-          that paper is sat. Edit a released question and it is marked as changed: release the exam
-          again to update students.
+          Students will see each released question and its sample answer. Marker notes remain
+          private.
+        </p>
+
+        <h4 class="help__sub">When questions are held back</h4>
+        <p>
+          If a question also appears in an exam that students have not yet sat, it will not be
+          released. The same applies if that exam has no completion date.
+        </p>
+
+        <h4 class="help__sub">Updating released questions</h4>
+        <p>
+          If you edit a released question, the <strong>Release to students</strong> tab marks it as
+          changed. Release the exam again to make the updated version available to students.
         </p>
       </section>
 

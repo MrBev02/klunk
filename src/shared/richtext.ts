@@ -136,6 +136,42 @@ function mathAt(text: string, at: number): { end: number; display: boolean } | n
 }
 
 /**
+ * Whether `cursor` sits inside a formula, for the formula palette (#209).
+ *
+ * Here rather than in the palette, because it has to read the text as
+ * `collect` does: a code span is not a formula, `\\(` is an escaped backslash
+ * and a bracket, and a formula opened first runs to its closer. It departs
+ * from `mathAt` twice, both in the direction of the teacher typing: an empty
+ * `\(\)` counts, because that is where a click lands after typing the pair,
+ * and so does an opener with no closer yet on the same line.
+ */
+export function insideFormula(text: string, cursor: number): boolean {
+  for (let at = 0; at < cursor; at += 1) {
+    const ch = text[at]
+    const next = text[at + 1] ?? ''
+    if (ch === '\\' && (next === '(' || next === '[')) {
+      const end = text.indexOf(next === '(' ? '\\)' : '\\]', at + 2)
+      if (end === -1) return !text.slice(at + 2, cursor).includes('\n')
+      if (cursor >= at + 2 && cursor <= end) return true
+      at = end + 1
+      continue
+    }
+    if (ch === '\\' && ESCAPABLE.includes(next)) {
+      at += 1
+      continue
+    }
+    if (ch === '`') {
+      const close = codeEnd(text, at)
+      if (close > -1) {
+        if (cursor <= close) return false
+        at = close
+      }
+    }
+  }
+  return false
+}
+
+/**
  * Where the run opened at `from` closes, or -1.
  *
  * The character before a closer is never a space. That one rule is what stops

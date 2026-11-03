@@ -46,7 +46,10 @@ async function pages() {
   return pagesFromDocument(doc as never)
 }
 
-describeIfPresent('IB DP Design Technology subject guide', () => {
+// Every test reads the whole guide afresh, about 3.5s on the Mac, which sat
+// under vitest's 5s default until the formula palette's tests (#209) added
+// enough load beside it that `npm run build` timed out on the first one.
+describeIfPresent('IB DP Design Technology subject guide', { timeout: 30_000 }, () => {
   const read = async () => readSyllabusPdf(await pages())
 
   it('is claimed by the guide reader', async () => {
