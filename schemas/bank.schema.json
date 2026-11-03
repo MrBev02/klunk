@@ -110,8 +110,15 @@
               "description": "What a marker should accept, one point per entry. Every question in a NESA marking guideline ends with an 'Answers could include:' list, and it is the longest part of it: 2025 HSC Visual Arts Question 3 runs to twelve points. Distinct from 'notes', which is an aside about how to mark, where this is the substance being marked against.",
               "items": { "type": "string" }
             },
+            "working": { "$ref": "#/$defs/working" },
             "notes": { "type": "string" }
           }
+        },
+
+        "textbookRefs": {
+          "type": "array",
+          "description": "Where to practise this kind of question, per course, as a faculty paper prints it beside the question: 'Std/Sup Ex 2E', 'Adv/Ext Ex 1I'. Released to students as Mimir's own textbookRefs.",
+          "items": { "$ref": "#/$defs/textbookRef" }
         },
 
         "source": {
@@ -211,6 +218,60 @@
           "then": { "properties": { "config": { "$ref": "#/$defs/writtenConfig" } } }
         }
       ]
+    },
+
+    "working": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The worked solution as a student would write it, one step per line, with the marks a marker gives on the line that earns them. More than one entry means alternative methods, each complete. Shaped as Mimir's release schema shapes it, so a release copies it unchanged and Mimir can reveal it a step at a time. Mathematics is the reason it exists: a sample answer is a paragraph, and a mathematics solution is a sequence of lines.",
+      "items": {
+        "type": "object",
+        "required": ["steps"],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Names a method when there are several, e.g. 'Using Pythagoras' or 'Using tan'."
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["text"],
+              "additionalProperties": false,
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "description": "One line of working, in the question's markup."
+                },
+                "marks": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "The marks this line earns; 0.5 for a half mark."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "textbookRef": {
+      "type": "object",
+      "required": ["exercise"],
+      "additionalProperties": false,
+      "properties": {
+        "course": {
+          "type": "string",
+          "description": "The course or courses the reference is for, e.g. 'Std/Sup'. Absent when the faculty uses one textbook."
+        },
+        "exercise": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. 'Ex 2E' or 'Ex 4H-I'."
+        }
+      }
     },
 
     "criterion": {
@@ -432,6 +493,7 @@
               "marks": { "type": "number", "exclusiveMinimum": 0 },
               "answerLines": { "type": "integer", "minimum": 0 },
               "sampleAnswer": { "type": "string" },
+              "working": { "$ref": "#/$defs/working" },
               "sampleStimulus": {
                 "type": "array",
                 "description": "This part's model drawing or program, printed on the marking guide only. See markingGuide.sampleStimulus.",

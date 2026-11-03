@@ -80,6 +80,7 @@ import type {
   Stimulus,
   Syllabus,
   TableRow,
+  WorkingMethod,
 } from './types'
 
 /** What the folder already contains, which is what uniqueness is judged against. */
@@ -218,6 +219,10 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
 
   const guide = question.markingGuide
   guide?.criteria?.forEach((c, i) => validateCriterion(c, `Criterion ${i + 1}`, err))
+  validateWorking(guide?.working, question.marks, 'Working', warn)
+  ;(question.config?.parts ?? []).forEach((p, i) => {
+    validateWorking(p.working, p.marks, `Part ${p.label.trim() || i + 1}, working`, warn)
+  })
 
   const criteria = guide?.criteria ?? []
   if (criteria.length > 0 && !looksBanded(criteria)) {
@@ -612,6 +617,32 @@ function validateWritten(
 }
 
 /* ----------------------------------------------------------------- shared tests */
+
+/**
+ * A method whose lines carry marks should carry all of them (#224).
+ *
+ * Each method on its own, because alternatives are each complete: two methods
+ * worth 3 each is a 3-mark question, not a 6-mark one. A method with no marks
+ * on any line is left alone, since a worked solution without a mark scheme is
+ * still worth giving students. A warning rather than an error, because a
+ * paper that marks a line for "correct units" may print that mark nowhere.
+ */
+function validateWorking(
+  working: WorkingMethod[] | undefined,
+  marks: number,
+  where: string,
+  warn: Report,
+): void {
+  const several = (working?.length ?? 0) > 1
+  working?.forEach((m, i) => {
+    const marked = m.steps.filter((s) => s.marks !== undefined)
+    if (marked.length === 0) return
+    const sum = marked.reduce((t, s) => t + (s.marks ?? 0), 0)
+    if (sum === marks) return
+    const name = several ? `${where}, ${m.label?.trim() || `method ${i + 1}`}` : where
+    warn(`The marked lines total ${sum}, but this is worth ${marks}.`, name)
+  })
+}
 
 /**
  * Band descriptors are alternatives, not components: a 15-mark extended
@@ -1362,9 +1393,19 @@ export function cleanQuestion(draft: Question): Question {
     sampleStimulus: cleanStimuli(draft.markingGuide?.sampleStimulus),
     criteria: cleanCriteria(draft.markingGuide?.criteria),
     answersCouldInclude: list(draft.markingGuide?.answersCouldInclude),
+    working: cleanWorking(draft.markingGuide?.working),
     notes: text(draft.markingGuide?.notes),
   })
   if (guide) out.markingGuide = guide
+
+  const refs = nonEmpty(
+    (draft.textbookRefs ?? []).flatMap((r) => {
+      const exercise = r.exercise.trim()
+      const course = r.course?.trim()
+      return exercise ? [{ ...(course ? { course } : {}), exercise }] : []
+    }),
+  )
+  if (refs) out.textbookRefs = refs
 
   const source = compact({
     origin: draft.source?.origin,
@@ -1563,6 +1604,8 @@ function cleanPart(p: QuestionPart): QuestionPart {
   if (p.answerLines !== undefined) out.answerLines = p.answerLines
   const sample = text(p.sampleAnswer)
   if (sample) out.sampleAnswer = sample
+  const working = cleanWorking(p.working)
+  if (working) out.working = working
   const criteria = cleanCriteria(p.criteria)
   if (criteria) out.criteria = criteria
   const stimulus = cleanStimuli(p.stimulus)
@@ -1582,6 +1625,24 @@ function cleanCriteria(criteria: MarkCriterion[] | undefined): MarkCriterion[] |
         ...(c.marksTo !== undefined && c.marksTo > c.marks ? { marksTo: c.marksTo } : {}),
         description: c.description.trim(),
       })),
+  )
+}
+
+/**
+ * A blank line is dropped, and a method left with no lines with it. A mark on a
+ * blank line goes too: a mark the student can see no line for is not a step.
+ */
+function cleanWorking(working: WorkingMethod[] | undefined): WorkingMethod[] | undefined {
+  return nonEmpty(
+    (working ?? []).flatMap((m) => {
+      const steps = m.steps.flatMap((s) => {
+        const line = s.text.trim()
+        if (!line) return []
+        return [{ text: line, ...(s.marks !== undefined && s.marks > 0 ? { marks: s.marks } : {}) }]
+      })
+      const label = m.label?.trim()
+      return steps.length > 0 ? [{ ...(label ? { label } : {}), steps }] : []
+    }),
   )
 }
 

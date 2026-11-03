@@ -29,6 +29,7 @@ import {
   type ResolvedQuestion,
 } from './paper'
 import { Inline, RichText } from '../shared/richtextview'
+import { Working } from '../shared/workingview'
 import { joinPath } from '../folder/storage'
 import { alignOf, hasSample, printsInline } from '../shared/types'
 import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from '../shared/types'
@@ -880,6 +881,7 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
                 </p>
               )}
               <SampleStimulus items={part.sampleStimulus} bankFile={item.file} images={images} />
+              <Working working={part.working} />
               {part.criteria?.length ? <Criteria criteria={part.criteria} /> : null}
             </li>
           ))}
@@ -1097,6 +1099,7 @@ function GuideBlock({
             </p>
           )}
           <SampleStimulus items={guide?.sampleStimulus} bankFile={bankFile} images={images} />
+          <Working working={guide?.working} />
         </>
       ) : showMissing ? (
         <p class="guide__missing">

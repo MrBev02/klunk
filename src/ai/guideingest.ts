@@ -28,6 +28,7 @@ import {
   extractJson,
   readCriteria,
   readSampleStimulus,
+  readWorking,
   strings,
 } from './ingest'
 import type { Marking, MarkingEntry } from '../pastpapers/marking'
@@ -55,6 +56,7 @@ const KNOWN_FIELDS = new Set([
   'sampleAnswer',
   'sampleStimulus',
   'answersCouldInclude',
+  'working',
   'outcomes',
   'unreadable',
   // tolerated aliases, consumed below
@@ -219,6 +221,11 @@ function readEntry(
   const could = strings(src.answersCouldInclude)
   if (could.length > 0) entry.answersCouldInclude = could
 
+  const workingRepairs: string[] = []
+  const working = readWorking(src.working, workingRepairs)
+  if (working) entry.working = working
+  for (const r of workingRepairs) notes.push(`Question ${number}: ${r}`)
+
   const outcomes = readOutcomes(src.outcomes, ctx, number, notes)
   if (outcomes.length > 0) entry.outcomes = outcomes
 
@@ -262,6 +269,7 @@ function saysSomething(entry: MarkingEntry): boolean {
     entry.sampleAnswer !== undefined ||
     entry.sampleStimulus !== undefined ||
     entry.answersCouldInclude !== undefined ||
+    entry.working !== undefined ||
     entry.outcomes !== undefined ||
     entry.unreadable !== undefined
   )

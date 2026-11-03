@@ -1184,6 +1184,46 @@ October; four questions released as numbers 1 to 4, the written one at its
 the marking guide's preview, answer C, and Mimir showed the same four letters
 and marked C correct.
 
+**A worked solution, textbook exercises and a marker's comment reach students**
+(#224), in the three fields Mimir's release schema already defined.
+
+- **Working is a line per step with the marks that line earns**, under
+  `markingGuide.working` or a part's `working`: one or more methods, each a
+  list of steps, a label only where there are several. The editor writes it a
+  line per box; Enter starts the next line and a pasted block splits into
+  lines. Marks are optional per line, but where any line of a method carries
+  them the method must add to the question's, or the checker says so.
+- **It prints on the marking guide and shows in the detail view**, after the
+  sample answer, a table per method with the marks in a right-hand column.
+  Never on the student paper.
+- **Textbook exercises are a question's own** (`textbookRefs`, course optional),
+  shown in the detail view and released with the question. Not printed
+  anywhere yet.
+- **The marker's comment belongs to the release, not the question**, because
+  it says what one class got wrong in one sitting. It is typed on the release
+  screen, goes into the file as `markingGuide.markerComment`, and is kept in
+  the ledger beside the approval, so changing it marks the question "Changed
+  since release". Question level only; Mimir also takes one per part.
+- **The three AI prompts ask for working** where a model answer is worked in
+  steps, with the rules a marker needs: rule first, one "=" per line, marks on
+  the line that earns them. Both readers take it back leniently: a method, a
+  list of steps or a list of strings, with marks that are not a number left
+  off and said so.
+
+Verified by driving it on `../klunk-content`: a two-method Pythagoras question
+written in the editor, with a line deliberately left short of the total
+(warned) and then corrected; saved, and the bank file held both methods, the
+marks and `Adv Ex 4C Q1-12`. The marking guide preview printed both methods
+with marks, the student paper neither. Released with a comment to the user's
+real student folder; the file passed Mimir's schema, the ledger kept the
+comment, and Mimir showed the exercise, revealed each method a step at a
+time with its marks, and the comment after the working.
+
+Driving it found three editor faults, fixed before commit: a textbook row with
+no number column, so the grid put the ✕ in the wide column; an empty
+"Textbook" heading for a half-typed row; and blank lines drawn as ruled rows
+in the preview.
+
 ## The shuffle, and the letters a paper answers with
 
 #143. `printOrder` took `state % (i + 1)` from a linear congruential

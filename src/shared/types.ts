@@ -332,12 +332,42 @@ export interface MarkCriterion {
   marksTo?: number
 }
 
+/** One line of a worked solution, and the marks a marker gives on it (#224). */
+export interface WorkingStep {
+  text: string
+  /** 0.5 for a half mark. Absent on a line that earns nothing by itself. */
+  marks?: number
+}
+
+/**
+ * One complete way to the answer.
+ *
+ * A list rather than a paragraph because that is how a mathematics solution is
+ * written and marked: line by line, with the mark beside the line that earns
+ * it. Mimir reveals it a line at a time, so a student checks their own line
+ * before seeing the next. Shaped as Mimir's `release.schema.json` shapes it,
+ * so a release copies it as it stands.
+ */
+export interface WorkingMethod {
+  /** Names a method where there are several: `Using Pythagoras`. */
+  label?: string
+  steps: WorkingStep[]
+}
+
+/** Where to practise, as a faculty paper prints it beside the question: `Std/Sup Ex 2E`. */
+export interface TextbookRef {
+  course?: string
+  exercise: string
+}
+
 export interface QuestionPart {
   label: string
   text: string
   marks: number
   answerLines?: number
   sampleAnswer?: string
+  /** This part's worked solution. See `markingGuide.working`. */
+  working?: WorkingMethod[]
   /** A marking guide marks part by part, under its own `Question 11 (a)` heading. */
   criteria?: MarkCriterion[]
   /**
@@ -448,8 +478,11 @@ export interface Question {
      * is an aside about how to mark: this is the substance being marked against.
      */
     answersCouldInclude?: string[]
+    /** The worked solution, one line per step; more than one method where a paper accepts several. */
+    working?: WorkingMethod[]
     notes?: string
   }
+  textbookRefs?: TextbookRef[]
   source?: {
     origin?: 'authored' | 'extracted' | 'adapted'
     paper?: string
@@ -627,6 +660,15 @@ export interface LedgerQuestion {
    * marker's note does not flag a question students never saw the note of.
    */
   hash: string
+  /**
+   * The marker's comment to students on this question in this exam (#224),
+   * such as the mistake most of them made.
+   *
+   * Here rather than on the bank question because it is about one cohort: the
+   * same question on next year's paper is marked again and earns its own
+   * comment, and must not carry this one to students who never sat this exam.
+   */
+  markerComment?: string
 }
 
 /**
@@ -720,8 +762,16 @@ export function everyStimulus(q: Question): Stimulus[] {
  * Four places asked this separately and each counted only the text, so a guide
  * carrying a drawn model answer still said "No sample answer recorded" (#142).
  */
-export function hasSample(g?: { sampleAnswer?: string; sampleStimulus?: Stimulus[] }): boolean {
-  return Boolean(g?.sampleAnswer?.trim() || g?.sampleStimulus?.length)
+export function hasSample(g?: {
+  sampleAnswer?: string
+  sampleStimulus?: Stimulus[]
+  working?: WorkingMethod[]
+}): boolean {
+  return Boolean(
+    g?.sampleAnswer?.trim() ||
+    g?.sampleStimulus?.length ||
+    g?.working?.some((m) => m.steps.some((s) => s.text.trim())),
+  )
 }
 
 /**

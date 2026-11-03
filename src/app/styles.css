@@ -1162,6 +1162,37 @@ textarea.input {
   font-size: 0.95rem;
 }
 
+/* A worked solution (#224): a line per row, its marks on the right where a
+   marker's ticks go. */
+.working {
+  margin: 0.5rem 0 0;
+}
+
+.working__label {
+  margin: 0.5rem 0 0.2rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.working__steps {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.working__steps td {
+  border-bottom: 1px solid var(--rule);
+  padding: 0.28rem 0.45rem;
+  vertical-align: top;
+}
+
+.working__marks {
+  width: 5.5rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .minitable {
   border-collapse: collapse;
   font-size: 0.92rem;
@@ -1894,6 +1925,12 @@ textarea.input {
   width: 6.4rem;
 }
 
+/* The box that takes the rest of a row when it is not the row's first. */
+.input--grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* The program as it will print: fixed width, every space shown, no wrapping,
    so the indentation a teacher sees is the indentation that is saved. Named
    with its element because `textarea.input` above sets the font too. */
@@ -1921,6 +1958,16 @@ textarea.input--code {
 .withbtn > .input:first-child {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* A worked solution with several methods: each method's "Add a line" closes
+   it, so the next method needs clear space to read as a new one. */
+.working-edit__method + .working-edit__method {
+  margin-top: 1rem;
+}
+
+.working-edit__method .withbtn > .btn {
+  white-space: nowrap;
 }
 
 /* Repeatable rows: options, parts, criteria, table rows, stimulus. */

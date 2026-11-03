@@ -939,6 +939,85 @@ describe('what blocks a save and what is saved unfinished', () => {
 
 /* ------------------------------------------------------------------ cleaning */
 
+describe('worked solutions and textbook exercises (#224)', () => {
+  const working = (marks: (number | undefined)[]) => ({
+    steps: marks.map((m, i) => ({
+      text: `line ${i + 1}`,
+      ...(m === undefined ? {} : { marks: m }),
+    })),
+  })
+
+  it('says when a method’s marked lines do not add up to the question', () => {
+    expect(warnings(question({ markingGuide: { working: [working([1, 1])] } }))).toContain(
+      'Working: The marked lines total 2, but this is worth 4.',
+    )
+    expect(warnings(question({ markingGuide: { working: [working([1, 0.5, 2.5])] } }))).toEqual([])
+  })
+
+  it('checks each method on its own, and leaves unmarked working alone', () => {
+    const two = question({
+      markingGuide: {
+        working: [
+          { label: 'Using Pythagoras', ...working([2, 2]) },
+          working([1, 1]),
+          working([undefined, undefined]),
+        ],
+      },
+    })
+    expect(warnings(two)).toEqual([
+      'Working, method 2: The marked lines total 2, but this is worth 4.',
+    ])
+  })
+
+  it('checks a part’s working against the part', () => {
+    const parts = question({
+      config: {
+        parts: [
+          { label: '(a)', text: 'x', marks: 1, working: [working([1])] },
+          { label: '(b)', text: 'y', marks: 3, working: [working([1])] },
+        ],
+      },
+    })
+    expect(warnings(parts)).toContain(
+      'Part (b), working: The marked lines total 1, but this is worth 3.',
+    )
+  })
+
+  it('counts working as a sample answer', () => {
+    expect(hasGuide(question({ markingGuide: { working: [working([])] } }))).toBe(false)
+    expect(hasGuide(question({ markingGuide: { working: [working([4])] } }))).toBe(true)
+  })
+
+  it('drops blank lines, empty methods and blank exercises when saving', () => {
+    const saved = cleanQuestion(
+      question({
+        markingGuide: {
+          working: [
+            {
+              label: ' ',
+              steps: [
+                { text: ' \\(x = 2\\) ', marks: 1 },
+                { text: '  ', marks: 1 },
+              ],
+            },
+            { label: 'Spare', steps: [{ text: '' }] },
+          ],
+        },
+        textbookRefs: [{ course: ' ', exercise: ' Ex 2E ' }, { exercise: '' }],
+        config: {
+          parts: [{ label: '(a)', text: 'x', marks: 4, working: [{ steps: [{ text: 'y' }] }] }],
+        },
+      }),
+    )
+    expect(saved.markingGuide?.working).toEqual([{ steps: [{ text: '\\(x = 2\\)', marks: 1 }] }])
+    expect(saved.textbookRefs).toEqual([{ exercise: 'Ex 2E' }])
+    expect(saved.config?.parts?.[0]?.working).toEqual([{ steps: [{ text: 'y' }] }])
+    expect(cleanQuestion(question({ textbookRefs: [{ exercise: ' ' }] }))).not.toHaveProperty(
+      'textbookRefs',
+    )
+  })
+})
+
 describe('cleanQuestion', () => {
   it('drops the config left behind when the question type changed', () => {
     // The form keeps a draft as the teacher switches type. Every per-type config

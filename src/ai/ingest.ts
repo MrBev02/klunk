@@ -31,6 +31,8 @@ import {
   type QuestionPart,
   type QuestionType,
   type Stimulus,
+  type WorkingMethod,
+  type WorkingStep,
   type TableCell,
   type TableRow,
 } from '../shared/types'
@@ -720,6 +722,54 @@ export function readSampleStimulus(
   }
 }
 
+/**
+ * A worked solution out of a reply, however its lines came back (#224).
+ *
+ * Shared with `guideingest.ts`. The asked-for shape is a list of methods, each
+ * a list of `{ "text", "marks" }` steps, and a model does not always nest that
+ * deep: a single method, a bare list of steps and a bare list of strings each
+ * mean one method and are read as one. A step with no words is dropped, and
+ * marks that are not a positive number are left off the line rather than
+ * guessed, since a mark Klunk invented is worse than one missing.
+ */
+export function readWorking(value: unknown, repairs: string[]): WorkingMethod[] | undefined {
+  if (value === undefined || value === null) return undefined
+  const list = asArray(value)
+  const isMethod = (v: unknown) =>
+    typeof v === 'object' && v !== null && !Array.isArray(v) && 'steps' in v
+  // A list whose entries are steps, not methods, is one method.
+  const methods =
+    list.length > 0 && list.every(isMethod) ? list : isMethod(value) ? [value] : [{ steps: list }]
+
+  let unreadMarks = 0
+  const out: WorkingMethod[] = []
+  for (const raw of methods) {
+    const m = raw as Record<string, unknown>
+    const steps: WorkingStep[] = []
+    for (const entry of asArray(m.steps)) {
+      const s =
+        typeof entry === 'object' && entry !== null ? (entry as Record<string, unknown>) : {}
+      const text = typeof entry === 'string' ? entry.trim() : asString(s.text ?? s.line ?? s.step)
+      if (!text) continue
+      const marks = asNumber(s.marks ?? s.mark)
+      if (marks !== undefined && marks > 0) steps.push({ text, marks })
+      else {
+        if ((s.marks ?? s.mark) !== undefined && marks !== 0) unreadMarks += 1
+        steps.push({ text })
+      }
+    }
+    const label = asString(m.label ?? m.method ?? m.name)
+    if (steps.length > 0) out.push({ ...(label ? { label } : {}), steps })
+  }
+  if (unreadMarks > 0) {
+    repairs.push(
+      `Left the marks off ${unreadMarks === 1 ? 'a line' : `${unreadMarks} lines`} of working, ` +
+        'because they were not a number.',
+    )
+  }
+  return out.length > 0 ? out : undefined
+}
+
 function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
   const g = value as Record<string, unknown>
@@ -732,6 +782,9 @@ function readGuide(value: unknown, repairs: string[]): Question['markingGuide'] 
 
   const criteria = readCriteria(g.criteria ?? g.bands, repairs)
   if (criteria.length > 0) out.criteria = criteria
+
+  const working = readWorking(g.working, repairs)
+  if (working) out.working = working
 
   const notes = asString(g.notes)
   if (notes) out.notes = notes
@@ -1219,6 +1272,8 @@ function readWritten(cfg: Record<string, unknown>, repairs: string[]): QuestionC
       part,
       readSampleStimulus(p.sampleStimulus, asString(p.sampleAnswer) ?? asString(p.answer), repairs),
     )
+    const working = readWorking(p.working, repairs)
+    if (working) part.working = working
     // Read rather than dropped without a word, which is what happened before
     // #136: a paper printing code inside part (b) alone lost it.
     const stimulus = readStimulus(p.stimulus, repairs)

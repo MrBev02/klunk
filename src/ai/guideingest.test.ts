@@ -314,3 +314,16 @@ describe('a model program (#141)', () => {
     expect(out.notes.join(' ')).toContain('Question 3: Dropped a model drawing')
   })
 })
+
+describe('working (#224)', () => {
+  it('reads a guide’s line-by-line solution, and counts it as saying something', () => {
+    const out = readMarking(
+      '[{"number": 12, "working": [{"steps": [{"text": "\\\\(x + 3 = 7\\\\)"}, {"text": "\\\\(x = 4\\\\)", "marks": 1}]}]}]',
+      NONE,
+    )
+    expect(out.entries[0]!.working).toEqual([
+      { steps: [{ text: '\\(x + 3 = 7\\)' }, { text: '\\(x = 4\\)', marks: 1 }] },
+    ])
+    expect(out.notes.join(' ')).not.toContain('does not store')
+  })
+})

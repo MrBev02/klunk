@@ -541,6 +541,7 @@ function withGuide(question: Question, entry: MarkingEntry): Question {
   if (entry.sampleStimulus?.length)
     guide.sampleStimulus = entry.sampleStimulus.map((s) => ({ ...s }))
   if (entry.answersCouldInclude?.length) guide.answersCouldInclude = [...entry.answersCouldInclude]
+  if (entry.working?.length) guide.working = structuredClone(entry.working)
   return Object.keys(guide).length > 0 ? { ...question, markingGuide: guide } : question
 }
 
@@ -571,6 +572,7 @@ function withParts(question: Question, entries: MarkingEntry[], notes: string[])
     if (entry.sampleAnswer) out.sampleAnswer = entry.sampleAnswer
     if (entry.sampleStimulus?.length)
       out.sampleStimulus = entry.sampleStimulus.map((s) => ({ ...s }))
+    if (entry.working?.length) out.working = structuredClone(entry.working)
     return out
   })
 

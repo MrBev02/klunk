@@ -29,6 +29,7 @@ import {
 } from '../shared/fields'
 import { FormulaPalette } from './palette'
 import { QuestionDetail } from './question'
+import { WorkingFields } from './working'
 import {
   copyFileInto,
   joinPath,
@@ -59,6 +60,7 @@ import {
   type SyllabusCourse,
   type TableCell,
   type TableRow,
+  type TextbookRef,
 } from '../shared/types'
 import {
   cleanQuestion,
@@ -1247,6 +1249,11 @@ function WrittenFields({
                       changePart(i, { sampleAnswer: (e.target as HTMLTextAreaElement).value })
                     }
                   />
+                  <WorkingFields
+                    id={`p${i}-work`}
+                    working={p.working}
+                    onChange={(working) => changePart(i, { working })}
+                  />
                 </div>
                 <button
                   class="btn btn--icon"
@@ -1600,6 +1607,20 @@ function GuideFields({
         />
       </Field>
 
+      {/* Not a `Field`, for the reason the block below is not: its buttons. */}
+      <div class="field">
+        <span class="rail__label">Worked solution</span>
+        <WorkingFields
+          id="g-work"
+          working={guide.working}
+          onChange={(working) => setGuide({ working })}
+        />
+        <p class="hint">
+          One line per step, with the marks that line earns. Mimir shows students one line at a
+          time.
+        </p>
+      </div>
+
       {/* Here rather than in the stimulus panel, because this is where a teacher
           looking for the sample answer is already looking (#142). A block of
           its own, so "Add a criterion" below does not read as part of it. Not
@@ -1918,7 +1939,73 @@ function TaggingFields({
           onChange={(tags) => setDraft((d) => ({ ...d, tags }))}
         />
       </Field>
+
+      <TextbookFields question={question} setDraft={setDraft} />
     </section>
+  )
+}
+
+/**
+ * Where a student practises this kind of question (#224), as a faculty paper
+ * prints it beside the question: `Std/Sup Ex 2E`. A course only where the
+ * faculty sets different exercises for different courses.
+ */
+function TextbookFields({
+  question,
+  setDraft,
+}: {
+  question: Question
+  setDraft: (fn: (d: Question) => Question) => void
+}) {
+  const refs = question.textbookRefs ?? []
+  const setRefs = (next: TextbookRef[]) =>
+    setDraft((d) => {
+      const { textbookRefs: _, ...rest } = d
+      return next.length > 0 ? { ...rest, textbookRefs: next } : rest
+    })
+  const change = (i: number, patch: Partial<TextbookRef>) =>
+    setRefs(refs.map((r, j) => (i === j ? { ...r, ...patch } : r)))
+
+  return (
+    <div class="field">
+      <span class="rail__label">Textbook exercises</span>
+      {refs.length > 0 && (
+        <ol class="editrows">
+          {refs.map((r, i) => (
+            <li key={i} class="editrow">
+              <span class="editrow__letter">{i + 1}</span>
+              <div class="editrow__body withbtn">
+                <input
+                  class="input input--align"
+                  value={r.course ?? ''}
+                  placeholder="Std/Sup"
+                  title="Course, if exercises differ by course"
+                  onInput={(e) => change(i, { course: (e.target as HTMLInputElement).value })}
+                />
+                <input
+                  class="input input--grow"
+                  value={r.exercise}
+                  placeholder="Ex 2E"
+                  title="Exercise"
+                  onInput={(e) => change(i, { exercise: (e.target as HTMLInputElement).value })}
+                />
+              </div>
+              <button
+                class="btn btn--icon"
+                title="Remove this exercise"
+                onClick={() => setRefs(refs.filter((_, j) => j !== i))}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+      <button class="btn btn--small" onClick={() => setRefs([...refs, { exercise: '' }])}>
+        Add an exercise
+      </button>
+      <p class="hint">Where students practise this. Released to students with the question.</p>
+    </div>
   )
 }
 
