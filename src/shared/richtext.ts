@@ -198,6 +198,55 @@ export function formulaAt(text: string, cursor: number): FormulaAtCursor | null 
   return null
 }
 
+/** A `\(` or `\[` that prints as typed, because it opens no formula. */
+export interface StrayOpener {
+  display: boolean
+  /** There is a closer, with nothing but spaces before it. */
+  empty: boolean
+  /** The opener and what follows it on the line, for a message to quote. */
+  from: string
+}
+
+/**
+ * Every `\(` and `\[` in one paragraph that `collect` will print as typed
+ * (#231).
+ *
+ * Read by the three rules `collect` applies before anything else, in its
+ * order: a formula that closes is skipped whole, an escape takes the next
+ * character, and a code span is skipped whole. Bold, italic and underline
+ * hold the same rules inside them, so they need no reading here. `\\(` is an
+ * escaped backslash and a bracket, which is how a teacher prints `\(`.
+ */
+export function strayOpeners(text: string): StrayOpener[] {
+  const out: StrayOpener[] = []
+  for (let at = 0; at < text.length; at += 1) {
+    const ch = text[at]
+    const next = text[at + 1] ?? ''
+    const math = mathAt(text, at)
+    if (math) {
+      at = math.end + 1
+      continue
+    }
+    if (ch === '\\' && (next === '(' || next === '[')) {
+      const closer = next === '(' ? '\\)' : '\\]'
+      const end = text.indexOf(closer, at + 2)
+      // `mathAt` refused it, so a closer can only mean an empty pair.
+      out.push({ display: next === '[', empty: end > -1, from: text.slice(at) })
+      at = end > -1 ? end + 1 : at + 1
+      continue
+    }
+    if (ch === '\\' && ESCAPABLE.includes(next)) {
+      at += 1
+      continue
+    }
+    if (ch === '`') {
+      const close = codeEnd(text, at)
+      if (close > -1) at = close
+    }
+  }
+  return out
+}
+
 /**
  * Where the run opened at `from` closes, or -1.
  *

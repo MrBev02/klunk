@@ -64,7 +64,7 @@ export interface Check {
   unfinished?: boolean | undefined
 }
 import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
-import { badFormulas } from './formulacheck'
+import { badFormulas, strayFormulas } from './formulacheck'
 import type {
   IdentificationField,
   MarkCriterion,
@@ -246,11 +246,13 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   /* --------------------------------------------------------------- formulas */
 
   // Unfinished, because a formula KaTeX cannot read prints as red source on the
-  // paper (#210) and the paper checker lists what is unfinished.
+  // paper (#210), an opener that opens nothing prints as typed (#231), and the
+  // paper checker lists what is unfinished.
   for (const [text, where] of proseOf(question)) {
     for (const bad of badFormulas(text)) {
       warnToFinish(`The formula ${bad.tex} cannot be drawn. ${bad.fault}`, where)
     }
+    for (const stray of strayFormulas(text)) warnToFinish(stray, where)
   }
 
   /* ------------------------------------------------------ type-specific rules */

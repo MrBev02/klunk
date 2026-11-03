@@ -12,7 +12,7 @@
  */
 
 import katex from 'katex'
-import { blocksOf, runsOf } from './richtext'
+import { blocksOf, runsOf, strayOpeners } from './richtext'
 
 /**
  * KaTeX's reasons a teacher meets, in the order they are tried, each turned
@@ -115,20 +115,68 @@ export interface BadFormula {
   fault: string
 }
 
+/** Whether some prose could hold a formula at all, which almost none does. */
+function mayHoldFormula(text: string): boolean {
+  return text.includes('\\(') || text.includes('\\[')
+}
+
+/** Each paragraph and table cell, which is what a formula is read within. */
+function* paragraphsOf(text: string): Generator<string> {
+  for (const block of blocksOf(text)) {
+    if (block.kind === 'text') yield block.text
+    else yield* [...block.head, ...block.rows.flat()]
+  }
+}
+
 /** Every formula in a string of question prose that KaTeX cannot set. */
 export function badFormulas(text: string): BadFormula[] {
-  if (!text.includes('\\(') && !text.includes('\\[')) return []
+  if (!mayHoldFormula(text)) return []
   const out: BadFormula[] = []
-  for (const block of blocksOf(text)) {
-    const cells = block.kind === 'text' ? [block.text] : [...block.head, ...block.rows.flat()]
-    for (const cell of cells) {
-      for (const run of runsOf(cell)) {
-        if (!run.math) continue
-        const display = run.math === 'display'
-        const fault = formulaFault(run.text, display)
-        if (fault) out.push({ tex: run.text, display, fault })
-      }
+  for (const paragraph of paragraphsOf(text)) {
+    for (const run of runsOf(paragraph)) {
+      if (!run.math) continue
+      const display = run.math === 'display'
+      const fault = formulaFault(run.text, display)
+      if (fault) out.push({ tex: run.text, display, fault })
     }
   }
   return out
+}
+
+/** How much of the line after a stray opener a message quotes. */
+const QUOTED = 24
+
+/**
+ * What to do about each `\(` or `\[` in some prose that prints as typed (#231).
+ *
+ * Whole sentences rather than a fault for `validate.ts` to wrap, because the
+ * two cases say different things: an unclosed formula is quoted so a teacher
+ * can find it, and an empty pair has nothing in it to quote.
+ */
+export function strayFormulas(text: string): string[] {
+  if (!mayHoldFormula(text)) return []
+  const out: string[] = []
+  for (const paragraph of paragraphsOf(text)) {
+    for (const stray of strayOpeners(paragraph)) {
+      const [open, close] = stray.display ? ['\\[', '\\]'] : ['\\(', '\\)']
+      if (stray.empty) {
+        out.push(
+          `Type a formula between ${open} and ${close}, or remove them. Empty, they print as typed.`,
+        )
+        continue
+      }
+      out.push(
+        `Add ${close} where the formula ${quote(stray.from)} ends. Until then it prints as typed.`,
+      )
+    }
+  }
+  return out
+}
+
+/** The start of a stray formula, cut at a space so no command is cut in half. */
+function quote(from: string): string {
+  if (from.length <= QUOTED) return from
+  const cut = from.slice(0, QUOTED)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > 2 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
