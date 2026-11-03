@@ -213,6 +213,24 @@ function ExamRelease({
     [exam, index.ledger, asBands],
   )
 
+  // The comment is this release's, so it starts from what this exam last
+  // released and from nothing for a question reused from another (#224).
+  const recordedComments = useMemo(
+    () =>
+      new Map(
+        index.ledger.questions
+          .filter((q) => q.exam === exam.key && q.markerComment)
+          .map((q) => [q.id, q.markerComment ?? '']),
+      ),
+    [exam, index.ledger],
+  )
+  const [comments, setComments] = useState(() => new Map(recordedComments))
+  const comment = (id: string) => comments.get(id) ?? ''
+  const commentChanged = (id: string) =>
+    comment(id).trim() !== (recordedComments.get(id) ?? '').trim()
+  const setComment = (id: string, value: string) =>
+    setComments((was) => new Map(was).set(id, value))
+
   // Ticked where already released, edited since or not, so a re-release keeps
   // what students have; a question edited since is flagged on its card.
   const [ticked, setTicked] = useState(
@@ -248,6 +266,7 @@ function ExamRelease({
           yearLevel: year,
           releasedOn: today,
           sectionsAreBands: asBands,
+          comments,
         },
         dateSat,
         index,
@@ -261,6 +280,9 @@ function ExamRelease({
           approvedBy: approver.trim(),
           approvedOn: today,
           hash: releaseHash(r.question, printed(r.question.id)),
+          ...(comment(r.question.id).trim()
+            ? { markerComment: comment(r.question.id).trim() }
+            : {}),
         })),
       })
       onReleased(
@@ -437,9 +459,15 @@ function ExamRelease({
               question={ref.question}
               bankFile={ref.file}
               images={index.images}
-              state={states.get(ref.question.id) ?? 'new'}
+              state={
+                states.get(ref.question.id) === 'released' && commentChanged(ref.question.id)
+                  ? 'changed'
+                  : (states.get(ref.question.id) ?? 'new')
+              }
               hold={held.questions.get(ref.question.id)}
               ticked={ticked.has(ref.question.id)}
+              comment={comment(ref.question.id)}
+              onComment={(value) => setComment(ref.question.id, value)}
               onToggle={() => toggle(ref.question.id)}
               onEdit={() => onEdit({ question: ref.question, file: ref.file })}
             />
@@ -491,6 +519,8 @@ function ReleaseCard({
   state,
   hold,
   ticked,
+  comment,
+  onComment,
   onToggle,
   onEdit,
 }: {
@@ -502,6 +532,8 @@ function ReleaseCard({
   state: ReleaseState
   hold: string | undefined
   ticked: boolean
+  comment: string
+  onComment: (value: string) => void
   onToggle: () => void
   onEdit: () => void
 }) {
@@ -550,6 +582,22 @@ function ReleaseCard({
       )}
 
       <QuestionDetail question={copy} bankFile={bankFile} images={images} />
+
+      {!hold && (
+        <Field
+          label="Marker's comment"
+          for={`${id}-comment`}
+          hint="Optional. What most of the class got wrong in this exam, and what to do instead. Students see it after the working."
+        >
+          <textarea
+            id={`${id}-comment`}
+            class="input"
+            rows={2}
+            value={comment}
+            onInput={(e) => onComment((e.target as HTMLTextAreaElement).value)}
+          />
+        </Field>
+      )}
 
       <div class="rowbtns">
         <label for={id}>

@@ -51,6 +51,7 @@ export function readLedger(data: unknown): ReleaseLedger {
       approvedBy: text(q.approvedBy) ? q.approvedBy : '',
       approvedOn: text(q.approvedOn) ? q.approvedOn : '',
       hash: q.hash,
+      ...(text(q.markerComment) ? { markerComment: q.markerComment } : {}),
     })
   }
   return ledger

@@ -167,6 +167,61 @@ describe('studentCopy', () => {
   })
 })
 
+describe('what a marked paper shows students (#224)', () => {
+  const q = question('w', {
+    markingGuide: {
+      sampleAnswer: '15',
+      working: [{ steps: [{ text: '\\(c^2 = a^2 + b^2\\)' }, { text: '\\(c = 15\\)', marks: 2 }] }],
+      notes: 'Accept 15 cm.',
+    },
+    textbookRefs: [{ course: 'Std/Sup', exercise: 'Ex 2E' }],
+  })
+
+  it('copies the working and textbook exercises, and still leaves the notes', () => {
+    const copy = studentCopy(q)
+    expect(copy.markingGuide?.working).toEqual(q.markingGuide?.working)
+    expect(copy.markingGuide).not.toHaveProperty('notes')
+    expect(copy.textbookRefs).toEqual([{ course: 'Std/Sup', exercise: 'Ex 2E' }])
+  })
+
+  it('notices an edit to the working', () => {
+    const edited = structuredClone(q)
+    edited.markingGuide!.working![0]!.steps[1]!.marks = 1
+    expect(releaseHash(edited)).not.toBe(releaseHash(q))
+  })
+
+  it('writes this release’s comment, and only on the question it was written for', () => {
+    const index = folder([q, question('other')])
+    const [exam] = importedExams(index)
+    const plan = planRelease(
+      exam!,
+      exam!.questions,
+      {
+        title: 'Year 8 Task 1',
+        subject: 'Mathematics',
+        yearLevel: 8,
+        releasedOn: TODAY,
+        comments: new Map([
+          ['w', '  Label the sides from the angle first.  '],
+          ['other', '   '],
+        ]),
+      },
+      '2025-06-10',
+      index,
+    )
+    const [w, other] = plan.release.questions
+    expect(w?.markingGuide?.markerComment).toBe('Label the sides from the angle first.')
+    expect(other?.markingGuide).toBeUndefined()
+  })
+
+  it('keeps a comment in the ledger, which is where it lives', () => {
+    const ledger = readLedger({
+      questions: [{ id: 'w', exam: 'k', hash: 'h', markerComment: 'Read the question.' }],
+    })
+    expect(ledger.questions[0]?.markerComment).toBe('Read the question.')
+  })
+})
+
 describe('releaseHash', () => {
   const q = question('1', { markingGuide: { sampleAnswer: '4', notes: 'one' } })
 

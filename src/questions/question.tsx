@@ -24,6 +24,7 @@ import {
 import { markRange } from '../papers/render'
 import { hasMarkup } from '../shared/richtext'
 import { Inline, RichText } from '../shared/richtextview'
+import { Working } from '../shared/workingview'
 import { joinPath, type ChosenPictures } from '../folder/storage'
 import type { Stimulus } from '../shared/types'
 import {
@@ -177,8 +178,21 @@ export function QuestionDetail({
 
       <Body question={q} bankFile={bankFile} images={images} />
       <Guide question={q} bankFile={bankFile} images={images} />
+      <Textbook refs={q.textbookRefs} />
       <Tags question={q} known={known} />
     </>
+  )
+}
+
+/** Blank rows are the editor's, half-typed, and saving drops them. */
+function Textbook({ refs }: { refs: Question['textbookRefs'] }) {
+  const named = (refs ?? []).filter((r) => r.exercise.trim())
+  if (named.length === 0) return null
+  return (
+    <div class="det">
+      <p class="det__label">Textbook</p>
+      <p>{named.map((r) => (r.course ? `${r.course} ${r.exercise}` : r.exercise)).join(' · ')}</p>
+    </div>
   )
 }
 
@@ -493,6 +507,7 @@ function Body({
                     <StimulusItems items={p.sampleStimulus} bankFile={bankFile} images={images} />
                   </div>
                 ) : null}
+                <Working working={p.working} />
                 {p.criteria?.length ? (
                   <table class="crit crit--part">
                     <tbody>
@@ -581,6 +596,7 @@ function Guide({
           {g.sampleStimulus?.length ? (
             <StimulusItems items={g.sampleStimulus} bankFile={bankFile} images={images} />
           ) : null}
+          <Working working={g.working} />
         </>
       )}
 

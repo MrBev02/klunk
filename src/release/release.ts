@@ -32,6 +32,8 @@ import {
   type QuestionRef,
   type ReleaseLedger,
   type Stimulus,
+  type TextbookRef,
+  type WorkingMethod,
 } from '../shared/types'
 
 /* ------------------------------------------------------------ what Mimir reads */
@@ -53,7 +55,11 @@ export interface StudentQuestion {
     sampleStimulus?: Stimulus[]
     criteria?: NonNullable<Question['markingGuide']>['criteria']
     answersCouldInclude?: string[]
+    working?: WorkingMethod[]
+    /** This release's, never the bank's: see `LedgerQuestion.markerComment`. */
+    markerComment?: string
   }
+  textbookRefs?: TextbookRef[]
   source?: { paper?: string; year?: number; questionNumber?: string; copyright?: string }
   config?: QuestionConfig
 }
@@ -369,8 +375,10 @@ export function studentCopy(
     if (sample?.length) mg.sampleStimulus = sample
     if (guide.criteria?.length) mg.criteria = guide.criteria.map((c) => ({ ...c }))
     if (guide.answersCouldInclude?.length) mg.answersCouldInclude = [...guide.answersCouldInclude]
+    if (guide.working?.length) mg.working = structuredClone(guide.working)
     if (Object.keys(mg).length > 0) out.markingGuide = mg
   }
+  if (question.textbookRefs?.length) out.textbookRefs = question.textbookRefs.map((r) => ({ ...r }))
 
   const { paper, year, questionNumber, copyright } = question.source ?? {}
   const source = printed
@@ -530,6 +538,8 @@ export interface ReleaseDetails {
   releasedOn: string
   /** A built paper's sections go to Mimir as bands. Ignored for an imported exam. */
   sectionsAreBands?: boolean
+  /** The marker's comment on each question for this cohort, by question id (#224). */
+  comments?: Map<string, string>
 }
 
 export interface ReleasePlan {
@@ -583,9 +593,16 @@ export function planRelease(
     return pick
   }
 
-  const questions = chosen.map((ref) =>
-    studentCopy(ref.question, place(ref.file), printedFor(exam, ref.question.id, asBands)),
-  )
+  const questions = chosen.map((ref) => {
+    const copy = studentCopy(
+      ref.question,
+      place(ref.file),
+      printedFor(exam, ref.question.id, asBands),
+    )
+    const comment = details.comments?.get(ref.question.id)?.trim()
+    if (comment) copy.markingGuide = { ...copy.markingGuide, markerComment: comment }
+    return copy
+  })
   const topics = topicsFor(chosen, index)
   const bands = (built ? exam.sections : exam.bands).filter((b) =>
     questions.some((q) => q.band === b),

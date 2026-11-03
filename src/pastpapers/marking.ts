@@ -20,7 +20,13 @@
  * a browser.
  */
 
-import type { MarkCriterion, Question, QuestionType, Stimulus } from '../shared/types'
+import type {
+  MarkCriterion,
+  Question,
+  QuestionType,
+  Stimulus,
+  WorkingMethod,
+} from '../shared/types'
 
 /* ---------------------------------------------------------- what is offered */
 
@@ -114,6 +120,8 @@ export interface MarkingEntry {
   /** A model program, kept with its indentation (#141). Never an image: a reply cannot carry one. */
   sampleStimulus?: Stimulus[]
   answersCouldInclude?: string[]
+  /** A solution the guide sets out line by line, with its marks (#224). */
+  working?: WorkingMethod[]
   outcomes?: string[]
   /** What the model could not read here, kept as a warning on the question. */
   unreadable?: string

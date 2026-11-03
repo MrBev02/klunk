@@ -839,6 +839,32 @@
   font-style: italic;
 }
 
+/* A worked solution prints as the ruled lines a marker works down, the marks
+   in the column a tick goes in. */
+.sheet .working {
+  margin: 2mm 0;
+}
+
+.sheet .working__label {
+  margin: 2mm 0 1mm;
+  font-weight: 700;
+  font-size: inherit;
+}
+
+.sheet .working__steps {
+  font-size: inherit;
+}
+
+.sheet .working__steps td {
+  border-bottom: 0.4pt solid #000;
+  padding: 1.5mm;
+}
+
+.sheet .working__marks {
+  width: 18mm;
+  font-weight: 700;
+}
+
 /* ------------------------------------------------------------------ printing */
 
 @media print {

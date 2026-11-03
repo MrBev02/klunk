@@ -955,3 +955,70 @@ describe('a model answer in a reply (#141, #142)', () => {
     expect(draft.question.markingGuide?.sampleStimulus).toBeUndefined()
   })
 })
+
+/* ------------------------------------------------------- worked solutions (#224) */
+
+describe('working', () => {
+  it('reads methods of marked steps, on the question and on a part', () => {
+    const { draft } = first(
+      answer({
+        markingGuide: {
+          sampleAnswer: '15 cm',
+          working: [
+            { steps: [{ text: '\\(c^2 = 9^2 + 12^2\\)' }, { text: '\\(c = 15\\)', marks: 2 }] },
+            {
+              label: 'Using a triple',
+              steps: [{ text: '9, 12, 15 is 3 times 3, 4, 5', marks: 2 }],
+            },
+          ],
+        },
+        config: {
+          parts: [
+            { label: '(a)', text: 'x', marks: 2, working: [{ steps: [{ text: 'y', marks: 2 }] }] },
+            { label: '(b)', text: 'z', marks: 2 },
+          ],
+        },
+      }),
+    )
+    expect(draft.question.markingGuide?.working).toEqual([
+      { steps: [{ text: '\\(c^2 = 9^2 + 12^2\\)' }, { text: '\\(c = 15\\)', marks: 2 }] },
+      { label: 'Using a triple', steps: [{ text: '9, 12, 15 is 3 times 3, 4, 5', marks: 2 }] },
+    ])
+    expect(draft.question.config?.parts?.[0]?.working).toEqual([
+      { steps: [{ text: 'y', marks: 2 }] },
+    ])
+  })
+
+  it('reads a bare list of steps, or of lines, as one method', () => {
+    const steps = first(
+      answer({
+        markingGuide: {
+          working: [
+            { text: 'a', marks: 1 },
+            { text: 'b', marks: 3 },
+          ],
+        },
+      }),
+    ).draft
+    expect(steps.question.markingGuide?.working).toEqual([
+      {
+        steps: [
+          { text: 'a', marks: 1 },
+          { text: 'b', marks: 3 },
+        ],
+      },
+    ])
+    const lines = first(answer({ markingGuide: { working: ['a', ' ', 'b'] } })).draft
+    expect(lines.question.markingGuide?.working).toEqual([
+      { steps: [{ text: 'a' }, { text: 'b' }] },
+    ])
+  })
+
+  it('leaves off marks that are not a number, and says so', () => {
+    const { draft } = first(
+      answer({ markingGuide: { working: [{ steps: [{ text: 'a', marks: 'one' }] }] } }),
+    )
+    expect(draft.question.markingGuide?.working).toEqual([{ steps: [{ text: 'a' }] }])
+    expect(draft.repairs.join(' ')).toContain('Left the marks off a line of working')
+  })
+})

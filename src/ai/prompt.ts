@@ -470,6 +470,17 @@ function guideFields(type: QuestionType): string[] {
     '                 [ { "kind": "code", "text": "..." } ] beside "sampleAnswer",',
     '                 indentation kept as for a code stimulus. A part takes it the',
     '                 same way. Never a picture: describe a drawing in words.',
+    '                 Where the answer is worked out in steps, as a calculation',
+    '                 is, add "working" beside "sampleAnswer":',
+    '                 [ { "steps": [ { "text": "\\\\(c^2 = a^2 + b^2\\\\)" },',
+    '                                { "text": "\\\\(c = 15\\\\)", "marks": 1 } ] } ]',
+    '                 One step per line, as a student would write it: the rule',
+    '                 or formula first, then each substitution and result on a',
+    '                 line of its own, never several "=" chained on one line.',
+    '                 "marks" goes on the line that earns them, and the marks of',
+    "                 one method add up to the question's. A second entry is an",
+    '                 alternative method, complete on its own, with a "label"',
+    '                 naming it. A part takes "working" the same way.',
   ]
 }
 
@@ -781,6 +792,7 @@ export function promptFields(question: Question): Record<string, unknown> {
       answersCouldInclude: question.markingGuide.answersCouldInclude?.length
         ? question.markingGuide.answersCouldInclude
         : undefined,
+      working: question.markingGuide.working?.length ? question.markingGuide.working : undefined,
       notes: question.markingGuide.notes,
     })
     if (Object.keys(guide).length > 0) out.markingGuide = guide
