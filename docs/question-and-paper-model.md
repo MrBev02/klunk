@@ -768,9 +768,16 @@ than a hole. What changed is that the reason is no longer thrown away.
 - **Remembered by source.** `isUnfinished` runs every check on every
   question each time the library is filtered, so each formula is set at
   most once.
-- **An opener with no closer is not checked.** It prints as typed, and the
-  preview says so, but the checker sees no formula in it. Filed rather than
-  added here.
+- **An opener that opens nothing is checked too** (#231). `\(` with no
+  closer on its line, and an empty `\(\)`, both print as typed, backslash
+  and all, in black, so nothing on the proof marks them. `strayOpeners` in
+  `richtext.ts` finds them by the three rules `collect` applies first: a
+  formula that closes is skipped whole, an escape takes the next character,
+  a code span is skipped whole. So `\\(` is a teacher printing `\(` and is
+  left alone. The message quotes the formula's start, cut at a space so no
+  command is cut in half. Before it was added, 8 banks across
+  `../klunk-content` and the school's Exams folder held 23 openers and none
+  was unclosed, so it raises nothing on existing content.
 - **The preview is one panel over the form, not a slot after each box.**
   Preact places a child relative to its next sibling, so a node slipped in
   after a box it rendered can be moved under the wrong one. Laid over the

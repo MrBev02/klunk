@@ -463,6 +463,22 @@ it: a vertical scrollbar on the drawn formula, from KaTeX's struts, and a
 blank panel after a palette click, from KaTeX setting `\frac{}{}` as
 nothing.
 
+**A formula never closed, or left empty, is flagged too** (#231). A `\(` or
+`\[` with no closer on its line prints as typed, and so does an empty pair.
+Either now leaves the question unfinished with `Add \) where the formula
+\(\frac{3}{8} \times… ends. Until then it prints as typed.` or `Type a
+formula between \( and \), or remove them.`, under the field it sits in,
+and the paper checker lists it. `\\(`, which prints a literal `\(`, and a
+`\(` in a code span are left alone.
+
+Driven on `../klunk-content`: `Test 231: simplify \(\frac{3}{8} \times
+x^{2} and leave it open.` typed into a new question put the warning in the
+rail under **Question**, the preview printing the `\(` as typed. Saved as
+`example-bank-sa-23` in `bank/example-bank.json`, verbatim and tagged
+`needs-finishing`. Added to a new paper, not saved, on the testing
+structure, the checker listed it under **Section I** as question 1 not
+finished, with the same sentence.
+
 **A mathematics past paper is sent to an AI rather than read wrongly** (#198).
 A paper or marking guide set in mathematics fonts is refused before any reader
 sees it, with a message saying why, and the transcription prompt opens below.

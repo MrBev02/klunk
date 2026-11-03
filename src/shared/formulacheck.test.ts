@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { badFormulas, formulaFault } from './formulacheck'
-import { formulaAt } from './richtext'
+import { badFormulas, formulaFault, strayFormulas } from './formulacheck'
+import { formulaAt, strayOpeners } from './richtext'
 import type { Question } from './types'
 import { isUnfinished, unfinishedReasons, validateQuestion, emptyIdContext } from './validate'
 
@@ -137,5 +137,95 @@ describe('a formula in the checker', () => {
       stimulus: [{ kind: 'code', text: 'print("\\(x^\\)")' }],
     })
     expect(formulaChecks(q)).toEqual([])
+  })
+})
+
+describe('strayOpeners', () => {
+  it('finds an opener with no closer, quoting the rest of the line', () => {
+    expect(strayOpeners('Simplify \\(\\frac{3}{8}')).toEqual([
+      { display: false, empty: false, from: '\\(\\frac{3}{8}' },
+    ])
+  })
+
+  it('finds an empty pair, of either kind', () => {
+    expect(strayOpeners('Find \\(\\) and \\[ \\]')).toEqual([
+      { display: false, empty: true, from: '\\(\\) and \\[ \\]' },
+      { display: true, empty: true, from: '\\[ \\]' },
+    ])
+  })
+
+  it('passes a formula that closes, and finds an opener after it', () => {
+    expect(strayOpeners('\\(x\\) and \\(y').map((s) => s.from)).toEqual(['\\(y'])
+    expect(strayOpeners('\\(x\\) and \\[y\\]')).toEqual([])
+  })
+
+  it('reads an escaped backslash and a code span as the renderer does', () => {
+    // `\\(` is how a teacher prints a literal `\(`.
+    expect(strayOpeners('Type \\\\( to start one')).toEqual([])
+    expect(strayOpeners('Type `\\(` to start one')).toEqual([])
+  })
+
+  it('finds an opener inside bold, which holds the same rules', () => {
+    expect(strayOpeners('**Find \\(x**').map((s) => s.from)).toEqual(['\\(x**'])
+  })
+})
+
+describe('strayFormulas', () => {
+  it('says where to close an unclosed formula, quoting a long one short', () => {
+    expect(strayFormulas('Find \\(x^2')).toEqual([
+      'Add \\) where the formula \\(x^2 ends. Until then it prints as typed.',
+    ])
+    expect(strayFormulas('\\[\\int_0^1 x^2 \\, dx + \\int_1^2 x \\, dx')).toEqual([
+      'Add \\] where the formula \\[\\int_0^1 x^2 \\, dx +… ends. Until then it prints as typed.',
+    ])
+  })
+
+  it('says to fill or remove an empty pair', () => {
+    expect(strayFormulas('Find \\(\\).')).toEqual([
+      'Type a formula between \\( and \\), or remove them. Empty, they print as typed.',
+    ])
+  })
+
+  it('reads each line and each table cell on its own', () => {
+    // A closer on the next line closes nothing, because a line is a paragraph.
+    expect(strayFormulas('Find \\(x\nand y\\)')).toHaveLength(1)
+    expect(strayFormulas('| a | b |\n|---|---|\n| \\(x | 2 |')).toHaveLength(1)
+  })
+
+  it('finds nothing in prose with no formula', () => {
+    expect(strayFormulas('A jacket costs $80 (before GST).')).toEqual([])
+  })
+})
+
+describe('a stray opener in the checker', () => {
+  const question = (questionText: string, over: Partial<Question> = {}): Question => ({
+    id: 'bank-sa-01',
+    questionType: 'short_answer',
+    questionText,
+    marks: 2,
+    markingGuide: { sampleAnswer: 'Any answer.' },
+    ...over,
+  })
+
+  it('leaves the question unfinished until the formula is closed', () => {
+    const open = question('Simplify \\(\\frac{3}{8}')
+    expect(validateQuestion(open, emptyIdContext())).toEqual([
+      {
+        severity: 'warning',
+        where: 'Question',
+        unfinished: true,
+        message: 'Add \\) where the formula \\(\\frac{3}{8} ends. Until then it prints as typed.',
+      },
+    ])
+    expect(unfinishedReasons(open)).toHaveLength(1)
+    expect(isUnfinished(question('Simplify \\(\\frac{3}{8}\\)'))).toBe(false)
+  })
+
+  it('names the part it sits in, and leaves a code stimulus alone', () => {
+    const q = question('Answer the parts.', {
+      config: { parts: [{ label: '(a)', text: 'Find \\(\\).', marks: 2 }] },
+      stimulus: [{ kind: 'code', text: 'print("\\(")' }],
+    })
+    expect(validateQuestion(q, emptyIdContext()).map((c) => c.where)).toEqual(['Part (a)'])
   })
 })
