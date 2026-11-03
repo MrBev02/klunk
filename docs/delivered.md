@@ -438,6 +438,31 @@ The square root clicked into part (a)'s one-line box gave
 `Evaluate \(\sqrt{49}\)`, the panel naming **What this part asks**. The help
 table set 26 formulas in 22 rows, none in error.
 
+**A formula being typed is shown under its box, and one that will not set
+says why** (#210). While the cursor is inside a `\(…\)` or `\[…\]` in any
+box the palette types into, a panel under that box draws the formula at
+1.5rem. Where KaTeX cannot set it, the panel says so on a red margin mark
+with the reason as an instruction (`Add a } to close each {.`, `Check the
+spelling of \fract.`). An unclosed formula adds `Type \) to end the formula.
+Until then it prints as typed.` An empty `{}` is drawn as a box on the panel
+only, so a fraction just clicked from the palette shows its shape. The
+checker reports a formula that will not set as unfinished, under the part,
+option or guide it sits in, so the paper checker lists it too. Why it is
+built this way is in
+[question-and-paper-model.md](question-and-paper-model.md).
+
+Driven on `../klunk-content`, nothing saved: `Simplify \(\frac{3}{8` typed
+into the stem showed `Add a } to close each {.` and the closing hint under
+the box, letter by letter. Typing `\)` added the warning to the rail under
+**Question**, with **needs finishing** on the preview. Typing the `}` drew
+`3/8 × x²` large and the warning went. `\sqrtt` gave the spelling reason in
+the panel and the rail. The fraction button clicked into part (a)'s
+one-line box opened the panel under it. The cursor moved past `\)`, or a
+click into **Marks**, closed the panel. Two faults were found by driving
+it: a vertical scrollbar on the drawn formula, from KaTeX's struts, and a
+blank panel after a palette click, from KaTeX setting `\frac{}{}` as
+nothing.
+
 **A mathematics past paper is sent to an AI rather than read wrongly** (#198).
 A paper or marking guide set in mathematics fonts is refused before any reader
 sees it, with a message saying why, and the transcription prompt opens below.

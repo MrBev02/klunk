@@ -146,13 +146,40 @@ function mathAt(text: string, at: number): { end: number; display: boolean } | n
  * and so does an opener with no closer yet on the same line.
  */
 export function insideFormula(text: string, cursor: number): boolean {
+  return formulaAt(text, cursor) !== null
+}
+
+/** The formula the cursor is in, as `formulaAt` finds it. */
+export interface FormulaAtCursor {
+  /** The TeX between the delimiters, untrimmed, up to the end of the line if unclosed. */
+  tex: string
+  display: boolean
+  /** The closer has been typed. */
+  closed: boolean
+}
+
+/**
+ * The formula `cursor` sits inside, for the preview under a box (#210).
+ *
+ * The same reading as `insideFormula`, which asks only whether there is one.
+ * An unclosed formula runs to the end of its line, because that is what the
+ * teacher has typed of it so far.
+ */
+export function formulaAt(text: string, cursor: number): FormulaAtCursor | null {
   for (let at = 0; at < cursor; at += 1) {
     const ch = text[at]
     const next = text[at + 1] ?? ''
     if (ch === '\\' && (next === '(' || next === '[')) {
-      const end = text.indexOf(next === '(' ? '\\)' : '\\]', at + 2)
-      if (end === -1) return !text.slice(at + 2, cursor).includes('\n')
-      if (cursor >= at + 2 && cursor <= end) return true
+      const display = next === '['
+      const end = text.indexOf(display ? '\\]' : '\\)', at + 2)
+      if (end === -1) {
+        if (text.slice(at + 2, cursor).includes('\n')) return null
+        const line = text.indexOf('\n', at + 2)
+        return { tex: text.slice(at + 2, line === -1 ? undefined : line), display, closed: false }
+      }
+      if (cursor >= at + 2 && cursor <= end) {
+        return { tex: text.slice(at + 2, end), display, closed: true }
+      }
       at = end + 1
       continue
     }
@@ -163,12 +190,12 @@ export function insideFormula(text: string, cursor: number): boolean {
     if (ch === '`') {
       const close = codeEnd(text, at)
       if (close > -1) {
-        if (cursor <= close) return false
+        if (cursor <= close) return null
         at = close
       }
     }
   }
-  return false
+  return null
 }
 
 /**

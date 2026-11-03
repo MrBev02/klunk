@@ -24,9 +24,13 @@ import { PALETTE, insertion } from './formulas'
 
 type Box = HTMLTextAreaElement | HTMLInputElement
 
-/** A box a formula can go in: any text area, and a one-line box marked as prose. */
-function isProse(el: EventTarget | null): el is Box {
-  if (el instanceof HTMLTextAreaElement) return true
+/**
+ * A box a formula can go in: any text area but a program's, and a one-line box
+ * marked as prose. A program prints exactly as typed, so a formula there would
+ * print as its source.
+ */
+export function isProse(el: EventTarget | null): el is Box {
+  if (el instanceof HTMLTextAreaElement) return !el.classList.contains('input--code')
   return el instanceof HTMLInputElement && el.dataset.prose !== undefined
 }
 
