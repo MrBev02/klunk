@@ -2273,6 +2273,35 @@ button.chip {
   overflow-y: auto;
 }
 
+/* The formula palette (#209), in the rail above the preview, one group of
+   buttons at a time so the preview stays on screen beside it. */
+.palette__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.palette__head .panel__title {
+  margin: 0;
+}
+
+.palette__pick {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.palette__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.palette__btn {
+  min-width: 2.4rem;
+  font-weight: 400;
+}
+
 /* ------------------------------------------------------------------- footer */
 
 .colophon {
@@ -2835,6 +2864,9 @@ code,
      inside it: capping the prose but leaving the paper full width left a hand's
      width of empty white down the right of every paragraph. */
   max-width: 47rem;
+  /* Centred on the table. Left-aligned, it filled half the 82rem column and
+     left the other half bare. */
+  margin-inline: auto;
   background: var(--paper-raised);
   border: 1px solid var(--rule);
   border-radius: var(--r);
@@ -2885,9 +2917,31 @@ code,
 }
 
 .help__sec {
-  /* The masthead is not fixed, so this is only breathing room: a heading
-     jumped to from the contents should not sit flush against the top. */
-  scroll-margin-top: 1rem;
+  /* Clears the sticky screen bar, which otherwise covered the heading of a
+     section jumped to from the contents. */
+  scroll-margin-top: 5rem;
+}
+
+/* A section's heading has to be findable at a scroll. At the setup screens'
+   1.05rem it was barely larger than the text under it. */
+.help .setup__head {
+  font-size: 1.3rem;
+  margin-top: 2.2rem;
+}
+
+/* A heading within a section sits close to what it heads and well clear of
+   what came before. As a bold paragraph it sat midway between the two and
+   grouped with neither. */
+.help__sub {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.4rem 0 0.3rem;
+}
+
+.help__sub + p,
+.help__sub + ol,
+.help__sub + ul {
+  margin-top: 0;
 }
 
 .help__sec p,
@@ -3195,4 +3249,16 @@ code,
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* The help page's formula table (#209). The middle column is what a teacher
+   types, so it never wraps mid-command. */
+.help__formulas {
+  margin: 0 0 0.9rem;
+}
+
+.help__formulas td code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
 }

@@ -27,6 +27,7 @@ import {
   TopicChipLabel,
   TopicOptions,
 } from '../shared/fields'
+import { FormulaPalette } from './palette'
 import { QuestionDetail } from './question'
 import {
   copyFileInto,
@@ -214,6 +215,7 @@ export function QuestionEditor({
   // Held in a ref because the cleanup runs at unmount, when the state it has to
   // release is whatever the list ended up as. Removing one row releases its own.
   const stimuliRef = useRef(stimuli)
+  const form = useRef<HTMLElement>(null)
   stimuliRef.current = stimuli
   useEffect(
     () => () => {
@@ -387,7 +389,7 @@ export function QuestionEditor({
       </ScreenBar>
 
       <div class="split split--build">
-        <main class="form">
+        <main class="form" ref={form}>
           <section class="panel">
             <p class="panel__title">{title}</p>
 
@@ -444,7 +446,7 @@ export function QuestionEditor({
             <Field
               label="What the question asks"
               for="q-text"
-              hint="**bold**, *italic*, <u>underline</u>, `code`. A blank line starts a paragraph, and a table goes in as | pipe | rows |."
+              hint="**bold**, *italic*, <u>underline</u>, `code`, and a formula as \(…\). A blank line starts a paragraph, and a table goes in as | pipe | rows |."
             >
               <textarea
                 id="q-text"
@@ -515,6 +517,8 @@ export function QuestionEditor({
           </div>
 
           <Faults faults={faults} pathFault={pathFault} />
+
+          <FormulaPalette form={form} fallback="q-text" />
 
           <div class="panel editor__preview">
             <p class="panel__title">As it will read</p>
@@ -709,6 +713,7 @@ function ChoiceFields({
                 class="input"
                 value={c.text}
                 placeholder="The option as the student reads it"
+                data-prose
                 onInput={(e) => change(i, { text: (e.target as HTMLInputElement).value })}
               />
               <input
@@ -830,6 +835,7 @@ function ResponseFields({
                 class="input"
                 value={c.text}
                 placeholder="The option as the student reads it"
+                data-prose
                 onInput={(e) => change(i, { text: (e.target as HTMLInputElement).value })}
               />
               <input
@@ -926,6 +932,7 @@ function MatchingFields({
                 class="input"
                 value={item.text}
                 placeholder="The item as the student reads it"
+                data-prose
                 onInput={(e) => setItem(i, { text: (e.target as HTMLInputElement).value })}
               />
               <div class="matchpick">
@@ -969,6 +976,7 @@ function MatchingFields({
                 class="input"
                 value={o.text}
                 placeholder="The option as the student reads it"
+                data-prose
                 onInput={(e) =>
                   setConfig({
                     options: options.map((x, j) =>
@@ -1212,6 +1220,7 @@ function WrittenFields({
                       class="input"
                       value={p.text}
                       placeholder="What this part asks"
+                      data-prose
                       onInput={(e) => changePart(i, { text: (e.target as HTMLInputElement).value })}
                     />
                     <NumField
