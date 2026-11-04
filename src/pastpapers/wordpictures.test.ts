@@ -75,9 +75,10 @@ describe('placeWordPictures', () => {
     { number: 1, pictures: [] },
     { number: 2, pictures: [picture('standard2.png')] },
   ]
+  const numbered = (...numbers: (number | undefined)[]) => numbers.map((number) => ({ number }))
 
   it('walks a paper that numbers each band from 1 in order', () => {
-    expect(placeWordPictures([1, 2, 1, 2], bands)).toEqual([
+    expect(placeWordPictures(numbered(1, 2, 1, 2), bands)).toEqual([
       [picture('support1.png')],
       [],
       [],
@@ -86,7 +87,7 @@ describe('placeWordPictures', () => {
   })
 
   it('skips a question the reply left out without losing its place', () => {
-    expect(placeWordPictures([1, 1, 2], bands)).toEqual([
+    expect(placeWordPictures(numbered(1, 1, 2), bands)).toEqual([
       [picture('support1.png')],
       [],
       [picture('standard2.png')],
@@ -94,6 +95,57 @@ describe('placeWordPictures', () => {
   })
 
   it('gives nothing to a question with no number or no row', () => {
-    expect(placeWordPictures([undefined, 7], bands)).toEqual([[], []])
+    expect(placeWordPictures(numbered(1, undefined, 1, 7), bands)).toEqual([
+      [picture('support1.png')],
+      [],
+      [],
+      [],
+    ])
+  })
+
+  // Found by Codex. Walking forward gave Standard 1 the picture of Support 1,
+  // which was then kept and its warning taken back.
+  it('places nothing where the reply left out a whole band', () => {
+    expect(placeWordPictures(numbered(1, 2), bands)).toBeNull()
+    expect(
+      placeWordPictures(
+        [
+          { number: 1, section: 'Standard' },
+          { number: 2, section: 'Standard' },
+        ],
+        bands,
+      ),
+    ).toBeNull()
+  })
+
+  it('tells bands apart by section where the numbering does not restart', () => {
+    // Support 2 and Standard 1 were both left out: 1 then 2 reads as one band
+    // by number alone.
+    expect(
+      placeWordPictures(
+        [
+          { number: 1, section: 'Support' },
+          { number: 2, section: 'Standard' },
+        ],
+        bands,
+      ),
+    ).toEqual([[picture('support1.png')], [picture('standard2.png')]])
+  })
+
+  it('matches by number alone in a paper that numbers its questions once', () => {
+    const once = [
+      { number: 1, pictures: [] },
+      { number: 2, pictures: [picture('two.png')] },
+      { number: 3, pictures: [] },
+    ]
+    expect(
+      placeWordPictures(
+        [
+          { number: 2, section: 'I' },
+          { number: 3, section: 'II' },
+        ],
+        once,
+      ),
+    ).toEqual([[picture('two.png')], []])
   })
 })

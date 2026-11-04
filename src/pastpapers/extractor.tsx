@@ -695,20 +695,31 @@ export function Extractor({
         const bytes = await readBytes(folder, paperPath)
         const offered = await wordPicturesFor(
           bytes.buffer as ArrayBuffer,
-          out.drafts.map((d) => printedNumber(d.question)),
+          out.drafts.map((d) => ({
+            number: printedNumber(d.question),
+            section: d.question.source?.section,
+          })),
         )
-        adopted = adopted.map((item, i) => {
-          const placed = withWordPictures(item, out.drafts[i]!, offered[i] ?? [])
-          return {
-            ...placed,
-            faults: recheckQuestion(
-              item.question,
-              placed.faults,
-              withKept(item.question, placed.pictures),
-              currentIds(),
-            ),
-          }
-        })
+        if (offered === null) {
+          // Left where the transcription put them, each picture still a warning
+          // on its question, rather than risk one band's diagrams on another's.
+          notes.push(
+            `The pictures in ${paperPath} were not placed. The paper numbers each section from 1, and the reply does not have the same sections, so Klunk cannot tell which question is which.`,
+          )
+        } else {
+          adopted = adopted.map((item, i) => {
+            const placed = withWordPictures(item, out.drafts[i]!, offered[i] ?? [])
+            return {
+              ...placed,
+              faults: recheckQuestion(
+                item.question,
+                placed.faults,
+                withKept(item.question, placed.pictures),
+                currentIds(),
+              ),
+            }
+          })
+        }
       } catch (err) {
         notes.push(`The pictures in ${paperPath} could not be read: ${(err as Error).message}`)
       }

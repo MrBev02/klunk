@@ -77,10 +77,10 @@ describe.skipIf(!have(YEAR8_PAPER))('the 2025 Year 8 Word paper', () => {
   it('lands them on a reply that numbers the paper as it prints', async () => {
     const questions = await questionsOf(YEAR8_PAPER)
     const placed = placeWordPictures(
-      questions.map((q) => q.number),
+      questions.map((q) => ({ number: q.number })),
       questions,
     )
-    expect(placed.map((p) => p.length)).toEqual(questions.map((q) => q.pictures.length))
+    expect(placed?.map((p) => p.length)).toEqual(questions.map((q) => q.pictures.length))
   })
 })
 
