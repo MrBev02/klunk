@@ -75,27 +75,90 @@ export function isFormulaPicture(picture: RowPicture): boolean {
   return /efofex:\/\/fxe\//i.test(picture.alt)
 }
 
+/** A transcribed question, as much of it as placing a picture needs. */
+export interface ReplyQuestion {
+  /** The number it was printed with, where that is a plain number. */
+  number?: number | undefined
+  /** The section the reply put it in, where it named one. */
+  section?: string | undefined
+}
+
 /**
- * The pictures for each transcribed question, by where it sits in the reply.
+ * The pictures for each transcribed question, or null where the paper and the
+ * reply cannot be lined up.
  *
- * Both lists are in paper order, so each question takes the next row of its
- * number from where the last one matched. That is what lets a paper number each
- * band from 1, as the Year 8 paper does, without the reply's section names
- * having to agree with the document's headings. A question the reply numbers
- * with no row to match takes nothing and leaves the place where it is.
+ * A paper that numbers its questions once is matched by number, since each
+ * number names one row. One that numbers each band from 1, as both Year 8
+ * papers do, has five rows numbered 1, and the number alone cannot say which.
+ * Walking forward through the paper from the last match used to decide it, so
+ * a reply that left out the first band gave its own Question 1 the first
+ * band's pictures, kept them, and took back the warning that would have caught
+ * it. Bands are now paired by order, and only where the reply has as many as
+ * the paper: a band left out, or one more, and nothing is placed.
+ *
+ * The reply's section names are used to tell its bands apart, never to match
+ * them to the paper's headings, which the two need not agree on. Where they
+ * are inconsistent the reply splits into more bands than the paper has, and
+ * the answer is null rather than a guess.
  */
 export function placeWordPictures(
-  numbers: (number | undefined)[],
+  replies: ReplyQuestion[],
   questions: WordQuestion[],
-): RowPicture[][] {
-  let cursor = 0
-  return numbers.map((number) => {
-    if (number === undefined) return []
-    const at = questions.findIndex((q, i) => i >= cursor && q.number === number)
-    if (at < 0) return []
-    cursor = at + 1
-    return questions[at]!.pictures
-  })
+): RowPicture[][] | null {
+  const bands = paperBands(questions)
+  const told = replyBands(replies)
+  if (bands.length > 1 && told.length !== bands.length) return null
+  const out: RowPicture[][] = replies.map(() => [])
+  for (const [b, members] of told.entries()) {
+    // One band in the paper takes every band of the reply, its numbers being unique.
+    const rows = bands.length === 1 ? bands[0]! : bands[b]!
+    let cursor = 0
+    for (const r of members) {
+      const number = replies[r]!.number
+      if (number === undefined) continue
+      const at = rows.findIndex((q, i) => i >= cursor && q.number === number)
+      if (at < 0) continue
+      cursor = at + 1
+      out[r] = rows[at]!.pictures
+    }
+  }
+  return out
+}
+
+/** The paper's rows split where the numbering starts again. */
+function paperBands(questions: WordQuestion[]): WordQuestion[][] {
+  const bands: WordQuestion[][] = []
+  let last = Infinity
+  for (const q of questions) {
+    if (q.number <= last) bands.push([])
+    bands[bands.length - 1]!.push(q)
+    last = q.number
+  }
+  return bands
+}
+
+/**
+ * The reply's questions, by index, split where its numbering starts again or
+ * its section changes. Either alone misses a case: a band whose first questions
+ * were left out can carry on upwards from the band before, and a reply need not
+ * name its sections at all.
+ */
+function replyBands(replies: ReplyQuestion[]): number[][] {
+  const bands: number[][] = []
+  let number: number | undefined
+  let section: string | undefined
+  for (const [i, r] of replies.entries()) {
+    const name = r.section?.trim().toLowerCase() || undefined
+    const restarts =
+      bands.length === 0 ||
+      (r.number !== undefined && number !== undefined && r.number <= number) ||
+      (name !== undefined && section !== undefined && name !== section)
+    if (restarts) bands.push([])
+    bands[bands.length - 1]!.push(i)
+    if (r.number !== undefined) number = r.number
+    if (name !== undefined) section = name
+  }
+  return bands
 }
 
 /** A picture taken whole out of a Word paper, ready for a card. */
@@ -106,18 +169,20 @@ export interface WordPicture {
 }
 
 /**
- * The pictures each transcribed question should be offered, read out of the paper.
+ * The pictures each transcribed question should be offered, read out of the
+ * paper, or null where its bands and the reply's cannot be lined up.
  *
  * A picture a browser cannot draw is passed over, as is a formula Efofex set:
  * neither would be any use on a card.
  */
 export async function wordPicturesFor(
   bytes: ArrayBuffer,
-  numbers: (number | undefined)[],
-): Promise<WordPicture[][]> {
+  replies: ReplyQuestion[],
+): Promise<WordPicture[][] | null> {
   const document = await readZipMember(bytes, 'word/document.xml')
   const rels = await readZipMember(bytes, 'word/_rels/document.xml.rels')
-  const placed = placeWordPictures(numbers, wordQuestions(pictureRows(document, rels)))
+  const placed = placeWordPictures(replies, wordQuestions(pictureRows(document, rels)))
+  if (placed === null) return null
   const out: WordPicture[][] = []
   for (const pictures of placed) {
     const mine: WordPicture[] = []
