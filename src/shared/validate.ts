@@ -66,6 +66,7 @@ export interface Check {
 import { cleanCode, CODE_LINE_LIMIT, codeLines, printedWidth } from './code'
 import { badFormulas, strayFormulas } from './formulacheck'
 import type {
+  Choice,
   IdentificationField,
   MarkCriterion,
   Paper,
@@ -261,7 +262,7 @@ export function validateQuestion(question: Question, ids: IdContext): Check[] {
   const cfg = question.config ?? {}
   switch (question.questionType) {
     case 'multiple_choice':
-      validateMultipleChoice(cfg, err, warnToFinish)
+      validateMultipleChoice(cfg, err, warn, warnToFinish)
       break
     case 'multiple_response':
       validateMultipleResponse(cfg, err, warn, warnToFinish)
@@ -384,6 +385,21 @@ function validateStimulus(
 }
 
 /**
+ * A choice's picture, on the stimulus rules, under the choice's own letter.
+ *
+ * Only an image: a choice is a line of the lettered list, and a block quote or
+ * a numbered program would not fit in one.
+ */
+function validateChoicePictures(choices: Choice[], err: Report, warn: Report): void {
+  choices.forEach((c, i) => {
+    if (!c.image) return
+    const where = `Option ${letter(i)}, picture`
+    if (c.image.kind !== 'image') err('A choice can hold a picture, not text or code.', where)
+    else validateStimulus([c.image], where, err, warn)
+  })
+}
+
+/**
  * A model answer on the guide, on the stimulus rules, with text refused.
  *
  * A text entry would print as a block quote, which means "a source the question
@@ -439,14 +455,20 @@ function validateCriterion(c: MarkCriterion, where: string, err: Report): void {
  * way, which is what makes a warning the honest severity rather than a lenient
  * one, and the guide says in words that nobody recorded an answer.
  */
-function validateMultipleChoice(cfg: QuestionConfig, err: Report, warnToFinish: Report): void {
+function validateMultipleChoice(
+  cfg: QuestionConfig,
+  err: Report,
+  warn: Report,
+  warnToFinish: Report,
+): void {
   const choices = cfg.choices ?? []
   if (choices.length < 2) {
     err('A multiple choice question needs at least two options.', 'Options')
   }
   choices.forEach((c, i) => {
-    if (!c.text.trim()) err('This option is empty.', `Option ${letter(i)}`)
+    if (!c.text.trim() && !c.image) err('This option is empty.', `Option ${letter(i)}`)
   })
+  validateChoicePictures(choices, err, warn)
 
   const correct = cfg.correctAnswer
   if (correct === undefined) {
@@ -478,8 +500,9 @@ function validateMultipleResponse(
     )
   }
   choices.forEach((c, i) => {
-    if (!c.text.trim()) err('This option is empty.', `Option ${letter(i)}`)
+    if (!c.text.trim() && !c.image) err('This option is empty.', `Option ${letter(i)}`)
   })
+  validateChoicePictures(choices, err, warn)
 
   const correct = cfg.correctAnswers
   if (correct === undefined) {
@@ -1540,6 +1563,26 @@ function finishTags(tags: string[] | undefined, question: Question): string[] | 
   return [...mine.slice(0, 19), UNFINISHED_TAG]
 }
 
+/**
+ * A choice with words, a picture or both, in that order of keys.
+ *
+ * The picture is what lets a choice with no words survive the save (#238).
+ * Copied field by field like everything else here, and that is why it has to be
+ * named: the copy this replaced kept `text` and `feedback` and would have
+ * dropped a picture without a word.
+ */
+function cleanChoices(choices: Choice[]): Choice[] {
+  return choices
+    .filter((c) => c.text.trim() || c.image)
+    .map((c) => {
+      const out: Choice = { text: c.text.trim() }
+      if (c.image) out.image = c.image
+      const feedback = text(c.feedback)
+      if (feedback !== undefined) out.feedback = feedback
+      return out
+    })
+}
+
 /** Keep only the config keys the schema allows for this question type. */
 function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | undefined {
   switch (type) {
@@ -1548,14 +1591,7 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
       // multiple choice question, and validation has already refused to save an
       // empty one.
       const out: QuestionConfig = {
-        choices: (cfg.choices ?? [])
-          .filter((c) => c.text.trim())
-          .map((c) => {
-            const feedback = text(c.feedback)
-            return feedback === undefined
-              ? { text: c.text.trim() }
-              : { text: c.text.trim(), feedback }
-          }),
+        choices: cleanChoices(cfg.choices ?? []),
         shuffle: cfg.shuffle !== false,
       }
       // Written only when the question states it. This line used to put 0 in
@@ -1568,14 +1604,7 @@ function cleanConfig(type: QuestionType, cfg: QuestionConfig): QuestionConfig | 
 
     case 'multiple_response': {
       const out: QuestionConfig = {
-        choices: (cfg.choices ?? [])
-          .filter((c) => c.text.trim())
-          .map((c) => {
-            const feedback = text(c.feedback)
-            return feedback === undefined
-              ? { text: c.text.trim() }
-              : { text: c.text.trim(), feedback }
-          }),
+        choices: cleanChoices(cfg.choices ?? []),
         shuffle: cfg.shuffle !== false,
       }
       // Written only when the question states it. Defaulting to `[]` here would

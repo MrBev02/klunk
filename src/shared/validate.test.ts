@@ -198,6 +198,37 @@ describe('multiple choice', () => {
     )
   })
 
+  // Beyond 3 of the 2025 Year 8 Term 2 task letters four drawn shapes with no
+  // words under them (#238).
+  it('takes a picture with no words as an option', () => {
+    const shape = (n: number) => ({
+      text: '',
+      image: { kind: 'image' as const, file: `stimulus/shape-${n}.png`, alt: `Shape ${n}` },
+    })
+    expect(errors(mc({ choices: [shape(1), shape(2)], correctAnswer: 0 }))).toEqual([])
+  })
+
+  it("still refuses an option with neither words nor a picture, and checks a picture's file", () => {
+    const found = errors(
+      mc({
+        choices: [{ text: '' }, { text: '', image: { kind: 'image', file: '' } }],
+        correctAnswer: 0,
+      }),
+    ).join(' ')
+    expect(found).toContain('This option is empty.')
+    expect(found).toContain('An image stimulus needs a file')
+  })
+
+  it('refuses text or code as a choice picture', () => {
+    const found = errors(
+      mc({
+        choices: [{ text: 'a', image: { kind: 'code', text: 'x = 1' } }, { text: 'b' }],
+        correctAnswer: 0,
+      }),
+    ).join(' ')
+    expect(found).toContain('A choice can hold a picture, not text or code.')
+  })
+
   it('warns rather than blocks when no answer is recorded, as the other two types do', () => {
     // The schema stopped requiring `correctAnswer` in #105. A paper read or
     // transcribed without its markscheme does not state the answer, and the
@@ -1048,6 +1079,30 @@ describe('cleanQuestion', () => {
       correctAnswer: 1,
       shuffle: false,
     })
+  })
+
+  // The copy this replaced kept `text` and `feedback` by name, and would have
+  // dropped a picture without a word (#238).
+  it("keeps a choice's picture, and a choice that is only a picture", () => {
+    const shape = { kind: 'image' as const, file: 'stimulus/shape.png', alt: 'A rectangle' }
+    for (const questionType of ['multiple_choice', 'multiple_response'] as const) {
+      const q = question({
+        questionType,
+        marks: 1,
+        config: {
+          choices: [
+            { text: '', image: shape },
+            { text: ' b ', image: shape, feedback: 'f' },
+            { text: 'c' },
+          ],
+        },
+      })
+      expect(cleanQuestion(q).config?.choices).toEqual([
+        { text: '', image: shape },
+        { text: 'b', image: shape, feedback: 'f' },
+        { text: 'c' },
+      ])
+    }
   })
 
   it('leaves out every field the teacher did not fill in', () => {

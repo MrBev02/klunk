@@ -429,9 +429,23 @@ export interface MatchItem {
   matches?: number[]
 }
 
+/**
+ * One lettered option of a multiple-choice or multiple-response question.
+ *
+ * `image` is a choice that is a picture, or has one (#238): a mathematics paper
+ * asks which of four drawn shapes is a cross-section, lettered with no words.
+ * `text` is then allowed to be empty, and stays a string so that nothing which
+ * reads a choice's words has to ask first whether there are any.
+ */
+export interface Choice {
+  text: string
+  image?: Stimulus
+  feedback?: string
+}
+
 export interface QuestionConfig {
   /** multiple_choice */
-  choices?: { text: string; feedback?: string }[]
+  choices?: Choice[]
   correctAnswer?: number | boolean
   shuffle?: boolean
   /** multiple_response, alongside `choices` and `shuffle` */
@@ -806,11 +820,16 @@ export function stimulusOwner(at: number | null, parts: number): number | null {
  * drawing is moved between the question and a part by the same select as any
  * other picture, and the save path copies its file without knowing the
  * difference.
+ *
+ * `choice` is the third place a picture can hang: one lettered option of a
+ * multiple-choice or multiple-response question (#238). It is an index into the
+ * choices, and wins over `at` and `guide` where it names a choice that exists.
  */
 export interface PlacedStimulus {
   item: Stimulus
   at: number | null
   guide?: boolean
+  choice?: number
 }
 
 /** One entry per stimulus, each saying what it hangs off. `placeStimulus` undoes it. */
@@ -822,6 +841,9 @@ export function stimulusList(q: Question): PlacedStimulus[] {
     ...(q.markingGuide?.sampleStimulus ?? []).map((item) => ({ item, at: null, guide: true })),
     ...parts.flatMap((p, at) =>
       (p.sampleStimulus ?? []).map((item) => ({ item, at, guide: true })),
+    ),
+    ...(q.config?.choices ?? []).flatMap((c, choice) =>
+      c.image ? [{ item: c.image, at: null, choice }] : [],
     ),
   ]
 }
@@ -836,11 +858,44 @@ export function stimulusList(q: Question): PlacedStimulus[] {
  */
 export function placeStimulus(question: Question, items: PlacedStimulus[]): Question {
   const parts = question.config?.parts ?? []
+  const choices = question.config?.choices ?? []
+  // A choice holds one picture. A second, or one naming a choice that has gone,
+  // falls to the question rather than out of the file.
+  const onChoice = new Map<number, Stimulus>()
+  const rest: PlacedStimulus[] = []
+  for (const s of items) {
+    const c = s.choice
+    if (
+      c !== undefined &&
+      c >= 0 &&
+      c < choices.length &&
+      s.item.kind === 'image' &&
+      !onChoice.has(c)
+    ) {
+      onChoice.set(c, s.item)
+    } else if (c !== undefined) {
+      rest.push({ item: s.item, at: null })
+    } else {
+      rest.push(s)
+    }
+  }
   const of = (owner: number | null, guide: boolean) =>
-    items
+    rest
       .filter((s) => Boolean(s.guide) === guide && stimulusOwner(s.at, parts.length) === owner)
       .map((s) => s.item)
   const out = { ...question }
+  if (choices.length > 0) {
+    out.config = {
+      ...(out.config ?? {}),
+      choices: choices.map((choice, i) => {
+        const next: Choice = { ...choice }
+        const image = onChoice.get(i)
+        if (image) next.image = image
+        else delete next.image
+        return next
+      }),
+    }
+  }
   const own = of(null, false)
   if (own.length > 0) out.stimulus = own
   else delete out.stimulus

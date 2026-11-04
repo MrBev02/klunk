@@ -23,7 +23,9 @@ import type { Cutout, Region } from '../documents/pdfimage'
 import type { Check } from '../shared/validate'
 import type { ChosenPictures } from '../folder/storage'
 import {
+  placeStimulus,
   QUESTION_TYPE_LABELS,
+  stimulusList,
   type Question,
   type QuestionConfig,
   type QuestionPart,
@@ -67,7 +69,8 @@ export interface Adopted {
    * 2025 Biology paper prints Question 28 with one picture before part (a), one
    * inside (a) and one inside (b), so the teacher says which (#100).
    */
-  pictures: { cutout: OfferedPicture; keep: boolean; at: number | null }[]
+  /** `choice` is the option a picture is, on a choice question (#238). */
+  pictures: { cutout: OfferedPicture; keep: boolean; at: number | null; choice?: number }[]
   /** Where it came from in the PDF, so a doubtful one can be checked against the paper. */
   pages: number[]
   /** What the readers noticed, in the teacher's words. */
@@ -79,6 +82,29 @@ export interface Adopted {
    * the bank gives every unsaved question a new id.
    */
   chosen?: ChosenPictures
+}
+
+/**
+ * The question as it would be saved with the card's kept pictures, for checking.
+ *
+ * An option that is only a picture is empty until its picture joins it, and on
+ * a card the pictures join the question only when it is saved. Checked without
+ * them, every such question was refused as having an empty option (#238), and
+ * every route that checks a card again has to go through here: choosing another
+ * bank and applying a marking guide both missed it at first.
+ */
+export function withKept(question: Question, pictures: Adopted['pictures']): Question {
+  const kept = pictures.filter((p) => p.keep)
+  if (kept.length === 0) return question
+  return placeStimulus(question, [
+    ...stimulusList(question),
+    ...kept.map((p, n) => ({
+      at: p.at,
+      ...(p.choice === undefined ? {} : { choice: p.choice }),
+      // Never written: the save names the file and its alt once it is copied in.
+      item: { kind: 'image' as const, file: `picture-${n + 1}`, alt: `Picture ${n + 1}` },
+    })),
+  ])
 }
 
 /**
@@ -332,7 +358,10 @@ export function applyMarking(
       // A second guide can be read over the first, which is the only way out of
       // having pasted the wrong reply, so the same note must not stack up.
       notes: [...new Set(own)],
-      faults: validateQuestion(question, { inBank: ctx.inBank, inFolder: ctx.inFolder }),
+      faults: validateQuestion(withKept(question, item.pictures), {
+        inBank: ctx.inBank,
+        inFolder: ctx.inFolder,
+      }),
     }
   })
 

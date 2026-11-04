@@ -14,6 +14,7 @@ import {
   AI_TRANSCRIBED_TAG,
   extractJson,
   ingestQuestions,
+  choicePictureWarning,
   pictureWarning,
   type IngestContext,
 } from './ingest'
@@ -861,6 +862,41 @@ describe('reading back a paper somebody transcribed', () => {
     // Kept apart too, so a Word paper's own picture can be kept for it (#207).
     expect(draft.pictureNote).toBe('A diagram of a small office network.')
     expect(warnings).toContain(pictureWarning('A diagram of a small office network.'))
+  })
+
+  // Beyond 3 of the Year 8 Term 2 task letters four drawn shapes (#238).
+  it('keeps an option that is a picture, with no words, and says to attach it', () => {
+    const shapes = JSON.stringify([
+      {
+        number: 3,
+        questionType: 'multiple_response',
+        questionText: 'Which of the following shapes could be the cross-section?',
+        marks: 1,
+        config: {
+          choices: [
+            { picture: 'A rectangle 10 m by 8 m.' },
+            { text: '', picture: 'A triangle.' },
+            { text: 'None of these' },
+          ],
+        },
+      },
+    ])
+    const { draft } = first(shapes, ctx({ expected: undefined, paper }))
+
+    expect(draft.question.config?.choices).toEqual([
+      { text: '' },
+      { text: '' },
+      { text: 'None of these' },
+    ])
+    expect(draft.choicePictures).toEqual([
+      { choice: 0, note: 'A rectangle 10 m by 8 m.' },
+      { choice: 1, note: 'A triangle.' },
+    ])
+    const messages = draft.faults.map((f) => f.message)
+    expect(messages).toContain(choicePictureWarning(0, 'A rectangle 10 m by 8 m.'))
+    expect(choicePictureWarning(1, 'A triangle.')).toContain('Option B')
+    // Not saveable as it stands: an option with neither words nor a picture.
+    expect(messages).toContain('This option is empty.')
   })
 
   it('keeps the section in the provenance of a question off a paper (#208)', () => {

@@ -13,6 +13,7 @@ import { knownIds, unresolvedTags, type ModelIds } from '../shared/modelcheck'
 import { allQuestions, findQuestion, inCourse, inSyllabus } from '../folder/storage'
 import { unfinishedReasons, type Check } from '../shared/validate'
 import type {
+  Choice,
   Paper,
   PaperRef,
   Profile,
@@ -874,7 +875,7 @@ function hash(text: string): number {
 }
 
 export interface ShuffledChoices {
-  choices: { text: string; feedback?: string | undefined }[]
+  choices: Choice[]
   /** Index of the correct option after shuffling, or -1 where none is recorded. */
   correctIndex: number
   /**
@@ -965,9 +966,7 @@ export function shuffledChoices(question: Question, version: ShuffleVersion): Sh
   const order = printOrder(question, choices.length, version)
 
   return {
-    choices: order
-      .map((i) => choices[i])
-      .filter((c): c is { text: string; feedback?: string } => !!c),
+    choices: order.map((i) => choices[i]).filter((c): c is Choice => !!c),
     correctIndex: known ? order.indexOf(stated) : -1,
     known,
     letters: LETTERS,
@@ -975,7 +974,7 @@ export function shuffledChoices(question: Question, version: ShuffleVersion): Sh
 }
 
 export interface ShuffledResponses {
-  choices: { text: string; feedback?: string | undefined }[]
+  choices: Choice[]
   /** Positions in the printed list that are answers, ascending. */
   correctIndexes: number[]
   /**
@@ -998,9 +997,7 @@ export function shuffledResponses(question: Question, version: ShuffleVersion): 
     .sort((a, b) => a - b)
 
   return {
-    choices: order
-      .map((i) => choices[i])
-      .filter((c): c is { text: string; feedback?: string } => !!c),
+    choices: order.map((i) => choices[i]).filter((c): c is Choice => !!c),
     correctIndexes,
     known: stated !== undefined,
   }

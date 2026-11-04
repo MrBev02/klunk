@@ -295,6 +295,14 @@
       }
     },
 
+    "choiceImage": {
+      "description": "A choice that is a picture, or has one. The 2025 Year 8 Term 2 mathematics task asks which of four drawn shapes could be a prism's cross-section, lettered A to D with no words under them (#238). An image stimulus, so it loads, saves and prints as one. Its alignment is ignored, since the choice's letter places it.",
+      "allOf": [
+        { "$ref": "#/$defs/stimulus" },
+        { "required": ["kind", "file"], "properties": { "kind": { "const": "image" } } }
+      ]
+    },
+
     "stimulus": {
       "type": "object",
       "required": ["kind"],
@@ -354,8 +362,13 @@
             "type": "object",
             "required": ["text"],
             "additionalProperties": false,
+            "anyOf": [{ "required": ["image"] }, { "properties": { "text": { "minLength": 1 } } }],
             "properties": {
-              "text": { "type": "string", "minLength": 1 },
+              "text": {
+                "type": "string",
+                "description": "Empty only where the choice is its picture."
+              },
+              "image": { "$ref": "#/$defs/choiceImage" },
               "feedback": {
                 "type": "string",
                 "description": "Why this distractor is tempting. Should name the specific misconception, not say 'incorrect'."
@@ -390,8 +403,13 @@
             "type": "object",
             "required": ["text"],
             "additionalProperties": false,
+            "anyOf": [{ "required": ["image"] }, { "properties": { "text": { "minLength": 1 } } }],
             "properties": {
-              "text": { "type": "string", "minLength": 1 },
+              "text": {
+                "type": "string",
+                "description": "Empty only where the option is its picture."
+              },
+              "image": { "$ref": "#/$defs/choiceImage" },
               "feedback": {
                 "type": "string",
                 "description": "Why this option is or is not one of the answers."

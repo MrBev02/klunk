@@ -2880,6 +2880,14 @@ code,
 .stim-figure {
   margin: 0.4rem 0;
 }
+/* A choice's picture, four of which sit down the options list (#238). */
+.opts__picture {
+  display: block;
+}
+.opts__picture img {
+  max-height: 8rem;
+  width: auto;
+}
 .stim-figure img {
   max-width: min(100%, 28rem);
   height: auto;

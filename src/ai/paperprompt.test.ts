@@ -169,6 +169,15 @@ describe('the copy', () => {
     expect(prompt).toMatch(/give\s+it no "stimulusNote"/)
   })
 
+  // Beyond 3 of the Year 8 Term 2 task letters four drawn shapes; Support 6
+  // letters four formulas pasted as pictures (#238).
+  it('asks for an option that is a diagram as a picture, and a formula as text', () => {
+    const prompt = buildPaperPrompt({ ...BASE, scanned: false })
+    expect(prompt).toMatch(/An option that is a diagram/)
+    expect(prompt).toContain('[ { "picture": "..." } ]')
+    expect(prompt).toMatch(/An option that is a formula printed as a picture is a formula/)
+  })
+
   it('says nothing about Word for any other paper', () => {
     expect(buildPaperPrompt({ ...BASE, scanned: false })).not.toMatch(/Word/)
   })

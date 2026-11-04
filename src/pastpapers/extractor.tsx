@@ -44,7 +44,7 @@
  */
 
 import { useMemo, useState } from 'preact/hooks'
-import { adoptPaper, applyMarking, type Adopted } from './adopt'
+import { adoptPaper, applyMarking, withKept, type Adopted } from './adopt'
 import type { Editing } from '../questions/editor'
 import type { PageText } from '../documents/page'
 import { NotAPaperError, stampSource, type ExtractedQuestion } from './extract'
@@ -74,7 +74,7 @@ import {
 } from './guideformats'
 import { readMarking } from '../ai/guideingest'
 import { buildGuidePrompt } from '../ai/guideprompt'
-import { ingestQuestions, pictureWarning, type Draft } from '../ai/ingest'
+import { choicePictureWarning, ingestQuestions, pictureWarning, type Draft } from '../ai/ingest'
 import { markingFromGuide, skeletonFor, type MarkingSkeleton } from './marking'
 import { buildPaperPrompt } from '../ai/paperprompt'
 import { cutOut, picturesFor, type Cutout } from '../documents/pdfimage'
@@ -82,6 +82,8 @@ import { wordPicturesFor, type WordPicture } from './wordpictures'
 import { hasMarkup } from '../shared/richtext'
 import { openPdf, pagesFromDocument, readPdf } from '../documents/pdftext'
 import { QuestionDetail, useChosenImages } from '../questions/question'
+import { OwnerSelect, type Owner } from '../questions/owner'
+import { optionLetter } from '../papers/paper'
 import { hasNoText } from '../documents/textlayer'
 import {
   copyFileInto,
@@ -160,21 +162,38 @@ function asAdopted(draft: Draft): Adopted {
  * formula is already in the text, and a pasted screenshot of a formula cannot
  * be told from a diagram by anything in the file. Where one is found, the
  * warning that nobody will find it is taken back.
+ *
+ * A picture beside an option's letter is offered as that option (#238), kept by
+ * the same rule: where the reply said the option is a picture. Support 6 of the
+ * Year 8 Term 2 task letters four formulas pasted as pictures, which the reply
+ * types, and Beyond 3 four drawn shapes, which it cannot.
  */
 function withWordPictures(
   item: Adopted,
-  note: string | undefined,
+  draft: Pick<Draft, 'pictureNote' | 'choicePictures'>,
   offered: WordPicture[],
 ): Adopted {
   if (offered.length === 0) return item
-  const pictures = offered.map((cutout) => ({ cutout, keep: note !== undefined, at: null }))
-  if (note === undefined) return { ...item, pictures }
-  return {
-    ...item,
-    pictures,
-    faults: item.faults.filter((f) => f.message !== pictureWarning(note)),
-    notes: [...item.notes, `Check the picture is the one the AI described: ${note}`],
+  const note = draft.pictureNote
+  const options = holdsChoices(item.question) ? (item.question.config?.choices?.length ?? 0) : 0
+  const described = new Map((draft.choicePictures ?? []).map((c) => [c.choice, c.note]))
+  const pictures: Adopted['pictures'] = offered.map((cutout) =>
+    cutout.choice !== undefined && cutout.choice < options
+      ? { cutout, keep: described.has(cutout.choice), at: null, choice: cutout.choice }
+      : { cutout, keep: note !== undefined, at: null },
+  )
+  let faults = item.faults
+  const notes = [...item.notes]
+  if (note !== undefined && pictures.some((p) => p.choice === undefined)) {
+    faults = faults.filter((f) => f.message !== pictureWarning(note))
+    notes.push(`Check the picture is the one the AI described: ${note}`)
   }
+  for (const [choice, said] of described) {
+    if (!pictures.some((p) => p.choice === choice)) continue
+    faults = faults.filter((f) => f.message !== choicePictureWarning(choice, said))
+    notes.push(`Check option ${optionLetter(choice)} is the picture the AI described: ${said}`)
+  }
+  return { ...item, pictures, faults, notes }
 }
 
 /** The number a transcribed question was printed with, where it is a plain number. */
@@ -209,6 +228,11 @@ type Slot = 'paper' | 'guide'
  * question paper. A reader would number and mark those questions with what is
  * asked missing, and could get nothing at all from the solutions.
  */
+/** Whether a question has lettered options a picture can be (#238). */
+function holdsChoices(q: Question): boolean {
+  return q.questionType === 'multiple_choice' || q.questionType === 'multiple_response'
+}
+
 function isWord(path: string): boolean {
   return /\.docx$/i.test(path)
 }
@@ -672,9 +696,18 @@ export function Extractor({
           bytes.buffer as ArrayBuffer,
           out.drafts.map((d) => printedNumber(d.question)),
         )
-        adopted = adopted.map((item, i) =>
-          withWordPictures(item, out.drafts[i]!.pictureNote, offered[i] ?? []),
-        )
+        adopted = adopted.map((item, i) => {
+          const placed = withWordPictures(item, out.drafts[i]!, offered[i] ?? [])
+          return {
+            ...placed,
+            faults: recheckQuestion(
+              item.question,
+              placed.faults,
+              withKept(item.question, placed.pictures),
+              currentIds(),
+            ),
+          }
+        })
       } catch (err) {
         notes.push(`The pictures in ${paperPath} could not be read: ${(err as Error).message}`)
       }
@@ -861,7 +894,11 @@ export function Extractor({
           const id = suggestQuestionId(path, a.question.questionType, taken)
           taken.add(id)
           const question = { ...a.question, id }
-          return { ...a, question, faults: validateQuestion(question, { inBank, inFolder }) }
+          return {
+            ...a,
+            question,
+            faults: validateQuestion(withKept(question, a.pictures), { inBank, inFolder }),
+          }
         }),
       }
     })
@@ -905,11 +942,22 @@ export function Extractor({
         ? r
         : {
             ...r,
-            adopted: r.adopted.map((a) =>
-              a.question.id !== id
-                ? a
-                : { ...a, pictures: a.pictures.map((p, i) => (i === n ? patch(p) : p)) },
-            ),
+            adopted: r.adopted.map((a) => {
+              if (a.question.id !== id) return a
+              const pictures = a.pictures.map((p, i) => (i === n ? patch(p) : p))
+              return {
+                ...a,
+                pictures,
+                // Keeping, dropping or moving an option's picture is what makes
+                // that option empty or not.
+                faults: recheckQuestion(
+                  withKept(a.question, a.pictures),
+                  a.faults,
+                  withKept(a.question, pictures),
+                  currentIds(),
+                ),
+              }
+            }),
           },
     )
   }
@@ -921,14 +969,35 @@ export function Extractor({
    * a part the edit removed goes back to the question, where the card shows it,
    * rather than printing under whatever part now has that letter.
    */
+  /** The ids a question here must not take: the bank's, and the whole folder's. */
+  const currentIds = () => ({
+    inBank: new Set(
+      (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
+    ),
+    inFolder: questionIds(index),
+  })
+
+  const withPictures = (
+    a: Adopted,
+    question: Question,
+    chosen: ChosenPictures,
+    pictures: Adopted['pictures'],
+  ): Adopted => ({
+    ...a,
+    question,
+    chosen,
+    pictures,
+    faults: recheckQuestion(
+      withKept(a.question, a.pictures),
+      a.faults,
+      withKept(question, pictures),
+      currentIds(),
+    ),
+  })
+
   const takeEdit = (id: string, question: Question, chosen: ChosenPictures) => {
-    const ids = {
-      inBank: new Set(
-        (banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
-      ),
-      inFolder: questionIds(index),
-    }
     const parts = question.config?.parts?.length ?? 0
+    const choices = holdsChoices(question) ? (question.config?.choices?.length ?? 0) : 0
     setRead((r) =>
       r === null
         ? r
@@ -937,15 +1006,18 @@ export function Extractor({
             adopted: r.adopted.map((a) =>
               a.question.id !== id
                 ? a
-                : {
-                    ...a,
+                : withPictures(
+                    a,
                     question,
                     chosen,
-                    faults: recheckQuestion(a.question, a.faults, question, ids),
-                    pictures: a.pictures.map((p) =>
-                      p.at !== null && p.at >= parts ? { ...p, at: null } : p,
-                    ),
-                  },
+                    a.pictures.map((p) => {
+                      const { choice, ...rest } = p
+                      const kept = p.at !== null && p.at >= parts ? { ...rest, at: null } : rest
+                      // An option the edit took away gives its picture back to
+                      // the question, as a part does.
+                      return choice !== undefined && choice < choices ? { ...kept, choice } : kept
+                    }),
+                  ),
             ),
           },
     )
@@ -975,6 +1047,7 @@ export function Extractor({
           )
           stimulus.push({
             at: picture.at,
+            ...(picture.choice === undefined ? {} : { choice: picture.choice }),
             item: {
               kind: 'image' as const,
               // Stored relative to the bank, which is how every other stimulus is
@@ -1266,8 +1339,11 @@ export function Extractor({
                 onTogglePicture={(n) =>
                   changePicture(item.question.id, n, (p) => ({ ...p, keep: !p.keep }))
                 }
-                onPictureBelongsTo={(n, at) =>
-                  changePicture(item.question.id, n, (p) => ({ ...p, at }))
+                onPictureBelongsTo={(n, owner) =>
+                  changePicture(item.question.id, n, (p) => {
+                    const { choice: _, ...rest } = p
+                    return { ...rest, ...owner }
+                  })
                 }
                 saved={alreadySaved.has(savedAs(item))}
                 savedAs={renamed[item.question.id]}
@@ -1764,12 +1840,13 @@ function ExtractedCard({
   onEdit: () => void
   onDiscard: () => void
   onTogglePicture: (at: number) => void
-  onPictureBelongsTo: (at: number, part: number | null) => void
+  onPictureBelongsTo: (at: number, owner: Owner) => void
 }) {
   const [open, setOpen] = useState(false)
   const q = item.question
   const chosenImages = useChosenImages(bankPath, item.chosen)
   const parts = q.config?.parts ?? []
+  const choices = holdsChoices(q) ? (q.config?.choices?.length ?? 0) : 0
   const errors = item.faults.filter((f) => f.severity === 'error' && !f.unfinished)
   const owed = item.faults.filter((f) => f.unfinished).length
   const state = saved ? 'saved' : errors.length > 0 ? 'bad' : owed > 0 ? 'owed' : 'ready'
@@ -1834,6 +1911,12 @@ function ExtractedCard({
               between them.
             </p>
           )}
+          {choices > 0 && (
+            <p class="hint">
+              Set an option's picture to belong to that option. Keep it only where the option is a
+              picture; drop it where the option is already typed.
+            </p>
+          )}
           <ul class="cutouts">
             {item.pictures.map((picture, n) => (
               <li key={n} class={picture.keep ? '' : 'cutouts--dropped'}>
@@ -1848,24 +1931,15 @@ function ExtractedCard({
                 <button class="btn btn--small" onClick={() => onTogglePicture(n)} disabled={saved}>
                   {picture.keep ? 'Drop this one' : 'Keep it after all'}
                 </button>
-                {parts.length > 0 && picture.keep && (
-                  <select
-                    class="input input--sub"
-                    title="Which part this picture belongs to"
-                    value={picture.at === null ? '' : String(picture.at)}
+                {(parts.length > 0 || choices > 0) && picture.keep && (
+                  <OwnerSelect
+                    owner={picture}
+                    parts={parts}
+                    choices={choices}
                     disabled={saved}
-                    onChange={(e) => {
-                      const value = (e.target as HTMLSelectElement).value
-                      onPictureBelongsTo(n, value === '' ? null : Number(value))
-                    }}
-                  >
-                    <option value="">The whole question</option>
-                    {parts.map((p, j) => (
-                      <option key={j} value={String(j)}>
-                        Part {p.label.trim() || `(${j + 1})`}
-                      </option>
-                    ))}
-                  </select>
+                    title="What this picture belongs to"
+                    onChange={(owner) => onPictureBelongsTo(n, owner)}
+                  />
                 )}
               </li>
             ))}

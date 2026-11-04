@@ -31,6 +31,7 @@ import {
 import { FormulaPalette } from './palette'
 import { FormulaPreview } from './preview'
 import { QuestionDetail } from './question'
+import { OwnerSelect, type Owner } from './owner'
 import { WorkingFields } from './working'
 import {
   copyFileInto,
@@ -50,7 +51,6 @@ import {
   alignOf,
   placeStimulus,
   stimulusList,
-  stimulusOwner,
   type MarkCriterion,
   type Question,
   type MatchItem,
@@ -101,6 +101,8 @@ interface StimulusDraft {
   at: number | null
   /** A model answer on the marking guide rather than something the paper prints. */
   guide?: boolean
+  /** The option it is the picture of, by index, on a choice question (#238). */
+  choice?: number
   pending?: File
   /**
    * An object URL for a file not yet copied into the folder, so the preview can
@@ -262,7 +264,26 @@ export function QuestionEditor({
     if (!holdsParts(type)) {
       setStimuli((list) => list.map((s) => (s.at === null ? s : { ...s, at: null })))
     }
+    if (!holdsChoices(type)) setStimuli((list) => list.map(offChoice))
   }
+
+  /**
+   * Move the pictures of the options after a removed one down with them (#238).
+   *
+   * `removePart`'s reason: an owner is an index, so without this the picture of
+   * C prints beside what used to be D. The removed option's own picture goes
+   * back to the question, where it can be dropped deliberately.
+   */
+  const choiceRemoved = (at: number) =>
+    setStimuli((list) =>
+      list.map((s) =>
+        s.choice === undefined || s.choice < at
+          ? s
+          : s.choice === at
+            ? offChoice(s)
+            : { ...s, choice: s.choice - 1 },
+      ),
+    )
 
   /**
    * Remove a part, and move the pictures that pointed at it.
@@ -472,6 +493,8 @@ export function QuestionEditor({
             setConfig={setConfig}
             setDraft={setDraft}
             removePart={removePart}
+            choiceRemoved={choiceRemoved}
+            pictured={stimuli.flatMap((s) => (s.choice === undefined ? [] : [s.choice]))}
           />
 
           <StimulusFields
@@ -479,6 +502,7 @@ export function QuestionEditor({
             setStimuli={setStimuli}
             directory={imageDirectoryFor(bankPath)}
             parts={draft.config?.parts ?? []}
+            choices={holdsChoices(draft.questionType) ? (draft.config?.choices ?? []).length : 0}
           />
 
           <GuideFields
@@ -550,21 +574,28 @@ function TypeFields({
   setConfig,
   setDraft,
   removePart,
+  choiceRemoved,
+  pictured,
 }: {
   question: Question
   setConfig: (patch: Patch<QuestionConfig>) => void
   setDraft: (fn: (d: Question) => Question) => void
   /** Held by the editor, since removing a part also moves its pictures. */
   removePart: (at: number) => void
+  /** The same for an option, whose picture is held by the editor too. */
+  choiceRemoved: (at: number) => void
+  /** The options that have a picture. */
+  pictured: number[]
 }) {
   const cfg = question.config ?? {}
+  const choiceProps = { cfg, setConfig, choiceRemoved, pictured: new Set(pictured) }
 
   switch (question.questionType) {
     case 'multiple_choice':
-      return <ChoiceFields cfg={cfg} setConfig={setConfig} />
+      return <ChoiceFields {...choiceProps} />
 
     case 'multiple_response':
-      return <ResponseFields cfg={cfg} setConfig={setConfig} />
+      return <ResponseFields {...choiceProps} />
 
     case 'matching':
       return <MatchingFields cfg={cfg} setConfig={setConfig} />
@@ -684,9 +715,13 @@ function TypeFields({
 function ChoiceFields({
   cfg,
   setConfig,
+  choiceRemoved,
+  pictured,
 }: {
   cfg: QuestionConfig
   setConfig: (patch: Patch<QuestionConfig>) => void
+  choiceRemoved: (at: number) => void
+  pictured: Set<number>
 }) {
   const choices = cfg.choices ?? []
   // -1 rather than 0 where nothing is recorded. Defaulting to the first option
@@ -721,7 +756,11 @@ function ChoiceFields({
               <input
                 class="input"
                 value={c.text}
-                placeholder="The option as the student reads it"
+                placeholder={
+                  pictured.has(i)
+                    ? 'Words under the picture, if any'
+                    : 'The option as the student reads it'
+                }
                 data-prose
                 onInput={(e) => change(i, { text: (e.target as HTMLInputElement).value })}
               />
@@ -740,7 +779,7 @@ function ChoiceFields({
               class="btn btn--icon"
               title="Remove this option"
               disabled={choices.length <= 2}
-              onClick={() =>
+              onClick={() => {
                 setConfig({
                   choices: choices.filter((_, j) => j !== i),
                   // The answer moves with the options it points into, and
@@ -748,7 +787,8 @@ function ChoiceFields({
                   // recorded. It used to move to A, silently.
                   correctAnswer: correct > i ? correct - 1 : correct === i ? undefined : correct,
                 })
-              }
+                choiceRemoved(i)
+              }}
             >
               ✕
             </button>
@@ -806,9 +846,13 @@ function ChoiceFields({
 function ResponseFields({
   cfg,
   setConfig,
+  choiceRemoved,
+  pictured,
 }: {
   cfg: QuestionConfig
   setConfig: (patch: Patch<QuestionConfig>) => void
+  choiceRemoved: (at: number) => void
+  pictured: Set<number>
 }) {
   const choices = cfg.choices ?? []
   const correct = cfg.correctAnswers ?? []
@@ -843,7 +887,11 @@ function ResponseFields({
               <input
                 class="input"
                 value={c.text}
-                placeholder="The option as the student reads it"
+                placeholder={
+                  pictured.has(i)
+                    ? 'Words under the picture, if any'
+                    : 'The option as the student reads it'
+                }
                 data-prose
                 onInput={(e) => change(i, { text: (e.target as HTMLInputElement).value })}
               />
@@ -858,7 +906,7 @@ function ResponseFields({
               class="btn btn--icon"
               title="Remove this option"
               disabled={choices.length <= 3}
-              onClick={() =>
+              onClick={() => {
                 setConfig({
                   choices: choices.filter((_, j) => j !== i),
                   // The answers move with the options they point into.
@@ -866,7 +914,8 @@ function ResponseFields({
                     correct.filter((n) => n !== i).map((n) => (n > i ? n - 1 : n)),
                   ),
                 })
-              }
+                choiceRemoved(i)
+              }}
             >
               ✕
             </button>
@@ -1366,12 +1415,15 @@ function StimulusFields({
   setStimuli,
   directory,
   parts,
+  choices,
 }: {
   stimuli: StimulusDraft[]
   setStimuli: SetStimuli
   directory: string
   /** What a picture can belong to besides the question. Empty on most types. */
   parts: QuestionPart[]
+  /** How many options a picture can be, on a choice question. 0 otherwise. */
+  choices: number
 }) {
   const { attach, picking } = useAttach(setStimuli)
 
@@ -1387,8 +1439,19 @@ function StimulusFields({
           and its answer space.
         </p>
       )}
+      {choices > 0 && (
+        <p class="hint">
+          For an option that is a picture, attach it here and set Belongs to that option.
+        </p>
+      )}
 
-      <StimulusRows stimuli={stimuli} setStimuli={setStimuli} parts={parts} guide={false} />
+      <StimulusRows
+        stimuli={stimuli}
+        setStimuli={setStimuli}
+        parts={parts}
+        choices={choices}
+        guide={false}
+      />
 
       <div class="rowbtns">
         <button class="btn btn--small" onClick={() => void attach(false)}>
@@ -1425,18 +1488,21 @@ function StimulusRows({
   stimuli,
   setStimuli,
   parts,
+  choices = 0,
   guide,
 }: {
   stimuli: StimulusDraft[]
   setStimuli: SetStimuli
   parts: QuestionPart[]
+  /** How many options a picture can belong to, on a choice question. */
+  choices?: number
   guide: boolean
 }) {
   const change = (i: number, patch: Patch<Stimulus>) =>
     setStimuli((list) => list.map((s, j) => (i === j ? { ...s, item: patched(s.item, patch) } : s)))
 
-  const rehome = (i: number, at: number | null) =>
-    setStimuli((list) => list.map((s, j) => (i === j ? { ...s, at } : s)))
+  const rehome = (i: number, owner: Owner) =>
+    setStimuli((list) => list.map((s, j) => (i === j ? { ...offChoice(s), ...owner } : s)))
 
   const shown = stimuli.map((s, i) => ({ s, i })).filter(({ s }) => Boolean(s.guide) === guide)
   if (shown.length === 0) return null
@@ -1449,23 +1515,15 @@ function StimulusRows({
             {s.item.kind === 'image' ? '▣' : s.item.kind === 'code' ? '{}' : '¶'}
           </span>
           <div class="editrow__body">
-            {parts.length > 0 && (
+            {(parts.length > 0 || (s.item.kind === 'image' && choices > 0)) && (
               <Field label="Belongs to">
-                <select
-                  class="input input--sub"
-                  value={stimulusOwner(s.at, parts.length) === null ? '' : String(s.at)}
-                  onChange={(e) => {
-                    const value = (e.target as HTMLSelectElement).value
-                    rehome(i, value === '' ? null : Number(value))
-                  }}
-                >
-                  <option value="">The whole question</option>
-                  {parts.map((p, j) => (
-                    <option key={j} value={String(j)}>
-                      Part {p.label.trim() || `(${j + 1})`}
-                    </option>
-                  ))}
-                </select>
+                <OwnerSelect
+                  owner={s}
+                  parts={parts}
+                  // A choice holds a picture, not text or code.
+                  choices={s.item.kind === 'image' ? choices : 0}
+                  onChange={(owner) => rehome(i, owner)}
+                />
               </Field>
             )}
             {s.item.kind === 'image' ? (
@@ -2341,6 +2399,18 @@ function retype(draft: Question, type: QuestionType, marksTouched: boolean): Que
 }
 
 /** Only these two types have parts, which is what `retype` keeps config for. */
+/** Whether a type has lettered options a picture can belong to. */
+function holdsChoices(type: QuestionType): boolean {
+  return type === 'multiple_choice' || type === 'multiple_response'
+}
+
+/** The same picture, belonging to the question rather than to an option. */
+function offChoice<T extends { choice?: number }>(s: T): T {
+  if (s.choice === undefined) return s
+  const { choice: _, ...rest } = s
+  return rest as T
+}
+
 function holdsParts(type: QuestionType): boolean {
   return type === 'short_answer' || type === 'extended_response'
 }
