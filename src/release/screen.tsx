@@ -73,7 +73,7 @@ export function ReleaseScreen({
     setRefused('')
     const got = await pickStudentFolder(folder)
     if (typeof got === 'string') setRefused(got)
-    else if (got) setStudent({ handle: got, permission: 'granted' })
+    else if (got) setStudent({ handle: got, permission: 'granted', label: got.name })
   }
   const allow = async () => {
     if (!student) return

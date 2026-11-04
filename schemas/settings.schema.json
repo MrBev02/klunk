@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrbev02.github.io/klunk/schemas/settings.schema.json",
+  "title": "Klunk folder settings",
+  "description": "Choices that belong to one subject folder and to everybody who opens it. Always settings.json at the root of the folder, found by that path rather than by its type, because it describes the folder that was opened: a copy in a subfolder must not rename the folder above it. Every field is optional, and a folder without this file behaves as though it held none. Branding is not here (that is school.json, which is the same school in every subject folder), and neither is anything personal to one teacher, since several share a folder.",
+  "type": "object",
+  "required": ["formatVersion", "type"],
+  "additionalProperties": false,
+
+  "properties": {
+    "formatVersion": { "const": "1" },
+    "type": { "const": "klunk_settings" },
+
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What Klunk calls this folder on screen. Without it, the folder's own name, which is often the same for every subject (a folder called klunk inside each subject's folder) and so tells a teacher nothing."
+    },
+
+    "defaultBank": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path from the folder root to the bank a new question goes into unless the teacher picks another. When no bank is there yet, it is the path offered for a new one."
+    }
+  }
+}

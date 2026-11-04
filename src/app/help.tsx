@@ -211,6 +211,14 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
           </dd>
 
           <dt>
+            <code>settings.json</code>
+          </dt>
+          <dd>
+            What Klunk calls this folder, and the bank new questions go into. Change them with{' '}
+            <strong>Settings</strong> in the header.
+          </dd>
+
+          <dt>
             <code>syllabus/</code>
           </dt>
           <dd>The syllabus models you have built.</dd>

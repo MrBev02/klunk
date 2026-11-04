@@ -32,6 +32,7 @@ import type {
   Question,
   QuestionRef,
   School,
+  Settings,
   Syllabus,
 } from '../shared/types'
 // validate.ts has no runtime imports of its own, so this cannot close a cycle
@@ -43,6 +44,11 @@ const DB_STORE = 'handles'
 /** The one handle Klunk remembered before it could hold more than one. */
 const LEGACY_KEY = 'contentFolder'
 const FOLDERS_KEY = 'contentFolders'
+/** What each remembered folder's settings call it, as of the last time it was read. */
+const NAMES_KEY = 'folderNames'
+
+/** The one place a folder's settings can be: its root (#137). */
+export const SETTINGS_PATH = 'settings.json'
 
 /**
  * How many folders are worth remembering.
@@ -75,6 +81,14 @@ export interface ContentIndex {
    * first, and nothing on screen would say why.
    */
   schools: Loaded<School>[]
+  /**
+   * The folder's own settings, or null when it has none or they are unusable.
+   *
+   * One value rather than a list like `schools`, because it is found by path:
+   * there can only be one at the root, and a copy anywhere else is not this
+   * folder's (#137).
+   */
+  settings: Settings | null
   /** Files that looked like ours but could not be used, kept to be shown rather than swallowed. */
   problems: Problem[]
   /** Total .json files inspected, so "found nothing" can be distinguished from "found nothing of ours". */
@@ -139,6 +153,7 @@ export function emptyIndex(): ContentIndex {
     banks: [],
     papers: [],
     schools: [],
+    settings: null,
     problems: [],
     scanned: 0,
     pdfs: [],
@@ -363,6 +378,13 @@ async function storedFolders(): Promise<FileSystemDirectoryHandle[]> {
 
 export interface RememberedFolder {
   handle: FileSystemDirectoryHandle
+  /**
+   * What to call it: the name its settings gave when it was last opened, else
+   * the directory's. Remembered rather than read, because a folder whose grant
+   * has lapsed cannot be read, and that is exactly when a teacher is choosing
+   * between them by name (#137).
+   */
+  label: string
   /** 'granted' means it opens with no further ceremony. Anything else costs a click. */
   permission: PermissionState
 }
@@ -370,14 +392,68 @@ export interface RememberedFolder {
 /** Every remembered folder, newest first, each with whether it can be opened silently. */
 export async function listFolders(): Promise<RememberedFolder[]> {
   const handles = await storedFolders()
+  const names = await storedNames()
   const out: RememberedFolder[] = []
   for (const handle of handles) {
     const permission = await handle
       .queryPermission({ mode: 'readwrite' })
       .catch((): PermissionState => 'prompt')
-    out.push({ handle, permission })
+    let label = handle.name
+    for (const named of names) {
+      if (await isSame(named.handle, handle)) {
+        label = named.name
+        break
+      }
+    }
+    out.push({ handle, permission, label })
   }
   return out
+}
+
+interface NamedFolder {
+  handle: FileSystemDirectoryHandle
+  name: string
+}
+
+async function storedNames(): Promise<NamedFolder[]> {
+  const stored = await idbGet<unknown[]>(NAMES_KEY).catch(() => undefined)
+  if (!Array.isArray(stored)) return []
+  return stored.filter(
+    (v): v is NamedFolder =>
+      typeof v === 'object' &&
+      v !== null &&
+      isDirectoryHandle((v as NamedFolder).handle) &&
+      typeof (v as NamedFolder).name === 'string',
+  )
+}
+
+/**
+ * Note what a folder's settings call it, or that they call it nothing.
+ *
+ * Called after every scan, so a name changed by a colleague on a shared folder
+ * is picked up the next time this teacher opens it, and a name removed stops
+ * being shown. Kept to the folders still remembered, so forgetting one forgets
+ * its name too.
+ */
+export async function rememberName(
+  handle: FileSystemDirectoryHandle,
+  name: string | undefined,
+): Promise<void> {
+  const remembered = await storedFolders()
+  const kept: NamedFolder[] = []
+  for (const named of await storedNames()) {
+    if (await isSame(named.handle, handle)) continue
+    let still = false
+    for (const other of remembered) {
+      if (await isSame(other, named.handle)) {
+        still = true
+        break
+      }
+    }
+    if (still) kept.push(named)
+  }
+  if (name) kept.push({ handle, name })
+  await idbPut(NAMES_KEY, kept)
 }
 
 async function saveFolders(list: FileSystemDirectoryHandle[]): Promise<void> {
@@ -511,6 +587,11 @@ export async function forgetFolder(handle: FileSystemDirectoryHandle): Promise<v
     if (!(await isSame(other, handle))) kept.push(other)
   }
   await saveFolders(kept)
+  const names: NamedFolder[] = []
+  for (const named of await storedNames()) {
+    if (!(await isSame(named.handle, handle))) names.push(named)
+  }
+  await idbPut(NAMES_KEY, names).catch(() => undefined)
 }
 
 /* ------------------------------------------------------------------ scanning */
@@ -611,6 +692,15 @@ export async function scanFolder(
       index.ledger = readLedger(data)
       continue
     }
+    // By path, unlike everything Klunk reads below. Settings describe the folder
+    // that was opened, and opening the folder above a subject's would otherwise
+    // take that subject's name for the whole faculty (#137).
+    if (path === SETTINGS_PATH) {
+      const read = readSettings(data)
+      if (typeof read === 'string') index.problems.push({ path, message: read })
+      else index.settings = read
+      continue
+    }
 
     const type = (data as { type?: unknown }).type
 
@@ -665,7 +755,10 @@ function looksLikeContentPath(path: string): boolean {
   // would print with no branding and no explanation.
   return (
     /(^|\/)(bank|banks|papers|profiles|syllabus|release)\//i.test(path) ||
-    /(^|\/)school\.json$/i.test(path)
+    /(^|\/)school\.json$/i.test(path) ||
+    // Root only, for the same reason it is read by path: a settings.json further
+    // down is some other tool's, or another folder's.
+    path === SETTINGS_PATH
   )
 }
 
@@ -1091,6 +1184,63 @@ export function profilePath(id: string, readFrom?: string): string {
   return `${slash < 0 ? '' : readFrom.slice(0, slash + 1)}${id}.json`
 }
 
+/**
+ * The folder's settings, or what is wrong with them.
+ *
+ * Unlike the manifest, which is a cache and is ignored when it will not read, a
+ * teacher wrote this, so a fault in it is reported. A field of the wrong kind is
+ * the whole file's fault rather than dropped on its own, because a name that
+ * silently did nothing is the same puzzle as a file that did nothing.
+ */
+const NOT_SETTINGS =
+  'is not a Klunk settings file. Move it out of the top of this folder to use Settings.'
+
+export function readSettings(data: unknown): Settings | string {
+  if (typeof data !== 'object' || data === null) return NOT_SETTINGS
+  const raw = data as Record<string, unknown>
+  if (raw.type !== 'klunk_settings') return NOT_SETTINGS
+  const out: Settings = { formatVersion: '1', type: 'klunk_settings' }
+  for (const key of ['name', 'defaultBank'] as const) {
+    const value = raw[key]
+    if (value === undefined) continue
+    if (typeof value !== 'string')
+      return `${key} has to be in quotes. Nothing in this file was used.`
+    const trimmed = value.trim()
+    if (trimmed) out[key] = trimmed
+  }
+  return out
+}
+
+/** What a folder is called on screen: its own declared name, else its directory's (#137). */
+export function folderLabel(
+  handle: FileSystemDirectoryHandle,
+  settings: Settings | null | undefined,
+): string {
+  return settings?.name ?? handle.name
+}
+
+/**
+ * Write the folder's settings.
+ *
+ * Always at the root, since that is the only place they are read from. Refuses
+ * to overwrite a `settings.json` that is not Klunk's: a folder shared with some
+ * other tool may well have one, and it is not Klunk's to replace.
+ */
+export async function saveSettings(
+  dir: FileSystemDirectoryHandle,
+  settings: Settings,
+): Promise<{ path: string }> {
+  const existing = await readJson(dir, SETTINGS_PATH).catch(() => null)
+  if (
+    existing !== null &&
+    (typeof existing !== 'object' || (existing as { type?: unknown }).type !== 'klunk_settings')
+  ) {
+    throw new Error(`${SETTINGS_PATH} is already there and is not Klunk's, so nothing was written.`)
+  }
+  await writeJson(dir, SETTINGS_PATH, settings)
+  return { path: SETTINGS_PATH }
+}
+
 function isSchool(value: unknown): value is School {
   if (typeof value !== 'object' || value === null) return false
   const school = value as School
@@ -1411,7 +1561,7 @@ export async function studentFolderFor(
     const permission = await pair.student
       .queryPermission({ mode: 'readwrite' })
       .catch((): PermissionState => 'prompt')
-    return { handle: pair.student, permission }
+    return { handle: pair.student, permission, label: pair.student.name }
   }
   return null
 }

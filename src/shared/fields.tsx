@@ -473,6 +473,28 @@ export function normaliseBankPath(input: string): string {
   return /\.json$/i.test(trimmed) ? trimmed : `${trimmed}.json`
 }
 
+/**
+ * Where a new question goes before the teacher says otherwise.
+ *
+ * The folder's own `defaultBank` when it has one (#137): chosen if that bank is
+ * already there, and offered as the new bank's path if it is not yet. Without
+ * one, the first bank in the folder, which is all there was before.
+ *
+ * `bank` null means "a new bank", at `newPath`.
+ */
+export function startingBank(
+  bankPaths: string[],
+  defaultBank: string | undefined,
+): { bank: string | null; newPath: string } {
+  if (defaultBank) {
+    const wanted = normaliseBankPath(defaultBank)
+    return bankPaths.includes(wanted)
+      ? { bank: wanted, newPath: 'bank/questions.json' }
+      : { bank: null, newPath: wanted }
+  }
+  return { bank: bankPaths[0] ?? null, newPath: 'bank/questions.json' }
+}
+
 export function bankPathFault(input: string): string | null {
   const trimmed = input.trim()
   if (!trimmed) return 'Give the new bank a filename.'

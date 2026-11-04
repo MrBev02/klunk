@@ -23,6 +23,7 @@ import {
   CopyButton,
   Field,
   normaliseBankPath,
+  startingBank,
   NumField,
   TopicChipLabel,
   TopicOptions,
@@ -95,8 +96,14 @@ export function Factory({
   // strongest instruction in the prompt, pointing somewhere else.
   const [useOwnExample, setUseOwnExample] = useState(true)
 
-  const [bank, setBank] = useState<string | null>(() => index.banks[0]?.path ?? null)
-  const [newBankPath, setNewBankPath] = useState('bank/questions.json')
+  const [start] = useState(() =>
+    startingBank(
+      index.banks.map((b) => b.path),
+      index.settings?.defaultBank,
+    ),
+  )
+  const [bank, setBank] = useState<string | null>(start.bank)
+  const [newBankPath, setNewBankPath] = useState(start.newPath)
   const [pasted, setPasted] = useState('')
   const [read, setRead] = useState<Ingest | null>(null)
   /** Drafts thrown away by hand, by the id Klunk gave them. */

@@ -188,6 +188,17 @@ export interface School {
   identification?: IdentificationField[]
 }
 
+/* ------------------------------------------------------------------ settings */
+
+/** One folder's own choices. `schemas/settings.schema.json` has the reasons. */
+export interface Settings {
+  formatVersion: string
+  type: 'klunk_settings'
+  name?: string
+  /** From the folder root, unlike a logo, because it is a place in the folder and not beside a file. */
+  defaultBank?: string
+}
+
 /* ------------------------------------------------------------------- profile */
 
 export interface ProfileSection {

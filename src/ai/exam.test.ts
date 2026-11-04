@@ -144,6 +144,7 @@ function indexWith(questions: Question[]): ContentIndex {
     docx: [],
     workbooks: [],
     schools: [],
+    settings: null,
     manifest: emptyManifest(),
     ledger: emptyLedger(),
     images: new Map(),
