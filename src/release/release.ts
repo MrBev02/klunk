@@ -395,6 +395,16 @@ export function studentCopy(
     const config: QuestionConfig = structuredClone(question.config)
     if (printed) inPrintedOrder(question, config, printed.shuffle)
     delete config.shuffle
+    // After the reorder, so each picture is still beside its own words. Missed
+    // when options could first be pictures (#238): the release named files in
+    // the bank that it never copied, and students saw no options at all.
+    if (config.choices) {
+      config.choices = config.choices.map((c) => {
+        if (!c.image) return c
+        const [picture] = pictures([c.image])!
+        return { ...c, image: picture! }
+      })
+    }
     if (config.parts) {
       config.parts = config.parts.map((part) => {
         const next = { ...part }

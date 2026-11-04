@@ -46,6 +46,7 @@
 import { useMemo, useState } from 'preact/hooks'
 import { adoptPaper, applyMarking, withKept, type Adopted } from './adopt'
 import type { Editing } from '../questions/editor'
+import { moveOwner, type Moved } from '../questions/moved'
 import type { PageText } from '../documents/page'
 import { NotAPaperError, stampSource, type ExtractedQuestion } from './extract'
 import {
@@ -995,9 +996,7 @@ export function Extractor({
     ),
   })
 
-  const takeEdit = (id: string, question: Question, chosen: ChosenPictures) => {
-    const parts = question.config?.parts?.length ?? 0
-    const choices = holdsChoices(question) ? (question.config?.choices?.length ?? 0) : 0
+  const takeEdit = (id: string, question: Question, chosen: ChosenPictures, moved: Moved) => {
     setRead((r) =>
       r === null
         ? r
@@ -1010,13 +1009,10 @@ export function Extractor({
                     a,
                     question,
                     chosen,
-                    a.pictures.map((p) => {
-                      const { choice, ...rest } = p
-                      const kept = p.at !== null && p.at >= parts ? { ...rest, at: null } : rest
-                      // An option the edit took away gives its picture back to
-                      // the question, as a part does.
-                      return choice !== undefined && choice < choices ? { ...kept, choice } : kept
-                    }),
+                    // Moved by index with the options and parts the edit removed,
+                    // a removed one's picture going back to the question. Keeping
+                    // an index that was still in range put B's picture on C.
+                    a.pictures.map((p) => moveOwner(p, moved)),
                   ),
             ),
           },
@@ -1356,7 +1352,13 @@ export function Extractor({
                     update: {
                       label: 'Update the review',
                       note: keptNote(item),
-                      take: (question, chosen) => takeEdit(item.question.id, question, chosen),
+                      take: (question, chosen, moved) =>
+                        takeEdit(item.question.id, question, chosen, moved),
+                      held: item.pictures
+                        .filter((p) => p.keep)
+                        .map((p) =>
+                          p.choice === undefined ? { at: p.at } : { at: p.at, choice: p.choice },
+                        ),
                     },
                   })
                 }

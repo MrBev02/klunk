@@ -283,6 +283,40 @@ describe('planRelease', () => {
     ])
   })
 
+  it('copies an option that is a picture, and points the release at the copy (#238)', () => {
+    const shapes = folder([
+      question('9', {
+        questionType: 'multiple_choice',
+        source: { paper: 'Year 8 Task 1', year: 2025, section: 'Support' },
+        config: {
+          choices: [
+            { text: '', image: { kind: 'image', file: 'stimulus/9-1.png' } },
+            { text: 'a square', image: { kind: 'image', file: 'stimulus/9-2.png' } },
+            { text: 'neither' },
+          ],
+          correctAnswer: 1,
+        },
+      }),
+    ])
+    const [only] = importedExams(shapes)
+    const pictured = planRelease(
+      only!,
+      only!.questions,
+      { title: 'Year 8 Task 1', subject: 'Mathematics', yearLevel: 8, releasedOn: TODAY },
+      '2025-06-10',
+      shapes,
+    )
+    expect(pictured.images).toEqual([
+      { from: 'bank/stimulus/9-1.png', to: '2025/images/year-8-task-1-9-1.png' },
+      { from: 'bank/stimulus/9-2.png', to: '2025/images/year-8-task-1-9-2.png' },
+    ])
+    expect(pictured.release.questions[0]!.config?.choices?.map((c) => c.image?.file)).toEqual([
+      'images/year-8-task-1-9-1.png',
+      'images/year-8-task-1-9-2.png',
+      undefined,
+    ])
+  })
+
   it('names the topics used, from the model, and only the bands released', () => {
     expect(plan.release.topics).toEqual([
       { id: 'T1', name: 'Fractions', area: 'Number and algebra' },

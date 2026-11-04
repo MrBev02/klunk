@@ -32,6 +32,7 @@ import { FormulaPalette } from './palette'
 import { FormulaPreview } from './preview'
 import { QuestionDetail } from './question'
 import { OwnerSelect, type Owner } from './owner'
+import { moveOwner, removedFrom, unmoved, type Moved } from './moved'
 import { WorkingFields } from './working'
 import {
   copyFileInto,
@@ -136,7 +137,15 @@ export interface Editing {
     label: string
     /** Anything the editor cannot show of the question, said above the form. */
     note?: string | undefined
-    take: (question: Question, chosen: ChosenPictures) => void
+    take: (question: Question, chosen: ChosenPictures, moved: Moved) => void
+    /**
+     * Where the pictures the card holds belong, which the editor does not show.
+     *
+     * Counted when the question is checked, so an option that is only a picture
+     * kept on the card is not refused as empty, and moved with the options and
+     * parts the edit removes (#238).
+     */
+    held?: Owner[] | undefined
   }
   /** Pictures chosen for it on an earlier visit, not in the folder yet. */
   chosen?: ChosenPictures | undefined
@@ -210,6 +219,18 @@ export function QuestionEditor({
 
   const question = useMemo(() => placeStimulus(draft, stimuli), [draft, stimuli])
 
+  const [moved, setMoved] = useState<Moved>(() =>
+    unmoved(
+      editing?.question.config?.choices?.length ?? 0,
+      editing?.question.config?.parts?.length ?? 0,
+    ),
+  )
+  /** The card's pictures, where they now belong. */
+  const held = useMemo(
+    () => (editing?.update?.held ?? []).map((o) => moveOwner(o, moved)),
+    [editing, moved],
+  )
+
   // The preview showed `Image: stimulus/handle.png` where the picture belongs,
   // because it was given no images to look in. That was tolerable while nothing
   // about an image could be changed here; it is not now that its alignment can,
@@ -239,12 +260,24 @@ export function QuestionEditor({
       (index.banks.find((b) => b.path === bankPath)?.data.questions ?? []).map((q) => q.id),
     )
     for (const saved of alsoSaved) if (saved.bank === bankPath) inBank.add(saved.id)
-    return validateQuestion(question, {
+    // The held pictures are stand-ins, checked but never shown or saved: the
+    // card writes the real ones when the review is saved.
+    const checked =
+      held.length === 0
+        ? question
+        : placeStimulus(question, [
+            ...stimulusList(question),
+            ...held.map((o, n) => ({
+              ...o,
+              item: { kind: 'image' as const, file: `held-${n + 1}`, alt: `Picture ${n + 1}` },
+            })),
+          ])
+    return validateQuestion(checked, {
       inBank,
       inFolder: folderIds,
       originalId: editing?.question.id,
     })
-  }, [question, index, bankPath, folderIds, alsoSaved, editing])
+  }, [question, held, index, bankPath, folderIds, alsoSaved, editing])
 
   const pathFault = bankPathFault(bank ?? newBankPath)
   // Only what the bank file could not hold stops a save (#105). A teacher who
@@ -263,8 +296,12 @@ export function QuestionEditor({
     // come back to the question rather than pointing at a part that has gone.
     if (!holdsParts(type)) {
       setStimuli((list) => list.map((s) => (s.at === null ? s : { ...s, at: null })))
+      setMoved((m) => ({ ...m, parts: m.parts.map(() => null) }))
     }
-    if (!holdsChoices(type)) setStimuli((list) => list.map(offChoice))
+    if (!holdsChoices(type)) {
+      setStimuli((list) => list.map(offChoice))
+      setMoved((m) => ({ ...m, choices: m.choices.map(() => null) }))
+    }
   }
 
   /**
@@ -274,7 +311,8 @@ export function QuestionEditor({
    * C prints beside what used to be D. The removed option's own picture goes
    * back to the question, where it can be dropped deliberately.
    */
-  const choiceRemoved = (at: number) =>
+  const choiceRemoved = (at: number) => {
+    setMoved((m) => ({ ...m, choices: removedFrom(m.choices, at) }))
     setStimuli((list) =>
       list.map((s) =>
         s.choice === undefined || s.choice < at
@@ -284,6 +322,7 @@ export function QuestionEditor({
             : { ...s, choice: s.choice - 1 },
       ),
     )
+  }
 
   /**
    * Remove a part, and move the pictures that pointed at it.
@@ -296,6 +335,7 @@ export function QuestionEditor({
    */
   const removePart = (at: number) => {
     setConfig({ parts: (draft.config?.parts ?? []).filter((_, j) => j !== at) })
+    setMoved((m) => ({ ...m, parts: removedFrom(m.parts, at) }))
     setStimuli((list) =>
       list.map((s) =>
         s.at === null || s.at < at ? s : s.at === at ? { ...s, at: null } : { ...s, at: s.at - 1 },
@@ -311,7 +351,7 @@ export function QuestionEditor({
       const chosen: ChosenPictures = {}
       for (const s of stimuli)
         if (s.pending && s.item.file !== undefined) chosen[s.item.file] = s.pending
-      editing.update.take(question, chosen)
+      editing.update.take(question, chosen, moved)
       onCancel()
       return
     }
@@ -494,7 +534,9 @@ export function QuestionEditor({
             setDraft={setDraft}
             removePart={removePart}
             choiceRemoved={choiceRemoved}
-            pictured={stimuli.flatMap((s) => (s.choice === undefined ? [] : [s.choice]))}
+            pictured={[...stimuli, ...held].flatMap((s) =>
+              s.choice === undefined ? [] : [s.choice],
+            )}
           />
 
           <StimulusFields
