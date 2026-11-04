@@ -62,12 +62,16 @@ export interface GuidePromptSpec {
    */
   scanned: boolean
   /**
-   * Whether the guide is a school's own, written in Word (#201).
+   * Whether the paper or the guide is a school's own, written in Word (#201).
    *
    * The one school's solutions looked at were the question paper with every
    * answer handwritten over it in pen, 331 strokes and no typed answer at all,
    * so the model is told the handwriting is the answer and the printed text is
    * the question.
+   *
+   * The paper as well as the guide, because the same school's Term 2 solutions
+   * came as a PDF: the Word paper printed with the ink flattened into about 870
+   * picture fragments, so its text layer holds every question and no answer.
    */
   word?: boolean | undefined
   /** The teacher's own instruction, passed through verbatim. */
@@ -113,9 +117,11 @@ function opening(spec: GuidePromptSpec): string {
     ...(spec.word
       ? [
           '',
-          'The guide was written in Word, and may be the question paper with the answers',
+          "The guide is a school's own, and may be the question paper with the answers",
           'handwritten on it. Where it is, the handwriting is the answer: transcribe it,',
-          'and do not repeat the printed question as an answer.',
+          'and do not repeat the printed question as an answer. If the document has text',
+          'in it, that text is the questions only. Read the answers from the pages as',
+          'pictures.',
         ]
       : []),
     '',

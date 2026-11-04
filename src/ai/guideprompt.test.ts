@@ -163,8 +163,13 @@ describe('what the document is', () => {
     expect(prompt).not.toMatch(/[—–]/)
   })
 
-  it('says nothing about Word for any other guide', () => {
-    expect(buildGuidePrompt({ ...BASE, scanned: false })).not.toMatch(/Word/)
+  it('says the text of a handwritten guide is the questions, not the answers', () => {
+    const prompt = buildGuidePrompt({ ...BASE, scanned: false, word: true })
+    expect(prompt).toContain('that text is the questions only')
+  })
+
+  it('says nothing about handwriting for any other guide', () => {
+    expect(buildGuidePrompt({ ...BASE, scanned: false })).not.toMatch(/Word|handwrit/)
   })
 })
 

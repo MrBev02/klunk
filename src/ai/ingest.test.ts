@@ -14,6 +14,7 @@ import {
   AI_TRANSCRIBED_TAG,
   extractJson,
   ingestQuestions,
+  pictureWarning,
   type IngestContext,
 } from './ingest'
 
@@ -857,6 +858,9 @@ describe('reading back a paper somebody transcribed', () => {
     expect(warnings.join(' ')).toContain('A diagram of a small office network.')
     expect(warnings.join(' ')).toContain('Add it yourself')
     expect(warnings.join(' ')).not.toContain('scan')
+    // Kept apart too, so a Word paper's own picture can be kept for it (#207).
+    expect(draft.pictureNote).toBe('A diagram of a small office network.')
+    expect(warnings).toContain(pictureWarning('A diagram of a small office network.'))
   })
 
   it('keeps the section in the provenance of a question off a paper (#208)', () => {

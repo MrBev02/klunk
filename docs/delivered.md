@@ -523,6 +523,21 @@ questions in five bands: 43 of 43 marked, no question marked twice, each
 band's answer on its own band's question, and Advanced Q7's parts (a) and (b)
 on their own parts. Nothing was saved.
 
+**A transcribed Word paper takes its pictures from the file** (#207). Once the
+reply is read, each question is offered the pictures in its table row of the
+`.docx`, matched by number in paper order. An Efofex formula is left out, an
+Efofex drawing is not. A
+picture starts kept where the reply described one for that question, and the
+warning to add it yourself becomes a note to check it is the one described;
+elsewhere it starts dropped, since what is left is a formula pasted as a
+screenshot. A picture is saved in its own format. Verified in the browser on
+the 2025 Year 8 task with a stand-in transcription of its 43 questions: ten
+cards carried a picture, the four diagrams kept and the six screenshots
+dropped, each on its own band's question. Standard Q7 saved to a new bank with
+its pentagon byte for byte the file in the `.docx`, and Standard Q8 with its
+dropped screenshot not written. Why it is placed this way is in
+[reading-papers.md](reading-papers.md).
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

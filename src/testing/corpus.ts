@@ -115,6 +115,22 @@ export const MATHS_2025_PAPER = `${SOURCE}/2025-hsc-maths-advanced.pdf`
 export const MATHS_2025_GUIDE = `${SOURCE}/2025-hsc-maths-adv-mg.pdf`
 export const MATHS_2026_PAPER = `${SOURCE}/2026-hsc-maths-advanced.pdf`
 
+/* ------------------------------------------------------ a school's own paper */
+
+/**
+ * A 2025 Year 8 mathematics task, written in Word (#201). Five bands, each a
+ * table numbering from 1, one row per question. It goes to an AI rather than a
+ * reader, and its diagrams are taken from the file itself (#207).
+ */
+export const YEAR8_PAPER = `${SOURCE}/2025 Year 8 Task1.docx`
+
+/**
+ * The same school's Term 2 task, the same shape. It draws two of its diagrams
+ * with Efofex FX Draw, which a test for Efofex formulas dropped, and sets two
+ * multiple-choice questions whose choices are pictures.
+ */
+export const YEAR8_TERM2_PAPER = `${SOURCE}/2025 Yr 8 Task 2 Final.docx`
+
 /* --------------------------------------------------------- NESA syllabuses */
 
 export const DT_SYLLABUS = `${SOURCE}/nsw-hsc-dt/design-technology-st6-syl.docx`
@@ -245,6 +261,10 @@ export const SUITES: Record<string, CorpusSuite> = {
       MATHS_2025_GUIDE,
       MATHS_2026_PAPER,
     ],
+  },
+  'wordpictures.corpus': {
+    what: "placing a Word paper's pictures on its questions, and leaving its formulas out",
+    docs: [YEAR8_PAPER, YEAR8_TERM2_PAPER],
   },
   'ibdt.corpus': {
     what: 'the IB syllabus map reader',
