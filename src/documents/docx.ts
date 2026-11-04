@@ -55,6 +55,20 @@ export async function readZipMember(
   name: string,
   what: OfficeKind = 'Word document',
 ): Promise<string> {
+  return new TextDecoder().decode(await readZipBytes(bytes, name, what))
+}
+
+/**
+ * Read one member of a zip as bytes.
+ *
+ * A picture under `word/media/` is a whole image file, and decoding it as text
+ * would ruin it (#207).
+ */
+export async function readZipBytes(
+  bytes: ArrayBuffer,
+  name: string,
+  what: OfficeKind = 'Word document',
+): Promise<Uint8Array<ArrayBuffer>> {
   const view = new DataView(bytes)
   const eocd = findEocd(view, what)
 
@@ -79,7 +93,7 @@ export async function readZipMember(
 
   const data = new Uint8Array(bytes, dataAt, entry.compressedSize)
 
-  if (entry.method === METHOD_STORED) return new TextDecoder().decode(data)
+  if (entry.method === METHOD_STORED) return data
   if (entry.method !== METHOD_DEFLATE) {
     throw new NotADocxError(`${name} is compressed in a way Klunk cannot read`)
   }
@@ -87,7 +101,7 @@ export async function readZipMember(
   // 'deflate-raw' rather than 'deflate': zip stores the deflate stream with no
   // zlib header around it, and asking for the wrapped form fails on the first byte.
   const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
-  return new TextDecoder().decode(await new Response(stream).arrayBuffer())
+  return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
 /** The document body of a `.docx`. */

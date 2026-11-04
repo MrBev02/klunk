@@ -19,7 +19,7 @@
 
 import type { ExtractedPaper, ExtractedQuestion } from './extract'
 import { AI_MARKED_TAG, CHECK_THE_ANSWER, type Marking, type MarkingEntry } from './marking'
-import type { Cutout } from '../documents/pdfimage'
+import type { Cutout, Region } from '../documents/pdfimage'
 import type { Check } from '../shared/validate'
 import type { ChosenPictures } from '../folder/storage'
 import {
@@ -42,6 +42,16 @@ export interface AdoptContext {
   courseId?: string | undefined
 }
 
+/**
+ * A picture offered on a card: cut from a PDF page, or a Word paper's own file
+ * (#207), which has no page and so no region.
+ */
+export interface OfferedPicture {
+  blob: Blob
+  url: string
+  region?: Region
+}
+
 export interface Adopted {
   question: Question
   /**
@@ -57,7 +67,7 @@ export interface Adopted {
    * 2025 Biology paper prints Question 28 with one picture before part (a), one
    * inside (a) and one inside (b), so the teacher says which (#100).
    */
-  pictures: { cutout: Cutout; keep: boolean; at: number | null }[]
+  pictures: { cutout: OfferedPicture; keep: boolean; at: number | null }[]
   /** Where it came from in the PDF, so a doubtful one can be checked against the paper. */
   pages: number[]
   /** What the readers noticed, in the teacher's words. */

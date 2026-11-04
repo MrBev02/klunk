@@ -74,10 +74,11 @@ import {
 } from './guideformats'
 import { readMarking } from '../ai/guideingest'
 import { buildGuidePrompt } from '../ai/guideprompt'
-import { ingestQuestions, type Draft } from '../ai/ingest'
+import { ingestQuestions, pictureWarning, type Draft } from '../ai/ingest'
 import { markingFromGuide, skeletonFor, type MarkingSkeleton } from './marking'
 import { buildPaperPrompt } from '../ai/paperprompt'
 import { cutOut, picturesFor, type Cutout } from '../documents/pdfimage'
+import { wordPicturesFor, type WordPicture } from './wordpictures'
 import { hasMarkup } from '../shared/richtext'
 import { openPdf, pagesFromDocument, readPdf } from '../documents/pdftext'
 import { QuestionDetail, useChosenImages } from '../questions/question'
@@ -149,6 +150,48 @@ function asAdopted(draft: Draft): Adopted {
     notes: draft.repairs,
     faults: draft.faults,
   }
+}
+
+/**
+ * A transcribed question with the pictures in its row of the Word paper (#207).
+ *
+ * Kept where the reply described a picture, which is one the model could not
+ * transcribe. Offered dropped where it did not, since a picture it read as a
+ * formula is already in the text, and a pasted screenshot of a formula cannot
+ * be told from a diagram by anything in the file. Where one is found, the
+ * warning that nobody will find it is taken back.
+ */
+function withWordPictures(
+  item: Adopted,
+  note: string | undefined,
+  offered: WordPicture[],
+): Adopted {
+  if (offered.length === 0) return item
+  const pictures = offered.map((cutout) => ({ cutout, keep: note !== undefined, at: null }))
+  if (note === undefined) return { ...item, pictures }
+  return {
+    ...item,
+    pictures,
+    faults: item.faults.filter((f) => f.message !== pictureWarning(note)),
+    notes: [...item.notes, `Check the picture is the one the AI described: ${note}`],
+  }
+}
+
+/** The number a transcribed question was printed with, where it is a plain number. */
+function printedNumber(question: Question): number | undefined {
+  const printed = question.source?.questionNumber?.trim()
+  return printed !== undefined && /^\d+$/.test(printed) ? Number(printed) : undefined
+}
+
+/** What to call a saved picture, by what kind of image it is. */
+function extensionFor(blob: Blob): string {
+  const types: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/bmp': 'bmp',
+    'image/webp': 'webp',
+  }
+  return types[blob.type] ?? 'png'
 }
 
 /** Where a paper chosen from this computer is put, which is where papers already live. */
@@ -578,9 +621,11 @@ export function Extractor({
       syllabus: chosen?.syllabus,
       course: chosen?.course,
       scanned: markingAsk.scanned,
-      word: markingAsk.word,
+      // A PDF guide to a Word paper is most likely that paper printed with the
+      // answers inked on, which is what the Term 2 solutions were.
+      word: markingAsk.word === true || isWord(paperPath),
     })
-  }, [markingAsk, read, discarded, paperName, typedYear, chosen])
+  }, [markingAsk, read, discarded, paperName, typedYear, chosen, paperPath])
 
   /**
    * Read back what the teacher's AI made of the paper.
@@ -617,6 +662,23 @@ export function Extractor({
       ...out.notes,
       ...out.rejected.map((r) => `Entry ${r.at + 1} was not a question: ${r.why}`),
     ]
+
+    // A Word paper holds each picture whole, in its question's table row, so
+    // a transcription of one need not go without them (#207).
+    if (isWord(paperPath)) {
+      try {
+        const bytes = await readBytes(folder, paperPath)
+        const offered = await wordPicturesFor(
+          bytes.buffer as ArrayBuffer,
+          out.drafts.map((d) => printedNumber(d.question)),
+        )
+        adopted = adopted.map((item, i) =>
+          withWordPictures(item, out.drafts[i]!.pictureNote, offered[i] ?? []),
+        )
+      } catch (err) {
+        notes.push(`The pictures in ${paperPath} could not be read: ${(err as Error).message}`)
+      }
+    }
 
     // The marking guide was never opened on this route until #94: `readPaper`
     // throws before it reaches the guide, so a teacher who chose both files got
@@ -904,7 +966,7 @@ export function Extractor({
         // crops at all (a scan has no text for a band to be bounded by).
         const stimulus = stimulusList(item.question)
         for (const [n, picture] of kept.entries()) {
-          const name = `${item.question.id}${kept.length > 1 ? `-${n + 1}` : ''}.png`
+          const name = `${item.question.id}${kept.length > 1 ? `-${n + 1}` : ''}.${extensionFor(picture.cutout.blob)}`
           const written = await copyFileInto(
             folder,
             imageDirectory(bankPath),
@@ -1755,10 +1817,17 @@ function ExtractedCard({
             {item.pictures.filter((p) => p.keep).length} of {item.pictures.length} picture
             {item.pictures.length === 1 ? '' : 's'} will be saved with this question
           </p>
-          <p class="hint">
-            Drop any picture that is not part of the question. Klunk cuts these from the page, so
-            some will be wrong.
-          </p>
+          {item.pictures.some((p) => p.cutout.region) ? (
+            <p class="hint">
+              Drop any picture that is not part of the question. Klunk cuts these from the page, so
+              some will be wrong.
+            </p>
+          ) : (
+            <p class="hint">
+              Keep the diagrams and drop any formula the question already shows as text. These are
+              the pictures in its row of the Word file.
+            </p>
+          )}
           {parts.length > 0 && (
             <p class="hint">
               Choose the part a picture belongs to. Klunk reads the parts, not where a picture sits
@@ -1770,7 +1839,11 @@ function ExtractedCard({
               <li key={n} class={picture.keep ? '' : 'cutouts--dropped'}>
                 <img
                   src={picture.cutout.url}
-                  alt={`Picture ${n + 1} from page ${picture.cutout.region.page}`}
+                  alt={
+                    picture.cutout.region
+                      ? `Picture ${n + 1} from page ${picture.cutout.region.page}`
+                      : `Picture ${n + 1} from the Word file`
+                  }
                 />
                 <button class="btn btn--small" onClick={() => onTogglePicture(n)} disabled={saved}>
                   {picture.keep ? 'Drop this one' : 'Keep it after all'}

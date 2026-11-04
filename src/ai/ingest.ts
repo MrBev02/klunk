@@ -119,6 +119,15 @@ export interface Draft {
   faults: Check[]
   /** Pictures the teacher chose for it in the editor, written when the drafts are (#212). */
   chosen?: ChosenPictures
+  /**
+   * The reply's description of a picture the question prints, as given.
+   *
+   * Already a warning in `faults`. Kept apart too because a Word paper's
+   * pictures can be taken from the `.docx` (#207), and whether the model saw a
+   * picture it could only describe is what says one of them is a diagram
+   * rather than a formula it has already transcribed.
+   */
+  pictureNote?: string
 }
 
 export interface Ingest {
@@ -457,7 +466,8 @@ export function readQuestion(
   })
   faults.push(...transcriptionNotes(src))
 
-  return { question, repairs, faults }
+  const pictureNote = asString(src.stimulusNote)
+  return { question, repairs, faults, ...(pictureNote === undefined ? {} : { pictureNote }) }
 }
 
 /* ----------------------------------------------------------------- the stem */
@@ -936,18 +946,24 @@ function transcriptionNotes(src: Record<string, unknown>): Check[] {
   }
 
   const stimulus = asString(src.stimulusNote)
-  if (stimulus !== undefined) {
-    notes.push({
-      severity: 'warning',
-      message:
-        // Not "a scan": a Word paper and a mathematics PDF arrive here too, and
-        // neither is one (#201). No transcribed paper has positions to cut from.
-        `The paper prints a picture here: ${stimulus} Add it yourself or reword the ` +
-        'question. Klunk cannot cut pictures out of a paper an AI transcribed.',
-    })
-  }
+  if (stimulus !== undefined) notes.push({ severity: 'warning', message: pictureWarning(stimulus) })
 
   return notes
+}
+
+/**
+ * The warning a described picture becomes.
+ *
+ * Exported so the one route that does find the picture, a Word paper's own
+ * file (#207), can take back the warning that says nobody will.
+ */
+export function pictureWarning(note: string): string {
+  // Not "a scan": a Word paper and a mathematics PDF arrive here too, and
+  // neither is one (#201). No transcribed paper has positions to cut from.
+  return (
+    `The paper prints a picture here: ${note} Add it yourself or reword the ` +
+    'question. Klunk cannot cut pictures out of a paper an AI transcribed.'
+  )
 }
 
 /* --------------------------------------------------------------------- config */

@@ -285,8 +285,51 @@ task and its solutions, both `.docx`, read as XML paragraph by paragraph.
   index-law expression is shown") in `stimulusNote`, because the prompt's
   only rule for a picture was to describe it. The prompt now says a formula
   set as a picture is transcribed as a formula. Every transcribed paper gets
-  no cut-out pictures, whatever its format; taking a Word paper's diagrams
-  from the `.docx` itself is #207.
+  no cut-out pictures whatever its format, except a Word paper (#207, below).
+
+**A Word paper's pictures come from the file, placed by its table rows**
+(#207). Established by unzipping the Year 8 task and opening every picture.
+
+- **Each picture is a whole file under `word/media/`**, named by an
+  `a:blip r:embed` that `word/_rels/document.xml.rels` resolves. No cutting.
+- **A question is a table row whose first cell is its number** (`1 .`, from
+  Word's runs). A row with no number carries on the question above it in the
+  same table; a new table starts afresh. Placement is by number in paper order,
+  each question taking the next row of its number, so five bands each
+  numbering from 1 need no agreement between the reply's section names and the
+  document's headings.
+- **Support Q1 sets its sub-questions as a table inside its row.** A lazy
+  `<w:tbl>…</w:tbl>` match ended the band's table there and found one question
+  rather than nine, with three pictures attributed to nothing. Tables, rows and
+  cells are taken by counting depth on each tag. `ooxml.ts` still matches
+  lazily; whether any syllabus nests a table is #236.
+- **Nineteen pictures sit in question rows.** Nine are Efofex FX Equation
+  formulas, all in the Advanced band, and name themselves: their alt text ends
+  in `efofex://fxe/…` and `FXData:`. They are left out. Six are pasted
+  screenshots of formulas (Support 6, 8, 9; Standard 2, 4, 8) and four are
+  diagrams (Standard 7, Extension 3, Beyond 1, Beyond 7). **Nothing in the file
+  tells a screenshot from a diagram**: both are a PNG with no alt text or
+  Word's generated "A black text on a white background". So all ten are
+  offered, and the reply decides which start kept: a question whose reply
+  carries `stimulusNote` is one where the model saw a picture it could not
+  transcribe.
+- **Efofex draws diagrams too.** The same school's Term 2 task sets a sector
+  (Advanced 3) and a triangle (Beyond 4) with FX Draw, whose alt text carries
+  the same `FXData:` payload under `efofex://fxd/…`. A test for `efofex` or
+  `FXData` dropped both; only `efofex://fxe/` is a formula.
+- **The Term 2 task prints two multiple-choice questions with pictures for
+  choices** (Support 6, Beyond 3), as a table inside the question's row. All
+  of a row's pictures go to its question; a choice cannot hold a picture
+  (#238).
+- **The Term 2 solutions came as a PDF**, the Word paper printed with the
+  pen answers flattened into about 870 picture fragments. Its text layer holds
+  every question and no answer. The guide prompt tells the model so whenever
+  the paper is a Word file, not only when the guide is (#239).
+- **An equation from the old editor or MathType is a `<w:object>`**, drawn from
+  a metafile no browser shows, and is never taken. Nor is an `.emf`, `.wmf` or
+  `.tif` under `w:drawing`.
+- **The two pictures outside any table are the cover's.** A Word paper not set
+  out in table rows gets no pictures and keeps the old warning.
 
 Two files from one school are a sample of one author's habits, not a format.
 A school paper in Word with typed answers and typed formulas would be the

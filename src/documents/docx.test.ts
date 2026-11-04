@@ -8,13 +8,15 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { NotADocxError, readZipMember } from './docx'
+import { NotADocxError, readZipBytes, readZipMember } from './docx'
 
 /* ---------------------------------------------------------- a zip, by hand */
 
 interface Member {
   name: string
   body: string
+  /** Bytes that are not text, which replace `body` when given. */
+  bytes?: Uint8Array
   /** Stored rather than deflated. Word does this for tiny members. */
   stored?: boolean
 }
@@ -26,7 +28,7 @@ async function zip(members: Member[], options: { corruptIndex?: boolean } = {}) 
 
   for (const member of members) {
     const name = new TextEncoder().encode(member.name)
-    const raw = new TextEncoder().encode(member.body)
+    const raw = member.bytes ?? new TextEncoder().encode(member.body)
     const data = member.stored ? raw : await deflate(raw)
     const method = member.stored ? 0 : 8
 
@@ -141,5 +143,24 @@ describe('readZipMember', () => {
       corruptIndex: true,
     })
     await expect(readZipMember(bytes, 'word/document.xml')).rejects.toThrow(NotADocxError)
+  })
+})
+
+describe('readZipBytes', () => {
+  // A PNG opens with 0x89, which is not UTF-8. Read through `readZipMember` it
+  // comes back as a replacement character and the picture is ruined (#207).
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0x00])
+
+  it('reads a picture byte for byte, deflated', async () => {
+    const bytes = await zip([{ name: 'word/media/image1.png', body: '', bytes: PNG }])
+    expect([...(await readZipBytes(bytes, 'word/media/image1.png'))]).toEqual([...PNG])
+  })
+
+  it('reads a picture byte for byte, stored', async () => {
+    const bytes = await zip([
+      { name: 'word/document.xml', body: DOCUMENT },
+      { name: 'word/media/image1.png', body: '', bytes: PNG, stored: true },
+    ])
+    expect([...(await readZipBytes(bytes, 'word/media/image1.png'))]).toEqual([...PNG])
   })
 })
