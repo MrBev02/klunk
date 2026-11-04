@@ -28,6 +28,9 @@ import {
   saveProfile,
   saveQuestion,
   scanFolder,
+  saveSettings,
+  folderLabel,
+  readSettings,
   type ContentIndex,
   folderProblem,
 } from './storage'
@@ -1207,5 +1210,79 @@ describe('mergeFolder', () => {
       },
     } as unknown as FileSystemDirectoryHandle
     expect(names(await mergeFolder([broken], folderHandle('dt')))).toEqual(['dt', 'gone'])
+  })
+})
+
+describe('folder settings (#137)', () => {
+  const settings = (fields: Record<string, unknown>) =>
+    JSON.stringify({ formatVersion: '1', type: 'klunk_settings', ...fields })
+
+  it('reads settings.json at the root', async () => {
+    const index = await scanFolder(
+      dirHandle(tree({ 'settings.json': settings({ name: ' Computing Technology ' }) }), 'klunk'),
+    )
+    expect(index.settings).toEqual({
+      formatVersion: '1',
+      type: 'klunk_settings',
+      name: 'Computing Technology',
+    })
+    expect(index.problems).toEqual([])
+  })
+
+  it('ignores a settings file in a subfolder, which belongs to that folder and not this one', async () => {
+    const index = await scanFolder(
+      dirHandle(
+        tree({ 'computing_technology/klunk/settings.json': settings({ name: 'Computing' }) }),
+        'subjects',
+      ),
+    )
+    expect(index.settings).toBeNull()
+    expect(index.problems).toEqual([])
+  })
+
+  it("reports a settings.json at the root that is not Klunk's, or will not read", async () => {
+    const foreign = await scanFolder(dirHandle(tree({ 'settings.json': '{"theme":"dark"}' })))
+    expect(foreign.settings).toBeNull()
+    expect(foreign.problems.map((p) => p.path)).toEqual(['settings.json'])
+
+    const broken = await scanFolder(dirHandle(tree({ 'settings.json': '{ name: ' })))
+    expect(broken.problems.map((p) => p.path)).toEqual(['settings.json'])
+  })
+
+  it('refuses the whole file when a field is not text, rather than quietly dropping it', () => {
+    expect(typeof readSettings({ type: 'klunk_settings', name: 7 })).toBe('string')
+    expect(readSettings({ type: 'klunk_settings', name: '  ' })).toEqual({
+      formatVersion: '1',
+      type: 'klunk_settings',
+    })
+  })
+
+  it('names a folder by its settings, else by its directory', () => {
+    const handle = dirHandle(tree({}), 'klunk')
+    expect(folderLabel(handle, null)).toBe('klunk')
+    expect(folderLabel(handle, { formatVersion: '1', type: 'klunk_settings' })).toBe('klunk')
+    expect(
+      folderLabel(handle, { formatVersion: '1', type: 'klunk_settings', name: 'Textiles' }),
+    ).toBe('Textiles')
+  })
+
+  it("writes settings.json at the root, and will not replace one that is not Klunk's", async () => {
+    const files = tree({})
+    await saveSettings(dirHandle(files), {
+      formatVersion: '1',
+      type: 'klunk_settings',
+      defaultBank: 'bank/y9.json',
+    })
+    expect(readJson(files, 'settings.json')).toEqual({
+      formatVersion: '1',
+      type: 'klunk_settings',
+      defaultBank: 'bank/y9.json',
+    })
+
+    const other = tree({ 'settings.json': '{"theme":"dark"}' })
+    await expect(
+      saveSettings(dirHandle(other), { formatVersion: '1', type: 'klunk_settings', name: 'X' }),
+    ).rejects.toThrow('is not Klunk')
+    expect(readJson(other, 'settings.json')).toEqual({ theme: 'dark' })
   })
 })

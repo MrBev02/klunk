@@ -21,6 +21,8 @@ import type {
   Syllabus,
 } from './types'
 import {
+  cleanSettings,
+  validateSettings,
   blocksSaving,
   cleanPaper,
   cleanProfile,
@@ -1976,5 +1978,21 @@ describe('recheckQuestion (#212)', () => {
     const after = recheckQuestion(before, faults, question(), emptyIdContext())
 
     expect(after).toEqual([...validateQuestion(question(), emptyIdContext()), note])
+  })
+})
+
+describe('folder settings (#137)', () => {
+  const base = { formatVersion: '1', type: 'klunk_settings' } as const
+
+  it('drops what a half-filled form leaves and writes the bank path as a save would', () => {
+    expect(cleanSettings({ ...base, name: '  ', defaultBank: '/bank/y9' })).toEqual({
+      ...base,
+      defaultBank: 'bank/y9.json',
+    })
+  })
+
+  it('refuses a default bank outside the folder', () => {
+    expect(validateSettings({ ...base, defaultBank: '../other/bank.json' })).toHaveLength(1)
+    expect(validateSettings({ ...base, defaultBank: 'bank/y9.json' })).toEqual([])
   })
 })

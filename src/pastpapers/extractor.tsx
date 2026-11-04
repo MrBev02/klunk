@@ -62,6 +62,7 @@ import {
   DocumentOptions,
   Field,
   normaliseBankPath,
+  startingBank,
 } from '../shared/fields'
 import { groupFor, historyOf, type DocumentNote } from '../folder/manifest'
 import { applyGuide, NotAGuideError } from './guide'
@@ -228,8 +229,14 @@ export function Extractor({
    * way to make a bank at all (#69), while `saveQuestion` had been able to
    * create one from the start.
    */
-  const [bank, setBank] = useState<string | null>(banks[0]?.path ?? null)
-  const [newBankPath, setNewBankPath] = useState('bank/questions.json')
+  const [start] = useState(() =>
+    startingBank(
+      banks.map((b) => b.path),
+      index.settings?.defaultBank,
+    ),
+  )
+  const [bank, setBank] = useState<string | null>(start.bank)
+  const [newBankPath, setNewBankPath] = useState(start.newPath)
   const [newBankName, setNewBankName] = useState('')
   /**
    * The examination every question says it came from.

@@ -1302,3 +1302,35 @@ printed the guide letters B A D A B A D A B D, the same as worked out from
 the same ten questions saved `"shuffleVersion": 2`, printed C A C C D D B B C
 C, and was warned that C answers 5 of 10. The release preview for the 2025
 D&T exam listed every option in bank order.
+
+## A folder's own settings
+
+**A folder can name itself, and say where new questions go** (#137), in
+`settings.json` at its root, edited from **Settings** in the header. Before
+this a folder was labelled with its directory name, so a layout with a
+`klunk/` folder inside each subject's folder read "klunk" for every subject,
+and every save of a new question started on whichever bank sorted first.
+
+- **Found by path, not by `type`**, the second file after `manifest.json`.
+  Settings describe the folder that was opened, so a `settings.json` further
+  down is not this folder's and is ignored: opening `subjects/` must not take
+  one subject's name for the faculty.
+- **Not `school.json`.** Its `name` is the school's, printed on the cover, and
+  branding is the same in every subject folder. Nothing personal goes in
+  settings either, since several teachers share a folder.
+- **The name is remembered in the browser beside the handle**, refreshed on
+  every scan, because the welcome screen and the switcher name folders whose
+  grant has lapsed and which cannot be read. A colleague's rename therefore
+  shows once this teacher next opens that folder.
+- **The default bank** is where the question editor, both AI tabs and From a
+  past paper start, through `startingBank` in `fields.tsx`; offered as a new
+  bank's path when it is not there yet. Editing a question still starts on
+  its own bank.
+- **A `settings.json` that is not Klunk's, or will not read, is a problem on
+  screen**, unlike the manifest, because a teacher wrote it; and saving will
+  not overwrite one that belongs to some other tool.
+
+Verified by the user driving it on port 5180: a name set and saved showed in
+the switcher and on the other folder's switch button, the default bank was
+where the editor, Draft with AI and From a past paper started, and a
+`settings.json` in a subfolder renamed nothing.

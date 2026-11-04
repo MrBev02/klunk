@@ -24,7 +24,14 @@ import { useMemo, useState } from 'preact/hooks'
 import { readExam, examPaper, type ExamContext, type ExamRead } from './exam'
 import { buildExamPrompt } from './examprompt'
 import { courseChoices } from './factory'
-import { bankPathFault, CheckList, CopyButton, Field, normaliseBankPath } from '../shared/fields'
+import {
+  bankPathFault,
+  CheckList,
+  CopyButton,
+  Field,
+  normaliseBankPath,
+  startingBank,
+} from '../shared/fields'
 import { AI_TAG, type Draft } from './ingest'
 import { resolvePaper } from '../papers/paper'
 import { outcomesFor } from './prompt'
@@ -74,8 +81,14 @@ export function ExamFactory({
   const [extra, setExtra] = useState('')
   const [omitted, setOmitted] = useState<string[]>([])
 
-  const [bank, setBank] = useState<string | null>(() => index.banks[0]?.path ?? null)
-  const [newBankPath, setNewBankPath] = useState('bank/questions.json')
+  const [start] = useState(() =>
+    startingBank(
+      index.banks.map((b) => b.path),
+      index.settings?.defaultBank,
+    ),
+  )
+  const [bank, setBank] = useState<string | null>(start.bank)
+  const [newBankPath, setNewBankPath] = useState(start.newPath)
   const [pasted, setPasted] = useState('')
   const [read, setRead] = useState<ExamRead | null>(null)
   const [saving, setSaving] = useState(false)

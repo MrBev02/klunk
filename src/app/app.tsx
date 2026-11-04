@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Builder } from '../papers/builder'
 import { detectCapabilities, insecureContextWarning } from './capabilities'
 import { CoverEditor } from '../papers/coversheet'
+import { SettingsEditor } from './settings'
 import { QuestionEditor, type Editing } from '../questions/editor'
 import { ReleaseScreen } from '../release/screen'
 import { Extractor } from '../pastpapers/extractor'
@@ -18,6 +19,7 @@ import {
   allQuestions,
   emptyIndex,
   folderIsMissing,
+  folderLabel,
   folderProblem,
   forgetFolder,
   inCourse,
@@ -27,6 +29,7 @@ import {
   pickFolder,
   releaseImages,
   rememberFolder,
+  rememberName,
   restoreFolder,
   scanFolder,
   type ContentIndex,
@@ -89,6 +92,8 @@ export function App() {
   const [profileEditor, setProfileEditor] = useState<'new' | EditingProfile | null>(null)
   /** Whether the folder's cover sheet is being edited. One folder has one, so this is a flag. */
   const [coverEditor, setCoverEditor] = useState(false)
+  /** Whether the folder's settings are being edited. Also one per folder. */
+  const [settingsEditor, setSettingsEditor] = useState(false)
   const [notice, setNotice] = useState('')
   /** Every subject folder this browser remembers, most recently used first. */
   const [folders, setFolders] = useState<RememberedFolder[]>([])
@@ -145,7 +150,8 @@ export function App() {
       setPhase('scanning')
       setGone(null)
       try {
-        replaceIndex(await scanFolder(handle, indexRef.current))
+        const scanned = await scanFolder(handle, indexRef.current)
+        replaceIndex(scanned)
         // Which folder is open, for the key the tabs hang off. Held in a ref and
         // compared by identity: `folder` cannot be a dependency of `load`
         // without recreating it on every open, and two folders can be called the
@@ -161,6 +167,7 @@ export function App() {
         // from the dialog, so a teacher who added Textiles once and then taught
         // D&T for a month was returned to Textiles every morning.
         await rememberFolder(handle).catch(() => undefined)
+        await rememberName(handle, scanned.settings?.name).catch(() => undefined)
         await refreshFolders(handle)
       } catch (err) {
         // The folder having gone is not a fault to report as one, and it is the
@@ -225,8 +232,8 @@ export function App() {
         if (!(await openFolder(entry.handle))) {
           setError({
             message:
-              `Klunk needs your permission to open ${entry.handle.name}. Click it again and ` +
-              `confirm access when the browser asks.`,
+              `Klunk needs your permission to open ${entry.label}. Click it again and ` +
+              `confirm access when your browser asks about “${entry.handle.name}”.`,
           })
           setPhase('error')
           return
@@ -235,7 +242,7 @@ export function App() {
         // Asking for permission can be where a folder that has gone is first
         // noticed, before anything has been read from it.
         if (folderIsMissing(err)) setGone(entry.handle)
-        setError(folderProblem(err, entry.handle.name))
+        setError(folderProblem(err, entry.label))
         setPhase('error')
         return
       }
@@ -274,8 +281,8 @@ export function App() {
   const requestSwitch = useCallback(
     (entry: RememberedFolder) =>
       guard({
-        what: `Moving to ${entry.handle.name}`,
-        confirm: `Switch to ${entry.handle.name}`,
+        what: `Moving to ${entry.label}`,
+        confirm: `Switch to ${entry.label}`,
         run: () => switchTo(entry),
       }),
     [guard, switchTo],
@@ -394,6 +401,12 @@ export function App() {
     window.scrollTo({ top: 0 })
   }, [])
 
+  const showSettingsEditor = useCallback((next: boolean) => {
+    setSettingsEditor(next)
+    setNotice('')
+    window.scrollTo({ top: 0 })
+  }, [])
+
   const openEditor = useCallback(
     (next: 'new' | Editing) => {
       setNotice('')
@@ -442,7 +455,9 @@ export function App() {
           : 'structure'
         : coverEditor
           ? 'cover'
-          : undefined
+          : settingsEditor
+            ? 'settings'
+            : undefined
 
   const hash = routeHash(
     folder
@@ -486,9 +501,11 @@ export function App() {
         if (takeover === 'new-question' || takeover === 'question') showEditor(null)
         if (takeover === 'new-structure' || takeover === 'structure') showProfileEditor(null)
         if (takeover === 'cover') showCoverEditor(false)
+        if (takeover === 'settings') showSettingsEditor(false)
         if (opens === 'new-question') showEditor('new')
         if (opens === 'new-structure') showProfileEditor('new')
         if (opens === 'cover') showCoverEditor(true)
+        if (opens === 'settings') showSettingsEditor(true)
       }
 
       return {
@@ -508,6 +525,7 @@ export function App() {
       showHelp,
       showProfileEditor,
       showCoverEditor,
+      showSettingsEditor,
     ],
   )
 
@@ -591,12 +609,19 @@ export function App() {
               <Switcher
                 folders={folders}
                 current={current}
-                openName={folder.name}
+                openName={folderLabel(folder, index.settings)}
                 onSwitch={requestSwitch}
                 onAdd={requestAddFolder}
               />
               <button class="btn btn--quiet" onClick={() => void load(folder)}>
                 Reload
+              </button>
+              <button
+                class="btn btn--quiet"
+                title="This folder's name, and the bank new questions go into"
+                onClick={() => showSettingsEditor(true)}
+              >
+                Settings
               </button>
               <button
                 class="btn btn--quiet"
@@ -755,6 +780,20 @@ export function App() {
             form holding a logo that has been chosen and not yet copied, which a
             stray tab click would throw away along with the trip through the
             native file dialog it cost. */}
+        {phase === 'ready' && folder && settingsEditor && (
+          <SettingsEditor
+            index={index}
+            folder={folder}
+            from={here}
+            onCancel={() => showSettingsEditor(false)}
+            onSaved={(message) => {
+              showSettingsEditor(false)
+              setNotice(message)
+              void load(folder)
+            }}
+          />
+        )}
+
         {phase === 'ready' && folder && coverEditor && (
           <CoverEditor
             index={index}
@@ -789,7 +828,10 @@ export function App() {
              and under it the fourteen questions read out of it, none of which
              exist here. The key changes on the handle rather than on a rescan,
              which hands `load` the folder it already has. */
-          <div key={folderKey} hidden={editor !== null || profileEditor !== null || coverEditor}>
+          <div
+            key={folderKey}
+            hidden={editor !== null || profileEditor !== null || coverEditor || settingsEditor}
+          >
             {notice && (
               <section class="panel panel--ok">
                 <p>{notice}</p>
@@ -985,11 +1027,11 @@ function Switcher({
           onClick={() => onSwitch(entry)}
           title={
             entry.permission === 'granted'
-              ? `Switch to ${entry.handle.name}`
-              : `Switch to ${entry.handle.name}. Your browser will ask to confirm access.`
+              ? `Switch to ${entry.label}`
+              : `Switch to ${entry.label}. Your browser will ask to confirm access to “${entry.handle.name}”.`
           }
         >
-          {entry.handle.name}
+          {entry.label}
           {entry.permission !== 'granted' && <span class="folder-name__lock">·</span>}
         </button>
       ))}
@@ -1049,7 +1091,7 @@ function Welcome({
         <div class="hero__folders">
           {folders.map((entry) => (
             <button key={entry.handle.name} class="btn btn--primary" onClick={() => onOpen(entry)}>
-              Open {entry.handle.name}
+              Open {entry.label}
             </button>
           ))}
         </div>

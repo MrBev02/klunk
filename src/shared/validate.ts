@@ -78,6 +78,7 @@ import type {
   QuestionPart,
   QuestionType,
   School,
+  Settings,
   Stimulus,
   Syllabus,
   TableRow,
@@ -1177,6 +1178,38 @@ export function validateCoverOverride(fields: IdentificationField[]): Check[] {
   fields.forEach((field, i) => {
     validateIdentification(field, field.label?.trim() || `Box ${i + 1}`, err)
   })
+  return out
+}
+
+/**
+ * Checking a folder's settings before they are written.
+ *
+ * Only what the file alone can say. Whether the default bank is a bank, or is
+ * somebody's paper, needs the folder, and the form says that beside the field.
+ */
+export function validateSettings(settings: Settings): Check[] {
+  const out: Check[] = []
+  const bank = settings.defaultBank
+  if (bank !== undefined && bank.split('/').includes('..')) {
+    out.push({
+      severity: 'error',
+      message: 'A bank has to live inside this folder, so its path cannot contain "..".',
+    })
+  }
+  return out
+}
+
+/**
+ * Drop what a half-filled form leaves behind, and write the bank path the way
+ * every save into a new bank does, so the path in the file is the one the
+ * question editor will offer and the one that ends up on disk.
+ */
+export function cleanSettings(draft: Settings): Settings {
+  const out: Settings = { formatVersion: '1', type: 'klunk_settings' }
+  const name = text(draft.name)
+  if (name !== undefined) out.name = name
+  const bank = text(draft.defaultBank)?.replace(/^\/+/, '')
+  if (bank) out.defaultBank = /\.json$/i.test(bank) ? bank : `${bank}.json`
   return out
 }
 

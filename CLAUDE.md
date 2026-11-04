@@ -110,14 +110,14 @@ that removes it. The list is empty.
 
 ```
 klunk/                     this repo - app and tools only, public
-  schemas/                 the six JSON formats
+  schemas/                 the seven JSON formats
   profiles/                paper rules per course (these DO ship)
   tools/                   syllabus generators (Python, stdlib only)
   src/                     the app (Vite + TypeScript + Preact)
     app/                   the shell: tabs, the address, help, the stylesheet
       route.ts             where the teacher is, as the hash, both directions
     shared/                what every other folder builds on
-      types.ts             the six formats as TypeScript
+      types.ts             the seven formats as TypeScript
       validate.ts          the checks a question, bank or profile must pass
       richtext.ts          the paragraphs, pipe tables and four inline marks a
                            question's prose may carry, and taking them back
@@ -201,7 +201,7 @@ does not already use, or that rewrites a file wholesale, copy what it will touch
 The question is never "is this folder precious" — it is "if this code is wrong, is
 the content still recoverable".
 
-## The six formats
+## The seven formats
 
 All defined in `schemas/`, all validated with real data.
 
@@ -213,6 +213,7 @@ All defined in `schemas/`, all validated with real data.
 | `paper.schema.json` | An exam as a selection of questions | By reference, never by copy |
 | `school.schema.json` | Cover branding: name, logo, what a student fills in | One per folder, because a logo is one file and a school is one school |
 | `manifest.schema.json` | What each document in the folder turned out to be | A cache, not a record: delete it and Klunk refills it as it reads |
+| `settings.schema.json` | One folder's own choices: its name on screen, the bank new questions go into | Found by path at the root, never by `type`, so a subfolder's settings cannot rename its parent (#137) |
 
 Question types are a **closed enum that grows by evidence** (#32):
 `multiple_choice`, `multiple_response`, `matching`, `true_false`, `short_answer`,

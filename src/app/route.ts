@@ -41,7 +41,8 @@ const VIEW_SEGMENTS: Record<View, string> = {
 }
 
 /** The full-screen editors, which hide the tabs. */
-export type Takeover = 'new-question' | 'question' | 'new-structure' | 'structure' | 'cover'
+export type Takeover =
+  'new-question' | 'question' | 'new-structure' | 'structure' | 'cover' | 'settings'
 
 const TAKEOVERS: readonly Takeover[] = [
   'new-question',
@@ -49,6 +50,7 @@ const TAKEOVERS: readonly Takeover[] = [
   'new-structure',
   'structure',
   'cover',
+  'settings',
 ]
 
 export interface Route {

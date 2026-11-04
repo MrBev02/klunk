@@ -20,6 +20,7 @@ import {
   Field,
   ListField,
   normaliseBankPath,
+  startingBank,
   NumField,
   patched,
   type Patch,
@@ -168,10 +169,14 @@ export function QuestionEditor({
       : [],
   )
   /** The bank to write to, or null for one that does not exist yet. */
-  const [bank, setBank] = useState<string | null>(
-    () => editing?.file ?? index.banks[0]?.path ?? null,
+  const [start] = useState(() =>
+    startingBank(
+      index.banks.map((b) => b.path),
+      index.settings?.defaultBank,
+    ),
   )
-  const [newBankPath, setNewBankPath] = useState('bank/questions.json')
+  const [bank, setBank] = useState<string | null>(() => editing?.file ?? start.bank)
+  const [newBankPath, setNewBankPath] = useState(start.newPath)
   const [newBankName, setNewBankName] = useState('')
   const [idTouched, setIdTouched] = useState(editing !== null)
   const [marksTouched, setMarksTouched] = useState(editing !== null)
