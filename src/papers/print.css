@@ -520,6 +520,30 @@
   margin-bottom: 1.5mm;
 }
 
+/* Choices that are pictures sit across the page, letter above-left of each,
+   as the Year 8 Term 2 task sets them (#238). A choice never splits across a
+   page. */
+.choices--pictures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2mm 8mm;
+}
+
+.choices--pictures li {
+  break-inside: avoid;
+  margin-bottom: 0;
+}
+
+.choices__body .stimulus {
+  margin: 0;
+}
+
+/* Words and a picture on one choice, the picture under the words. */
+.choices__body > * + .stimulus {
+  margin-top: 1mm;
+}
+
 .choices__letter {
   font-weight: 700;
 }

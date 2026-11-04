@@ -86,6 +86,54 @@ describe('pictureRows', () => {
   })
 })
 
+/*
+ * The two layouts the Year 8 Term 2 task sets its options in (#238), each a
+ * table inside the question's row.
+ */
+describe('a picture beside a letter', () => {
+  const tc = (inner: string) => `<w:tc>${inner}</w:tc>`
+  const pic = (id: string) => cell(drawing(id))
+  const choicesOf = (xml: string) =>
+    pictureRows(xml, RELS)[0]!.pictures.map((p) => p.choice ?? 'question')
+
+  it('takes a column of pictures beside a column of letters, and not the diagram beside A', () => {
+    const options = table(
+      row(cell(text('A.')), pic('rId7'), pic('rId8')),
+      row(cell(text('B.')), pic('rId7'), cell()),
+      row(cell(text('C.')), pic('rId7'), cell()),
+    )
+    const xml = table(
+      row(cell(text('6.')), tc(`<w:p>${text('Circle the true statement.')}</w:p>${options}`)),
+    )
+    expect(choicesOf(xml)).toEqual([0, 'question', 1, 2])
+  })
+
+  it('takes the picture under each letter of a row of them', () => {
+    const options = table(
+      row(cell(text('A.')), cell(text('B.')), cell(text('C.'))),
+      row(pic('rId7'), pic('rId7'), pic('rId7')),
+    )
+    const xml = table(row(cell(text('3.')), tc(`<w:p>${text('Which shape?')}</w:p>${options}`)))
+    expect(choicesOf(xml)).toEqual([0, 1, 2])
+  })
+
+  // Support 3 letters typed formulas and sets the sector beside A.
+  it('takes nothing where the options are words and one picture sits beside them', () => {
+    const options = table(
+      row(cell(text('A.')), cell(text('60 × 13')), pic('rId7')),
+      row(cell(text('B.')), cell(text('60 ÷ 13')), cell()),
+    )
+    const xml = table(row(cell(text('3.')), tc(options)))
+    expect(choicesOf(xml)).toEqual(['question'])
+  })
+
+  it('takes nothing from letters that do not run from A', () => {
+    const options = table(row(cell(text('B.')), pic('rId7')), row(cell(text('C.')), pic('rId7')))
+    const xml = table(row(cell(text('3.')), tc(options)))
+    expect(choicesOf(xml)).toEqual(['question', 'question'])
+  })
+})
+
 describe('imageType', () => {
   it('knows what a browser draws', () => {
     expect(imageType('word/media/image1.png')).toBe('image/png')

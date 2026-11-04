@@ -538,6 +538,21 @@ its pentagon byte for byte the file in the `.docx`, and Standard Q8 with its
 dropped screenshot not written. Why it is placed this way is in
 [reading-papers.md](reading-papers.md).
 
+**An option can be a picture** (#238). A multiple-choice or multiple-response
+option holds `text`, an `image`, or both. The editor attaches it as a stimulus
+picture with **Belongs to** set to **Option A**, and a Word paper's card
+offers a picture already placed on its option where the row letters them.
+The student paper sets picture options side by side, and the guide gives
+their letters. Verified in the browser on the 2025 Year 8 Term 2 task with a
+stand-in transcription: Support 6 kept its triangle and offered its four
+formula screenshots as Options A to D, all dropped; Beyond 3 kept its four
+shapes as Options A to D with no error, through a change of bank. Saved to a
+new bank that validates, ticked B and D in the editor, and printed four
+shapes in a wrapping row with the guide reading `Answer: A, B` after the
+shuffle. Two faults found driving it: choosing another bank, and applying a
+marking guide, each checked a card without its kept pictures and refused
+every picture option as empty.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an

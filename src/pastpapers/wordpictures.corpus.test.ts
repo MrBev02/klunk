@@ -32,13 +32,16 @@ async function questionsOf(path: string) {
 
 const BANDS = ['Support', 'Standard', 'Advanced', 'Extension', 'Beyond']
 
-/** Each picture as its band, its question and its file, in paper order. */
+/** Each picture as its band, its question, its file and any option it is, in paper order. */
 function labelled(questions: Awaited<ReturnType<typeof questionsOf>>): string[] {
   let band = -1
   const found: string[] = []
   for (const q of questions) {
     if (q.number === 1) band++
-    for (const p of q.pictures) found.push(`${BANDS[band]} ${q.number} ${p.member.slice(11)}`)
+    for (const p of q.pictures) {
+      const option = p.choice === undefined ? '' : ` option ${'ABCDEFGH'[p.choice]}`
+      found.push(`${BANDS[band]} ${q.number} ${p.member.slice(11)}${option}`)
+    }
   }
   return found
 }
@@ -98,19 +101,21 @@ describe.skipIf(!have(YEAR8_TERM2_PAPER))('the 2025 Year 8 Term 2 Word paper', (
     expect(found).toContain('Beyond 4 image31.png')
   })
 
-  // Support 6 and Beyond 3 print their choices as pictures, in a table inside
-  // the question's row, after the question's own diagram where it has one.
+  // Support 6 and Beyond 3 set their options in a table inside the question's
+  // row (#238). Support 6's are formulas pasted as pictures down a column,
+  // with the triangle, image8, beside A in a third column; Beyond 3's are
+  // shapes across a row under their letters.
   it('gives each picture to its own question', async () => {
     expect(labelled(await questionsOf(YEAR8_TERM2_PAPER))).toEqual([
       'Support 1 image3.png',
       'Support 2 image4.png',
       'Support 3 image5.png',
       'Support 5 image6.jpeg',
-      'Support 6 image7.png',
+      'Support 6 image7.png option A',
       'Support 6 image8.png',
-      'Support 6 image9.png',
-      'Support 6 image10.png',
-      'Support 6 image11.png',
+      'Support 6 image9.png option B',
+      'Support 6 image10.png option C',
+      'Support 6 image11.png option D',
       'Support 10 image12.png',
       'Standard 1 image13.png',
       'Standard 3 image14.png',
@@ -126,10 +131,10 @@ describe.skipIf(!have(YEAR8_TERM2_PAPER))('the 2025 Year 8 Term 2 Word paper', (
       'Extension 4 image24.png',
       'Beyond 1 image25.png',
       'Beyond 2 image26.png',
-      'Beyond 3 image27.png',
-      'Beyond 3 image28.png',
-      'Beyond 3 image29.png',
-      'Beyond 3 image30.png',
+      'Beyond 3 image27.png option A',
+      'Beyond 3 image28.png option B',
+      'Beyond 3 image29.png option C',
+      'Beyond 3 image30.png option D',
       'Beyond 4 image31.png',
       'Beyond 5 image32.png',
     ])

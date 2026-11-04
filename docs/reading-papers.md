@@ -318,9 +318,20 @@ task and its solutions, both `.docx`, read as XML paragraph by paragraph.
   the same `FXData:` payload under `efofex://fxd/…`. A test for `efofex` or
   `FXData` dropped both; only `efofex://fxe/` is a formula.
 - **The Term 2 task prints two multiple-choice questions with pictures for
-  choices** (Support 6, Beyond 3), as a table inside the question's row. All
-  of a row's pictures go to its question; a choice cannot hold a picture
-  (#238).
+  choices** (Support 6, Beyond 3), as a table inside the question's row, and
+  the two lay it out differently. Support 6 runs the letters A to D down one
+  column with a formula screenshot beside each, and its triangle in a third
+  column beside A only. Beyond 3 runs the letters across one row with the
+  shapes in the row below. The letters have to run A, B, C… with at least two
+  of them. Down a column, an option's picture is in the first other column
+  holding exactly one picture on every lettered row; the triangle's column
+  has a picture on one row only, so it stays the question's. Across a row, it
+  is in the letter's own cell or the cell below (#238).
+- **Which option pictures start kept follows the reply, as #207's question
+  pictures do.** Support 6's options are formulas pasted as pictures, and the
+  prompt asks for them as text. Beyond 3's are drawn shapes, and the prompt
+  asks for `"picture"` with a description and no `"text"`. An option picture
+  starts kept only where the reply described that option.
 - **The Term 2 solutions came as a PDF**, the Word paper printed with the
   pen answers flattened into about 870 picture fragments. Its text layer holds
   every question and no answer. The guide prompt tells the model so whenever

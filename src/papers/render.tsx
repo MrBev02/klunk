@@ -32,7 +32,14 @@ import { Inline, RichText } from '../shared/richtextview'
 import { Working } from '../shared/workingview'
 import { joinPath } from '../folder/storage'
 import { alignOf, hasSample, printsInline } from '../shared/types'
-import type { MarkCriterion, Profile, Question, QuestionPart, Stimulus } from '../shared/types'
+import type {
+  Choice,
+  MarkCriterion,
+  Profile,
+  Question,
+  QuestionPart,
+  Stimulus,
+} from '../shared/types'
 
 export type PrintMode = 'paper' | 'guide'
 
@@ -532,6 +539,49 @@ function BackStimulus({ item, images }: { item: ResolvedQuestion; images: Map<st
   )
 }
 
+/** How tall a choice's picture prints, unless it says. Four sit across the page. */
+const CHOICE_PICTURE_MM = 30
+
+/**
+ * Picture choices sit side by side, as both the Year 8 Term 2 task's lettered
+ * tables set them (#238), rather than one under another down the page.
+ */
+function choiceListClass(choices: Choice[]): string {
+  return choices.some((c) => c.image) ? 'choices choices--pictures' : 'choices'
+}
+
+/** One choice's words, its picture, or both. */
+function ChoiceBody({
+  choice,
+  bankFile,
+  images,
+}: {
+  choice: Choice
+  bankFile: string
+  images: Map<string, string>
+}) {
+  return (
+    <span class="choices__body">
+      {choice.text && (
+        <span>
+          <Inline text={choice.text} />
+        </span>
+      )}
+      {choice.image && (
+        <StimulusBlock
+          stimulus={{
+            ...choice.image,
+            align: 'left',
+            maxHeightMm: choice.image.maxHeightMm ?? CHOICE_PICTURE_MM,
+          }}
+          bankFile={bankFile}
+          images={images}
+        />
+      )}
+    </span>
+  )
+}
+
 function StimulusBlock({
   stimulus,
   bankFile,
@@ -636,13 +686,11 @@ function QuestionBody({
     case 'multiple_choice': {
       const { choices, letters } = shuffledChoices(q, item.shuffle)
       return (
-        <ol class="choices">
+        <ol class={choiceListClass(choices)}>
           {choices.map((c, i) => (
             <li key={i}>
               <span class="choices__letter">{letters[i]}.</span>
-              <span>
-                <Inline text={c.text} />
-              </span>
+              <ChoiceBody choice={c} bankFile={item.file} images={images} />
             </li>
           ))}
         </ol>
@@ -661,13 +709,11 @@ function QuestionBody({
             not told cannot tell this from the multiple choice above it.
           */}
           <p class="q-print__hint">More than one answer may be correct.</p>
-          <ol class="choices choices--multi">
+          <ol class={`${choiceListClass(choices)} choices--multi`}>
             {choices.map((c, i) => (
               <li key={i}>
                 <span class="choices__letter">{optionLetter(i)}.</span>
-                <span>
-                  <Inline text={c.text} />
-                </span>
+                <ChoiceBody choice={c} bankFile={item.file} images={images} />
               </li>
             ))}
           </ol>
@@ -766,7 +812,9 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
         <>
           <p class="answer">
             <strong>Answer: {letters[correctIndex]}</strong>
-            {correct ? (
+            {/* A choice that is only a picture has no words to repeat, and the
+                marker has the paper with the picture on it. */}
+            {correct?.text ? (
               <>
                 . <Inline text={correct.text} />
               </>
@@ -794,29 +842,34 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
           </p>
         )
       }
+      // A choice that is only a picture has no words to repeat, so a letter with
+      // nothing beside it is left off the list, as multiple choice leaves it (#238).
+      const listed = correctIndexes.filter((i) => choices[i]?.text || choices[i]?.feedback)
       return (
         <>
           <p class="answer">
             <strong>Answer: {correctIndexes.map(optionLetter).join(', ')}</strong>
           </p>
-          <ul class="answer__set">
-            {correctIndexes.map((i) => (
-              <li key={i}>
-                <span class="choices__letter">{optionLetter(i)}.</span>
-                <span>
-                  <Inline text={choices[i]?.text ?? ''} />
-                </span>
-                {/* A grid item, not a continuation of the option text: it
+          {listed.length > 0 && (
+            <ul class="answer__set">
+              {listed.map((i) => (
+                <li key={i}>
+                  <span class="choices__letter">{optionLetter(i)}.</span>
+                  <span>
+                    <Inline text={choices[i]?.text ?? ''} />
+                  </span>
+                  {/* A grid item, not a continuation of the option text: it
                     prints on its own line under it, which `.answer__set .why`
                     has to say explicitly (#119). */}
-                {choices[i]?.feedback && (
-                  <span class="why">
-                    <Inline text={choices[i]?.feedback ?? ''} />
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {choices[i]?.feedback && (
+                    <span class="why">
+                      <Inline text={choices[i]?.feedback ?? ''} />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )
     }

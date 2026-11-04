@@ -140,6 +140,24 @@ describe('an answer that lands', () => {
     expect(out.adopted[0]!.faults.some((f) => f.unfinished)).toBe(false)
   })
 
+  it('counts an option whose picture is kept on the card as answered, not empty', () => {
+    // Beyond 3 of the Year 8 Term 2 task is four drawn shapes (#238). Checked
+    // without its kept pictures, marking it refused all four options as empty.
+    const question = choiceQuestion('1')
+    question.config!.choices = [{ text: '' }, { text: '' }, { text: '' }]
+    const card: Adopted = {
+      ...adopted(question),
+      pictures: [0, 1, 2].map((choice) => ({
+        cutout: { blob: new Blob(), url: '' },
+        keep: true,
+        at: null,
+        choice,
+      })),
+    }
+    const out = applyMarking([card], marking([{ number: 1, answers: ['B'] }]), CTX)
+    expect(out.adopted[0]!.faults.filter((f) => f.severity === 'error')).toEqual([])
+  })
+
   it('answers a multiple-response question with every letter given', () => {
     const question: Question = {
       id: 'bank-mr-1',

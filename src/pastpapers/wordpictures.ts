@@ -166,6 +166,8 @@ export interface WordPicture {
   blob: Blob
   /** For showing it on the card. Like a cut-out's, never revoked. */
   url: string
+  /** The lettered option it sits beside in the paper, counting A as 0 (#238). */
+  choice?: number
 }
 
 /**
@@ -190,7 +192,10 @@ export async function wordPicturesFor(
       const type = imageType(picture.member)
       if (type === undefined) continue
       const blob = new Blob([await readZipBytes(bytes, picture.member)], { type })
-      mine.push({ blob, url: URL.createObjectURL(blob) })
+      const url = URL.createObjectURL(blob)
+      mine.push(
+        picture.choice === undefined ? { blob, url } : { blob, url, choice: picture.choice },
+      )
     }
     out.push(mine)
   }

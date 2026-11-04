@@ -408,6 +408,38 @@ Year 12 mid-year question map sets both, but they are Year 12 shapes and on a
 printed page both are short answer with ruled lines, so the case is weaker than
 these two and rests on no Year 11 document.
 
+## An option can be a picture
+
+**Beyond 3 of the 2025 Year 8 Term 2 task asks which of four drawn shapes could
+be a prism's cross-section**, and the shapes are the options (#238). A
+`Choice` is `{ text, image?, feedback? }` on both `multiple_choice` and
+`multiple_response`, and the schema requires text or an image, never neither.
+
+- **The image is a stimulus of kind `image`, not a new shape.** That keeps the
+  file name, alt text and the copying of pictures into `bank/stimulus` on the
+  one path every other picture takes. `stimulusList` lists an option's
+  picture with `choice` set and `placeStimulus` puts it back, so loading a
+  question into the editor and saving it out need no code of their own. Text
+  or code as an option's picture is refused, because nothing prints it.
+- **In the editor an option's picture is a stimulus row whose Belongs to says
+  Option A.** A second picture on one option, or one naming an option that has
+  been removed, falls back to the whole question rather than out of the
+  file. Removing an option moves the later options' pictures up with their
+  letters.
+- **A card is checked with its kept pictures in place.** On **From a past
+  paper** a picture joins its question only at the save, so a question
+  checked without them has four empty options and cannot be saved.
+  `withKept` in `adopt.ts` places them under stand-in names for the check.
+  Reading the reply used it from the start; choosing another bank and
+  applying a marking guide did not, and both refused Beyond 3 until driving
+  the screen found them.
+- **The student paper sets picture options side by side** (`choices--pictures`,
+  30 mm high by default), wrapping onto a second row, because four shapes
+  stacked one under another take a page. Typed options print as before.
+- **The guide gives the letters and repeats the words only where there are
+  some.** Multiple response used to list every correct option under its
+  letters, which printed `A.` and `B.` with nothing beside them.
+
 ## Unfinished rather than refused
 
 **A bank is a store and a paper is a paper, and conflating the two made an

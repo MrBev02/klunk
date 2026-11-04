@@ -26,7 +26,7 @@ import { hasMarkup } from '../shared/richtext'
 import { Inline, RichText } from '../shared/richtextview'
 import { Working } from '../shared/workingview'
 import { joinPath, type ChosenPictures } from '../folder/storage'
-import type { Stimulus } from '../shared/types'
+import type { Choice, Stimulus } from '../shared/types'
 import {
   QUESTION_TYPE_LABELS,
   alignOf,
@@ -244,13 +244,35 @@ function StimulusItems({
   )
 }
 
+/** A choice's picture under its words, smaller than a question's (#238). */
+function ChoicePicture({
+  choice,
+  bankFile,
+  images,
+}: {
+  choice: Choice
+  bankFile: string | undefined
+  images: Map<string, string> | undefined
+}) {
+  if (!choice.image) return null
+  return (
+    <span class="opts__picture">
+      <StimulusItems
+        items={[{ ...choice.image, align: 'left' }]}
+        bankFile={bankFile}
+        images={images}
+      />
+    </span>
+  )
+}
+
 function Body({
   question: q,
   bankFile,
   images,
 }: {
   question: Question
-  /** Both only for a part's pictures; the question's are shown above this. */
+  /** Both only for a part's and a choice's pictures; the question's are shown above this. */
   bankFile?: string | undefined
   images?: Map<string, string> | undefined
 }) {
@@ -270,6 +292,7 @@ function Body({
                 <span>
                   <Inline text={c.text} />
                   {i === correctIndex && <strong class="muted"> (correct)</strong>}
+                  <ChoicePicture choice={c} bankFile={bankFile} images={images} />
                 </span>
                 {c.feedback && (
                   <span class="opts__why">
@@ -329,6 +352,7 @@ function Body({
                 <span>
                   <Inline text={c.text} />
                   {isAnswer.has(i) && <strong class="muted"> (an answer)</strong>}
+                  <ChoicePicture choice={c} bankFile={bankFile} images={images} />
                 </span>
                 {c.feedback && (
                   <span class="opts__why">

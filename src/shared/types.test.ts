@@ -84,6 +84,49 @@ describe('everyStimulus', () => {
 })
 
 /*
+ * A choice can be a picture (#238). Loading and saving find pictures through
+ * `stimulusList`, so one it did not list would print as a grey box and never be
+ * copied into the folder.
+ */
+describe('a picture on a choice', () => {
+  const shapes: Question = {
+    id: 'q3',
+    questionType: 'multiple_response',
+    questionText: 'Which could be the cross-section?',
+    marks: 1,
+    config: { choices: [{ text: '' }, { text: '' }, { text: 'Neither' }] },
+  }
+
+  it('goes to its choice, and is listed and found', () => {
+    const q = placeStimulus(shapes, [
+      { item: chairs, at: null },
+      { item: joint, at: null, choice: 1 },
+    ])
+    expect(q.stimulus).toEqual([chairs])
+    expect(q.config?.choices?.map((c) => c.image)).toEqual([undefined, joint, undefined])
+    expect(everyStimulus(q)).toEqual([chairs, joint])
+    expect(placeStimulus(q, stimulusList(q))).toEqual(q)
+  })
+
+  it('comes off its choice when moved to the question', () => {
+    const on = placeStimulus(shapes, [{ item: joint, at: null, choice: 0 }])
+    const off = placeStimulus(on, [{ item: joint, at: null }])
+    expect(off.config?.choices?.every((c) => !('image' in c))).toBe(true)
+    expect(off.stimulus).toEqual([joint])
+  })
+
+  it('falls to the question rather than out of the file', () => {
+    const q = placeStimulus(shapes, [
+      { item: chairs, at: null, choice: 0 },
+      { item: joint, at: null, choice: 0 },
+      { item: joint, at: null, choice: 7 },
+    ])
+    expect(q.config?.choices?.[0]?.image).toEqual(chairs)
+    expect(q.stimulus).toEqual([joint, joint])
+  })
+})
+
+/*
  * A model drawing hangs off the guide rather than the paper (#142). The fault to
  * guard against is the quiet one: a model answer routed to `stimulus` prints on
  * the student paper, and one routed nowhere is lost on save.

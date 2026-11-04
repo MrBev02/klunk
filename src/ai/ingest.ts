@@ -128,6 +128,13 @@ export interface Draft {
    * rather than a formula it has already transcribed.
    */
   pictureNote?: string
+  /**
+   * The options the reply said are pictures, by index, with what each shows
+   * (#238). Kept apart for `pictureNote`'s reason: on a Word paper it is what
+   * says a picture beside a letter is that option, rather than a formula the
+   * reply has already typed.
+   */
+  choicePictures?: { choice: number; note: string }[]
 }
 
 export interface Ingest {
@@ -466,8 +473,34 @@ export function readQuestion(
   })
   faults.push(...transcriptionNotes(src))
 
+  const choicePictures = holdsChoices(questionType)
+    ? readChoiceList(asRecord(configSource)).pictures
+    : []
+  faults.push(
+    ...choicePictures.map(({ choice, note }) => ({
+      severity: 'warning' as const,
+      message: choicePictureWarning(choice, note),
+    })),
+  )
+
   const pictureNote = asString(src.stimulusNote)
-  return { question, repairs, faults, ...(pictureNote === undefined ? {} : { pictureNote }) }
+  return {
+    question,
+    repairs,
+    faults,
+    ...(pictureNote === undefined ? {} : { pictureNote }),
+    ...(choicePictures.length === 0 ? {} : { choicePictures }),
+  }
+}
+
+function holdsChoices(type: QuestionType): boolean {
+  return type === 'multiple_choice' || type === 'multiple_response'
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 /* ----------------------------------------------------------------- the stem */
@@ -952,6 +985,19 @@ function transcriptionNotes(src: Record<string, unknown>): Check[] {
 }
 
 /**
+ * The warning an option the reply says is a picture becomes (#238).
+ *
+ * Exported for `pictureWarning`'s reason: a Word paper's own file can supply
+ * the picture, and then takes this back.
+ */
+export function choicePictureWarning(choice: number, note: string): string {
+  return (
+    `Option ${letter(choice)} is a picture on the paper: ${note} Attach it in the editor and ` +
+    `set Belongs to Option ${letter(choice)}.`
+  )
+}
+
+/**
  * The warning a described picture becomes.
  *
  * Exported so the one route that does find the picture, a Word paper's own
@@ -1053,9 +1099,12 @@ function readConfig(type: QuestionType, value: unknown, repairs: string[]): Ques
 function readChoiceList(cfg: Record<string, unknown>): {
   choices: { text: string; feedback?: string }[]
   flagged: number[]
+  /** The options the reply said are pictures, with what each one shows (#238). */
+  pictures: { choice: number; note: string }[]
 } {
   const choices: { text: string; feedback?: string }[] = []
   const flagged: number[] = []
+  const pictures: { choice: number; note: string }[] = []
 
   asArray(cfg.choices ?? cfg.options ?? cfg.answers).forEach((entry) => {
     if (typeof entry === 'string') {
@@ -1066,15 +1115,24 @@ function readChoiceList(cfg: Record<string, unknown>): {
     if (typeof entry !== 'object' || entry === null) return
 
     const c = entry as Record<string, unknown>
-    const text = asString(c.text) ?? asString(c.option) ?? asString(c.label) ?? asString(c.answer)
+    // An option that is a picture has no words of its own, and is kept with
+    // none rather than with its description, which is not what the paper says.
+    const picture = asString(c.picture)
+    const text =
+      asString(c.text) ??
+      asString(c.option) ??
+      asString(c.label) ??
+      asString(c.answer) ??
+      (picture === undefined ? undefined : '')
     if (text === undefined) return
+    if (picture !== undefined) pictures.push({ choice: choices.length, note: picture })
 
     const feedback = asString(c.feedback) ?? asString(c.why) ?? asString(c.explanation)
     if (c.correct === true || c.isCorrect === true) flagged.push(choices.length)
     choices.push(feedback === undefined ? { text } : { text, feedback })
   })
 
-  return { choices, flagged }
+  return { choices, flagged, pictures }
 }
 
 function readChoices(cfg: Record<string, unknown>, repairs: string[]): QuestionConfig {
