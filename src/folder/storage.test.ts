@@ -115,7 +115,7 @@ function dirHandle(node: Directory, name = 'content'): FileSystemDirectoryHandle
     async getDirectoryHandle(child: string, options?: { create?: boolean }) {
       const value = node.get(child)
       if (value instanceof Map) return dirHandle(value, child)
-      if (!options?.create) throw new Error(`no such directory: ${child}`)
+      if (!options?.create) throw new DOMException(`no such directory: ${child}`, 'NotFoundError')
       const made: Directory = new Map()
       node.set(child, made)
       return dirHandle(made, child)
@@ -123,7 +123,7 @@ function dirHandle(node: Directory, name = 'content'): FileSystemDirectoryHandle
     async getFileHandle(child: string, options?: { create?: boolean }) {
       const value = node.get(child)
       if (value === undefined) {
-        if (!options?.create) throw new Error(`no such file: ${child}`)
+        if (!options?.create) throw new DOMException(`no such file: ${child}`, 'NotFoundError')
         node.set(child, '')
       } else if (value instanceof Map) {
         throw new Error(`${child} is a directory`)
@@ -1284,5 +1284,29 @@ describe('folder settings (#137)', () => {
       saveSettings(dirHandle(other), { formatVersion: '1', type: 'klunk_settings', name: 'X' }),
     ).rejects.toThrow('is not Klunk')
     expect(readJson(other, 'settings.json')).toEqual({ theme: 'dark' })
+  })
+
+  it('will not replace a settings.json that does not read as JSON, or reads as null', async () => {
+    for (const text of ['theme = "dark"\n', 'null', '']) {
+      const other = tree({ 'settings.json': text })
+      await expect(
+        saveSettings(dirHandle(other), { formatVersion: '1', type: 'klunk_settings', name: 'X' }),
+      ).rejects.toThrow('is not Klunk')
+      expect(other.get('settings.json')).toBe(text)
+    }
+  })
+
+  it('will not write over a settings.json it cannot read', async () => {
+    const files = tree({ 'settings.json': settings({ name: 'Textiles' }) })
+    const locked = {
+      ...dirHandle(files),
+      getFileHandle: async () => {
+        throw new DOMException('locked by another program', 'NotReadableError')
+      },
+    } as unknown as FileSystemDirectoryHandle
+    await expect(
+      saveSettings(locked, { formatVersion: '1', type: 'klunk_settings', name: 'X' }),
+    ).rejects.toThrow('could not be read')
+    expect(readJson(files, 'settings.json')).toMatchObject({ name: 'Textiles' })
   })
 })

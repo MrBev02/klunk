@@ -1230,12 +1230,33 @@ export async function saveSettings(
   dir: FileSystemDirectoryHandle,
   settings: Settings,
 ): Promise<{ path: string }> {
-  const existing = await readJson(dir, SETTINGS_PATH).catch(() => null)
-  if (
-    existing !== null &&
-    (typeof existing !== 'object' || (existing as { type?: unknown }).type !== 'klunk_settings')
-  ) {
-    throw new Error(`${SETTINGS_PATH} is already there and is not Klunk's, so nothing was written.`)
+  // Only a file that is not there at all may be created. Every other failure to
+  // read one used to count as absence, so a settings.json that was not JSON, or
+  // that could not be read, was replaced without a word.
+  let existing: File | null = null
+  try {
+    existing = await (await dir.getFileHandle(SETTINGS_PATH)).getFile()
+  } catch (err) {
+    if (!folderIsMissing(err)) {
+      throw new Error(`${SETTINGS_PATH} is there but could not be read, so nothing was written.`)
+    }
+  }
+  if (existing) {
+    let data: unknown
+    try {
+      data = JSON.parse(await existing.text())
+    } catch {
+      data = undefined
+    }
+    if (
+      typeof data !== 'object' ||
+      data === null ||
+      (data as { type?: unknown }).type !== 'klunk_settings'
+    ) {
+      throw new Error(
+        `${SETTINGS_PATH} is already there and is not Klunk's, so nothing was written.`,
+      )
+    }
   }
   await writeJson(dir, SETTINGS_PATH, settings)
   return { path: SETTINGS_PATH }
