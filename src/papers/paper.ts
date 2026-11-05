@@ -25,12 +25,15 @@ import type {
   Stimulus,
   TableRow,
 } from '../shared/types'
-import { parseRef, printsInline, refKey, sameLines } from '../shared/types'
+import { parseRef, printsInline, refKey, sameLines, sittableMarks } from '../shared/types'
 
 export interface ResolvedQuestion {
   question: Question
   file: string
-  /** Number printed on the paper. Continuous across sections, as in a real paper. */
+  /**
+   * Number printed on the paper. Continuous across sections, as on a NESA
+   * paper, unless the profile numbers each section from 1 (#225).
+   */
   number: number
   marks: number
   /** A heading printed above this question, where the paper starts a new group. */
@@ -223,6 +226,7 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
 
   const sections = paper.sections.map((section, at): ResolvedSection => {
     const profileSection = profile?.paper.sections.find((s) => s.id === section.profileSectionId)
+    if (profile?.paper.numbering === 'bySection') number = 0
 
     const questions: ResolvedQuestion[] = []
     for (const ref of section.refs) {
@@ -280,7 +284,12 @@ export function resolvePaper(index: ContentIndex, paper: Paper, profile?: Profil
     schoolPath: school?.path,
     paperPath: index.papers.find((p) => p.data.id === paper.id)?.path,
     sections,
-    totalMarks: sections.reduce((sum, s) => sum + s.marks, 0),
+    // A student sitting three of five bands can earn three bands' marks, which is
+    // what the cover prints and the profile's total says.
+    totalMarks: sittableMarks(
+      sections.map((s) => s.marks),
+      profile?.paper.sectionsSat,
+    ),
     missing,
     relocated,
     images: index.images,
@@ -524,7 +533,11 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
       if (q.stimulusAt === 'back' && picturesForBack(q.question).length === 0) {
         checks.push({
           severity: 'warning',
-          where: `Question ${q.number}`,
+          // With every band numbering from 1, "Question 3" alone names five.
+          where:
+            resolved.profile?.paper.numbering === 'bySection'
+              ? `${section.title}, Question ${q.number}`
+              : `Question ${q.number}`,
           message: 'has no pictures to print at the back of the paper.',
         })
       }

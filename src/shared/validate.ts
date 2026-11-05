@@ -33,7 +33,7 @@
  * recover. Blocking is the better trade there.
  */
 
-import { hasSample, parseRef, sameLines, STIMULUS_ALIGNS } from './types'
+import { hasSample, parseRef, sameLines, sittableMarks, STIMULUS_ALIGNS } from './types'
 
 // What every check reports, from a question's fields to a whole paper's
 // marks. Here rather than in papers/paper.ts, where checkPaper also makes
@@ -1006,8 +1006,49 @@ export function validateProfile(
     }
   })
 
-  if (sections.length > 0 && paper.totalMarks > 0 && total !== paper.totalMarks) {
-    err(`The sections add up to ${total} marks, but the paper is set to ${paper.totalMarks}`)
+  const sat = paper.sectionsSat
+  if (sat !== undefined) {
+    // The same three rules as a section's chooseCount, one level up: a student
+    // sits three of five bands, so the bands have to be worth the same, and
+    // sitting all of them is no choice at all.
+    if (!isWholeAtLeastOne(sat)) {
+      err('The number of sections a student sits has to be a whole number, at least 1')
+    } else if (sat > sections.length) {
+      err(`A student sits ${sat} sections and only ${sections.length} are printed`)
+    } else if (sat === sections.length) {
+      warn(`A student sits all ${sat} sections, which is what leaving this blank means`)
+    }
+    const values = [...new Set(sections.map((s) => s.marks))]
+    if (values.length > 1) {
+      err(
+        `A student sits ${sat} of these sections, so they all have to be worth the same. ` +
+          `They are worth ${values.sort((a, b) => a - b).join(', ')}.`,
+      )
+    }
+  }
+
+  // Against what a student can earn, which is every section unless they sit a few.
+  const earnable =
+    sat !== undefined && isWholeAtLeastOne(sat)
+      ? sittableMarks(
+          sections.map((s) => (s.marks > 0 ? s.marks : 0)),
+          sat,
+        )
+      : total
+  if (sections.length > 0 && paper.totalMarks > 0 && earnable !== paper.totalMarks) {
+    err(
+      sat === undefined
+        ? `The sections add up to ${total} marks, but the paper is set to ${paper.totalMarks}`
+        : `A student sitting ${sat} sections can earn ${earnable} marks, but the paper is set to ${paper.totalMarks}`,
+    )
+  }
+
+  // An answer sheet lists each number once down its side, so with every band
+  // numbering from 1 it would have five rows called 1 and no way to tell them apart.
+  if (paper.numbering === 'bySection' && paper.cover?.answerSheet) {
+    err(
+      'An answer sheet needs every question number to be different, so it cannot go on a paper that numbers each section from 1',
+    )
   }
 
   const margins = profile.print?.marginsMm
@@ -1074,6 +1115,10 @@ export function cleanProfile(draft: Profile): Profile {
     answerSheet: draft.paper.cover?.answerSheet ? true : undefined,
   })
   if (cover) out.paper.cover = cover
+
+  // Only where they say something, as with the cover above.
+  if (draft.paper.numbering === 'bySection') out.paper.numbering = 'bySection'
+  if (draft.paper.sectionsSat !== undefined) out.paper.sectionsSat = draft.paper.sectionsSat
 
   const questionTypes = nonEmpty(draft.questionTypes)
   if (questionTypes) out.questionTypes = questionTypes

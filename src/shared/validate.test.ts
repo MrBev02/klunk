@@ -1490,6 +1490,68 @@ describe('validateProfile', () => {
     })
   })
 
+  describe('a paper whose students sit some of its sections', () => {
+    // The faculty's Year 8 task: five 15-mark bands, three of them sat (#225).
+    const bands = ['Support', 'Standard', 'Advanced', 'Extension', 'Beyond']
+    const banded = (over: Partial<Profile['paper']> = {}, marks = bands.map(() => 15)) =>
+      profile({
+        paper: {
+          totalMarks: 45,
+          sectionsSat: 3,
+          numbering: 'bySection',
+          sections: bands.map((name, i) => ({ id: name.toLowerCase(), name, marks: marks[i]! })),
+          ...over,
+        },
+      })
+
+    it('accepts five bands of 15 with three sat, out of 45', () => {
+      expect(errorsOf(banded())).toEqual([])
+    })
+
+    it('holds the total to what a student sits, not to every band', () => {
+      expect(
+        errorsOf(banded({ totalMarks: 75 })).some((c) => c.message.includes('can earn 45 marks')),
+      ).toBe(true)
+    })
+
+    it('rejects bands that are not worth the same', () => {
+      expect(
+        errorsOf(banded({}, [15, 15, 15, 15, 20])).some((c) =>
+          c.message.includes('have to be worth the same'),
+        ),
+      ).toBe(true)
+    })
+
+    it('rejects sitting more sections than are printed', () => {
+      expect(
+        errorsOf(banded({ sectionsSat: 6 })).some((c) => c.message.includes('only 5 are printed')),
+      ).toBe(true)
+    })
+
+    it('warns when every section is sat', () => {
+      const checks = validateProfile(banded({ sectionsSat: 5, totalMarks: 75 }), new Set())
+      expect(checks.some((c) => c.severity === 'warning' && c.message.includes('all 5'))).toBe(true)
+    })
+
+    it('refuses an answer sheet on a paper that numbers each section from 1', () => {
+      expect(
+        errorsOf(banded({ cover: { answerSheet: true } })).some((c) =>
+          c.message.includes('answer sheet'),
+        ),
+      ).toBe(true)
+    })
+
+    it('keeps both through cleaning, and writes neither where they say nothing', () => {
+      const kept = cleanProfile(banded())
+      expect(kept.paper.sectionsSat).toBe(3)
+      expect(kept.paper.numbering).toBe('bySection')
+      const { sectionsSat: _, ...unsat } = banded().paper
+      const plain = cleanProfile(profile({ paper: { ...unsat, numbering: 'continuous' } }))
+      expect('sectionsSat' in plain.paper).toBe(false)
+      expect('numbering' in plain.paper).toBe(false)
+    })
+  })
+
   describe('the course a profile names', () => {
     const model: Syllabus = {
       formatVersion: '1',

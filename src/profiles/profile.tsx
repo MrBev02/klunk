@@ -27,6 +27,7 @@ import { profilePath, saveProfile, type ContentIndex } from '../folder/storage'
 import {
   QUESTION_TYPE_LABELS,
   QUESTION_TYPES,
+  sittableMarks,
   type Profile,
   type ProfileSection,
   type QuestionType,
@@ -105,7 +106,10 @@ export function ProfileEditor({
     else set({ name, id: slugify(name) })
   }
 
-  const sectionTotal = draft.paper.sections.reduce((t, s) => t + (s.marks || 0), 0)
+  const sectionTotal = sittableMarks(
+    draft.paper.sections.map((s) => s.marks || 0),
+    draft.paper.sectionsSat,
+  )
 
   const save = async () => {
     setSaving(true)
@@ -274,7 +278,35 @@ export function ProfileEditor({
               onChange={(n) => set({ print: patched(draft.print ?? {}, { linesPerMark: n }) })}
             />
           </Field>
+
+          {/* A banded school task prints five bands and a student sits three of
+              them, so the paper is out of three bands' marks (#225). */}
+          <Field
+            label="Sections a student sits"
+            for="pe-sat"
+            hint="Leave blank if they sit every section"
+          >
+            <NumField
+              id="pe-sat"
+              value={draft.paper.sectionsSat}
+              min={1}
+              onChange={(n) => setPaper({ sectionsSat: n })}
+            />
+          </Field>
         </div>
+
+        <label class="checkline">
+          <input
+            type="checkbox"
+            checked={draft.paper.numbering === 'bySection'}
+            onChange={(e) =>
+              setPaper({
+                numbering: (e.target as HTMLInputElement).checked ? 'bySection' : undefined,
+              })
+            }
+          />
+          <span>Number the questions in each section from 1</span>
+        </label>
 
         <Field
           label="Instructions on the cover"
