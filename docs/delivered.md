@@ -553,6 +553,14 @@ shuffle. Two faults found driving it: choosing another bank, and applying a
 marking guide, each checked a card without its kept pictures and refused
 every picture option as empty.
 
+**The paper builder's bank panel shows a question's pictures** (#241). An
+expanded question on the right of the building screen had been showing every
+picture as the grey missing-file box, stimulus and picture options alike,
+because the panel passed neither the folder's pictures nor the question's bank
+to `QuestionDetail`. Verified in the browser on `../klunk-content`: the drink
+bottles stimulus, the triangle stimulus, and the four shapes of the prism
+question as Options A to D all showed as pictures.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an
