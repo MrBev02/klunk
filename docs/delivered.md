@@ -574,6 +574,18 @@ bank…**, then typing `bank/retarget-237.json` a key at a time. A question
 renamed as it was saved is also no longer given a new id, which follows from
 the code and was not driven.
 
+**A topic with no focus area is drawn outside the one above it** (#204). The
+syllabus review and the read-only models view printed an area heading only for
+a topic that had one, so an ungrouped topic after a grouped one sat under the
+grouped one's heading. It now gets its own heading reading **None**; an
+ungrouped run at the top of a course stays bare. Verified in the browser: the
+2017 Mathematics Advanced model shows `MA-T2 Trigonometric Functions and
+Identities` under **None** rather than MA-T1, and the 2024 syllabus read from
+its `.docx` shows `Trigonometric identities and equations` and `Graph
+transformations` under **None**. The topic list in the editor and the factory
+already left MA-T2 as a top-level option between the MA-T1 and MA-C1 groups,
+and the library's filter names the area on each option, so neither changed.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an
