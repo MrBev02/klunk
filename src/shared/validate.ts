@@ -120,15 +120,20 @@ const A4_PRINTABLE_MM = { width: 180, height: 240 }
  * such as a transcription naming a picture it could not cut out. Checking the
  * edit again replaces the first and has to keep the second (#212), which are
  * told apart by asking what this file says of the question as it was.
+ *
+ * `beforeIds` is for a question moving bank (#237): what this file said of it
+ * was said against the bank it is leaving, so a clash there has to be asked of
+ * that bank to be recognised as this file's and dropped.
  */
 export function recheckQuestion(
   before: Question,
   faults: Check[],
   after: Question,
   ids: IdContext,
+  beforeIds: IdContext = ids,
 ): Check[] {
   const key = (c: Check) => `${c.severity}|${c.where ?? ''}|${c.message}`
-  const own = new Set(validateQuestion(before, ids).map(key))
+  const own = new Set(validateQuestion(before, beforeIds).map(key))
   return [...validateQuestion(after, ids), ...faults.filter((f) => !own.has(key(f)))]
 }
 
