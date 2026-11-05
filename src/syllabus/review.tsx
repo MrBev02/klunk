@@ -329,11 +329,16 @@ function CourseReview({
                 the one thing that tells them apart is the one thing missing.
                 A prefix would say it, at the cost of repeating seventy
                 characters on every row of the list this panel exists to be
-                read (#75). */}
-            {topic.group && topic.group !== course.topics[at - 1]?.group && (
+                read (#75).
+
+                A topic with no area after one that has an area gets a heading
+                saying so. Printing nothing left it under the heading above, so
+                MA-T2 read as part of MA-T1 (#204). An ungrouped run at the top
+                has nothing above it to be mistaken for, and stays bare. */}
+            {topic.group !== course.topics[at - 1]?.group && (
               <li class="review__area">
                 <span class="det__label">{label}</span>
-                {topic.group}
+                {topic.group ?? <span class="muted">None</span>}
               </li>
             )}
             <TopicRow
