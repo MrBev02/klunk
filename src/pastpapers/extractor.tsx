@@ -885,35 +885,47 @@ export function Extractor({
    *
    * Anything already written is left alone: a saved question's id is what a
    * paper points at, and #64's sibling lesson is that renaming those silently
-   * would break every paper using them. The faults are recomputed with the ids,
-   * because a clash inside the target bank is one of the things they report.
+   * would break every paper using them. The faults are rechecked with the ids,
+   * because a clash inside the target bank is one of the things they report,
+   * and rechecked rather than recomputed so a reader's note survives (#237).
+   *
+   * A discard is remembered by id, so it follows its question to the new one.
+   * Worked out here rather than inside `setRead`, whose updater may run twice.
    */
   const retargetIds = (path: string) => {
+    if (read === null) return
+    const leaving = currentIds()
     const inFolder = questionIds(index)
     const inBank = new Set(
       (banks.find((b) => b.path === path)?.data.questions ?? []).map((q) => q.id),
     )
-    setRead((r) => {
-      if (r === null) return r
-      const taken = new Set(inFolder)
+    const taken = new Set(inFolder)
+    const now = new Map<string, string>()
+    const adopted = read.adopted.map((a) => {
+      // `savedAs`, because a question renamed as it was saved is in the folder
+      // under its new id while its card still carries the old one.
+      if (alreadySaved.has(savedAs(a))) {
+        taken.add(a.question.id)
+        return a
+      }
+      const id = suggestQuestionId(path, a.question.questionType, taken)
+      taken.add(id)
+      now.set(a.question.id, id)
+      const question = { ...a.question, id }
       return {
-        ...r,
-        adopted: r.adopted.map((a) => {
-          if (alreadySaved.has(a.question.id)) {
-            taken.add(a.question.id)
-            return a
-          }
-          const id = suggestQuestionId(path, a.question.questionType, taken)
-          taken.add(id)
-          const question = { ...a.question, id }
-          return {
-            ...a,
-            question,
-            faults: validateQuestion(withKept(question, a.pictures), { inBank, inFolder }),
-          }
-        }),
+        ...a,
+        question,
+        faults: recheckQuestion(
+          withKept(a.question, a.pictures),
+          a.faults,
+          withKept(question, a.pictures),
+          { inBank, inFolder },
+          leaving,
+        ),
       }
     })
+    setRead({ ...read, adopted })
+    setDiscarded((d) => d.map((id) => now.get(id) ?? id))
   }
 
   const chooseBank = (value: string) => {

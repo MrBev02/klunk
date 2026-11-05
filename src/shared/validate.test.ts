@@ -2034,6 +2034,21 @@ describe('recheckQuestion (#212)', () => {
 
     expect(after).toEqual([...validateQuestion(question(), emptyIdContext()), note])
   })
+
+  // A clash with the bank being left is this file's to drop, and asking the
+  // new bank alone does not recognise it, so it rode along to a bank where the
+  // id is free (#237).
+  it('drops a clash with the bank a question is leaving and keeps the note', () => {
+    const leaving = { inBank: new Set(['old-sa-01']), inFolder: new Set(['old-sa-01']) }
+    const before = question({ id: 'old-sa-01' })
+    const faults = [...validateQuestion(before, leaving), note]
+    expect(faults.some((f) => f.severity === 'error')).toBe(true)
+
+    const moved = question({ id: 'new-sa-01' })
+    const after = recheckQuestion(before, faults, moved, emptyIdContext(), leaving)
+
+    expect(after).toEqual([...validateQuestion(moved, emptyIdContext()), note])
+  })
 })
 
 describe('folder settings (#137)', () => {

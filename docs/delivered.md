@@ -561,6 +561,19 @@ to `QuestionDetail`. Verified in the browser on `../klunk-content`: the drink
 bottles stimulus, the triangle stimulus, and the four shapes of the prism
 question as Options A to D all showed as pictures.
 
+**A discard and a reader's note survive a change of bank** (#237). Choosing
+another bank gives every unsaved card a new id, and the discards were
+remembered by the old ones, so every discarded question came back; the cards'
+checks were also rebuilt from scratch, losing what the reader had noted. The
+discards now follow their questions to the new ids, and the checks are
+rechecked against the bank being left so only Klunk's own are replaced.
+Verified in the browser on the 2018 D&T paper and guide: three of 14 discarded
+leaves **Save 11**, and it stays at 11 cards with 11 "Worth checking against
+the paper" notes after choosing `ib-dt-p1-practice.json`, then **A new
+bank…**, then typing `bank/retarget-237.json` a key at a time. A question
+renamed as it was saved is also no longer given a new id, which follows from
+the code and was not driven.
+
 **Transcribing a past paper keeps printed code as code** (#136). The
 transcription prompt asks for it in `stimulus`, and a part's own stimulus is
 now read from a reply. Verified on **From a past paper**: a reply with an
