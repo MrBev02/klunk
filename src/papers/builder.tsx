@@ -588,6 +588,7 @@ export function Builder({
         onLinkSyllabus={linkSyllabus}
         linkCourse={linkCourse}
         panel={bankOpen}
+        images={index.images}
         onClose={closeBank}
       />
     </div>
@@ -1217,6 +1218,7 @@ function BankRail({
   linkCourse,
   panel,
   onClose,
+  images,
 }: {
   options: ReturnType<typeof allQuestions>
   /** No questions in the folder at all, as against none left for this section. */
@@ -1237,6 +1239,8 @@ function BankRail({
   /** Open as a panel over the page, which only happens on a narrow window. */
   panel: boolean
   onClose: () => void
+  /** The folder's pictures, so an expanded question shows what the library shows (#241). */
+  images: Map<string, string>
 }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -1392,7 +1396,7 @@ function BankRail({
                 </button>
                 {open === key && (
                   <div style={{ gridColumn: '1 / -1', padding: '0.5rem 0 0.7rem' }}>
-                    <QuestionDetail question={o.question} />
+                    <QuestionDetail question={o.question} bankFile={o.file} images={images} />
                   </div>
                 )}
               </li>
