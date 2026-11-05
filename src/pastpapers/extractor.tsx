@@ -1398,7 +1398,7 @@ export function Extractor({
           {read.adopted.length === 0 ? (
             <p class="hint">No questions were read from this paper.</p>
           ) : unsaved.length === 0 ? (
-            <p class="hint">Everything here has been saved or discarded.</p>
+            <p class="hint">{finished(live.length, read.adopted.length - live.length)}</p>
           ) : (
             <div class="rowbtns">
               <button
@@ -1428,6 +1428,21 @@ export function Extractor({
       )}
     </div>
   )
+}
+
+/**
+ * What became of a paper once nothing is left to save.
+ *
+ * Counted, because "saved or discarded" lumped the two together and read the
+ * same whether thirty questions had gone into the bank or none had. Every live
+ * question is in the folder by the time this shows, so live is the saved count.
+ */
+function finished(saved: number, discarded: number): string {
+  const n = (count: number) => `${count} question${count === 1 ? '' : 's'}`
+  if (saved === 0)
+    return `${discarded === 1 ? 'The one question was' : `All ${n(discarded)} were`} discarded, so nothing was saved.`
+  if (discarded === 0) return `${n(saved)} saved. The Questions tab lists them.`
+  return `${n(saved)} saved and ${discarded} discarded. The Questions tab lists the saved ones.`
 }
 
 /**
