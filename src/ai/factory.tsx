@@ -895,7 +895,23 @@ export function profileFor(
   syllabus: Syllabus | undefined,
   courseId?: string | undefined,
 ): Profile | undefined {
-  if (!syllabus) return undefined
+  return profilesFor(index, syllabus, courseId)[0]
+}
+
+/**
+ * Every profile that could be this course's, best first.
+ *
+ * More than one is ordinary since #225: a Year 8 course sets a term task and a
+ * yearly examination, and they differ in every mark. Taking the first is right
+ * for a hint and wrong for a paper being transcribed, whose prompt states the
+ * totals as fact, so the importer lists these and lets the teacher pick.
+ */
+export function profilesFor(
+  index: ContentIndex,
+  syllabus: Syllabus | undefined,
+  courseId?: string | undefined,
+): Profile[] {
+  if (!syllabus) return []
   const mine = index.profiles.filter((p) => p.data.syllabusId === syllabus.id)
 
   // A subject runs across several years and each sets its own papers (#49), so a
@@ -904,10 +920,10 @@ export function profileFor(
   // one level down, and it matters more here than in a mark-per-question hint:
   // `paperprompt.ts` prints the totals as what the paper says.
   if (courseId !== undefined) {
-    const exact = mine.find((p) => p.data.courseId === courseId)
-    if (exact) return exact.data
+    const exact = mine.filter((p) => p.data.courseId === courseId)
+    if (exact.length > 0) return exact.map((p) => p.data)
   }
-  return mine.find((p) => p.data.courseId === undefined)?.data
+  return mine.filter((p) => p.data.courseId === undefined).map((p) => p.data)
 }
 
 /**

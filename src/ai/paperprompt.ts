@@ -136,7 +136,22 @@ function whatThePaperIs(spec: PaperPromptSpec): string {
 
   const paper = spec.profile?.paper
   if (paper) {
-    lines.push(`${paper.totalMarks} marks.`)
+    // A banded paper prints more marks than it is out of (#225). Stating only
+    // the 45 above five 15-mark bands reads as a contradiction, and the model
+    // is told below to report one.
+    const sat = paper.sectionsSat
+    if (sat !== undefined && sat < paper.sections.length) {
+      const printed = paper.sections.reduce((sum, s) => sum + s.marks, 0)
+      lines.push(
+        `${printed} marks printed across ${paper.sections.length} sections. A student sits ` +
+          `${sat} of them, so the paper is out of ${paper.totalMarks}.`,
+      )
+    } else {
+      lines.push(`${paper.totalMarks} marks.`)
+    }
+    if (paper.numbering === 'bySection') {
+      lines.push('Each section numbers its questions from 1.')
+    }
     lines.push('')
     for (const section of paper.sections) {
       const count = section.questionCount ? `${section.questionCount} questions, ` : ''

@@ -788,6 +788,14 @@ and is out of 45.
   every section worth the same, no more sat than printed, and all of them sat
   is a warning that the field says nothing. `totalMarks` is what a student
   sitting that many can earn, and the cover prints that.
+- **A transcription prompt says so.** It gives the marks printed, how many
+  sections a student sits and what the paper is out of, and that each band
+  numbers from 1. Stating 45 above five 15-mark bands read as a contradiction
+  the model is told to report.
+- **A course can have several structures, and the importer asks which.** A
+  Year 8 course sets a term task and a yearly, which differ in every mark.
+  `profilesFor` lists them and the transcription panel offers them, with
+  "none" as a choice; `profileFor` still takes the first, for a hint.
 - **Which bands a student sits is not recorded.** It is decided per student,
   and the paper prints every band either way.
 - **The faculty's own structures live in its folder, not in `profiles/`.** A

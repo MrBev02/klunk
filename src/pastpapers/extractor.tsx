@@ -55,7 +55,7 @@ import {
   readPastPaper,
   type PaperFormat,
 } from './paperformats'
-import { courseChoices, profileFor } from '../ai/factory'
+import { courseChoices, profilesFor } from '../ai/factory'
 import {
   bankPathFault,
   CheckList,
@@ -105,6 +105,7 @@ import {
   stimulusList,
   type DocumentPurpose,
   type Manifest,
+  type Profile,
   type Question,
 } from '../shared/types'
 import {
@@ -370,6 +371,8 @@ export function Extractor({
   const [discarded, setDiscarded] = useState<string[]>([])
   const [renamed, setRenamed] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  /** The structure picked for the prompt: an id, `none`, or empty for the course's first. */
+  const [structureId, setStructureId] = useState('')
 
   const chosen = courses.find((c) => c.key === courseKey)
   const bankPath = bank === null ? normaliseBankPath(newBankPath) : bank
@@ -606,10 +609,16 @@ export function Extractor({
    * Rebuilt as the examination and year are typed, because both are printed in
    * it and a prompt naming the wrong paper is worse than one naming none.
    */
-  const transcribeProfile = useMemo(
-    () => profileFor(index, chosen?.syllabus, chosen?.course.id),
+  const structures = useMemo(
+    () => profilesFor(index, chosen?.syllabus, chosen?.course.id),
     [index, chosen],
   )
+  // A pick that is not among this course's structures, because the course has
+  // changed since, falls back to the first rather than to another course's.
+  const transcribeProfile =
+    structureId === 'none'
+      ? undefined
+      : (structures.find((p) => p.id === structureId) ?? structures[0])
 
   const transcribePrompt = useMemo(() => {
     if (!transcribe) return ''
@@ -1208,6 +1217,9 @@ export function Extractor({
           word={transcribe.word === true}
           prompt={transcribePrompt}
           profileName={transcribeProfile?.name}
+          structures={structures}
+          structureId={structureId === 'none' ? 'none' : (transcribeProfile?.id ?? '')}
+          onStructure={setStructureId}
           courseName={chosen ? `${chosen.syllabus.name}, ${chosen.course.name}` : undefined}
           examination={paperName}
           onExamination={setPaperName}
@@ -1580,6 +1592,9 @@ function TranscribePanel({
   word,
   prompt,
   profileName,
+  structures,
+  structureId,
+  onStructure,
   courseName,
   examination,
   onExamination,
@@ -1595,6 +1610,11 @@ function TranscribePanel({
   prompt: string
   /** The profile the structure came from, named because a borrowed one is invisible. */
   profileName?: string | undefined
+  /** Every structure this course could be, offered as a choice where there is one. */
+  structures: Profile[]
+  /** The one in use: an id, or `none`. */
+  structureId: string
+  onStructure: (id: string) => void
   courseName?: string | undefined
   examination: string
   onExamination: (v: string) => void
@@ -1659,17 +1679,41 @@ function TranscribePanel({
       {/* The course above is a default until somebody changes it, and the profile
           follows the course, so the totals in this prompt can be another
           examination's entirely. They are stated to the model as fact, so the
-          one thing that must not happen is their arriving unattributed. */}
-      <p class="hint">
-        {profileName !== undefined
-          ? `Structure taken from ${profileName}. Change the course above if that is not ` +
-            'this paper.'
-          : courseName === undefined
-            ? 'The prompt does not say how the paper is laid out. Choose a course above to ' +
-              'take that from its paper structure.'
-            : `No paper structure for ${courseName} in this folder, so the prompt does not say ` +
-              'how the paper is laid out.'}
-      </p>
+          one thing that must not happen is their arriving unattributed. Where
+          the course has several, a term task and a yearly say, the teacher
+          picks, because the first is as likely wrong as right (#225). */}
+      {structures.length > 1 ? (
+        <Field
+          label="Which paper structure is this?"
+          for="tr-structure"
+          hint="The prompt gives the AI this structure's marks as what the paper prints."
+        >
+          <select
+            id="tr-structure"
+            class="input"
+            value={structureId}
+            onChange={(e) => onStructure((e.target as HTMLSelectElement).value)}
+          >
+            {structures.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            <option value="none">None of these, so the prompt does not describe the layout</option>
+          </select>
+        </Field>
+      ) : (
+        <p class="hint">
+          {profileName !== undefined
+            ? `Structure taken from ${profileName}. Change the course above if that is not ` +
+              'this paper.'
+            : courseName === undefined
+              ? 'The prompt does not say how the paper is laid out. Choose a course above to ' +
+                'take that from its paper structure.'
+              : `No paper structure for ${courseName} in this folder, so the prompt does not say ` +
+                'how the paper is laid out.'}
+        </p>
+      )}
 
       {/* The button rides with the prompt rather than with the step heading.
           In the heading it was four blocks and two fields above the thing it
