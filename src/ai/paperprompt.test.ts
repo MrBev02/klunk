@@ -116,6 +116,25 @@ describe('what the paper is', () => {
     expect(prompt).not.toMatch(/Those totals are what the paper prints/)
     expect(prompt).not.toContain('Section I:')
   })
+
+  it('says a banded paper prints more than it is out of, and numbers each band from 1 (#225)', () => {
+    const bands = ['Support', 'Standard', 'Advanced', 'Extension', 'Beyond']
+    const banded: Profile = {
+      ...profile,
+      paper: {
+        totalMarks: 45,
+        sectionsSat: 3,
+        numbering: 'bySection',
+        sections: bands.map((name) => ({ id: name.toLowerCase(), name, marks: 15 })),
+      },
+    }
+    const prompt = buildPaperPrompt({ ...BASE, profile: banded })
+    expect(prompt).toMatch(
+      /75 marks printed across 5 sections\. A student sits 3 of them, so the paper is out of 45\./,
+    )
+    expect(prompt).toContain('Each section numbers its questions from 1.')
+    expect(prompt).toContain('Support: 15 marks')
+  })
 })
 
 describe('tagging', () => {

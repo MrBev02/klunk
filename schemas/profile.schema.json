@@ -60,6 +60,19 @@
           }
         },
 
+        "numbering": {
+          "type": "string",
+          "enum": ["continuous", "bySection"],
+          "default": "continuous",
+          "description": "Whether question numbers run on across sections, as on a NESA paper, or start again at 1 in each, as on a school's banded mathematics task, where every band numbers from 1."
+        },
+
+        "sectionsSat": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many of the sections a student sits, where the paper prints more than any one student answers. A banded Year 8 mathematics task prints five 15-mark bands and a student sits three, so it is sectionsSat 3 and totalMarks 45. Every section has to be worth the same, for the same reason as a section's chooseCount. Absent means a student sits every section."
+        },
+
         "sections": {
           "type": "array",
           "minItems": 1,

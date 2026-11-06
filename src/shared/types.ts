@@ -260,6 +260,16 @@ export interface Profile {
       marksAwardedColumn?: boolean
       answerSheet?: boolean
     }
+    /**
+     * Whether numbers start again at 1 in each section. The faculty's banded
+     * mathematics tasks do, and a NESA paper's run on (#225).
+     */
+    numbering?: 'continuous' | 'bySection'
+    /**
+     * How many sections a student sits, where they sit a few of the bands
+     * printed. Absent means every section, as before (#225).
+     */
+    sectionsSat?: number
     sections: ProfileSection[]
   }
   questionTypes?: QuestionType[]
@@ -942,6 +952,18 @@ export function sameLines(a?: string[], b?: string[]): boolean {
   const left = tidy(a)
   const right = tidy(b)
   return left.length === right.length && left.every((line, i) => line === right[i])
+}
+
+/**
+ * What a student can earn from sections worth these marks, sitting `sat` of them.
+ *
+ * The best `sat` rather than the first, as with a section's alternatives. Every
+ * section is meant to be worth the same and the checker says so where they are
+ * not, but a total worked out from the wrong ones would add a second error.
+ */
+export function sittableMarks(marks: number[], sat?: number): number {
+  const kept = sat === undefined ? marks : [...marks].sort((a, b) => b - a).slice(0, sat)
+  return kept.reduce((sum, m) => sum + m, 0)
 }
 
 export function parseRef(ref: PaperRef): { file: string; questionId: string } | null {

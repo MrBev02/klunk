@@ -772,6 +772,35 @@ because answers were keyed by number alone.
   before the prompt asked for sections. Where no number repeats, the number is
   the whole key, exactly as before.
 
+## A banded paper
+
+**A profile can number each section from 1 and say a student sits only some
+of its sections** (#225). Read off the faculty's Year 8 and 9 mathematics
+papers: five bands from Support to Beyond, each worth the same, each numbering
+from 1, and a student sits three adjacent bands, so a term task prints 75 marks
+and is out of 45.
+
+- **`paper.numbering: "bySection"`** restarts the number in `resolvePaper`, so
+  the paper, the marking guide, the cover's question ranges and a release all
+  agree. A checker message that names only a number names the band too. An
+  answer sheet is refused alongside it, since its rows are keyed by number.
+- **`paper.sectionsSat`** is `chooseCount` one level up, with its three rules:
+  every section worth the same, no more sat than printed, and all of them sat
+  is a warning that the field says nothing. `totalMarks` is what a student
+  sitting that many can earn, and the cover prints that.
+- **A transcription prompt says so.** It gives the marks printed, how many
+  sections a student sits and what the paper is out of, and that each band
+  numbers from 1. Stating 45 above five 15-mark bands read as a contradiction
+  the model is told to report.
+- **A course can have several structures, and the importer asks which.** A
+  Year 8 course sets a term task and a yearly, which differ in every mark.
+  `profilesFor` lists them and the transcription panel offers them, with
+  "none" as a choice; `profileFor` still takes the first, for a hint.
+- **Which bands a student sits is not recorded.** It is decided per student,
+  and the paper prints every band either way.
+- **The faculty's own structures live in its folder, not in `profiles/`.** A
+  school's task shape is the school's, not a public fact.
+
 ## A formula that will not set
 
 **A formula KaTeX cannot read is a warning that leaves the question

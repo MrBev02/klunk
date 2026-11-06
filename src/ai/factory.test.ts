@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { profileFor } from './factory'
+import { profileFor, profilesFor } from './factory'
 import type { ContentIndex } from '../folder/storage'
 import type { Profile, Syllabus } from '../shared/types'
 
@@ -72,5 +72,26 @@ describe('profileFor', () => {
 
   it('still finds a course-less profile when no course id is passed', () => {
     expect(profileFor(index(profile('any', 'bio')), syllabus)?.id).toBe('any')
+  })
+})
+
+describe('profilesFor', () => {
+  it('offers every structure for the course, so a term task and a yearly are both there (#225)', () => {
+    const found = profilesFor(
+      index(
+        profile('task', 'bio', 'y8'),
+        profile('yearly', 'bio', 'y8'),
+        profile('y9', 'bio', 'y9'),
+      ),
+      syllabus,
+      'y8',
+    )
+    expect(found.map((p) => p.id)).toEqual(['task', 'yearly'])
+  })
+
+  it('falls back to course-less ones only where none names the course', () => {
+    const both = index(profile('any', 'bio'), profile('task', 'bio', 'y8'))
+    expect(profilesFor(both, syllabus, 'y8').map((p) => p.id)).toEqual(['task'])
+    expect(profilesFor(both, syllabus, 'y9').map((p) => p.id)).toEqual(['any'])
   })
 })

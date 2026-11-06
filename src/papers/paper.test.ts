@@ -481,6 +481,62 @@ describe('checkPaper', () => {
     })
   })
 
+  describe('a banded paper, three of five bands sat', () => {
+    // The faculty's Year 8 task (#225): five bands of 15, each numbering from 1.
+    const bands = ['Support', 'Standard', 'Advanced', 'Extension', 'Beyond']
+    const bandedProfile: Profile = {
+      formatVersion: '1',
+      type: 'klunk_profile',
+      id: 'y8',
+      name: 'Year 8 task',
+      paper: {
+        totalMarks: 45,
+        numbering: 'bySection',
+        sectionsSat: 3,
+        sections: bands.map((name) => ({ id: name.toLowerCase(), name, marks: 15 })),
+      },
+    }
+
+    /** Two questions a band, 10 and 5, with Beyond's second made up to `beyond`. */
+    function bandedPaper(beyond = 15) {
+      const index = indexWith(
+        bands.flatMap((b) => [
+          written(`${b}-1`, 10),
+          written(`${b}-2`, b === 'Beyond' ? beyond - 10 : 5),
+        ]),
+      )
+      let paper = newPaper(bandedProfile, 'y8', 'Y8')
+      bands.forEach((b, at) => {
+        paper = addRef(paper, at, `bank/test.json#${b}-1`)
+        paper = addRef(paper, at, `bank/test.json#${b}-2`)
+      })
+      return { index, paper }
+    }
+
+    it('numbers each band from 1', () => {
+      const { index, paper } = bandedPaper()
+      const resolved = resolvePaper(index, paper, bandedProfile)
+      expect(resolved.sections.map((s) => s.questions.map((q) => q.number))).toEqual(
+        bands.map(() => [1, 2]),
+      )
+    })
+
+    it('totals what a student sits and passes the checker', () => {
+      const { index, paper } = bandedPaper()
+      const resolved = resolvePaper(index, paper, bandedProfile)
+      expect(resolved.totalMarks).toBe(45)
+      expect(checkPaper(resolved).filter((c) => c.severity === 'error')).toEqual([])
+    })
+
+    it('still holds each band to its own marks', () => {
+      const { index, paper } = bandedPaper(20)
+      const checks = checkPaper(resolvePaper(index, paper, bandedProfile))
+      expect(checks.some((c) => c.where === 'Beyond' && c.message.includes('expects 15'))).toBe(
+        true,
+      )
+    })
+  })
+
   it('catches the same question used twice', () => {
     const { index, paper } = goodPaper()
     const dupe = addRef(paper, 1, 'bank/test.json#a')
