@@ -27,6 +27,17 @@ API moving to `typescript/unstable/*` costs this repository nothing, which is
 why `dist/` and `dist-single/` came out byte-identical either side of the
 upgrade.
 
+**Line endings are LF everywhere, and `.gitattributes` says so** (#250). Git
+for Windows installs with `core.autocrlf=true`, so a checkout writes CRLF, and
+Prettier writes LF. Every file Prettier or an editor rewrote then showed as
+modified in `git status` while `git diff` was empty and the blob hashes
+matched: 127 of them at once, with "LF will be replaced by CRLF the next time
+Git touches it" against each, and `git update-index --refresh` did not clear
+them. `* text=auto eol=lf` overrides `autocrlf` for this repository alone and
+travels with the clone, which a `--local` setting would not. If a file ever
+shows as modified with nothing in its diff, `git ls-files --eol` is the first
+thing to look at: anything other than `w/lf` is the cause.
+
 ## The machine
 
 **This section describes one machine: the user's Mac, where all of it was
