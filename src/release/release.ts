@@ -5,9 +5,9 @@
  * file it writes. `folder/storage.ts` does the writing.
  *
  * **The unit is one exam**, of two kinds. An **imported exam** is the bank
- * questions that share a source paper and year: one read in from From a past
- * paper never becomes a Klunk paper, so a paper's date and year group are not
- * there to lean on, and the teacher gives the date it was sat. A **paper built
+ * questions that share a source paper and year. One read in from From a past
+ * paper may become a Klunk paper as well (#249), but that paper has no date
+ * and is not offered here, so the teacher gives the date it was sat. A **paper built
  * in Klunk** has a date on its cover, but that is the day it is first sat, not
  * the day the last catch-up sits it, so the teacher still gives that date and
  * it may not be earlier. A built paper's release carries what it printed: its
@@ -181,7 +181,12 @@ export function paperKey(id: string): string {
  * offered once, at its first printing.
  */
 export function builtPapers(index: ContentIndex): BuiltPaper[] {
-  const out = index.papers.map(({ data: paper }): BuiltPaper => {
+  // A paper read in from a past paper is already offered, as the imported exam
+  // its questions make (#249). Offered here too, the same questions would go
+  // out twice, under two dates, and a ledger that already released them under
+  // `paper|year` would see a new exam.
+  const built = index.papers.filter(({ data }) => !data.source)
+  const out = built.map(({ data: paper }): BuiltPaper => {
     const profile = index.profiles.find((p) => p.data.id === paper.profileId)?.data
     const resolved = resolvePaper(index, paper, profile)
     const questions: QuestionRef[] = []
@@ -310,6 +315,9 @@ export function embargo(
   for (const { data: paper } of index.papers) {
     // The paper being released is checked above, against the date sat.
     if (paper.id === own) continue
+    // A paper read in from a past paper has been sat, and has no date to say
+    // so: it is the exam being released, under its year (#249).
+    if (paper.source) continue
     const date = paper.school?.date
     const sat = date !== undefined && ISO_DATE.test(date) && date < today
     if (sat) continue

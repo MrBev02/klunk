@@ -801,6 +801,45 @@ and is out of 45.
 - **The faculty's own structures live in its folder, not in `profiles/`.** A
   school's task shape is the school's, not a public fact.
 
+## A paper read in from a past paper
+
+**Importing a transcribed paper writes a Klunk paper beside its questions**
+(#249). Before, a teacher wanting the Year 8 task back picked 43 questions
+out of a bank again, band by band.
+
+- **Only on the transcription route, and only with a structure.** The teacher
+  has just named the structure there (#247). A paper Klunk read itself was
+  never asked, and the course's first structure is a guess this would write
+  into the folder. Choosing "none" saves the questions and says no paper was
+  made.
+- **Bands are placed by `source.section`**, as loosely as `sameSection` in
+  `adopt.ts` ("Support" is "Support Band"), with an exact name taken first so
+  "Standard" is not "Standard Plus". A section the structure lacks, a name
+  two sections could be, or questions naming none under a structure of
+  several, makes no paper and says why. A structure of one section takes
+  everything.
+- **`paper.source` is what marks it**, and `cleanPaper` carries it, because
+  every save in the builder runs through that and dropped it would turn the
+  paper into one built here. The release screen leaves such a paper out: its
+  questions are already offered as the imported exam under `paper|year`, the
+  key a ledger may already hold, and the paper has no date of its own. The
+  embargo skips it for the same reason, or its own questions would be held
+  back for ever by a paper "with no date".
+- **It is `used`**, which is what a past paper is, so the builder warns before
+  one of its questions goes on another paper. "Taken from the 2025 Year 8 Task
+  1; students may have seen it" is not raised on the paper it was taken from:
+  43 of them on the Year 8 task buried everything else.
+- **A discarded question leaves a gap the checker names**, from the original
+  numbers the questions carry, counted in the same run the paper numbers in.
+  The paper holds what was saved and numbers it as it is. Only gaps show: a
+  last question missing leaves nothing behind it.
+- **A second import of the same paper is a second paper**, `-2`, since its
+  questions are a second set in the bank. `savePaper` would refuse the first
+  one's file anyway.
+- **A transcribed question's options keep their printed order**: `shuffle`
+  is set false where the reply gives none, as `adopt.ts` always did for a read
+  one, so the reprint letters what the students saw.
+
 ## A formula that will not set
 
 **A formula KaTeX cannot read is a warning that leaves the question

@@ -63,7 +63,26 @@
       "items": { "$ref": "#/$defs/section" }
     },
 
-    "notes": { "type": "string", "description": "Teacher-facing. Never printed." }
+    "notes": { "type": "string", "description": "Teacher-facing. Never printed." },
+
+    "source": {
+      "type": "object",
+      "description": "The past paper this one was read in from, when Klunk made it while importing that paper's questions. Absent on a paper built in Klunk. Its questions carry the same examination and year, and are released under those, so a paper holding this is not offered for release itself.",
+      "required": ["paper"],
+      "additionalProperties": false,
+      "properties": {
+        "paper": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The examination, as its questions' source.paper names it."
+        },
+        "year": { "type": "integer" },
+        "document": {
+          "type": "string",
+          "description": "The file it was read from, relative to the content folder."
+        }
+      }
+    }
   },
 
   "$defs": {

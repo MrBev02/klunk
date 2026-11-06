@@ -523,6 +523,22 @@ questions in five bands: 43 of 43 marked, no question marked twice, each
 band's answer on its own band's question, and Advanced Q7's parts (a) and (b)
 on their own parts. Nothing was saved.
 
+**A transcribed paper becomes a Klunk paper as well as questions** (#249).
+Where the transcription panel was given a structure, saving writes
+`papers/<year>-<examination>.json` beside the bank: its sections are the
+structure's, each band's questions in printed order, it is marked as sat,
+and it records the paper it came from in `source`. The review panel names
+the file, or says why no paper was made. Verified in the browser on the 2025
+Year 8 task with a stand-in transcription of its 43 questions at their real
+marks, under a `Year 8 term task` structure of five 15-mark bands: saved
+with no marking reply, the paper opened with 9, 9, 9, 9 and 7 questions,
+15/15 marks a band, and no problem except the 43 missing answers; saved
+again with a stand-in marking reply, as `-2`, the checker showed no problem
+at all and the preview printed 45 marks over five bands numbered 1–9 and
+1–7; saved a third time with Advanced Q2 discarded, as `-3`, it reported
+Advanced 13 of 15 and that Question 2 of the paper is not on it. Release to
+students listed none of the three papers, and the exam once.
+
 **A transcribed Word paper takes its pictures from the file** (#207). Once the
 reply is read, each question is offered the pictures in its table row of the
 `.docx`, matched by number in paper order. An Efofex formula is left out, an

@@ -261,6 +261,22 @@ describe('the fields Klunk keeps for itself', () => {
     expect(draft.question.tags).toEqual(['ergonomics', 'year-11', AI_TAG])
   })
 
+  // A transcribed paper's options are in the order the students saw them, so
+  // the paper an import makes (#249) reprints with the same letters.
+  it('keeps the printed option order of a transcribed paper, unless the reply says otherwise', () => {
+    const mc = (config: Record<string, unknown>) =>
+      answer({
+        questionType: 'multiple_choice',
+        marks: 1,
+        config: { choices: [{ text: 'A' }, { text: 'B' }], correctAnswer: 0, ...config },
+      })
+    const paper = ctx({ paper: { examination: 'Year 8 Task 1', year: 2025 } })
+    expect(first(mc({}), paper).draft.question.config?.shuffle).toBe(false)
+    expect(first(mc({ shuffle: true }), paper).draft.question.config?.shuffle).toBe(true)
+    // Drafted rather than transcribed, there is no printed order to keep.
+    expect(first(mc({})).draft.question.config?.shuffle).toBeUndefined()
+  })
+
   it('throws away a provenance the model made up, and says so', () => {
     const { draft } = first(answer({ source: { origin: 'extracted', year: 2019 } }))
     expect(draft.question.source).toBeUndefined()
