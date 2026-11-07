@@ -354,6 +354,13 @@ export function Help({ from, onClose }: { from: string[]; onClose: () => void })
         </p>
 
         <p>
+          <strong>The paper itself, as well as its questions.</strong> Choose the paper structure on
+          the transcription panel and saving also writes the paper to <code>papers/</code>, each
+          section in printed order and marked as already sat. Open it on Papers to check or reprint
+          it. A question you discarded shows there as missing.
+        </p>
+
+        <p>
           <strong>A paper with no marking guide.</strong> Save it anyway. Klunk records no answer
           rather than inventing one, so the questions go in tagged <code>needs-finishing</code> and
           the marking guide prints "No answer recorded" until you set them. Tick{' '}

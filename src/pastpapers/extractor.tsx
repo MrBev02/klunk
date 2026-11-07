@@ -80,6 +80,7 @@ import { markingFromGuide, skeletonFor, type MarkingSkeleton } from './marking'
 import { buildPaperPrompt } from '../ai/paperprompt'
 import { cutOut, picturesFor, type Cutout } from '../documents/pdfimage'
 import { wordPicturesFor, type WordPicture } from './wordpictures'
+import { importedPaper, importedPaperId, importedTitle } from './importedpaper'
 import { hasMarkup } from '../shared/richtext'
 import { openPdf, pagesFromDocument, readPdf } from '../documents/pdftext'
 import { QuestionDetail, useChosenImages } from '../questions/question'
@@ -93,6 +94,7 @@ import {
   questionIds,
   readBytes,
   rememberDocument,
+  savePaper,
   saveQuestion,
   writeChosenPictures,
   type ChosenPictures,
@@ -110,6 +112,7 @@ import {
 } from '../shared/types'
 import {
   blocksSaving,
+  cleanPaper,
   cleanQuestion,
   recheckQuestion,
   suggestQuestionId,
@@ -373,6 +376,18 @@ export function Extractor({
   const [saving, setSaving] = useState(false)
   /** The structure picked for the prompt: an id, `none`, or empty for the course's first. */
   const [structureId, setStructureId] = useState('')
+  /**
+   * Where each card was written, by its id on screen: the bank, and the id it
+   * went in under, which `saveQuestion` may have changed. The paper an import
+   * makes (#249) is built from this, because it must point at what is on disk.
+   */
+  const [writtenTo, setWrittenTo] = useState<Record<string, { file: string; id: string }>>({})
+  /**
+   * The paper this import made, once it has made one, so a second save rewrites
+   * it rather than adding another; or why it made none.
+   */
+  const [paperMade, setPaperMade] = useState<{ id: string; path: string } | null>(null)
+  const [paperNote, setPaperNote] = useState('')
 
   const chosen = courses.find((c) => c.key === courseKey)
   const bankPath = bank === null ? normaliseBankPath(newBankPath) : bank
@@ -463,6 +478,9 @@ export function Extractor({
     setFailed('')
     setDiscarded([])
     setRenamed({})
+    setWrittenTo({})
+    setPaperMade(null)
+    setPaperNote('')
     setRead(null)
     setTranscribe(null)
     setMarkingAsk(null)
@@ -692,6 +710,10 @@ export function Extractor({
     }
 
     let adopted = out.drafts.map(asAdopted)
+    // A new reply is new cards, so a paper made from the last one is not theirs.
+    setWrittenTo({})
+    setPaperMade(null)
+    setPaperNote('')
     const notes = [
       ...out.notes,
       ...out.rejected.map((r) => `Entry ${r.at + 1} was not a question: ${r.why}`),
@@ -1051,9 +1073,65 @@ export function Extractor({
     )
   }
 
+  /**
+   * Write the paper the saved questions make, or say why there is none (#249).
+   *
+   * Only for a transcribed paper, where the teacher has just said which
+   * structure it is. A paper Klunk read itself was never asked that, and the
+   * course's first structure is a guess this would write into the folder.
+   * Rewritten on every save, since a paper saved in two goes is one paper.
+   * Never throws: by now the questions are in the bank, and a paper that could
+   * not be written must not read as questions that were not.
+   */
+  const makePaper = async (written: Record<string, { file: string; id: string }>) => {
+    if (!transcribe) return
+    if (!transcribeProfile) {
+      setPaperNote(
+        'No paper was made: no paper structure was chosen. Build the paper from the bank on Papers.',
+      )
+      return
+    }
+    const saved = live.flatMap((a) => {
+      const to = written[a.question.id]
+      return to ? [{ question: { ...a.question, id: to.id }, file: to.file }] : []
+    })
+    const model = index.syllabuses.find((s) => s.data.id === transcribeProfile.syllabusId)?.data
+    const title = importedTitle(paperName, typedYear)
+    const made = importedPaper({
+      structure: transcribeProfile,
+      examination: paperName,
+      year: typedYear,
+      document: paperPath,
+      saved,
+      id: paperMade?.id ?? importedPaperId(title, new Set(index.papers.map((p) => p.data.id))),
+      about: {
+        subject: model?.name,
+        course: model?.courses.find((c) => c.id === transcribeProfile.courseId)?.name,
+      },
+    })
+    if ('refused' in made) {
+      setPaperNote(made.refused)
+      return
+    }
+    try {
+      const { path } = await savePaper(folder, cleanPaper(made.paper, transcribeProfile), {
+        replacing: paperMade !== null,
+      })
+      setPaperMade({ id: made.paper.id, path })
+      setPaperNote('')
+    } catch (err) {
+      setPaperNote(
+        `The paper was not saved: ${(err as Error).message} The questions are saved in ${bankPath}.`,
+      )
+    }
+  }
+
   const saveReady = async () => {
     setSaving(true)
     setFailed('')
+    // Outside the try, so a save that fails part way still remembers what it
+    // wrote: those questions are in the bank, and the next save's paper needs them.
+    const wrote: Record<string, { file: string; id: string }> = {}
     try {
       const moved: Record<string, string> = {}
       for (const item of ready) {
@@ -1102,8 +1180,12 @@ export function Extractor({
           ...(bank === null && newBankName.trim() ? { name: newBankName.trim() } : {}),
         })
         if (written.reassignedFrom !== undefined) moved[written.reassignedFrom] = written.id
+        wrote[item.question.id] = { file: bankPath, id: written.id }
       }
       setRenamed((r) => ({ ...r, ...moved }))
+      const allWritten = { ...writtenTo, ...wrote }
+      setWrittenTo(allWritten)
+      await makePaper(allWritten)
       // Where this paper's questions ended up, which nothing has recorded until
       // now: a bank holds the examination and the year, and never the file they
       // were read out of.
@@ -1112,6 +1194,7 @@ export function Extractor({
       }
       onSaved()
     } catch (err) {
+      setWrittenTo((w) => ({ ...w, ...wrote }))
       setFailed((err as Error).message)
     } finally {
       setSaving(false)
@@ -1436,6 +1519,13 @@ export function Extractor({
               )}
             </div>
           )}
+          {paperMade && (
+            <p class="hint">
+              The paper is saved too, as <span class="mono">{paperMade.path}</span>. Open it on
+              Papers to check or print it.
+            </p>
+          )}
+          {paperNote && <p class="missing">{paperNote}</p>}
         </section>
       )}
     </div>

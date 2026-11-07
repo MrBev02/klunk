@@ -545,6 +545,7 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   }
 
   checks.push(...letterBalance(resolved))
+  checks.push(...importGaps(resolved))
 
   if (!profile) {
     checks.push({
@@ -740,7 +741,14 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
       }
 
       const src = q.question.source
-      if (src?.origin === 'extracted' && src.year) {
+      // Not on the paper it was read from (#249). That paper is the exam
+      // students sat, so every question on it would say so, 43 times on the
+      // Year 8 task, and the line meant for a reused question would be lost.
+      const own =
+        paper.source !== undefined &&
+        paper.source.paper === src?.paper &&
+        paper.source.year === src.year
+      if (src?.origin === 'extracted' && src.year && !own) {
         checks.push({
           severity: 'warning',
           where: section.title,
@@ -807,6 +815,64 @@ export function checkPaper(resolved: ResolvedPaper): Check[] {
   }
 
   return sortChecks(checks)
+}
+
+/**
+ * Questions of a past paper that its imported copy does not hold (#249).
+ *
+ * A question discarded at review leaves the import's paper one short, and the
+ * paper numbers what it has, so the original's Question 4 prints as 3. That is
+ * the right paper to make — it holds what was saved — but a teacher reprinting
+ * it has to be told, and the marks only say so where the missing question was
+ * worth something the section needed. Found from the numbers the questions
+ * carry from the original, counted in the same run the paper numbers in. Only
+ * the gaps: a last question missing leaves no number behind to show it.
+ */
+function importGaps(resolved: ResolvedPaper): Check[] {
+  const source = resolved.paper.source
+  if (!source) return []
+  const bySection = resolved.profile?.paper.numbering === 'bySection'
+  const runs = bySection
+    ? resolved.sections.map((s) => ({
+        where: s.title as string | undefined,
+        questions: s.questions,
+      }))
+    : [{ where: undefined, questions: resolved.sections.flatMap((s) => s.questions) }]
+
+  const exam = `the ${importedName(source)}`
+  const out: Check[] = []
+  for (const run of runs) {
+    const numbers = new Set<number>()
+    for (const { question } of run.questions) {
+      const from = question.source
+      if (from?.paper !== source.paper || from.year !== source.year) continue
+      const n = /^\d+$/.test(from.questionNumber?.trim() ?? '') ? Number(from.questionNumber) : NaN
+      if (Number.isInteger(n)) numbers.add(n)
+    }
+    if (numbers.size === 0) continue
+    const missing: number[] = []
+    for (let n = 1; n < Math.max(...numbers); n += 1) if (!numbers.has(n)) missing.push(n)
+    if (missing.length === 0) continue
+    const listed =
+      missing.length === 1
+        ? `Question ${missing[0]}`
+        : `Questions ${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`
+    out.push({
+      severity: 'warning',
+      where: run.where,
+      message:
+        `${listed} of ${exam} ${missing.length === 1 ? 'is' : 'are'} not on this paper, so the ` +
+        `questions after ${missing.length === 1 ? 'it' : 'them'} print with different numbers ` +
+        'from the original.',
+    })
+  }
+  return out
+}
+
+function importedName(source: NonNullable<Paper['source']>): string {
+  return source.year === undefined || source.paper.includes(String(source.year))
+    ? source.paper
+    : `${source.year} ${source.paper}`
 }
 
 /**

@@ -614,6 +614,18 @@ export interface Paper {
   shuffleVersion?: 1 | 2
   sections: PaperSection[]
   notes?: string
+  /**
+   * The past paper this one was read in from (#249). Absent on a paper built
+   * in Klunk. Its questions carry the same examination and year, which is what
+   * the release screen offers them under, so a paper holding this is not
+   * offered for release as well.
+   */
+  source?: {
+    paper: string
+    year?: number
+    /** Folder-relative, the document it was read from. */
+    document?: string
+  }
 }
 
 /* ------------------------------------------------------------------ manifest */

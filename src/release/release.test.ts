@@ -122,6 +122,33 @@ describe('embargo', () => {
   })
 })
 
+describe('a paper read in from a past paper (#249)', () => {
+  // The paper the import makes: no date, and the same questions the imported
+  // exam is made of.
+  const imported: Paper = {
+    ...paper('y8-task-1', ['1', '2']),
+    status: 'used',
+    source: { paper: 'Year 8 Task 1', year: 2025 },
+  }
+  const index = folder(
+    [question('1'), question('2')],
+    [imported, paper('yearly', ['2'], '2026-12-03')],
+  )
+
+  it('is offered once, as the imported exam, and not again as a paper', () => {
+    expect(importedExams(index).map((e) => e.key)).toEqual(['Year 8 Task 1|2025'])
+    expect(builtPapers(index).map((e) => e.paper.id)).toEqual(['yearly'])
+  })
+
+  it('does not hold back its own questions for having no date', () => {
+    const [exam] = importedExams(index)
+    const held = embargo(exam!, '2025-06-10', index, TODAY).questions
+    expect(held.has('1')).toBe(false)
+    // A paper built here that reuses one still does.
+    expect(held.get('2')).toMatch(/Paper yearly/)
+  })
+})
+
 describe('studentCopy', () => {
   const q = question('9', {
     questionType: 'multiple_choice',

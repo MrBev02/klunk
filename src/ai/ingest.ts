@@ -451,6 +451,11 @@ export function readQuestion(
 
   const { config: configSource, lifted } = liftConfig(questionType, src, repairs)
   question.config = readConfig(questionType, configSource, repairs)
+  // Off on a transcribed paper, as `adopt.ts` sets it on a read one: the option
+  // order of a printed paper is part of the record, and the paper an import now
+  // makes (#249) should reprint with the letters the students saw.
+  const cfg = question.config
+  if (ctx.paper && cfg.shuffle === undefined && (cfg.choices || cfg.options)) cfg.shuffle = false
 
   const provenance = readPaperSource(src, ctx, repairs)
   if (provenance) question.source = provenance

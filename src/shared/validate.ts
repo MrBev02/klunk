@@ -1405,6 +1405,12 @@ export function cleanPaper(draft: Paper, profile?: Profile): Paper {
   })
   if (school) out.school = school
 
+  // Nothing on screen edits it, so it is carried rather than cleaned. Dropped
+  // here, the first save in the builder would quietly turn a paper read in from
+  // a past paper into one built here, and the release screen would offer its
+  // questions twice (#249).
+  if (draft.source?.paper) out.source = { ...draft.source }
+
   for (const field of ['readingMinutes', 'workingMinutes'] as const) {
     const value = draft[field]
     // A negative cannot be written to a valid file at all (`minimum: 0`) and the
