@@ -525,3 +525,36 @@ export function patched<T extends object>(base: T, patch: Patch<T>): T {
   }
   return out as T
 }
+
+/** The id a draft card carries, so a sentence about it can link to it (#257). */
+export function draftAnchor(questionId: string): string {
+  return `draft-${questionId}`
+}
+
+/**
+ * The card numbers a summary sentence is about, each one a link to its card.
+ *
+ * "3 of these are not finished" on its own sent the teacher scanning thirty
+ * cards for the three (#257). The number is the one printed at the card's
+ * corner, so the link and the card it lands on agree.
+ */
+export function DraftJumps({ cards }: { cards: { at: number; id: string }[] }) {
+  const jump = (id: string) => {
+    const card = document.getElementById(draftAnchor(id))
+    if (!card) return
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    card.focus({ preventScroll: true })
+  }
+  return (
+    <>
+      {cards.map((c, i) => (
+        <Fragment key={c.id}>
+          {i === 0 ? '' : i === cards.length - 1 ? ' and ' : ', '}
+          <button type="button" class="draft__jump" onClick={() => jump(c.id)}>
+            {c.at + 1}
+          </button>
+        </Fragment>
+      ))}
+    </>
+  )
+}

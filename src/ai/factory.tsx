@@ -21,6 +21,8 @@ import {
   bankPathFault,
   CheckList,
   CopyButton,
+  DraftJumps,
+  draftAnchor,
   Field,
   normaliseBankPath,
   startingBank,
@@ -210,6 +212,11 @@ export function Factory({
   const ready = unsaved.filter((d) => !blocksSaving(d.faults))
   const stuck = unsaved.length - ready.length
   const owed = ready.filter((d) => d.faults.some((f) => f.unfinished)).length
+  // The card numbers behind those two counts, so the sentences can link to them (#257).
+  const cardsWhere = (keep: (d: Draft) => boolean) =>
+    live.flatMap((d, at) => (unsaved.includes(d) && keep(d) ? [{ at, id: d.question.id }] : []))
+  const owedCards = cardsWhere((d) => !blocksSaving(d.faults) && d.faults.some((f) => f.unfinished))
+  const stuckCards = cardsWhere((d) => blocksSaving(d.faults))
 
   /** Put a draft edited in the editor back in the list, to be saved with the rest (#212). */
   const takeEdit = (id: string, question: Question, chosen: ChosenPictures) => {
@@ -644,15 +651,17 @@ export function Factory({
                 </div>
                 {owed > 0 && (
                   <p class="hint">
-                    {owed} of these {owed === 1 ? 'is' : 'are'} not finished. They save with a{' '}
+                    {owed === 1 ? 'Question' : 'Questions'} <DraftJumps cards={owedCards} />{' '}
+                    {owed === 1 ? 'is' : 'are'} not finished. They save with a{' '}
                     <span class="mono">needs-finishing</span> mark, and the Questions tab lists
                     them.
                   </p>
                 )}
                 {stuck > 0 && (
                   <p class="hint">
-                    {stuck} of these cannot go in a bank as they stand. Open one in the editor to
-                    fix it, or discard it.
+                    {stuck === 1 ? 'Question' : 'Questions'} <DraftJumps cards={stuckCards} />{' '}
+                    cannot go in a bank as {stuck === 1 ? 'it stands' : 'they stand'}. Open one in
+                    the editor to fix it, or discard it.
                   </p>
                 )}
               </>
@@ -769,7 +778,7 @@ function DraftCard({
   const state = saved ? 'saved' : errors.length > 0 ? 'bad' : owed > 0 ? 'owed' : 'ready'
 
   return (
-    <li class={`draft draft--${state}`}>
+    <li id={draftAnchor(q.id)} tabIndex={-1} class={`draft draft--${state}`}>
       <div class="draft__head">
         <span class="draft__n">{at + 1}</span>
         {/* The label rather than the raw text, as in the extractor and the
