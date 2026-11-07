@@ -295,6 +295,26 @@ function ExamRelease({
     }
   }
 
+  // One copy of each question, so an exam read into two banks is not released
+  // twice: the first card for each printed question wins (#258).
+  const tickable = useMemo(() => {
+    const seen = new Set<string>()
+    return exam.questions
+      .filter((r) => !held.questions.has(r.question.id))
+      .filter((r) => {
+        const n = r.question.source?.questionNumber
+        const key =
+          banks.length > 1 && n !== undefined
+            ? `${r.question.source?.section ?? ''}|${n}`
+            : r.question.id
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .map((r) => r.question.id)
+  }, [exam, held, banks.length])
+  const allTicked = tickable.length > 0 && tickable.every((id) => ticked.has(id))
+
   const toggle = (id: string) =>
     setTicked((was) => {
       const next = new Set(was)
@@ -450,6 +470,23 @@ function ExamRelease({
         <p class="hint">
           Tick each question to release. Students see it as shown here, sample answer included.
         </p>
+        {tickable.length > 0 && (
+          <div class="rowbtns">
+            <button
+              class="btn btn--small"
+              onClick={() => setTicked(allTicked ? new Set() : new Set(tickable))}
+            >
+              {allTicked ? 'Release none' : 'Release all'}
+            </button>
+            {(held.questions.size > 0 || tickable.length < exam.questions.length) && (
+              <span class="hint">
+                {banks.length > 1
+                  ? 'One copy of each question, and none that is held back.'
+                  : 'Not the ones held back.'}
+              </span>
+            )}
+          </div>
+        )}
         <ol class="drafts">
           {exam.questions.map((ref, at) => (
             <ReleaseCard
