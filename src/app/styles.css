@@ -2764,11 +2764,33 @@ code,
   opacity: 0.7;
 }
 
-/* Neither ready nor broken, so neither green nor red. The palette is three
-   hues by design, and a question that saves and is not finished is honestly
-   neutral rather than worth a fourth. */
+/* Red, because it has to be looked at (the Annotation Rule). Neutral was tried
+   first and read as no state at all: a teacher told "3 are not finished" could
+   not find the three among thirty (#257). Dashed, so it stays apart from a
+   card that cannot save, the same way a dead tag is dashed; the state label
+   says which in words. */
 .draft--owed {
-  border-left-color: var(--rule-strong);
+  border-left-style: dashed;
+  border-left-color: var(--red);
+}
+
+.draft:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* A card number in a summary sentence, linking to its card. Plain text in
+   blue and underlined, so it reads as part of the sentence. */
+.draft__jump {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--blue);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .draft__head {
@@ -2808,7 +2830,7 @@ code,
 }
 
 .draft--owed .draft__state {
-  color: var(--ink-soft);
+  color: var(--red);
 }
 
 .draft__note {
