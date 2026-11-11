@@ -251,14 +251,24 @@ const MIMIR_BANDS = ['support', 'standard', 'advanced', 'extension', 'beyond']
  * suggested only when every section is named the way a band is.
  */
 export function sectionsLookLikeBands(exam: BuiltPaper): boolean {
-  const band = (title: string) =>
-    MIMIR_BANDS.includes(
-      title
-        .trim()
-        .toLowerCase()
-        .replace(/\s+band$/, ''),
-    )
+  const band = (title: string) => MIMIR_BANDS.includes(bandName(title).toLowerCase())
   return exam.sections.length > 0 && exam.sections.every(band)
+}
+
+/**
+ * A band's name as every release writes it (#260).
+ *
+ * Papers print the same band as "Support Band", "SUPPORT" or "Support", and
+ * Mimir filters by exact name, so without this one band shows as two and a
+ * student's choice does not carry from paper to paper. Only a trailing "Band"
+ * goes: a faculty's "Section I" and "Section II" must stay two bands.
+ */
+export function bandName(title: string): string {
+  const words = title.trim().split(/\s+/)
+  if (words.length > 1 && words[words.length - 1]!.toLowerCase() === 'band') words.pop()
+  const first = words[0]!
+  words[0] = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
+  return words.join(' ')
 }
 
 /* -------------------------------------------------------------------- embargo */
@@ -363,7 +373,7 @@ export function studentCopy(
   // A built paper's band is its section, and only where the teacher says so: the
   // section of an exam the question was once read from is not this paper's.
   const band = printed ? printed.band : question.source?.section
-  if (band) out.band = band
+  if (band?.trim()) out.band = bandName(band)
   const stimulus = pictures(question.stimulus)
   if (stimulus?.length) out.stimulus = stimulus
 
@@ -614,7 +624,7 @@ export function planRelease(
     return copy
   })
   const topics = topicsFor(chosen, index)
-  const bands = (built ? exam.sections : exam.bands).filter((b) =>
+  const bands = [...new Set((built ? exam.sections : exam.bands).map(bandName))].filter((b) =>
     questions.some((q) => q.band === b),
   )
 
