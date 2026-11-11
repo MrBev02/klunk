@@ -594,7 +594,7 @@ function StimulusBlock({
   if (stimulus.kind === 'text') {
     return (
       <blockquote class="stimulus">
-        <Inline text={stimulus.text ?? ''} />
+        <RichText text={stimulus.text ?? ''} class="stim-text" />
         {stimulus.caption && <cite>{stimulus.caption}</cite>}
       </blockquote>
     )

@@ -216,10 +216,14 @@ function StimulusItems({
     <>
       {items.map((s, i) =>
         s.kind === 'text' ? (
-          <p key={i} class="sample">
-            <Inline text={s.text ?? ''} />
-            {s.caption && <em>. {s.caption}</em>}
-          </p>
+          <div key={i} class="sample">
+            <RichText text={s.text ?? ''} class="stim-text" />
+            {s.caption && (
+              <p class="richp stim-text">
+                <em>{s.caption}</em>
+              </p>
+            )}
+          </div>
         ) : s.kind === 'code' ? (
           <figure key={i} class="stim-figure stim-figure--code">
             <CodeBlock text={s.text} lineNumbers={s.lineNumbers} />

@@ -3343,6 +3343,12 @@ code,
   margin: 0;
 }
 
+/* A text stimulus (#264) is prose, so its paragraphs keep the gap question
+   text has between them; only the browser's own paragraph margins go. */
+.stim-text {
+  margin: 0;
+}
+
 /* A table printed inside a question (#88). Same weight as `.minitable`, which
    shows a question's own answer table, so the two do not read as different
    kinds of thing on one screen. */

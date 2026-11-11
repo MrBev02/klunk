@@ -8,9 +8,10 @@ import type { Paper, Question } from './types'
 import { Working } from './workingview'
 
 /**
- * A sample answer or a working step that is a table prints as a table, as the
- * question text already does (#262). Each was span-level, so the reader's pipes
- * reached the screen and the printed guide as they were typed.
+ * A table in a sample answer, a working step or a text stimulus prints as a
+ * table, as question text already does (#262, #264). Each was span-level, so
+ * the reader's pipes reached the screen and the printed paper as they were
+ * typed.
  */
 
 const TABLE = '| Score | Frequency |\n| --- | --- |\n| 1 | 3 |\n| 2 | 5 |'
@@ -70,5 +71,45 @@ describe('a table in an answer (#262)', () => {
 
   it('draws in a working step', () => {
     drawsTable(render(<Working working={[{ steps: [{ text: TABLE, marks: 1 }] }]} />))
+  })
+})
+
+describe('a table in a text stimulus (#264)', () => {
+  const stimulus: Question = {
+    id: 'readings',
+    questionType: 'short_answer',
+    questionText: 'Find the mean score.',
+    marks: 2,
+    stimulus: [{ kind: 'text', text: `Scores from a class quiz.\n${TABLE}`, caption: 'Quiz 3' }],
+  }
+
+  it('draws on screen, with the text and caption beside it', () => {
+    const html = render(<QuestionDetail question={stimulus} />)
+    drawsTable(html)
+    expect(html).toContain(
+      '<div class="sample"><p class="richp stim-text">Scores from a class quiz.</p><table class="richtable">',
+    )
+    expect(html).toContain('<em>Quiz 3</em>')
+  })
+
+  it('draws on the printed paper, inside the stimulus rule', () => {
+    const index = emptyIndex()
+    index.banks.push({
+      path: 'bank/y8.json',
+      data: { formatVersion: '1', type: 'klunk_bank', syllabusId: 'maths', questions: [stimulus] },
+    })
+    const paper: Paper = {
+      formatVersion: '1',
+      type: 'klunk_paper',
+      id: 'p',
+      title: 'Paper',
+      sections: [{ refs: [{ file: 'bank/y8.json', questionId: 'readings' }] }],
+    }
+    const html = render(<PrintablePaper resolved={resolvePaper(index, paper)} mode="paper" />)
+    drawsTable(html)
+    expect(html).toContain(
+      '<blockquote class="stimulus"><p class="richp stim-text">Scores from a class quiz.</p><table class="richtable">',
+    )
+    expect(html).toContain('<cite>Quiz 3</cite></blockquote>')
   })
 })
