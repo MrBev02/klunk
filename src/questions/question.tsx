@@ -216,10 +216,14 @@ function StimulusItems({
     <>
       {items.map((s, i) =>
         s.kind === 'text' ? (
-          <p key={i} class="sample">
-            <Inline text={s.text ?? ''} />
-            {s.caption && <em>. {s.caption}</em>}
-          </p>
+          <div key={i} class="sample">
+            <RichText text={s.text ?? ''} class="stim-text" />
+            {s.caption && (
+              <p class="richp stim-text">
+                <em>{s.caption}</em>
+              </p>
+            )}
+          </div>
         ) : s.kind === 'code' ? (
           <figure key={i} class="stim-figure stim-figure--code">
             <CodeBlock text={s.text} lineNumbers={s.lineNumbers} />
@@ -522,9 +526,9 @@ function Body({
                   </div>
                 ) : null}
                 {p.sampleAnswer && (
-                  <p class="parts-list__sample">
-                    <Inline text={p.sampleAnswer} />
-                  </p>
+                  <div class="parts-list__sample">
+                    <RichText text={p.sampleAnswer} class="answer-line" />
+                  </div>
                 )}
                 {p.sampleStimulus?.length ? (
                   <div class="parts-list__stim">
@@ -613,9 +617,9 @@ function Guide({
         <>
           <p class="det__label">Sample answer</p>
           {g.sampleAnswer && (
-            <p class="sample">
-              <Inline text={g.sampleAnswer} />
-            </p>
+            <div class="sample">
+              <RichText text={g.sampleAnswer} class="answer-line" />
+            </div>
           )}
           {g.sampleStimulus?.length ? (
             <StimulusItems items={g.sampleStimulus} bankFile={bankFile} images={images} />

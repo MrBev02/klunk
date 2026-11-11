@@ -3334,6 +3334,21 @@ code,
   margin-top: 0.6rem;
 }
 
+/* The lines of a sample answer or a working step (#262). `RichText` makes each
+   line a paragraph so that a table can sit among them, but in an answer they
+   are one block of lines, as they were when the answer was one paragraph.
+   The box or rule goes on the wrapper, so the table sits inside it too. */
+.answer-line,
+.richp.answer-line + .richp.answer-line {
+  margin: 0;
+}
+
+/* A text stimulus (#264) is prose, so its paragraphs keep the gap question
+   text has between them; only the browser's own paragraph margins go. */
+.stim-text {
+  margin: 0;
+}
+
 /* A table printed inside a question (#88). Same weight as `.minitable`, which
    shows a question's own answer table, so the two do not read as different
    kinds of thing on one screen. */
