@@ -522,9 +522,9 @@ function Body({
                   </div>
                 ) : null}
                 {p.sampleAnswer && (
-                  <p class="parts-list__sample">
-                    <Inline text={p.sampleAnswer} />
-                  </p>
+                  <div class="parts-list__sample">
+                    <RichText text={p.sampleAnswer} class="answer-line" />
+                  </div>
                 )}
                 {p.sampleStimulus?.length ? (
                   <div class="parts-list__stim">
@@ -613,9 +613,9 @@ function Guide({
         <>
           <p class="det__label">Sample answer</p>
           {g.sampleAnswer && (
-            <p class="sample">
-              <Inline text={g.sampleAnswer} />
-            </p>
+            <div class="sample">
+              <RichText text={g.sampleAnswer} class="answer-line" />
+            </div>
           )}
           {g.sampleStimulus?.length ? (
             <StimulusItems items={g.sampleStimulus} bankFile={bankFile} images={images} />

@@ -929,9 +929,9 @@ function GuideAnswer({ item, images }: { item: ResolvedQuestion; images: Map<str
                   without it, and the marker may be holding only this. */}
               <PartStimulus part={part} bankFile={item.file} images={images} />
               {part.sampleAnswer && (
-                <p class="guide__sample">
-                  <Inline text={part.sampleAnswer} />
-                </p>
+                <div class="guide__sample">
+                  <RichText text={part.sampleAnswer} class="answer-line" />
+                </div>
               )}
               <SampleStimulus items={part.sampleStimulus} bankFile={item.file} images={images} />
               <Working working={part.working} />
@@ -1147,9 +1147,9 @@ function GuideBlock({
         <>
           <p class="guide__head">Sample answer</p>
           {guide?.sampleAnswer && (
-            <p class="guide__sample">
-              <Inline text={guide.sampleAnswer} />
-            </p>
+            <div class="guide__sample">
+              <RichText text={guide.sampleAnswer} class="answer-line" />
+            </div>
           )}
           <SampleStimulus items={guide?.sampleStimulus} bankFile={bankFile} images={images} />
           <Working working={guide?.working} />

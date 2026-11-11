@@ -7,7 +7,7 @@
  */
 
 import type { WorkingMethod } from './types'
-import { Inline } from './richtextview'
+import { RichText } from './richtextview'
 
 export function Working({ working }: { working: WorkingMethod[] | undefined }) {
   if (!working?.length) return null
@@ -30,7 +30,8 @@ export function Working({ working }: { working: WorkingMethod[] | undefined }) {
                 .map((step, j) => (
                   <tr key={j}>
                     <td class="working__line">
-                      <Inline text={step.text} />
+                      {/* A step may be a table, such as a completed frequency table (#262). */}
+                      <RichText text={step.text} class="answer-line" />
                     </td>
                     <td class="working__marks">
                       {step.marks === undefined
