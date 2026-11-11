@@ -4,6 +4,7 @@ import { emptyLedger, readLedger, recordRelease } from '../folder/ledger'
 import { optionLetter, shuffledChoices, shuffledMatching } from '../papers/paper'
 import type { Paper, Question } from '../shared/types'
 import {
+  bandName,
   builtPapers,
   embargo,
   importedExams,
@@ -350,6 +351,65 @@ describe('planRelease', () => {
     ])
     expect(plan.release.bands).toEqual(['Support', 'Standard'])
     expect(plan.release.questions.map((q) => q.band)).toEqual(['Support', 'Standard'])
+  })
+})
+
+describe('band names (#260)', () => {
+  it('drops a trailing Band and capitalises the first word only', () => {
+    expect(bandName('Support Band')).toBe('Support')
+    expect(bandName('SUPPORT')).toBe('Support')
+    expect(bandName('support band')).toBe('Support')
+    expect(bandName('  Standard  BAND ')).toBe('Standard')
+    expect(bandName('extension')).toBe('Extension')
+  })
+
+  it('keeps every word but Band, so two sections stay two bands', () => {
+    expect(bandName('Section I')).toBe('Section I')
+    expect(bandName('section II')).toBe('Section II')
+    expect(bandName('Band')).toBe('Band')
+  })
+
+  it('releases one name per band however the paper printed it', () => {
+    const mixed = folder([
+      question('1', { source: { paper: 'Year 8 Task 1', year: 2025, section: 'Support Band' } }),
+      question('2', { source: { paper: 'Year 8 Task 1', year: 2025, section: 'SUPPORT' } }),
+      question('3', { source: { paper: 'Year 8 Task 1', year: 2025, section: 'standard band' } }),
+    ])
+    const [only] = importedExams(mixed)
+    const plan = planRelease(
+      only!,
+      only!.questions,
+      { title: 'Year 8 Task 1', subject: 'Mathematics', yearLevel: 8, releasedOn: TODAY },
+      '2025-06-10',
+      mixed,
+    )
+    expect(plan.release.bands).toEqual(['Support', 'Standard'])
+    expect(plan.release.questions.map((q) => q.band)).toEqual(['Support', 'Support', 'Standard'])
+  })
+
+  it('names a built paper’s sections the same way when they go as bands', () => {
+    const q = question('a', { source: { origin: 'authored' } })
+    const sections: Paper = {
+      ...paper('banded', [], '2026-06-10'),
+      sections: [{ title: 'Support Band', refs: [{ file: 'bank/y8.json', questionId: 'a' }] }],
+    }
+    const index = folder([q], [sections])
+    const [exam] = builtPapers(index)
+    const plan = planRelease(
+      exam!,
+      exam!.questions,
+      {
+        title: 'Banded',
+        subject: 'Mathematics',
+        yearLevel: 8,
+        releasedOn: TODAY,
+        sectionsAreBands: true,
+      },
+      '2026-06-12',
+      index,
+    )
+    expect(plan.release.bands).toEqual(['Support'])
+    expect(plan.release.questions[0]!.band).toBe('Support')
   })
 })
 
